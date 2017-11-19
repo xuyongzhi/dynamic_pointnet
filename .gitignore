@@ -1,0 +1,7 @@
+*.ropeproject
+*.swp
+*.pyc
+*.so
+*.pkl
+/data
+train_res
