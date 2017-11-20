@@ -1,5 +1,5 @@
-# xyz  y.xu@student.unsw.edu.au
-pointnet with dynamic sampling, pyramid multiscale architecture and difficulty aware abilities
+# pointnet with dynamic sampling, pyramid multiscale architecture and difficulty aware abilities
+xyz  y.xu@student.unsw.edu.au
 
 based on fork of Pointnet++
 

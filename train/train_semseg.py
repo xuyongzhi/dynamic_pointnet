@@ -33,7 +33,9 @@ parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate fo
 parser.add_argument('--test_area', type=int, default=6, help='Which area to use for test, option: 1-6 [default: 6]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
+parser.add_argument('--channel_elementes', default='xyz_1norm', help='channel_elements: xyz_1norm,xyz_midnorm,color_1norm')
 FLAGS = parser.parse_args()
+FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
 
 BATCH_SIZE = FLAGS.batch_size
 MAX_EPOCH = FLAGS.max_epoch
@@ -64,7 +66,9 @@ HOSTNAME = socket.gethostname()
 
 # Load Data
 DATASET = get_dataset.GetDataset( FLAGS.dataset_name,NUM_POINT,
-                                 test_area=FLAGS.test_area,max_test_fn=FLAGS.max_test_file_num )
+                                 test_area=FLAGS.test_area,
+                                 max_test_fn=FLAGS.max_test_file_num,
+                                 channel_elementes=FLAGS.channel_elementes )
 NUM_CLASSES = DATASET.num_classes
 
 START_TIME = time.time()
@@ -159,7 +163,9 @@ def train():
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
 
-            train_one_epoch(sess, ops, train_writer,epoch)
+            if train_one_epoch(sess, ops, train_writer,epoch) == False:
+                print('get nan loss, break training')
+                break
             eval_one_epoch(sess, ops, test_writer)
 
             # Save the variables to disk.
@@ -183,6 +189,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         num_batches = None
 
     total_correct = 0
+    batch_correct = 0
     total_seen = 0
     loss_sum = 0
 
@@ -192,9 +199,9 @@ def train_one_epoch(sess, ops, train_writer,epoch):
     batch_idx = -1
     def log_train():
         train_t_perbatch = (time.time() - t0) / (batch_idx+1)
-        log_string('[%d/%d] train loss: %f\taccuracy: %f\tbatch t: %fs total t:%f s' %
+        log_string('[%d-%d] train loss: %f\taccuracy(batch-total): %f - %f\tbatch t: %fs total t:%f s' %
                    (epoch,batch_idx,loss_sum / float(batch_idx+1),
-                    total_correct / float(total_seen),
+                    batch_correct / float(BATCH_SIZE*NUM_POINT),total_correct / float(total_seen),
                     train_t_perbatch,time.time()-START_TIME))
 
     DATASET.shuffle_idx()
@@ -214,15 +221,25 @@ def train_one_epoch(sess, ops, train_writer,epoch):
                                          feed_dict=feed_dict)
         train_writer.add_summary(summary, step)
         pred_val = np.argmax(pred_val, 2)
-        correct = np.sum(pred_val == cur_label )
-        total_correct += correct
+        batch_correct = np.sum(pred_val == cur_label )
+        total_correct += batch_correct
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += loss_val
+
+        if np.isnan(loss_val) and np.sum(pred_val)==0:
+            correct_num = np.sum(cur_label==pred_val)
+            log_train()
+            return False
+      #      print('correct_num=%d %f'%(correct_num,1.0*correct_num/cur_label.size))
+      #      print('pred_val = ',pred_val[0][0:20])
+      #      print('cur_label = ',cur_label[0][0:20])
+      #      import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         if (epoch == 0 and batch_idx <= 100) or batch_idx%100==0:
             log_train()
     log_string('\n')
     log_train()
+    return True
 
 
 def eval_one_epoch(sess, ops, test_writer):
