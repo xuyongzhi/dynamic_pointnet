@@ -90,7 +90,7 @@ class ProbSampleGpuOp: public OpKernel{
     }
 };
 REGISTER_KERNEL_BUILDER(Name("ProbSample").Device(DEVICE_GPU), ProbSampleGpuOp);
-REGISTER_KERNEL_BUILDER(Name("ProbSample").Device(DEVICE_CPU), ProbSampleGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("ProbSample").Device(DEVICE_CPU), ProbSampleGpuOp);
 
 void farthestpointsamplingLauncher(int b,int n,int m,const float * inp,float * temp,int * out);
 class FarthestPointSampleGpuOp: public OpKernel{
@@ -122,7 +122,7 @@ class FarthestPointSampleGpuOp: public OpKernel{
         int npoint_;
 };
 REGISTER_KERNEL_BUILDER(Name("FarthestPointSample").Device(DEVICE_GPU),FarthestPointSampleGpuOp);
-REGISTER_KERNEL_BUILDER(Name("FarthestPointSample").Device(DEVICE_CPU),FarthestPointSampleGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("FarthestPointSample").Device(DEVICE_CPU),FarthestPointSampleGpuOp);
 
 void gatherpointLauncher(int b,int n,int m,const float * inp,const int * idx,float * out);
 class GatherPointGpuOp: public OpKernel{
@@ -148,7 +148,7 @@ class GatherPointGpuOp: public OpKernel{
     }
 };
 REGISTER_KERNEL_BUILDER(Name("GatherPoint").Device(DEVICE_GPU),GatherPointGpuOp);
-REGISTER_KERNEL_BUILDER(Name("GatherPoint").Device(DEVICE_CPU),GatherPointGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("GatherPoint").Device(DEVICE_CPU),GatherPointGpuOp);
 
 void scatteraddpointLauncher(int b,int n,int m,const float * out_g,const int * idx,float * inp_g);
 class GatherPointGradGpuOp: public OpKernel{
@@ -179,5 +179,5 @@ class GatherPointGradGpuOp: public OpKernel{
     }
 };
 REGISTER_KERNEL_BUILDER(Name("GatherPointGrad").Device(DEVICE_GPU),GatherPointGradGpuOp);
-REGISTER_KERNEL_BUILDER(Name("GatherPointGrad").Device(DEVICE_CPU),GatherPointGradGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("GatherPointGrad").Device(DEVICE_CPU),GatherPointGradGpuOp);
 

@@ -139,6 +139,8 @@ class GetDataset():
         batch_size = batch_idx_end - batch_idx_start
 
         if self.data_source == 'stanford_indoor':
+            if batch_idx_end >= self.data[tot].shape[0]:
+                return None,None,None
             shuffled_idxs = self.shuffled_idx[tot][batch_idx_start:batch_idx_end]
             data_cur = self.data[tot][shuffled_idxs,:,:]
             label_cur = self.label[tot][shuffled_idxs,:]

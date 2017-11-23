@@ -241,7 +241,6 @@ def train_one_epoch(sess, ops, train_writer,epoch):
                     total_correct / float(total_seen),
                     train_t_perbatch,time.time()-START_TIME))
 
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     for batch_idx in range(num_batches):
         #if batch_idx % 100 == 0:
             #print('Current batch/total batch num: %d/%d'%(batch_idx,num_batches))

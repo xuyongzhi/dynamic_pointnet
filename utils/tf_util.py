@@ -214,7 +214,7 @@ def conv2d_transpose(inputs,
                                            stddev=stddev,
                                            wd=weight_decay)
       stride_h, stride_w = stride
-      
+
       # from slim.convolution2d_transpose
       def get_deconv_dim(dim_size, stride_size, kernel_size, padding):
           dim_size *= stride_size
@@ -246,7 +246,7 @@ def conv2d_transpose(inputs,
         outputs = activation_fn(outputs)
       return outputs
 
-   
+
 
 def conv3d(inputs,
            num_output_channels,
@@ -298,7 +298,7 @@ def conv3d(inputs,
     biases = _variable_on_cpu('biases', [num_output_channels],
                               tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
-    
+
     if bn:
       outputs = batch_norm_for_conv3d(outputs, is_training,
                                       bn_decay=bn_decay, scope='bn')
@@ -318,11 +318,11 @@ def fully_connected(inputs,
                     bn_decay=None,
                     is_training=None):
   """ Fully connected layer with non-linear operation.
-  
+
   Args:
     inputs: 2-D tensor BxN
     num_outputs: int
-  
+
   Returns:
     Variable tensor of size B x num_outputs.
   """
@@ -337,7 +337,7 @@ def fully_connected(inputs,
     biases = _variable_on_cpu('biases', [num_outputs],
                              tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
-     
+
     if bn:
       outputs = batch_norm_for_fc(outputs, is_training, bn_decay, 'bn')
 
@@ -357,7 +357,7 @@ def max_pool2d(inputs,
     inputs: 4-D tensor BxHxWxC
     kernel_size: a list of 2 ints
     stride: a list of 2 ints
-  
+
   Returns:
     Variable tensor
   """
@@ -382,7 +382,7 @@ def avg_pool2d(inputs,
     inputs: 4-D tensor BxHxWxC
     kernel_size: a list of 2 ints
     stride: a list of 2 ints
-  
+
   Returns:
     Variable tensor
   """
@@ -408,7 +408,7 @@ def max_pool3d(inputs,
     inputs: 5-D tensor BxDxHxWxC
     kernel_size: a list of 3 ints
     stride: a list of 3 ints
-  
+
   Returns:
     Variable tensor
   """
@@ -433,7 +433,7 @@ def avg_pool3d(inputs,
     inputs: 5-D tensor BxDxHxWxC
     kernel_size: a list of 3 ints
     stride: a list of 3 ints
-  
+
   Returns:
     Variable tensor
   """
@@ -454,7 +454,7 @@ def avg_pool3d(inputs,
 def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
   """ Batch normalization on convolutional maps and beyond...
   Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
-  
+
   Args:
       inputs:        Tensor, k-D input ... x C could be BC or BHWC or BDHWC
       is_training:   boolean tf.Varialbe, true indicates training phase
@@ -466,8 +466,8 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
   """
   # For support of GAN
   #bn_decay = bn_decay if bn_decay is not None else 0.9
-  #return tf.contrib.layers.batch_norm(inputs, 
-  #                                    center=True, scale=True, 
+  #return tf.contrib.layers.batch_norm(inputs,
+  #                                    center=True, scale=True,
   #                                    is_training=is_training, decay=bn_decay,updates_collections=None,
   #                                    scope=scope)
   with tf.variable_scope(scope) as sc:
@@ -486,12 +486,12 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
         ema_apply_op = tf.cond(is_training,
                                lambda: ema.apply([batch_mean, batch_var]),
                                lambda: tf.no_op())
-    
+
     # Update moving average and return current batch's avg and var.
     def mean_var_with_update():
       with tf.control_dependencies([ema_apply_op]):
         return tf.identity(batch_mean), tf.identity(batch_var)
-    
+
     # ema.average returns the Variable holding the average of var.
     mean, var = tf.cond(is_training,
                         mean_var_with_update,
@@ -501,7 +501,7 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
 
 def batch_norm_for_fc(inputs, is_training, bn_decay, scope):
   """ Batch normalization on FC data.
-  
+
   Args:
       inputs:      Tensor, 2D BxC input
       is_training: boolean tf.Varialbe, true indicates training phase
@@ -515,7 +515,7 @@ def batch_norm_for_fc(inputs, is_training, bn_decay, scope):
 
 def batch_norm_for_conv1d(inputs, is_training, bn_decay, scope):
   """ Batch normalization on 1D convolutional maps.
-  
+
   Args:
       inputs:      Tensor, 3D BLC input maps
       is_training: boolean tf.Varialbe, true indicates training phase
@@ -528,10 +528,10 @@ def batch_norm_for_conv1d(inputs, is_training, bn_decay, scope):
 
 
 
-  
+
 def batch_norm_for_conv2d(inputs, is_training, bn_decay, scope):
   """ Batch normalization on 2D convolutional maps.
-  
+
   Args:
       inputs:      Tensor, 4D BHWC input maps
       is_training: boolean tf.Varialbe, true indicates training phase
@@ -546,7 +546,7 @@ def batch_norm_for_conv2d(inputs, is_training, bn_decay, scope):
 
 def batch_norm_for_conv3d(inputs, is_training, bn_decay, scope):
   """ Batch normalization on 3D convolutional maps.
-  
+
   Args:
       inputs:      Tensor, 5D BDHWC input maps
       is_training: boolean tf.Varialbe, true indicates training phase

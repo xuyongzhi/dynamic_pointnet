@@ -104,7 +104,7 @@ class QueryBallPointGpuOp : public OpKernel {
         int nsample_;
 };
 REGISTER_KERNEL_BUILDER(Name("QueryBallPoint").Device(DEVICE_GPU), QueryBallPointGpuOp);
-REGISTER_KERNEL_BUILDER(Name("QueryBallPoint").Device(DEVICE_CPU), QueryBallPointGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("QueryBallPoint").Device(DEVICE_CPU), QueryBallPointGpuOp);
 
 void selectionSortLauncher(int b, int n, int m, int k, const float *dist, int *outi, float *out);
 class SelectionSortGpuOp : public OpKernel {
@@ -138,7 +138,7 @@ class SelectionSortGpuOp : public OpKernel {
         int k_;
 };
 REGISTER_KERNEL_BUILDER(Name("SelectionSort").Device(DEVICE_GPU), SelectionSortGpuOp);
-REGISTER_KERNEL_BUILDER(Name("SelectionSort").Device(DEVICE_CPU), SelectionSortGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("SelectionSort").Device(DEVICE_CPU), SelectionSortGpuOp);
 
 
 void groupPointLauncher(int b, int n, int c, int m, int nsample, const float *points, const int *idx, float *out);
@@ -171,7 +171,7 @@ class GroupPointGpuOp: public OpKernel{
         }
 };
 REGISTER_KERNEL_BUILDER(Name("GroupPoint").Device(DEVICE_GPU),GroupPointGpuOp);
-REGISTER_KERNEL_BUILDER(Name("GroupPoint").Device(DEVICE_CPU),GroupPointGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("GroupPoint").Device(DEVICE_CPU),GroupPointGpuOp);
 
 void groupPointGradLauncher(int b, int n, int c, int m, int nsample, const float *grad_out, const int *idx, float *grad_points);
 class GroupPointGradGpuOp: public OpKernel{
@@ -209,6 +209,6 @@ class GroupPointGradGpuOp: public OpKernel{
         }
 };
 REGISTER_KERNEL_BUILDER(Name("GroupPointGrad").Device(DEVICE_GPU),GroupPointGradGpuOp);
-REGISTER_KERNEL_BUILDER(Name("GroupPointGrad").Device(DEVICE_CPU),GroupPointGradGpuOp);
+//REGISTER_KERNEL_BUILDER(Name("GroupPointGrad").Device(DEVICE_CPU),GroupPointGradGpuOp);
 
 

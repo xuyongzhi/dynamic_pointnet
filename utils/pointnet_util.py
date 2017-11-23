@@ -36,15 +36,19 @@ def sample_and_group(npoint, radius, nsample, xyz, points, tnet_spec=None, knn=F
         idx: (batch_size, npoint, nsample) TF tensor, indices of local points as in ndataset points
         grouped_xyz: (batch_size, npoint, nsample, 3) TF tensor, normalized point XYZs
             (subtracted by seed point XYZ) in local regions
+    Workflow:
+        Find the <npoint> down-sampled farest points by <farthest_point_sample>
+        For each down-sampled point, find <nsample> sub-group points by <query_ball_point>
     '''
 
-    new_xyz = gather_point(xyz, farthest_point_sample(npoint, xyz)) # (batch_size, npoint, 3)
+    new_xyz = gather_point(xyz, farthest_point_sample(npoint, xyz)) # (batch_size, npoint, 3)  the points sampled with farest distance
     if knn:
         _,idx = knn_point(nsample, xyz, new_xyz)
     else:
+        # [batch_size,npoint,nsample] [batch_size,npoint]
         idx, pts_cnt = query_ball_point(radius, nsample, xyz, new_xyz)
     grouped_xyz = group_point(xyz, idx) # (batch_size, npoint, nsample, 3)
-    grouped_xyz -= tf.tile(tf.expand_dims(new_xyz, 2), [1,1,nsample,1]) # translation normalization
+    grouped_xyz -= tf.tile(tf.expand_dims(new_xyz, 2), [1,1,nsample,1]) # translation normalization: minus the center point
     if tnet_spec is not None:
         grouped_xyz = tnet(grouped_xyz, tnet_spec)
     if points is not None:

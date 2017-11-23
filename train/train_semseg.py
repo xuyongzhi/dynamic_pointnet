@@ -1,3 +1,4 @@
+import pdb, traceback
 import argparse
 import math
 import h5py
@@ -12,11 +13,13 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
+sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'scannet'))
 from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
 import provider
 import get_dataset
+from evaluation import EvaluationMetrics
 #from block_data_prep_util import Normed_H5f,Net_Provider
 
 parser = argparse.ArgumentParser()
@@ -34,8 +37,10 @@ parser.add_argument('--test_area', type=int, default=6, help='Which area to use 
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
 parser.add_argument('--channel_elementes', default='xyz_1norm', help='channel_elements: xyz_1norm,xyz_midnorm,color_1norm')
+
+parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
+
 FLAGS = parser.parse_args()
-FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
 
 BATCH_SIZE = FLAGS.batch_size
 MAX_EPOCH = FLAGS.max_epoch
@@ -47,13 +52,15 @@ OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 
+FLAGS.log_dir = FLAGS.log_dir+str(FLAGS.test_area)+'-B'+str(BATCH_SIZE)+'-'+\
+                FLAGS.channel_elementes+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name
+FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-#os.system('cp model.py %s' % (LOG_DIR)) # bkp of model def
-#os.system('cp train.py %s' % (LOG_DIR)) # bkp of train procedure
+os.system('cp ../models/pointnet2_sem_seg.py %s' % (LOG_DIR)) # bkp of model def
+os.system('cp train_semseg.py %s' % (LOG_DIR)) # bkp of train procedure
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
-
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
@@ -136,7 +143,7 @@ def train():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         config.allow_soft_placement = True
-        config.log_device_placement = True
+        config.log_device_placement = False
         sess = tf.Session(config=config)
 
         # Add summary writers
@@ -166,46 +173,51 @@ def train():
             if train_one_epoch(sess, ops, train_writer,epoch) == False:
                 print('get nan loss, break training')
                 break
-            eval_one_epoch(sess, ops, test_writer)
+            eval_one_epoch(sess, ops, test_writer,epoch)
 
             # Save the variables to disk.
-            if (epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0):
+            if (epoch > 0 and epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0) or epoch == MAX_EPOCH-1:
                 save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                 log_string("Model saved in file: %s" % save_path)
 
 
 
+def log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,IsSimple=True):
+    class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
+                                c_TP_FN_FP,total_seen)
+    log_string('%s epoch %d batch %d \t \tmean loss: %f' % \
+                ( tot,epoch,batch_idx,loss_sum / float(batch_idx+1) ))
+    log_string(ave_acc_str)
+    if not IsSimple:
+        log_string(class_acc_str)
+    if len(t_batch_ls)>0:
+        t_per_batch = np.mean(np.array(t_batch_ls))
+        t_per_block = t_per_batch / BATCH_SIZE
+        t_per_point = t_per_block / NUM_POINT * 1000
+        log_string('%s per block time = %f s      per batch t = %f s'%(tot,t_per_block,t_per_batch) )
+
 def train_one_epoch(sess, ops, train_writer,epoch):
     """ ops: dict mapping from string to tf ops """
     is_training = True
-
     log_string('----')
-
     num_blocks = DATASET.num_blocks['train']
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
-        #num_batches = min(500,num_batches)
+        if num_batches ==0: return
     else:
         num_batches = None
 
-    total_correct = 0
-    batch_correct = 0
-    total_seen = 0
+    total_seen = 0.0001
     loss_sum = 0
+    c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
-    smpws = np.ones([BATCH_SIZE,NUM_POINT],dtype=np.float32)
     print('total batch num = ',num_batches)
-    t0 = time.time()
     batch_idx = -1
-    def log_train():
-        train_t_perbatch = (time.time() - t0) / (batch_idx+1)
-        log_string('[%d-%d] train loss: %f\taccuracy(batch-total): %f - %f\tbatch t: %fs total t:%f s' %
-                   (epoch,batch_idx,loss_sum / float(batch_idx+1),
-                    batch_correct / float(BATCH_SIZE*NUM_POINT),total_correct / float(total_seen),
-                    train_t_perbatch,time.time()-START_TIME))
 
     DATASET.shuffle_idx()
+    t_batch_ls=[]
     while (batch_idx < num_batches) or (num_batches==None):
+        t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
@@ -221,49 +233,40 @@ def train_one_epoch(sess, ops, train_writer,epoch):
                                          feed_dict=feed_dict)
         train_writer.add_summary(summary, step)
         pred_val = np.argmax(pred_val, 2)
-        batch_correct = np.sum(pred_val == cur_label )
-        total_correct += batch_correct
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += loss_val
 
-        if np.isnan(loss_val) and np.sum(pred_val)==0:
-            correct_num = np.sum(cur_label==pred_val)
-            log_train()
-            return False
-      #      print('correct_num=%d %f'%(correct_num,1.0*correct_num/cur_label.size))
-      #      print('pred_val = ',pred_val[0][0:20])
-      #      print('cur_label = ',cur_label[0][0:20])
-      #      import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
 
+        t_batch_ls.append( time.time() - t0 )
         if (epoch == 0 and batch_idx <= 100) or batch_idx%100==0:
-            log_train()
+            log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+    log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
     log_string('\n')
-    log_train()
     return True
 
-
-def eval_one_epoch(sess, ops, test_writer):
+def eval_one_epoch(sess, ops, test_writer, epoch):
     """ ops: dict mapping from string to tf ops """
     is_training = False
-    total_correct = 0
-    total_seen = 0
+    total_seen = 0.00001
     loss_sum = 0
-    total_seen_class = [0 for _ in range(NUM_CLASSES)]
-    total_correct_class = [0 for _ in range(NUM_CLASSES)]
+    c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
 
     num_blocks = DATASET.num_blocks['test']
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
+        if num_batches == 0:
+            print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
+            return
     else:
         num_batches = None
 
-    smpws = np.ones([BATCH_SIZE,NUM_POINT],dtype=np.float32)
-    t0 = time.time()
-
+    t_batch_ls = []
     batch_idx = -1
     while (batch_idx < num_batches) or (num_batches==None):
+        t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
@@ -279,29 +282,24 @@ def eval_one_epoch(sess, ops, test_writer):
                                       feed_dict=feed_dict)
         test_writer.add_summary(summary, step)
         pred_val = np.argmax(pred_val, 2)
-        correct = np.sum(pred_val == cur_label)
-        total_correct += correct
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += (loss_val*BATCH_SIZE)
-        for i in range(start_idx, end_idx):
-            for j in range(NUM_POINT):
-                l = cur_label[i, j]
-                total_seen_class[l] += 1
-                total_correct_class[l] += (pred_val[i-start_idx, j] == l)
-    eval_t = time.time() - t0
 
+        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
 
-    log_string('batch %d eval  loss: %f\taccuracy: %f\tbatch t: %fs point t:%f ms' %
-                    (batch_idx,
-                    loss_sum / float(total_seen/NUM_POINT),
-                    total_correct / float(total_seen),
-                    eval_t/num_batches,eval_t/num_batches/NUM_POINT*1000))
-    class_accuracies = np.array(total_correct_class)/np.array(total_seen_class,dtype=np.float)
-    log_string('eval class accuracies: %s' % (np.array_str(class_accuracies)))
-    log_string('eval avg class acc: %f' % (np.mean(class_accuracies)))
+        t_batch_ls.append( time.time() - t0 )
 
-
+    log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
 
 if __name__ == "__main__":
-    train()
-    LOG_FOUT.close()
+    if FLAGS.auto_break:
+        try:
+            train()
+            LOG_FOUT.close()
+        except:
+            type, value, tb = sys.exc_info()
+            traceback.print_exc()
+            pdb.post_mortem(tb)
+    else:
+        train()
+        LOG_FOUT.close()
