@@ -194,12 +194,12 @@ def log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,IsSimple=T
         t_per_batch = np.mean(np.array(t_batch_ls))
         t_per_block = t_per_batch / BATCH_SIZE
         t_per_point = t_per_block / NUM_POINT * 1000
-        log_string('%s per block time = %f s      per batch t = %f s'%(tot,t_per_block,t_per_batch) )
+        log_string('%s per block time = %f s      per batch t = %f s\n'%(tot,t_per_block,t_per_batch) )
 
 def train_one_epoch(sess, ops, train_writer,epoch):
     """ ops: dict mapping from string to tf ops """
     is_training = True
-    log_string('----')
+    #log_string('----')
     num_blocks = DATASET.num_blocks['train']
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
@@ -242,7 +242,6 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         if (epoch == 0 and batch_idx <= 100) or batch_idx%100==0:
             log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
     log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
-    log_string('\n')
     return True
 
 def eval_one_epoch(sess, ops, test_writer, epoch):
@@ -289,7 +288,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
 
         t_batch_ls.append( time.time() - t0 )
 
-    log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+    log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,IsSimple=True)
 
 if __name__ == "__main__":
     if FLAGS.auto_break:
