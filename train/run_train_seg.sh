@@ -21,10 +21,14 @@ scannet_b32_xyz1norm_e1="python $train_script --max_epoch 1 --batch_size 32 --nu
 #**********************************************   Tmp: small data, auto_break
 
 
-stan_b1_e1_f10="python $train_script --test_area 6 --max_epoch 2 --batch_size 1 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 10"
-stan_b32_e1__f10="python $train_script --test_area 6 --max_epoch 2 --batch_size 32 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 10"
-#python $train_script --max_epoch 2 --batch_size 2 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 10 --auto_break
+stan_b32_xyz1norm_e3_f30="python $train_script --test_area 6 --max_epoch 3 --batch_size 32 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
+scannet_b32_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
 
 
-$scannet_b32_xyz1norm_e1
 #./parallel_commands "$stan_b32_xyz1norm_e1" "$scannet_b32_xyz1norm_e1"
+./parallel_commands "$stan_b32_xyz1norm_e3_f30" "$scannet_b32_xyz1norm_e3_f30"
+
+
+#***********
+# stan 4096 b32: GPU 4500 MB;  CPU 2G
+# scannet 8192 b32: GPU 6000 MB; CPU 3G
