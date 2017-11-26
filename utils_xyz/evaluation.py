@@ -10,7 +10,7 @@ class EvaluationMetrics():
         FN = c_TP_FN_FP[1]
         FP = c_TP_FN_FP[2]
         total_num = total_num*1.0
-        ave_whole_points = np.sum(TP)/total_num
+        ave_whole_acc = np.sum(TP)/total_num
 
         precision = np.nan_to_num(TP/(TP+FP))
         recall = np.nan_to_num(TP/(TP+FN))
@@ -25,7 +25,7 @@ class EvaluationMetrics():
         normed_real_TP = real_Pos/np.sum(real_Pos)
         ave_class_num_weighted = {}
         ave_class_num_weighted['pre'] = np.sum( precision*normed_real_TP )
-        ave_class_num_weighted['recall'] = np.sum( recall*normed_real_TP )  # is equal to ave_whole_points
+        ave_class_num_weighted['recall'] = np.sum( recall*normed_real_TP )  # is equal to ave_whole_acc
         ave_class_num_weighted['IOU'] = np.sum( IOU*normed_real_TP )
 
         # gen str
@@ -40,7 +40,7 @@ class EvaluationMetrics():
             return mean_str + delim.join(['%9s'%(str_format%v) for v in array])
         ave_class_acc_str = 'weighted class pre/rec/IOU: %0.3f  %0.3f  %0.3f  N=%fM  whole points average:  %0.3f'% \
             ( ave_class_num_weighted['pre'], ave_class_num_weighted['recall'],
-             ave_class_num_weighted['IOU'],total_num/1000000.0, ave_whole_points)
+             ave_class_num_weighted['IOU'],total_num/1000000.0, ave_whole_acc)
         if IsIncludeAveClass:
             ave_class_acc_str += '\nclass ave pre/rec/IOU : %0.3f/ %0.3f/ %0.3f' %(
                         ave_class['pre'],ave_class['recall'],ave_class['IOU'])
@@ -52,7 +52,7 @@ class EvaluationMetrics():
         class_acc_str += 'class_rec:   '+getstr(recall,ave_class_num_weighted['recall'])+'\n'
         class_acc_str += 'class_IOU:   '+getstr(IOU,ave_class_num_weighted['IOU'])+'\n'
         class_acc_str += 'number(K):   '+getstr(np.trunc(real_Pos/1000.0),str_format='%d')
-        return class_acc_str,ave_class_acc_str
+        return ave_whole_acc, class_acc_str,ave_class_acc_str
 
     @staticmethod
     def get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label):

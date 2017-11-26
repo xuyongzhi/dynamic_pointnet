@@ -56,10 +56,12 @@ FLAGS.log_dir = FLAGS.log_dir+str(FLAGS.test_area)+'-B'+str(BATCH_SIZE)+'-'+\
                 FLAGS.channel_elementes+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name
 FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
+LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp ../models/pointnet2_sem_seg.py %s' % (LOG_DIR)) # bkp of model def
 os.system('cp train_semseg.py %s' % (LOG_DIR)) # bkp of train procedure
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n')
 
 BN_INIT_DECAY = 0.5
@@ -165,36 +167,40 @@ def train():
                'merged': merged,
                'step': batch,
                'smpws_pl': smpws_pl}
-
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
 
-            if train_one_epoch(sess, ops, train_writer,epoch) == False:
-                print('get nan loss, break training')
-                break
-            eval_one_epoch(sess, ops, test_writer,epoch)
+            train_log_str = train_one_epoch(sess, ops, train_writer,epoch)
+            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch)
 
             # Save the variables to disk.
             if (epoch > 0 and epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0) or epoch == MAX_EPOCH-1:
                 save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
-                log_string("Model saved in file: %s" % save_path)
+                log_string("Model saved in file: %s" % os.path.basename(save_path))
+
+            if epoch == MAX_EPOCH -1:
+                LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
 
 
-
-def log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,IsSimple=True):
-    class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
+def add_log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
+    ave_whole_acc,class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
                                 c_TP_FN_FP,total_seen)
-    log_string('%s epoch %d batch %d \t \tmean loss: %f' % \
-                ( tot,epoch,batch_idx,loss_sum / float(batch_idx+1) ))
-    log_string(ave_acc_str)
-    if not IsSimple:
-        log_string(class_acc_str)
+    log_str = ''
     if len(t_batch_ls)>0:
         t_per_batch = np.mean(np.array(t_batch_ls))
         t_per_block = t_per_batch / BATCH_SIZE
-        t_per_point = t_per_block / NUM_POINT * 1000
-        log_string('%s per block time = %f s      per batch t = %f s\n'%(tot,t_per_block,t_per_batch) )
+        #t_per_point = t_per_block / NUM_POINT * 1000
+    else:
+        t_per_block = -1
+    log_str += '%s [%d - %d] \t t_block:%0.3f\tloss: %0.3f \tacc: %0.3f' % \
+            ( tot,epoch,batch_idx,t_per_block,loss_sum / float(batch_idx+1),ave_whole_acc )
+    if SimpleFlag >0:
+        log_str += ave_acc_str
+    if  SimpleFlag >1:
+        log_str += class_acc_str
+    log_string(log_str)
+    return log_str
 
 def train_one_epoch(sess, ops, train_writer,epoch):
     """ ops: dict mapping from string to tf ops """
@@ -203,7 +209,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
     num_blocks = DATASET.num_blocks['train']
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
-        if num_batches ==0: return
+        if num_batches ==0: return ''
     else:
         num_batches = None
 
@@ -240,9 +246,8 @@ def train_one_epoch(sess, ops, train_writer,epoch):
 
         t_batch_ls.append( time.time() - t0 )
         if (epoch == 0 and batch_idx <= 100) or batch_idx%100==0:
-            log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
-    log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
-    return True
+            add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+    return add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
 
 def eval_one_epoch(sess, ops, test_writer, epoch):
     """ ops: dict mapping from string to tf ops """
@@ -258,7 +263,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
         num_batches = num_blocks // BATCH_SIZE
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
-            return
+            return ''
     else:
         num_batches = None
 
@@ -288,7 +293,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
 
         t_batch_ls.append( time.time() - t0 )
 
-    log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,IsSimple=True)
+    return add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
 
 if __name__ == "__main__":
     if FLAGS.auto_break:
