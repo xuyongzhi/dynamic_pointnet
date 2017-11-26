@@ -112,7 +112,7 @@ class GetDataset():
                 self.num_scans[tot] = len(scannet_ds[tot])
                 self.shuffled_idx[tot] = np.arange(self.num_scans[tot])
                 self.scannet_scan_idx[tot] = 0 # the next scan idx to read in self.scannet_ds
-                self.scannet_buf[tot] = ( np.array([]),np.array([]),np.array([]) )
+                self.scannet_buf[tot] = [ np.array([]),np.array([]),np.array([]) ]
             self.num_channels = scannet_ds['test'][0][0].shape[2]
             self.scannet_ds = scannet_ds
         self.data_source = data_source
@@ -148,19 +148,24 @@ class GetDataset():
             sample_weights_cur = np.ones([BATCH_SIZE,self.num_point],dtype=np.float32)
             return data_cur,label_cur,sample_weights_cur
         elif self.data_source == 'scannet':
-            if self.scannet_buf[tot][0].shape[0] <batch_size:
+            while self.scannet_buf[tot][0].shape[0] <batch_size:
                 if self.add_scannet_buf(tot)==False:
                     return None,None,None # reading finished
             dlw = []
             for i in range(len(self.scannet_buf[tot])):
                 dlw.append( self.scannet_buf[tot][i][0:batch_size,...] )
-                np.delete(self.scannet_buf[tot][i],range(0,batch_size),axis=0)
+                self.scannet_buf[tot][i] = np.delete(self.scannet_buf[tot][i],range(0,batch_size),axis=0)
 
             return dlw[0],dlw[1],dlw[2]
 
 
     def add_scannet_buf(self,tot):
+        '''
+        Because the sub-block num for each scan is unknow. extract each scan to this buf
+        and get batches from this buf.
+        '''
         if self.scannet_scan_idx[tot] >= self.num_scans[tot]:
+            # finish reading data
             return False
         shuffled_block_idx =  self.shuffled_idx[tot][self.scannet_scan_idx[tot]]
         dlw = self.scannet_ds[tot][shuffled_block_idx]
@@ -168,7 +173,7 @@ class GetDataset():
             for i in range(len(dlw)):
                     self.scannet_buf[tot][i] = np.concatenate([self.scannet_buf[tot][i],dlw[i]],axis=0)
         else:
-            self.scannet_buf[tot] = dlw
+            self.scannet_buf[tot] = list(dlw)
         self.scannet_scan_idx[tot] += 1
         return True
 
