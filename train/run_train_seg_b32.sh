@@ -23,10 +23,12 @@ scannet_b32_xyz1norm_e1="python $train_script --max_epoch 1 --batch_size 32 --nu
 #**********************************************   Tmp: small data, auto_break
 
 
-stan_b8_xyz1norm_e3_f30="python $train_script --test_area 6 --max_epoch 3 --batch_size 8 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
-scannet_b8_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 8 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
+stan_b32_xyz1norm_e3_f30="python $train_script --test_area 6 --max_epoch 3 --batch_size 32 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
+scannet_b32_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
 
 
+#./parallel_commands "$stan_b32_xyz1norm_e1" "$scannet_b32_xyz1norm_e1"
+#./parallel_commands "$stan_b32_xyz1norm_e3_f30" "$scannet_b32_xyz1norm_e3_f30"
 ./parallel_commands "$stan_b32_xyz1norm_e50" "$scannet_b32_xyz1norm_e50"
 
 
