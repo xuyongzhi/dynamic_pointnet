@@ -17,6 +17,8 @@ import scannet_dataset
 import time
 from collections import deque
 
+DefaultPointFileList=os.path.join(DATA_DIR,'indoor3d_sem_seg_hdf5_data/all_files.txt')
+DefaultROOMFileList=os.path.join(DATA_DIR,'indoor3d_sem_seg_hdf5_data/room_filelist.txt')
 
 def get_channel_indexs(channel_elementes):
     channel_indexs_dict = {
@@ -33,8 +35,8 @@ def get_channel_indexs(channel_elementes):
 def Load_Stanford_Sampled_Hdf5(test_area,channel_elementes = ['xyz_1norm'],max_test_fn=None):
     CHANNEL_INDEXS,NUM_CHANNELS = get_channel_indexs(channel_elementes)
 
-    ALL_FILES = provider.getDataFiles('../data/indoor3d_sem_seg_hdf5_data/all_files.txt')
-    room_filelist = [line.rstrip() for line in open('../data/indoor3d_sem_seg_hdf5_data/room_filelist.txt')]
+    ALL_FILES = provider.getDataFiles(DefaultPointFileList)
+    room_filelist = [line.rstrip() for line in open(DefaultROOMFileList,'r')]
 
     data_batch_list = []
     label_batch_list = []
@@ -157,6 +159,7 @@ class GetDataset():
             return data_cur,label_cur,sample_weights_cur
         elif self.data_source == 'scannet':
             while self.scannet_buf[tot][0].shape[0] <batch_size:
+                # read new data to buf
                 if self.add_scannet_buf(tot)==False:
                     return None,None,None # reading finished
             dlw = []
@@ -184,6 +187,12 @@ class GetDataset():
             self.scannet_buf[tot] = list(dlw)
         self.scannet_scan_idx[tot] += 1
         return True
+
+    def reset_reading_idx(self):
+        # this should be performed at the first of each epoch
+        if self.data_source == 'scannet':
+            for tot in ['train','test']:
+                self.scannet_scan_idx[tot]=0
 
     #def write_pred(self,pred_logits,pred_val):
 

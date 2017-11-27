@@ -57,7 +57,7 @@ DECAY_RATE = FLAGS.decay_rate
 if FLAGS.only_evaluate:
     MAX_EPOCH = 1
     log_name = 'log_Test.txt'
-    FLAGS.test_area = -1
+    #FLAGS.test_area = -1
 else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
@@ -70,8 +70,8 @@ FLAGS.model_path = os.path.join(LOG_DIR,'model.ckpt')
 MODEL_PATH = FLAGS.model_path
 LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-os.system('cp ../models/pointnet2_sem_seg.py %s' % (LOG_DIR)) # bkp of model def
-os.system('cp train_semseg.py %s' % (LOG_DIR)) # bkp of train procedure
+os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/train_semseg.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
 LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
@@ -152,7 +152,7 @@ def train():
             train_op = optimizer.minimize(loss, global_step=batch)
 
             # Add ops to save and restore all the variables.
-            saver = tf.train.Saver()
+            saver = tf.train.Saver(max_to_keep=50)
 
         # Create a session
         config = tf.ConfigProto()
@@ -186,7 +186,7 @@ def train():
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
-
+            DATASET.reset_reading_idx()
             if not FLAGS.only_evaluate:
                 train_log_str = train_one_epoch(sess, ops, train_writer,epoch)
             else:
