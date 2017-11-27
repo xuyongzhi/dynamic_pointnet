@@ -47,7 +47,10 @@ def Load_Stanford_Sampled_Hdf5(test_area,channel_elementes = ['xyz_1norm'],max_t
     data_batches = np.concatenate(data_batch_list, 0)
     label_batches = np.concatenate(label_batch_list, 0)
 
-    test_area_str = 'Area_'+str(test_area)
+    if test_area > 0:
+        test_area_str = 'Area_'+str(test_area)
+    else:
+        test_area_str = 'Area_'
 
     train_idxs = []
     test_idxs = []
@@ -83,6 +86,7 @@ class GetDataset():
                  max_test_fn=None):
         self.num_blocks = {}
         self.shuffled_idx = {}
+        self.data_sum_str = ''
         if data_source == 'stanford_indoor':
             self.num_classes = 13
             data = {}
@@ -95,6 +99,10 @@ class GetDataset():
             self.num_channels = data['train'].shape[2]
             self.data = data
             self.label = label
+            data_str = 'stanford_indoor,num_class=%d, train block n=%d test block n=%d \nnum point per block=%d, channel num=%d'%(
+                self.num_classes,data['train'].shape[0],data['test'].shape[0],data['test'].shape[1],self.num_channels)
+            self.data_sum_str += data_str
+
         elif data_source == 'scannet':
             self.num_classes = 22
             scannet_ds = {}
@@ -177,5 +185,5 @@ class GetDataset():
         self.scannet_scan_idx[tot] += 1
         return True
 
-
+    #def write_pred(self,pred_logits,pred_val):
 

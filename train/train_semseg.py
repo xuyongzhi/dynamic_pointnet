@@ -23,27 +23,29 @@ from evaluation import EvaluationMetrics
 #from block_data_prep_util import Normed_H5f,Net_Provider
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
-parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
+parser.add_argument('--channel_elementes', default='xyz_1norm', help='channel_elements: xyz_1norm,xyz_midnorm,color_1norm')
+parser.add_argument('--batch_size', type=int, default=24, help='Batch Size during training [default: 24]')
+parser.add_argument('--test_area', type=int, default=6, help='Which area to use for test, option: 1-6 [default: 6]')
+parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
 parser.add_argument('--num_point', type=int, default=4096, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
-parser.add_argument('--batch_size', type=int, default=24, help='Batch Size during training [default: 24]')
+
+parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
+parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
 parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
-parser.add_argument('--test_area', type=int, default=6, help='Which area to use for test, option: 1-6 [default: 6]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
-parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
-parser.add_argument('--channel_elementes', default='xyz_1norm', help='channel_elements: xyz_1norm,xyz_midnorm,color_1norm')
+
+parser.add_argument('--only_evaluate',action='store_true',help='do not train')
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 
 FLAGS = parser.parse_args()
 
 BATCH_SIZE = FLAGS.batch_size
-MAX_EPOCH = FLAGS.max_epoch
 NUM_POINT = FLAGS.num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
@@ -52,17 +54,27 @@ OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 
-FLAGS.log_dir = FLAGS.log_dir+str(FLAGS.test_area)+'-B'+str(BATCH_SIZE)+'-'+\
-                FLAGS.channel_elementes+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name
+if FLAGS.only_evaluate:
+    MAX_EPOCH = 1
+    log_name = 'log_Test.txt'
+    FLAGS.test_area = -1
+else:
+    MAX_EPOCH = FLAGS.max_epoch
+    log_name = 'log_Train.txt'
+    FLAGS.log_dir = FLAGS.log_dir+str(FLAGS.test_area)+'-B'+str(BATCH_SIZE)+'-'+\
+                    FLAGS.channel_elementes+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name
 FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
+
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
+FLAGS.model_path = os.path.join(LOG_DIR,'model.ckpt')
+MODEL_PATH = FLAGS.model_path
 LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp ../models/pointnet2_sem_seg.py %s' % (LOG_DIR)) # bkp of model def
 os.system('cp train_semseg.py %s' % (LOG_DIR)) # bkp of train procedure
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
-LOG_FOUT.write(str(FLAGS)+'\n')
+LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
@@ -86,6 +98,7 @@ def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
+log_string(DATASET.data_sum_str+'\n')
 
 def get_learning_rate(batch):
     learning_rate = tf.train.exponential_decay(
@@ -150,9 +163,12 @@ def train():
 
         # Add summary writers
         merged = tf.summary.merge_all()
-        train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
-                                  sess.graph)
-        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        if not FLAGS.only_evaluate:
+            train_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'train'),
+                                    sess.graph)
+            test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        else:
+            test_writer = None
 
         # Init variables
         init = tf.global_variables_initializer()
@@ -171,13 +187,19 @@ def train():
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
 
-            train_log_str = train_one_epoch(sess, ops, train_writer,epoch)
+            if not FLAGS.only_evaluate:
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch)
+            else:
+                train_log_str = ''
+                saver.restore(sess,MODEL_PATH)
+                log_string('restored model from: \n\t%s'%MODEL_PATH)
             eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch)
 
             # Save the variables to disk.
-            if (epoch > 0 and epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0) or epoch == MAX_EPOCH-1:
-                save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
-                log_string("Model saved in file: %s" % os.path.basename(save_path))
+            if not FLAGS.only_evaluate:
+                if (epoch > 0 and epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0) or epoch == MAX_EPOCH-1:
+                    save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
+                    log_string("Model saved in file: %s" % os.path.basename(save_path))
 
             if epoch == MAX_EPOCH -1:
                 LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
@@ -277,6 +299,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
 
         cur_data,cur_label,cur_smp_weights = DATASET.test_dlw(start_idx,end_idx)
         if type(cur_data) == type(None):
+            print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: cur_data,
                      ops['labels_pl']: cur_label,
@@ -284,14 +307,18 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
                      ops['smpws_pl']: cur_smp_weights }
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
                                       feed_dict=feed_dict)
-        test_writer.add_summary(summary, step)
-        pred_val = np.argmax(pred_val, 2)
+        if test_writer != None:
+            test_writer.add_summary(summary, step)
+        pred_logits = np.argmax(pred_val, 2)
         total_seen += (BATCH_SIZE*NUM_POINT)
-        loss_sum += (loss_val*BATCH_SIZE)
-
-        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
-
+        loss_sum += loss_val
+        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
         t_batch_ls.append( time.time() - t0 )
+        if FLAGS.only_evaluate:
+            #DATASET.write_pred(pred_val)
+            if batch_idx%10==0:
+                add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+
 
     return add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
 

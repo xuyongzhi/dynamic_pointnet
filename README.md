@@ -1,7 +1,22 @@
 # pointnet with dynamic sampling, pyramid multiscale architecture and difficulty aware abilities
-xyz  y.xu@student.unsw.edu.au
+created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 
-based on fork of Pointnet++
+
+### Model optimization plans
+- [ ] Modify pointnet to dense net architecture
+- [ ] Multi-architecture based on pyramid pooling
+- [ ] Be difficulty-aware
+
+### Sampling optimization plans
+- [ ] Dynamic pooling based on previous prediction
+
+
+### Util optimization plans
+- [ ] Add only evaluate
+- [ ] Transfer the visulization funcions in block_data_prep_util.py to get_dataset.py
+
+
+
 
 ### PointNet++: *Deep Hierarchical Feature Learning on Point Sets in a Metric Space*
 Created by <a href="http://charlesrqi.com" target="_blank">Charles R. Qi</a>, <a href="http://stanford.edu/~ericyi">Li (Eric) Yi</a>, <a href="http://ai.stanford.edu/~haosu/" target="_blank">Hao Su</a>, <a href="http://geometry.stanford.edu/member/guibas/" target="_blank">Leonidas J. Guibas</a> from Stanford University.
