@@ -33,3 +33,4 @@ scannet_b8_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 8 --
 
 
 #./parallel_commands "$stan_b32_xyz1norm_e50" "$scannet_b32_xyz1norm_e50"
+$stan_b8_xyz1norm_e3_f30

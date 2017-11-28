@@ -267,8 +267,10 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
 
         t_batch_ls.append( time.time() - t0 )
-        if (epoch == 0 and batch_idx <= 100) or batch_idx%100==0:
+        if (epoch == 0 and batch_idx % 10 ==0) or batch_idx%100==0:
             add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+        if batch_idx == 100:
+            os.system('nvidia-smi')
     return add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
 
 def eval_one_epoch(sess, ops, test_writer, epoch):
