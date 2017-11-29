@@ -27,7 +27,7 @@ stan_b32_xyz1norm_e3_f30="python $train_script --test_area 6 --max_epoch 3 --bat
 scannet_b32_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir log_tmp --max_test_file_num 30"
 
 
-./parallel_commands "$stan_b32_xyz1norm_e50" "$scannet_b32_xyz1norm_e50"
+../parallel_commands "$stan_b32_xyz1norm_e50" "$scannet_b32_xyz1norm_e50"
 #$scannet_b32_xyz1norm_e50
 #$stan_b32_xyz1norm_e50
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q gpu
-#PBS -l walltime=00:30:00
+#PBS -l walltime=10:00:00
 #PBS -l mem=26GB
 #PBS -l jobfs=0GB
 #PBS -l ngpus=2
@@ -11,7 +11,7 @@
 ## The job will be executed from current working directory instead of home.
 #PBS -l wd 
 #PBS -r y
-#PBS -M yongzhi.xu@student.unsw.edu.au
+#PBS -M y.xu@student.unsw.edu.au
 #PBS -m abe
 
 module load  tensorflow/1.2.1-cudnn6.0-python2.7
