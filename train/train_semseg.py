@@ -40,6 +40,8 @@ parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate fo
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
+parser.add_argument('--finetune',action='store_true',help='do not train')
+parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 
@@ -66,8 +68,7 @@ else:
 FLAGS.channel_elementes = FLAGS.channel_elementes.split(',')
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
-FLAGS.model_path = os.path.join(LOG_DIR,'model.ckpt')
-MODEL_PATH = FLAGS.model_path
+MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
 LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
@@ -183,7 +184,14 @@ def train():
                'merged': merged,
                'step': batch,
                'smpws_pl': smpws_pl}
-        for epoch in range(MAX_EPOCH):
+        if FLAGS.finetune:
+            saver.restore(sess,MODEL_PATH)
+            log_string('finetune, restored model from: \n\t%s'%MODEL_PATH)
+
+        epoch_start = 0
+        if FLAGS.finetune:
+            epoch_start+=(FLAGS.model_epoch+1)
+        for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
             DATASET.reset_reading_idx()
@@ -192,12 +200,12 @@ def train():
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
-                log_string('restored model from: \n\t%s'%MODEL_PATH)
+                log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch)
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 10 == 0) or (epoch > 35 and epoch % 3 == 0) or epoch == MAX_EPOCH-1:
+                if (epoch > 0 and epoch % 2 == 0) or epoch == MAX_EPOCH-1:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
