@@ -73,7 +73,10 @@ LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
 os.system('cp %s/train_semseg.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
-LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
+if FLAGS.finetune:
+    LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
+else:
+    LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
@@ -213,7 +216,7 @@ def train():
                 LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
 
 
-def add_log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
+def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
     ave_whole_acc,class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
                                 c_TP_FN_FP,total_seen)
     log_str = ''
@@ -224,7 +227,7 @@ def add_log(tot,epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls,Simple
     else:
         t_per_block = -1
     log_str += '%s [%d - %d] \t t_block:%0.3f\tloss: %0.3f \tacc: %0.3f' % \
-            ( tot,epoch,batch_idx,t_per_block,loss_sum / float(batch_idx+1),ave_whole_acc )
+            ( tot,epoch,batch_idx,t_per_block,loss_batch,ave_whole_acc )
     if SimpleFlag >0:
         log_str += ave_acc_str
     if  SimpleFlag >1:
@@ -244,7 +247,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         num_batches = None
 
     total_seen = 0.0001
-    loss_sum = 0
+    loss_sum = 0.0
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     print('total batch num = ',num_batches)
@@ -276,16 +279,16 @@ def train_one_epoch(sess, ops, train_writer,epoch):
 
         t_batch_ls.append( time.time() - t0 )
         if (epoch == 0 and batch_idx % 10 ==0) or batch_idx%100==0:
-            add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+            add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 100:
             os.system('nvidia-smi')
-    return add_log('train',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+    return add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
 def eval_one_epoch(sess, ops, test_writer, epoch):
     """ ops: dict mapping from string to tf ops """
     is_training = False
     total_seen = 0.00001
-    loss_sum = 0
+    loss_sum = 0.0
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
@@ -327,7 +330,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
         if FLAGS.only_evaluate:
             #DATASET.write_pred(pred_val)
             if batch_idx%10==0:
-                add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+                add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
 
     return add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)

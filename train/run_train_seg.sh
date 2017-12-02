@@ -15,7 +15,7 @@ train_script=train_semseg.py
 
 stan_b32_xyz1norm_e50="python $train_script --test_area 3 --max_epoch 50 --batch_size 32 --num_point 4096  --dataset_name stanford_indoor --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir lograijin"
 
-scannet_b32_xyz1norm_e50="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir lograijin --finetune --model_epoch 10"
+scannet_b32_xyz1norm_e50="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir lograijin --finetune --model_epoch 18"
 
 
 #**********************************************   Tmp: all data, one epoch

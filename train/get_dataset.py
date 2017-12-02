@@ -1,5 +1,6 @@
 # xyz Nov 2017
 
+import pickle
 import numpy as np
 import time
 import os
@@ -82,6 +83,21 @@ def Load_Scannet(npoints=8192):
     scannet_data_train = scannet_dataset.ScannetDatasetWholeScene(
         root = data_root,npoints=npoints,split = 'train')
     return scannet_data_train,scannet_data_test
+
+def Cut_Scannet(cut_rate=0.01):
+    data_root = os.path.join(DATA_DIR,'scannet_data')
+    for split in ['test','train']:
+        file_name = data_root+'/scannet_%s.pickle'%(split)
+        file_name_new = data_root+'/scannet_%s_small.pickle'%(split)
+        with open(file_name,'rb') as fo, open(file_name_new,'wb') as fo_new:
+            scene_points_list0 = pickle.load(fo)
+            semantic_labels_list0 = pickle.load(fo)
+            scene_points_list1 = scene_points_list0[0:int(len(scene_points_list0)*cut_rate)]
+            semantic_labels_list1 = semantic_labels_list0[0:int(len(semantic_labels_list0)*cut_rate)]
+            pickle.dump(scene_points_list1,fo_new)
+            pickle.dump(semantic_labels_list1,fo_new)
+            print('gen %s OK'%(file_name_new))
+
 
 class GetDataset():
     def __init__(self,data_source,num_point=8192,test_area=6,channel_elementes=['xyz_1norm'],
@@ -195,4 +211,8 @@ class GetDataset():
                 self.scannet_scan_idx[tot]=0
 
     #def write_pred(self,pred_logits,pred_val):
+
+if __name__ == '__main__':
+    Cut_Scannet()
+
 

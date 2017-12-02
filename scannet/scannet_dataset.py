@@ -66,7 +66,7 @@ class ScannetDatasetWholeScene():
         self.npoints = npoints
         self.root = root
         self.split = split
-        self.data_filename = os.path.join(self.root, 'scannet_%s.pickle'%(split))
+        self.data_filename = os.path.join(self.root, 'scannet_%s_small.pickle'%(split))
         with open(self.data_filename,'rb') as fp:
             import gc
             gc.disable()
