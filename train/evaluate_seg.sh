@@ -4,9 +4,12 @@ train_script=train_semseg.py
 
 
 logdir="lograijin3-B32-xyz_1norm-4096-stanford_indoor"
+logdir="lograijin6-B32-xyz_1norm-8192-scannet"
+
+scannet_b32_xyz1norm_e50="python $train_script --only_evaluate --batch_size 32 --num_point 8192  --dataset_name scannet --log_dir $logdir  --model_epoch 18"
 
 stan_b32="python $train_script --only_evaluate --test_are 6 --batch_size 32 --dataset_name stanford_indoor --log_dir $logdir"
-
+$scannet_b32_xyz1norm_e50
 #**********************************************   Tmp: all data, one epoch
 
 
@@ -19,8 +22,6 @@ stan_b4_f10="python $train_script --only_evaluate --test_are 6 --batch_size 2 --
 
 #./parallel_commands "$stan_b32_xyz1norm_e1" "$scannet_b32_xyz1norm_e1"
 #./parallel_commands "$stan_b8_xyz1norm_e3_f30" "$scannet_b8_xyz1norm_e3_f30"
-
-$stan_b32
 
 
 #***********

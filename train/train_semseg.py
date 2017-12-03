@@ -333,7 +333,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
                 add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
 
-    return add_log('eval',epoch,batch_idx,loss_sum,c_TP_FN_FP,total_seen,t_batch_ls)
+    return add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
 if __name__ == "__main__":
     if FLAGS.auto_break:

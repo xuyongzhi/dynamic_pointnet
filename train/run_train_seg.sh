@@ -33,4 +33,8 @@ scannet_b8_xyz1norm_e3_f30="python $train_script --max_epoch 3 --batch_size 8 --
 
 
 #./parallel_commands "$stan_b32_xyz1norm_e50" "$scannet_b32_xyz1norm_e50"
-$scannet_b32_xyz1norm_e50
+
+#**    Finetune ******************
+
+scannet_b32_xyz1norm_e50_ft18="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name scannet --channel_elementes xyz_1norm --learning_rate 0.001 --log_dir lograijin --finetune --model_epoch 18"
+$scannet_b32_xyz1norm_e50_ft18
