@@ -78,26 +78,13 @@ def Load_Stanford_Sampled_Hdf5(test_area,channel_elementes = ['xyz_1norm'],max_t
 
 def Load_Scannet(npoints=8192):
     data_root = os.path.join(DATA_DIR,'scannet_data')
+    small_affix = ''
+    small_affix = '_small'
     scannet_data_test = scannet_dataset.ScannetDatasetWholeScene(
-        root = data_root,npoints=npoints,split = 'test')
+        root = data_root,npoints=npoints,split = 'test',small_affix=small_affix)
     scannet_data_train = scannet_dataset.ScannetDatasetWholeScene(
-        root = data_root,npoints=npoints,split = 'train')
+        root = data_root,npoints=npoints,split = 'train',small_affix=small_affix)
     return scannet_data_train,scannet_data_test
-
-def Cut_Scannet(cut_rate=0.01):
-    data_root = os.path.join(DATA_DIR,'scannet_data')
-    for split in ['test','train']:
-        file_name = data_root+'/scannet_%s.pickle'%(split)
-        file_name_new = data_root+'/scannet_%s_small.pickle'%(split)
-        with open(file_name,'rb') as fo, open(file_name_new,'wb') as fo_new:
-            scene_points_list0 = pickle.load(fo)
-            semantic_labels_list0 = pickle.load(fo)
-            scene_points_list1 = scene_points_list0[0:int(len(scene_points_list0)*cut_rate)]
-            semantic_labels_list1 = semantic_labels_list0[0:int(len(semantic_labels_list0)*cut_rate)]
-            pickle.dump(scene_points_list1,fo_new)
-            pickle.dump(semantic_labels_list1,fo_new)
-            print('gen %s OK'%(file_name_new))
-
 
 class GetDataset():
     def __init__(self,data_source,num_point=8192,test_area=6,channel_elementes=['xyz_1norm'],

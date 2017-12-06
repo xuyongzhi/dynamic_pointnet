@@ -18,6 +18,9 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 
 
 
+Update with https://github.com/charlesq34/pointnet2/commits/master 
+Nov 10, 2017  
+ec22300f87411c8896cd2d13fd6f2ebd7ad37e10
 ### PointNet++: *Deep Hierarchical Feature Learning on Point Sets in a Metric Space*
 Created by <a href="http://charlesrqi.com" target="_blank">Charles R. Qi</a>, <a href="http://stanford.edu/~ericyi">Li (Eric) Yi</a>, <a href="http://ai.stanford.edu/~haosu/" target="_blank">Hao Su</a>, <a href="http://geometry.stanford.edu/member/guibas/" target="_blank">Leonidas J. Guibas</a> from Stanford University.
 

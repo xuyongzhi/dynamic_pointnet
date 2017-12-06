@@ -221,13 +221,13 @@ def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,Simp
                                 c_TP_FN_FP,total_seen)
     log_str = ''
     if len(t_batch_ls)>0:
-        t_per_batch = np.mean(np.array(t_batch_ls))
+        t_per_batch = np.mean(np.concatenate(t_batch_ls,axis=1),axis=1)
         t_per_block = t_per_batch / BATCH_SIZE
-        #t_per_point = t_per_block / NUM_POINT * 1000
+        t_per_block_str = np.array2string(t_per_block,formatter={'float_kind':lambda x: "%0.3f"%x})
     else:
-        t_per_block = -1
-    log_str += '%s [%d - %d] \t t_block:%0.3f\tloss: %0.3f \tacc: %0.3f' % \
-            ( tot,epoch,batch_idx,t_per_block,loss_batch,ave_whole_acc )
+        t_per_block_str = "no-t"
+    log_str += '%s [%d - %d] \t t_block(get_data,run):%s\tloss: %0.3f \tacc: %0.3f' % \
+            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc )
     if SimpleFlag >0:
         log_str += ave_acc_str
     if  SimpleFlag >1:
@@ -262,6 +262,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         cur_data,cur_label,cur_smp_weights = DATASET.train_dlw(start_idx,end_idx)
+        t1 = time.time()
         if type(cur_data) == type(None):
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: cur_data,
@@ -277,7 +278,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
 
         c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
 
-        t_batch_ls.append( time.time() - t0 )
+        t_batch_ls.append( np.reshape(np.array([time.time() - t1, t1-t0]),(2,1)) )
         if (epoch == 0 and batch_idx % 10 ==0) or batch_idx%100==0:
             add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 100:
@@ -311,6 +312,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         cur_data,cur_label,cur_smp_weights = DATASET.test_dlw(start_idx,end_idx)
+        t1 = time.time()
         if type(cur_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
@@ -326,7 +328,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += loss_val
         c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
-        t_batch_ls.append( time.time() - t0 )
+        t_batch_ls.append( np.reshape(np.array([time.time() - t1, t1-t0]),(2,1)) )
         if FLAGS.only_evaluate:
             #DATASET.write_pred(pred_val)
             if batch_idx%10==0:

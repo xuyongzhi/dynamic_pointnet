@@ -1,0 +1,30 @@
+<html><head>
+<title>scannet_util.py</title>
+<meta name="Generator" content="htmlizer/[twisted, version 16.4.1]" />
+<link rel="alternate" href="scannet_util.py" type="text/x-python" />
+
+</head>
+<body>
+<pre>
+
+<span class="py-src-variable">g_label_names</span> = [<span class="py-src-string">'unannotated'</span>, <span class="py-src-string">'wall'</span>, <span class="py-src-string">'floor'</span>, <span class="py-src-string">'chair'</span>, <span class="py-src-string">'table'</span>, <span class="py-src-string">'desk'</span>, <span class="py-src-string">'bed'</span>, <span class="py-src-string">'bookshelf'</span>, <span class="py-src-string">'sofa'</span>, <span class="py-src-string">'sink'</span>, <span class="py-src-string">'bathtub'</span>, <span class="py-src-string">'toilet'</span>, <span class="py-src-string">'curtain'</span>, <span class="py-src-string">'counter'</span>, <span class="py-src-string">'door'</span>, <span class="py-src-string">'window'</span>, <span class="py-src-string">'shower curtain'</span>, <span class="py-src-string">'refridgerator'</span>, <span class="py-src-string">'picture'</span>, <span class="py-src-string">'cabinet'</span>, <span class="py-src-string">'otherfurniture'</span>]
+
+<span class="py-src-keyword">def</span> <span class="py-src-identifier">get_raw2scannet_label_map</span>():
+    <span class="py-src-variable">lines</span> = [<span class="py-src-variable">line</span>.<span class="py-src-variable">rstrip</span>() <span class="py-src-keyword">for</span> <span class="py-src-variable">line</span> <span class="py-src-keyword">in</span> <span class="py-src-variable">open</span>(<span class="py-src-string">'scannet-labels.combined.tsv'</span>)]
+    <span class="py-src-variable">lines</span> = <span class="py-src-variable">lines</span>[<span class="py-src-number">1</span>:]
+    <span class="py-src-variable">raw2scannet</span> = {}
+    <span class="py-src-keyword">for</span> <span class="py-src-variable">i</span> <span class="py-src-keyword">in</span> <span class="py-src-variable">range</span>(<span class="py-src-variable">len</span>(<span class="py-src-variable">lines</span>)):
+        <span class="py-src-variable">label_classes_set</span> = <span class="py-src-variable">set</span>(<span class="py-src-variable">g_label_names</span>)
+        <span class="py-src-variable">elements</span> = <span class="py-src-variable">lines</span>[<span class="py-src-variable">i</span>].<span class="py-src-variable">split</span>(<span class="py-src-string">'\t'</span>)
+        <span class="py-src-variable">raw_name</span> = <span class="py-src-variable">elements</span>[<span class="py-src-number">0</span>]
+        <span class="py-src-variable">nyu40_name</span> = <span class="py-src-variable">elements</span>[<span class="py-src-number">6</span>]
+        <span class="py-src-keyword">if</span> <span class="py-src-variable">nyu40_name</span> <span class="py-src-keyword">not</span> <span class="py-src-keyword">in</span> <span class="py-src-variable">label_classes_set</span>:
+            <span class="py-src-variable">raw2scannet</span>[<span class="py-src-variable">raw_name</span>] = <span class="py-src-string">'unannotated'</span>
+        <span class="py-src-keyword">else</span>:
+            <span class="py-src-variable">raw2scannet</span>[<span class="py-src-variable">raw_name</span>] = <span class="py-src-variable">nyu40_name</span>
+    <span class="py-src-keyword">return</span> <span class="py-src-variable">raw2scannet</span>
+
+
+<span class="py-src-variable">g_raw2scannet</span> = <span class="py-src-variable">get_raw2scannet_label_map</span>()
+</pre>
+</body>
