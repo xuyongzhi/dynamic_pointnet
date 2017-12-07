@@ -1,0 +1,240 @@
+# xyz Dec 2017
+
+from __future__ import print_function
+import os
+import sys
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
+#from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
+import numpy as np
+import h5py
+import glob
+import time
+import multiprocessing as mp
+import itertools
+from block_data_prep_util import Normed_H5f
+
+#-------------------------------------------------------------------------------
+# provider for training and testing
+#------------------------------------------------------------------------------
+class Net_Provider():
+    '''
+    (1) provide data for training
+    (2) load file list to list of Norm_H5f[]
+    '''
+    # input normalized h5f files
+    # normed_h5f['data']: [blocks*block_num_point*num_channel],like [1000*4096*9]
+    # one batch would contain sevel(batch_size) blocks,this will be set out side
+    # provider with train_start_idx and test_start_idx
+
+
+    def __init__(self,all_file_list,only_evaluate,eval_fn_glob,\
+                 NUM_POINT_OUT=None,no_color_1norm = False,no_intensity_1norm = True,\
+                 train_num_block_rate=1,eval_num_block_rate=1 ):
+        train_file_list,eval_file_list = self.split_train_eval_file_list\
+                            (all_file_list,only_evaluate,eval_fn_glob)
+        self.no_color_1norm = no_color_1norm
+        self.no_intensity_1norm = no_intensity_1norm
+        self.NUM_POINT_OUT = NUM_POINT_OUT
+        if only_evaluate:
+            open_type = 'a' # need to write pred labels
+        else:
+            open_type = 'r'
+        train_file_N = len(train_file_list)
+        eval_file_N = len(eval_file_list)
+        self.g_file_N = train_file_N + eval_file_N
+        self.normed_h5f_file_list =  normed_h5f_file_list = train_file_list + eval_file_list
+
+        self.norm_h5f_L = []
+        # global: within the whole train/test dataset  (several files)
+        # record the start/end row idx  of each file to help search data from
+        # all files
+        # [start_global_row_idxs,end_global__idxs]
+        self.g_block_idxs = np.zeros((self.g_file_N,2),np.int32)
+        self.eval_global_start_idx = None
+        for i,fn in enumerate(normed_h5f_file_list):
+            assert(os.path.exists(fn))
+            h5f = h5py.File(fn,open_type)
+            norm_h5f = Normed_H5f(h5f,fn)
+            self.norm_h5f_L.append( norm_h5f )
+            self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + norm_h5f.data_set.shape[0]
+            if i<self.g_file_N-1:
+                self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
+
+        self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
+        if train_file_N > 0:
+            self.train_num_blocks = self.g_block_idxs[train_file_N-1,1]
+        else: self.train_num_blocks = 0
+        self.eval_num_blocks = self.g_block_idxs[-1,1] - self.train_num_blocks
+
+        # use only part of the data to test code:
+        if train_num_block_rate!=1 or eval_num_block_rate!=1:
+            self.get_data_label_shape()
+            print('whole train data shape: %s'%(str(self.train_data_shape)))
+            print('whole eval data shape: %s'%(str(self.eval_data_shape)))
+            # train: use the front part
+            self.train_num_blocks = int( self.train_num_blocks * train_num_block_rate )
+            if not only_evaluate:
+                self.train_num_blocks = max(self.train_num_blocks,2)
+            new_eval_num_blocks = int( max(2,self.eval_num_blocks * eval_num_block_rate) )
+            # eval:use the back part, so train_file_list and eval_file_list can be
+            # the same
+            self.eval_global_start_idx += self.eval_num_blocks - new_eval_num_blocks
+            self.eval_num_blocks = new_eval_num_blocks
+
+        self.get_data_label_shape()
+        #self.test_tmp()
+
+    def split_train_eval_file_list(self,all_file_list,only_evaluate,eval_fn_glob=None):
+        if only_evaluate:
+            train_file_list = []
+            eval_file_list = all_file_list
+        else:
+            if eval_fn_glob == None:
+                eval_fn_glob = 'Area_6'
+            train_file_list = []
+            eval_file_list = []
+            for fn in all_file_list:
+                if fn.find(eval_fn_glob) > 0:
+                    eval_file_list.append(fn)
+                else:
+                    train_file_list.append(fn)
+        log_str = '\ntrain file list (n=%d) = \n%s\n\n'%(len(train_file_list),train_file_list[-2:])
+        log_str += 'eval file list (n=%d) = \n%s\n\n'%(len(eval_file_list),eval_file_list[-2:])
+        self.file_list_logstr = log_str
+        return train_file_list,eval_file_list
+    def get_data_label_shape(self):
+        data_batches,label_batches = self.get_train_batch(0,1)
+        self.train_data_shape = list(data_batches.shape)
+        self.train_data_shape[0] = self.train_num_blocks
+        self.num_channels = self.train_data_shape[2]
+        self.eval_data_shape = list(data_batches.shape)
+        self.eval_data_shape[0] = self.eval_num_blocks
+
+    def test_tmp(self):
+        s = 0
+        e = 1
+        train_data,train_label = self.get_train_batch(s,e)
+        eval_data,eval_label = self.get_eval_batch(s,e)
+        print('train:\n',train_data[0,0,:])
+        print('eval:\n',eval_data[0,0,:])
+        print('err=\n',train_data[0,0,:]-eval_data[0,0,:])
+
+
+    def __exit__(self):
+        print('exit Net_Provider')
+        for norm_h5f in self.norm_h5f:
+            norm_h5f.h5f.close()
+
+    def global_idx_to_local(self,g_start_idx,g_end_idx):
+        assert(g_start_idx>=0 and g_start_idx<=self.g_block_idxs[-1,1])
+        assert(g_end_idx>=0 and g_end_idx<=self.g_block_idxs[-1,1])
+        for i in range(self.g_file_N):
+            if g_start_idx >= self.g_block_idxs[i,0] and g_start_idx < self.g_block_idxs[i,1]:
+                start_file_idx = i
+                local_start_idx = g_start_idx - self.g_block_idxs[i,0]
+                for j in range(i,self.g_file_N):
+                    if g_end_idx > self.g_block_idxs[j,0] and g_end_idx <= self.g_block_idxs[j,1]:
+                        end_file_idx = j
+                        local_end_idx = g_end_idx - self.g_block_idxs[j,0]
+
+        return start_file_idx,end_file_idx,local_start_idx,local_end_idx
+
+    def set_pred_label_batch(self,pred_label,g_start_idx,g_end_idx):
+        start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
+            self.global_idx_to_local(g_start_idx,g_end_idx)
+        pred_start_idx = 0
+        for f_idx in range(start_file_idx,end_file_idx+1):
+            if f_idx == start_file_idx:
+                start = local_start_idx
+            else:
+                start = 0
+            if f_idx == end_file_idx:
+                end = local_end_idx
+            else:
+                end = self.norm_h5f_L[f_idx].label_set.shape[0]
+            n = end-start
+            self.norm_h5f_L[f_idx].set_dset_value('pred_label',\
+                pred_label[pred_start_idx:pred_start_idx+n,:],start,end)
+            pred_start_idx += n
+        self.norm_h5f_L[f_idx].h5f.flush()
+
+
+    def get_global_batch(self,g_start_idx,g_end_idx):
+        start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
+            self.global_idx_to_local(g_start_idx,g_end_idx)
+
+        data_ls = []
+        label_ls = []
+        for f_idx in range(start_file_idx,end_file_idx+1):
+            if f_idx == start_file_idx:
+                start = local_start_idx
+            else:
+                start = 0
+            if f_idx == end_file_idx:
+                end = local_end_idx
+            else:
+                end = self.norm_h5f_L[f_idx].label_set.shape[0]
+
+            data_i = self.norm_h5f_L[f_idx].data_set[start:end,:,:]
+            label_i = self.norm_h5f_L[f_idx].label_set[start:end,:]
+            data_ls.append(data_i)
+            label_ls.append(label_i)
+        data_batches = np.concatenate(data_ls,0)
+        data_batches = self.extract_channels(data_batches)
+        label_batches = np.concatenate(label_ls,0)
+        data_batches,label_batches = self.sample(data_batches,label_batches,self.NUM_POINT_OUT)
+
+     #   print('\nin global')
+     #   print('file_start = ',start_file_idx)
+     #   print('file_end = ',end_file_idx)
+     #   print('local_start = ',local_start_idx)
+     #   print('local end = ',local_end_idx)
+     #   #print('data = \n',data_batches[0,:])
+
+        return data_batches,label_batches
+
+    def sample(self,data_batches,label_batches,NUM_POINT_OUT):
+        NUM_POINT_IN = data_batches.shape[1]
+        if NUM_POINT_OUT == None:
+            NUM_POINT_OUT = NUM_POINT_IN
+        if NUM_POINT_IN != NUM_POINT_OUT:
+            sample_choice = GLOBAL_PARA.sample(NUM_POINT_IN,NUM_POINT_OUT,'random')
+            data_batches = data_batches[:,sample_choice,...]
+            label_batches = label_batches[:,sample_choice]
+        return data_batches,label_batches
+
+    def extract_channels(self,data_batches):
+        # extract the data types to be trained
+        # xyz_1norm xyz_midnorm color_1norm intensity_1norm
+        COLOR_IDXS = Normed_H5f.elements_idxs['color_1norm']
+        INTENSITY_IDX = Normed_H5f.elements_idxs['intensity_1norm']
+        delete_idxs = []
+        if self.no_color_1norm:
+            delete_idxs += COLOR_IDXS
+        if self.no_intensity_1norm:
+            delete_idxs += INTENSITY_IDX
+        data_batches = np.delete(data_batches,delete_idxs,2)
+        return data_batches
+
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx):
+        # all train files are before eval files
+        g_start_batch_idx = train_start_batch_idx
+        g_end_batch_idx = train_end_batch_idx
+        return self.get_global_batch(g_start_batch_idx,g_end_batch_idx)
+
+    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
+        g_start_batch_idx = eval_start_batch_idx + self.eval_global_start_idx
+        g_end_batch_idx = eval_end_batch_idx + self.eval_global_start_idx
+        return self.get_global_batch(g_start_batch_idx,g_end_batch_idx)
+
+    def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
+        for k,norm_h5f in enumerate(self.norm_h5f_L):
+            if norm_h5f.file_name.find(visu_fn_glob) > 0:
+                norm_h5f.gen_gt_pred_obj( obj_dump_dir )
+
+    def write_file_accuracies(self,obj_dump_dir=None):
+        Write_all_file_accuracies(self.normed_h5f_file_list,obj_dump_dir)
+
+
+

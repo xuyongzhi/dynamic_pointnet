@@ -5,7 +5,7 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info
 import numpy as np
 import h5py
 import glob
@@ -24,15 +24,18 @@ class Scannet_Prepare():
     '''
 
     '''
-    rawh5f_dir_base =  os.path.join(SCANNET_DATA_DIR,'rawh5')
-    sorted_path_stride_0d5_step_0d5 = os.path.join(SCANNET_DATA_DIR,'stride_0d5_step_0d5')
-    sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')
-    sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')
 
-    @staticmethod
-    def Load_Raw_Scannet_Pickle(split='test'):
-        file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(split))
-        rawh5f_dir = Scannet_Prepare.rawh5f_dir_base +'_'+ split
+    def __init__(self,split='test'):
+        self.rawh5f_dir_base =  os.path.join(SCANNET_DATA_DIR,'rawh5')+'_'+split
+        self.sorted_path_stride_0d5_step_0d5 = os.path.join(SCANNET_DATA_DIR,'stride_0d5_step_0d5')+'_'+split
+        self.sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split
+        self.sorted_path_stride_1_step_2_4096 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_4096'
+        self.sorted_path_stride_1_step_2_4096_norm = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_4096_normed'
+        self.sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split
+
+    def Load_Raw_Scannet_Pickle(self):
+        file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(self.split))
+        rawh5f_dir = self.rawh5f_dir_base
         if not os.path.exists(rawh5f_dir):
             os.makedirs(rawh5f_dir)
 
@@ -51,17 +54,15 @@ class Scannet_Prepare():
                     raw_h5f.append_to_dset('xyz',scene_points_list[n])
                     raw_h5f.append_to_dset('label',semantic_labels_list[n])
                     raw_h5f.create_done()
-    @staticmethod
-    def SortRaw(split='test'):
-        rawh5f_dir = Scannet_Prepare.rawh5f_dir_base +'_'+ split
+    def SortRaw(self):
+        rawh5f_dir = self.rawh5f_dir_base
         file_list = glob.glob( os.path.join(rawh5f_dir,'*.rh5') )
         block_step_xyz = [0.5,0.5,0.5]
         print("%s files in %s"%(len(file_list),rawh5f_dir))
-        sorted_path = Scannet_Prepare.sorted_path_stride_0d5_step_0d5+'_'+split
+        sorted_path = self.sorted_path_stride_0d5_step_0d5
         Sort_RawH5f(file_list,block_step_xyz,sorted_path)
 
-    @staticmethod
-    def MergeSampleNorm(split):
+    def MergeSampleNorm(self):
         '''
          1 merge to new block step/stride size
              obj_merged: generate obj for merged
@@ -69,8 +70,8 @@ class Scannet_Prepare():
              obj_sampled_merged
          3 normalizing sampled block
         '''
-        sorted_path = Scannet_Prepare.sorted_path_stride_0d5_step_0d5+'_'+split
-        sorted_path_new = Scannet_Prepare.sorted_path_stride_1_step_2+'_'+split
+        sorted_path = self.sorted_path_stride_0d5_step_0d5
+        sorted_path_new = self.sorted_path_stride_1_step_2
 
         file_list = glob.glob( os.path.join(sorted_path, \
                     '*.sh5') )
@@ -88,9 +89,8 @@ class Scannet_Prepare():
                 sorted_h5f.merge_to_new_step(new_stride,new_step,\
                         sorted_path_new,more_actions_config)
 
-    @staticmethod
-    def SampleNorm():
-        sorted_path = Scannet_Prepare.sorted_path_stride_1_step_2+'_'+split
+    def SampleNorm(self):
+        sorted_path = self.sorted_path_stride_1_step_2+'_'+split
         file_list = glob.glob( os.path.join(sorted_path, '*.sh5' ))
         sample_num = 8192
         gen_norm = True
@@ -100,15 +100,33 @@ class Scannet_Prepare():
             with h5py.File(fn,'r') as f:
                 sorted_h5f = Sorted_H5f(f,fn)
                 sorted_h5f.file_random_sampling(sample_num,gen_norm,gen_obj)
+    def Norm(self):
+        file_list = glob.glob( os.path.join(self.sorted_path_stride_1_step_2_4096,'*.rsh5') )
+        for fn in file_list:
+            with h5py.File(fn,'r') as f:
+                sorted_h5f = Sorted_H5f(f,fn)
+                sorted_h5f.file_normalization()
 
+    def ShowFileSummary(self):
+        file_name = self.rawh5f_dir_base+ '/scan_0.rh5'
+        #file_name = self.sorted_path_stride_0d5_step_0d5 + '/scan_0.sh5'
+        file_name = self.sorted_path_stride_1_step_2 + '/scan_0.sh5'
+        file_name = self.sorted_path_stride_1_step_2_4096  + '/scan_0.rsh5'
+        file_name = self.sorted_path_stride_1_step_2_4096_norm  + '/scan_0.nh5'
+        with h5py.File(file_name,'r') as h5f:
+            show_h5f_summary_info(h5f)
 
 if __name__ == '__main__':
     #try:
         split = 'test_small'
-        #Scannet_Prepare.Load_Raw_Scannet_Pickle(split)
-        Scannet_Prepare.SortRaw(split)
-        #Scannet_Prepare.MergeSampleNorm(split)
-        #Scannet_Prepare.SampleNorm()
+        scanet_prep = Scannet_Prepare(split)
+
+        #scanet_prep.Load_Raw_Scannet_Pickle()
+        #scanet_prep.SortRaw()
+        #scanet_prep.MergeSampleNorm()
+        #scanet_prep.SampleNorm()
+        scanet_prep.Norm()
+        scanet_prep.ShowFileSummary()
 #    except:
 #        type, value, tb = sys.exc_info()
 #        traceback.print_exc()
