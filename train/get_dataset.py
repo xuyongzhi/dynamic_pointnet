@@ -109,7 +109,7 @@ class GetDataset():
             self.data_sum_str += data_str
 
         elif data_source == 'scannet':
-            self.num_classes = 22
+            self.num_classes = 21
             scannet_ds = {}
             self.num_scans = {}
             self.scannet_scan_idx = {}

@@ -146,6 +146,7 @@ class ScannetDatasetWholeScene():
                 # get the sample weight for all selected points
                 sample_weight = self.labelweights[semantic_seg]
                 # the sample weight for padded points are set 0
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 sample_weight *= mask # N
                 point_sets.append(np.expand_dims(point_set,0)) # 1xNx3
                 semantic_segs.append(np.expand_dims(semantic_seg,0)) # 1xN
@@ -220,8 +221,8 @@ def Cut_Scannet(cut_rate=0.03):
             print('gen %s OK'%(file_name_new))
 
 def test():
-    #d = ScannetDatasetWholeScene(root = '../data/scannet_data', split='test', npoints=8192,small_affix='_small')
-    d = ScannetDataset(root = '../data/scannet_data', split='test', npoints=8192,small_affix='_small')
+    d = ScannetDatasetWholeScene(root = '../data/scannet_data', split='train', npoints=8192,small_affix='_small')
+    #d = ScannetDataset(root = '../data/scannet_data', split='test', npoints=8192,small_affix='_small')
     labelweights_vox = np.zeros(21)
     for ii in xrange(len(d)):
         print(ii)
@@ -242,4 +243,4 @@ def PreSampleScannet():
 
 
 if __name__=='__main__':
-    pass
+    test()
