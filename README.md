@@ -1,6 +1,6 @@
 # pointnet with dynamic sampling, pyramid multiscale architecture and difficulty aware abilities
 created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
-haha
+
 
 ### Model optimization plans
 - [ ] Modify pointnet to dense net architecture
