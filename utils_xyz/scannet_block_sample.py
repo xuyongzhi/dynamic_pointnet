@@ -47,7 +47,7 @@ class Scannet_Prepare():
             print('%d scans for file:\n %s'%(len(semantic_labels_list),file_name))
             for n in range(len(semantic_labels_list)):
                 # write one RawH5f file for one scane
-                rawh5f_fn = os.path.join(rawh5f_dir,'scan_%d.rh5'%(n))
+                rawh5f_fn = os.path.join(rawh5f_dir,self.split+'_scan_%d.rh5'%(n))
                 num_points = semantic_labels_list[n].shape[0]
                 with h5py.File(rawh5f_fn,'w') as h5f:
                     raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
@@ -61,7 +61,16 @@ class Scannet_Prepare():
         block_step_xyz = [0.5,0.5,0.5]
         print("%s files in %s"%(len(file_list),rawh5f_dir))
         sorted_path = self.sorted_path_stride_0d5_step_0d5
-        Sort_RawH5f(file_list,block_step_xyz,sorted_path)
+
+        processes = 0
+        if processes == 0:
+            Sort_RawH5f(file_list,block_step_xyz,sorted_path)
+        else:
+            pool = mp.Pool(processes)
+            for fn in file_list:
+                pool.apply_async(Sort_RawH5f,([fn],block_step_xyz,sorted_path,))
+            pool.close()
+            pool.join()
 
     def MergeSampleNorm(self):
         '''
@@ -80,9 +89,9 @@ class Scannet_Prepare():
         new_stride = [1,1,-1]
         new_step = [2,2,-1]
         more_actions_config = {}
-        #more_actions_config['actions'] = []
+        more_actions_config['actions'] = []
         #more_actions_config['actions'] = ['sample_merged']
-        more_actions_config['actions'] = ['merge','sample_merged','norm_sampled_merged']
+        #more_actions_config['actions'] = ['merge','sample_merged','norm_sampled_merged']
         more_actions_config['sample_num'] = 8192
         for fn in file_list:
             with h5py.File(fn,'r') as f:
@@ -110,26 +119,29 @@ class Scannet_Prepare():
 
     def ShowFileSummary(self):
         file_name = self.rawh5f_dir_base+ '/scan_0.rh5'
-        #file_name = self.sorted_path_stride_0d5_step_0d5 + '/scan_0.sh5'
-        file_name = self.sorted_path_stride_1_step_2 + '/scan_0.sh5'
-        file_name = self.sorted_path_stride_1_step_2_8192  + '/scan_0.rsh5'
-        file_name = self.sorted_path_stride_1_step_2_8192_norm  + '/scan_0.nh5'
+        file_name = self.sorted_path_stride_0d5_step_0d5 + '/test_small_scan_0.sh5'
+       # file_name = self.sorted_path_stride_1_step_2 + '/scan_0.sh5'
+       # file_name = self.sorted_path_stride_1_step_2_8192  + '/scan_0.rsh5'
+       # file_name = self.sorted_path_stride_1_step_2_8192_norm  + '/scan_0.nh5'
         with h5py.File(file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
 
 if __name__ == '__main__':
+        t0 = time.time()
     #try:
+        #split = 'train'
         split = 'test_small'
         scanet_prep = Scannet_Prepare(split)
 
-       # scanet_prep.Load_Raw_Scannet_Pickle()
-       # scanet_prep.SortRaw()
-       # scanet_prep.MergeSampleNorm()
+        #scanet_prep.Load_Raw_Scannet_Pickle()
+        scanet_prep.SortRaw()
+        #scanet_prep.MergeSampleNorm()
         #scanet_prep.SampleNorm()
-        scanet_prep.Norm()
-        scanet_prep.ShowFileSummary()
+        #scanet_prep.Norm()
+        #scanet_prep.ShowFileSummary()
 #    except:
 #        type, value, tb = sys.exc_info()
 #        traceback.print_exc()
 #        pdb.post_mortem(tb)
-
+        print('split = %s'%(split))
+        print('T = %f sec'%(time.time()-t0))

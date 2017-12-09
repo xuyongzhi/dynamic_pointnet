@@ -928,6 +928,76 @@ class Sorted_H5f():
                                             gen_norm=Is_gen_norm,gen_obj = Is_gen_obj)
 
 
+def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
+    '''
+    split th ewhole scene to space sorted small blocks
+    The whole scene is a group. Each block is one dataset in the group.
+    The block attrs represents the field.
+    '''
+    print('start sorting file to blocks: %s'%file_name)
+    block_step = np.array( block_step_xyz )
+    print('block step = ',block_step)
+    Sort_RawH5f_Instance.row_num_limit = None
+
+    if not os.path.exists(Sort_RawH5f_Instance.out_folder):
+        os.makedirs(Sort_RawH5f_Instance.out_folder)
+    basefn = os.path.splitext(os.path.basename(file_name))[0]
+    blocked_file_name = os.path.join(Sort_RawH5f_Instance.out_folder,basefn)+'.sh5'
+    with h5py.File(blocked_file_name,'w') as h5f_blocked:
+        with h5py.File(file_name,'r') as h5_f:
+            Sort_RawH5f_Instance.raw_h5f = Raw_H5f(h5_f,file_name)
+            Sort_RawH5f_Instance.s_h5f = Sorted_H5f(h5f_blocked,blocked_file_name)
+
+            Sort_RawH5f_Instance.s_h5f.copy_root_attrs_from_raw( Sort_RawH5f_Instance.raw_h5f.raw_h5f )
+            Sort_RawH5f_Instance.s_h5f.set_step_stride(block_step,block_step)
+
+            #Sort_RawH5f_Instance.row_num_limit = int(self.raw_h5f.total_row_N/1000)
+
+            row_step = GLOBAL_PARA.h5_num_row_1M*8
+            sorted_buf_dic = {}
+            raw_row_N = Sort_RawH5f_Instance.raw_h5f.xyz_dset.shape[0]
+
+            for k in range(0,raw_row_N,row_step):
+                end = min(k+row_step,raw_row_N)
+                _,data_name_list = Sort_RawH5f_Instance.raw_h5f.get_total_num_channels_name_list()
+                raw_buf = np.zeros((end-k,Sort_RawH5f_Instance.s_h5f.total_num_channels))
+                for dn in data_name_list:
+                    raw_buf[:,Sort_RawH5f_Instance.s_h5f.data_idxs[dn] ] = Sort_RawH5f_Instance.raw_h5f.raw_h5f[dn][k:end,:]
+                if Sort_RawH5f_Instance.s_h5f.IS_CHECK:
+                    if end < 16777215: # this is the largest int float32 can acurately present
+                        org_row_index = np.arange(k,end)
+                    else:
+                        org_row_index = -1
+                    raw_buf[:,Sort_RawH5f_Instance.s_h5f.data_idxs['org_row_index'][0]] = org_row_index
+
+                sorted_buf_dic={}
+                Sort_RawH5f_Instance.sort_buf(raw_buf,k,sorted_buf_dic)
+
+                Sort_RawH5f_Instance.h5_write_buf(sorted_buf_dic)
+
+                if int(k/row_step) % 1 == 0:
+                    print('%%%.1f  line[ %d:%d ] block_N = %d'%(100.0*end/Sort_RawH5f_Instance.raw_h5f.total_row_N, k,end,len(sorted_buf_dic)))
+                     #print('line: [%d,%d] blocked   block_T=%f s, read_T=%f ms, cal_t = %f ms, write_t= %f ms'%\
+                           #(k,end,time.time()-t0_k,(t1_k-t0_k)*1000,(t2_1_k-t2_0_k)*1000, (t2_2_k-t2_1_k)*1000 ))
+                if hasattr(Sort_RawH5f_Instance,'row_num_limit') and Sort_RawH5f_Instance.row_num_limit!=None and  end>=Sort_RawH5f_Instance.row_num_limit:
+                #if k /row_step >3:
+                    print('break read at k= ',end)
+                    break
+
+            total_row_N,total_block_N = Sort_RawH5f_Instance.s_h5f.add_total_row_block_N()
+
+            if total_row_N != Sort_RawH5f_Instance.raw_h5f.total_row_N:
+                print('ERROR: blocked total_row_N= %d, raw = %d'%(total_row_N,Sort_RawH5f_Instance.raw_h5f.total_row_N))
+            print('total_block_N = ',total_block_N)
+
+            if Sort_RawH5f_Instance.s_h5f.IS_CHECK:
+                check = Sort_RawH5f_Instance.s_h5f.check_equal_to_raw(Sort_RawH5f_Instance.raw_h5f) & Sort_RawH5f_Instance.s_h5f.check_xyz_scope()
+                print('overall check of equal and scope:')
+                if check:
+                    print('both passed')
+                else:
+                    print('somewhere check failed')
+            #Sort_RawH5f_Instance.s_h5f.show_summary_info()
 class Sort_RawH5f():
     '''
     (1) Do sort: from "Raw_H5f" to "Sorted_H5f"
@@ -944,14 +1014,17 @@ class Sort_RawH5f():
         if not IsMulti:
             for fn in raw_file_list:
                 self.sort_to_blocks(fn,block_step_xyz)
+                #sort_to_blocks_onef(self,fn,block_step_xyz)
         else:
             #pool = mp.Pool( max(mp.cpu_count()/2,1) )
             print('cpu_count= ',mp.cpu_count())
-            pool = mp.Pool()
-            for fn in raw_file_list:
-                pool.apply_async(self.sort_to_blocks(fn,block_step_xyz))
+            pool = mp.Pool(processes=4)
+            for i,fn in enumerate(raw_file_list):
+                pool.apply_async(sort_to_blocks_onef,(self,fn,block_step_xyz,))
+                print('apply_async %d  fn=%s'%(i,fn))
             pool.close()
             pool.join()
+
 
     def sort_to_blocks(self,file_name,block_step_xyz=[1,1,1]):
         '''
@@ -1023,6 +1096,7 @@ class Sort_RawH5f():
                     else:
                         print('somewhere check failed')
                 #self.s_h5f.show_summary_info()
+        print('sorted OK: %s'%(blocked_file_name))
 
     def sort_buf(self,raw_buf,buf_start_k,sorted_buf_dic):
         #t0 = time.time()
