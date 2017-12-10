@@ -17,6 +17,13 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 - [ ] 3D learning on large scale scene: large block size
 
 
+# Literature Review
+* region mask fusion in MaskRCNN 
+
+
+
+
+
 
 Update with https://github.com/charlesq34/pointnet2/commits/master 
 Nov 10, 2017  
