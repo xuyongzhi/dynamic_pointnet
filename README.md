@@ -17,14 +17,19 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 - [ ] 3D learning on large scale scene: large block size
 
 
-# Literature Review
-* region mask fusion in MaskRCNN 
+# Literature Review problems and ideas
+* What is the approach of region mask fusion in MaskRCNN.
+* Fusion of voxelnet and PointNet:
+  VoxelNet advantage: voxel feature encoder learns the voxel feature iteratively and many times. But PointNet only lears once.
+           disadvantage: voxel size is very small, one point can never learn larger scale shape information. But the PointNet block size is much larger.
+  -> Generate voxel within a block after feature encoder of PointNet, instead of from the whole scene.
+  -> Then feed the voxel to RPN.
 
 
 
 
 
-
+# From Charles R. Qi
 Update with https://github.com/charlesq34/pointnet2/commits/master 
 Nov 10, 2017  
 ec22300f87411c8896cd2d13fd6f2ebd7ad37e10
