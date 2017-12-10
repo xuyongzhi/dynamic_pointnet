@@ -76,6 +76,7 @@ class Net_Provider():
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + norm_h5f.data_set.shape[0]
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
+            print(i)
 
         self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
         if train_file_N > 0:
@@ -115,8 +116,10 @@ class Net_Provider():
         self.data_summary_str += 'test label histogram: %s \n'%( np.array_str(self.test_label_hist_1norm) )
         self.data_summary_str += 'label histogram: %s \n'%( np.array_str(self.label_hist_1norm) )
 
-    def get_all_file_name_list(self,dataset_name,all_filename_glob):
-        all_file_list  = glob.glob( os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'*.nh5') )
+    def get_all_file_name_list(self,dataset_name,all_filename_globs):
+        all_file_list = []
+        for all_filename_glob in all_filename_globs:
+            all_file_list  += glob.glob( os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'*.nh5') )
         return all_file_list
 
     def split_train_eval_file_list(self,all_file_list,eval_fnglob_or_rate=None):

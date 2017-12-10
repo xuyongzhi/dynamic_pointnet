@@ -1257,8 +1257,22 @@ class Normed_H5f():
         # - label channel
         # - org_row_index when sortedh5f IS_CHECK=True
         rawdata_num_channels = raw_channels -1 - sortedh5f_IS_CHECK
+        normed_data_num_channels = rawdata_num_channels + 6 # xyz_midnorm, xyz_1norm
+        self.create_3dsets(normed_data_num_channels)
 
-        self.create_3dsets(rawdata_num_channels)
+    def copy_root_attrs_from_normed(self,h5f_normed):
+        attrs=['datasource_name','element_names','total_block_N',
+               'xyz_max','xyz_min','xyz_max_aligned','xyz_min_aligned','xyz_scope_aligned',
+               'block_step','block_stride','block_dims_N','total_row_N']
+        for attr in attrs:
+            if attr in h5f_normed.attrs:
+                self.h5f.attrs[attr] = h5f_normed.attrs[attr]
+
+        normed_data_shape = h5f_normed['data'].shape
+        sample_num = normed_data_shape[1]
+        normed_data_num_channels  = normed_data_shape[2]
+        self.h5f.attrs['sample_num'] = sample_num
+        self.create_3dsets(normed_data_num_channels)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
@@ -1299,12 +1313,11 @@ class Normed_H5f():
                 data_ele_idxs[e] = idx
         return data_ele_idxs
 
-    def create_3dsets(self,rawdata_num_channels):
+    def create_3dsets(self,normed_data_num_channels):
         chunks_n = 1
         total_block_N = self.h5f.attrs['total_block_N']
         sample_num = self.h5f.attrs['sample_num']
 
-        normed_data_num_channels = rawdata_num_channels + 6 # xyz_midnorm, xyz_1norm
         data_set = self.h5f.create_dataset( 'data',shape=(total_block_N,sample_num,normed_data_num_channels),\
                 maxshape=(None,sample_num,normed_data_num_channels),dtype=np.float32,compression="gzip",\
                 chunks = (chunks_n,sample_num,normed_data_num_channels)  )
@@ -1631,6 +1644,23 @@ class Normed_H5f():
                      print('gen correct obj file (%d,%f),: \n%s '%(correct_num,1.0*correct_num/pred_num,correct_obj_fn) )
                 print('gen dif obj file: ',pred_obj_fn)
                 print('cut roof ponit num = %d, xyz_cut_rate = %s'%(cut_num,str(xyz_cut_rate)) )
+
+
+def MergeNormed_H5f(in_filename_ls,merged_filename):
+    with h5py.File(merged_filename,'w') as merged_h5f:
+        for k,fn in enumerate(in_filename_ls):
+
+            print('merging %s'%(fn))
+            with h5py.File(fn,'r') as in_h5f:
+                if k == 0:
+                    merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
+                    merged_normed_h5f.copy_root_attrs_from_normed(in_h5f)
+
+                in_normed_h5f = Normed_H5f(in_h5f,fn)
+                merged_normed_h5f.append_to_dset('data',in_normed_h5f.data_set)
+                merged_normed_h5f.append_to_dset('label',in_normed_h5f.label_set)
+        merged_normed_h5f.create_done()
+        print('merged h5f OK: %s'%(merged_filename))
 
 def Write_all_file_accuracies(normed_h5f_file_list=None,out_path=None,pre_out_fn=''):
     if normed_h5f_file_list == None:

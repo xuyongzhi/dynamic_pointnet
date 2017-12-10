@@ -8,16 +8,16 @@
 train_script=train_semseg_sorted.py
 #dataset_name=stanford_indoor
 dataset_name=scannet
-baselogname=tmp
+baselogname=log
 
-b32_xyz1norm="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz_1norm --learning_rate 0.001 --log_dir $baselogname"
-b32_xyzmidnorm="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz_midnorm --learning_rate 0.001 --log_dir $baselogname"
-b32_xyz="python $train_script --max_epoch 50 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz --learning_rate 0.001 --log_dir $baselogname"
+b32_xyz1norm="python $train_script --max_epoch 30 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz_1norm --learning_rate 0.001 --log_dir $baselogname"
+b32_xyzmidnorm="python $train_script --max_epoch 30 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz_midnorm --learning_rate 0.001 --log_dir $baselogname"
+b32_xyz="python $train_script --max_epoch 30 --batch_size 32 --num_point 8192  --dataset_name $dataset_name --feed_elements xyz --learning_rate 0.001 --log_dir $baselogname"
 
 
 #$b32_xyz
-$b32_xyz1norm
+#$b32_xyz1norm
 
 
-#./parallel_commands "$b32_xyz1norm" "$b32_xyzmidnorm"
+./parallel_commands "$b32_xyz1norm" "$b32_xyzmidnorm" "$b32_xyz"
 

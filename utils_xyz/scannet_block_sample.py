@@ -1,11 +1,11 @@
-# xyz
+#xyz
 from __future__ import print_function
 import pdb, traceback
 import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f
 import numpy as np
 import h5py
 import glob
@@ -32,6 +32,7 @@ class Scannet_Prepare():
         self.sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split
         self.sorted_path_stride_1_step_2_8192 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192'
         self.sorted_path_stride_1_step_2_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192_normed'
+        self.filename_stride_1_step_2_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192_normed.nh5'
         self.sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split
 
     def Load_Raw_Scannet_Pickle(self):
@@ -117,27 +118,36 @@ class Scannet_Prepare():
                 sorted_h5f = Sorted_H5f(f,fn)
                 sorted_h5f.file_normalization()
 
+    def MergeNormed(self):
+        file_list = glob.glob( os.path.join(self.sorted_path_stride_1_step_2_8192_norm,'*.nh5') )
+        merged_file_name = self.filename_stride_1_step_2_8192_norm_merged
+        MergeNormed_H5f(file_list,merged_file_name)
+
+
+
     def ShowFileSummary(self):
         file_name = self.rawh5f_dir_base+ '/scan_0.rh5'
         file_name = self.sorted_path_stride_0d5_step_0d5 + '/test_small_scan_0.sh5'
        # file_name = self.sorted_path_stride_1_step_2 + '/scan_0.sh5'
        # file_name = self.sorted_path_stride_1_step_2_8192  + '/scan_0.rsh5'
-       # file_name = self.sorted_path_stride_1_step_2_8192_norm  + '/scan_0.nh5'
+        file_name = self.sorted_path_stride_1_step_2_8192_norm  + '/train_scan_992.nh5'
+        file_name = self.filename_stride_1_step_2_8192_norm_merged
         with h5py.File(file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
 
 if __name__ == '__main__':
         t0 = time.time()
     #try:
-        #split = 'train'
-        split = 'test_small'
+        split = 'train'
+        #split = 'test'
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
-        scanet_prep.SortRaw()
+        #scanet_prep.SortRaw()
         #scanet_prep.MergeSampleNorm()
         #scanet_prep.SampleNorm()
         #scanet_prep.Norm()
+        scanet_prep.MergeNormed()
         #scanet_prep.ShowFileSummary()
 #    except:
 #        type, value, tb = sys.exc_info()

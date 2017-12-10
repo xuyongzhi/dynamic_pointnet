@@ -6,15 +6,15 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 - [ ] Modify pointnet to dense net architecture
 - [ ] Multi-architecture based on pyramid pooling
 - [ ] Be difficulty-aware
+- [ ] Compare pyramid and stacked feature encodering
 
 ### Sampling optimization plans
 - [ ] Dynamic pooling based on previous prediction
 
 
-### Util optimization plans
-- [ ] Add only evaluate
-- [ ] Transfer the visulization funcions in block_data_prep_util.py to get_dataset.py
-
+### Items to be improved
+- [ ] Each box use fix number points
+- [ ] 3D learning on large scale scene: large block size
 
 
 
