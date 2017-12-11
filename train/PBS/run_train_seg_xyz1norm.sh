@@ -5,7 +5,7 @@
 # scannet 8192 b32: GPU 6000 MB; CPU 3G
 #***********
 
-train_script=train_semseg_sorted.py
+train_script=../train_semseg_sorted.py
 #dataset_name=stanford_indoor
 dataset_name=scannet
 baselogname=log
