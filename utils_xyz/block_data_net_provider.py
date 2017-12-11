@@ -76,7 +76,6 @@ class Net_Provider():
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + norm_h5f.data_set.shape[0]
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
-            print(i)
 
         self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
         if train_file_N > 0:
@@ -284,8 +283,12 @@ class Net_Provider():
         assert(train_start_batch_idx>=0 and train_start_batch_idx<self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<self.train_num_blocks)
         # all train files are before eval files
-        g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
-        return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+        IsShuffleIdx = True
+        if IsShuffleIdx:
+            g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+        else:
+            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<self.eval_num_blocks)

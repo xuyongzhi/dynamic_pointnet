@@ -21,6 +21,7 @@ import provider
 import get_dataset
 from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
+import multiprocessing as mp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
@@ -135,7 +136,7 @@ def get_bn_decay(batch):
     bn_decay = tf.minimum(BN_DECAY_CLIP, 1 - bn_momentum)
     return bn_decay
 
-def train():
+def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
             pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS)
@@ -209,13 +210,15 @@ def train():
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
+            if train_feed_buf_q == None:
+                net_provider.update_train_eval_shuffled_idx()
             if not FLAGS.only_evaluate:
-                train_log_str = train_one_epoch(sess, ops, train_writer,epoch)
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q)
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
-            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch)
+            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
@@ -225,6 +228,7 @@ def train():
 
             if epoch == MAX_EPOCH -1:
                 LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
+
 
 
 def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
@@ -246,7 +250,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,Simp
     log_string(log_str)
     return log_str
 
-def train_one_epoch(sess, ops, train_writer,epoch):
+def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
@@ -271,7 +275,14 @@ def train_one_epoch(sess, ops, train_writer,epoch):
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
 
-        cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+        if train_feed_buf_q == None:
+            cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+        else:
+            if train_feed_buf_q.qsize() == 0:
+                print('train_feed_buf_q.qsize == 0')
+                break
+            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf = train_feed_buf_q.get()
+            #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         t1 = time.time()
         if type(cur_data) == type(None):
@@ -296,7 +307,7 @@ def train_one_epoch(sess, ops, train_writer,epoch):
             os.system('nvidia-smi')
     return add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
-def eval_one_epoch(sess, ops, test_writer, epoch):
+def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     """ ops: dict mapping from string to tf ops """
     is_training = False
     total_seen = 0.00001
@@ -321,7 +332,16 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
-        cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+
+        if eval_feed_buf_q == None:
+            cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+        else:
+            if eval_feed_buf_q.qsize() == 0:
+                print('eval_feed_buf_q.qsize == 0')
+                break
+            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
+            #assert batch_idx == batch_idx_buf and epoch== epoch_buf
+
         t1 = time.time()
         if type(cur_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
@@ -352,15 +372,92 @@ def eval_one_epoch(sess, ops, test_writer, epoch):
 
     return add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
+
+def add_train_feed_buf(train_feed_buf_q):
+    max_buf_size = 20
+    num_blocks = net_provider.train_num_blocks
+    if num_blocks!=None:
+        num_batches = num_blocks // BATCH_SIZE
+    else:
+        num_batches = None
+
+    epoch_start = 0
+    if FLAGS.finetune:
+        epoch_start+=(FLAGS.model_epoch+1)
+    for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+        net_provider.update_train_eval_shuffled_idx()
+        batch_idx = -1
+        while (batch_idx < num_batches-1) or (num_batches==None):
+            if train_feed_buf_q.qsize() < max_buf_size:
+                batch_idx += 1
+                start_idx = batch_idx * BATCH_SIZE
+                end_idx = (batch_idx+1) * BATCH_SIZE
+                cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+                train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                if type(cur_data) == type(None):
+                    print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+                    break # all data reading finished
+            else:
+                time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
+        print('add_train_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+
+def add_eval_feed_buf(eval_feed_buf_q):
+    max_buf_size = 20
+    num_blocks = net_provider.eval_num_blocks
+    if num_blocks!=None:
+        num_batches = num_blocks // BATCH_SIZE
+    else:
+        num_batches = None
+
+    epoch_start = 0
+    if FLAGS.finetune:
+        epoch_start+=(FLAGS.model_epoch+1)
+    for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+        batch_idx = -1
+        while (batch_idx < num_batches-1) or (num_batches==None):
+            if eval_feed_buf_q.qsize() < max_buf_size:
+                batch_idx += 1
+                start_idx = batch_idx * BATCH_SIZE
+                end_idx = (batch_idx+1) * BATCH_SIZE
+                cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+                eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                if type(cur_data) == type(None):
+                    print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+                    break # all data reading finished
+            else:
+                time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
+        print('add_eval_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+
+
+def main():
+    IsFeedData_MultiProcessing = True
+
+    if IsFeedData_MultiProcessing:
+        train_feed_buf_q = mp.Queue()
+        eval_feed_buf_q = mp.Queue()
+
+        processes = {}
+        processes[ 'add_train_buf'] = mp.Process(target=add_train_feed_buf,args=(train_feed_buf_q,))
+        processes[ 'add_eval_buf'] = mp.Process(target=add_eval_feed_buf,args=(eval_feed_buf_q,))
+        processes[ 'train_eval'] = mp.Process(target=train_eval,args=(train_feed_buf_q,eval_feed_buf_q,))
+
+        for p in processes:
+            processes[p].start()
+        for p in processes:
+            processes[p].join()
+    else:
+        train_eval(None,None)
+
 if __name__ == "__main__":
     if FLAGS.auto_break:
         try:
-            train()
+            main()
             LOG_FOUT.close()
         except:
             type, value, tb = sys.exc_info()
             traceback.print_exc()
             pdb.post_mortem(tb)
     else:
-        train()
+        main()
+        #train_eval(None,None)
         LOG_FOUT.close()
