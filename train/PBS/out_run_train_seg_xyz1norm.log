@@ -1,0 +1,185 @@
+FLAGS.eval_fnglob_or_rate is eval name glob. log_eval_fn_glob:test
+
+train file list (n=1) = 
+['/short/dh01/yx2146/dynamic_pointnet/data/scannet_data/stride_1_step_2_8192_normed/stride_1_step_2_train_8192_normed.nh5']
+
+eval file list (n=1) = 
+['/short/dh01/yx2146/dynamic_pointnet/data/scannet_data/stride_1_step_2_8192_normed/stride_1_step_2_test_8192_normed.nh5']
+
+
+0
+1
+scannet 
+feed_elements:['xyz_midnorm'] 
+train data shape: [40772, 8192, 3] 
+test data shape: [11018, 8192, 3] 
+train label histogram: [ 0.08308993  0.3713883   0.29762239  0.04287267  0.02625944  0.01428549
+  0.02068561  0.01437794  0.02554907  0.00327421  0.00337669  0.00225876
+  0.01075749  0.00593325  0.02081025  0.00804079  0.00121569  0.00336879
+  0.00303223  0.02115446  0.02064655] 
+test label histogram: [ 0.09326914  0.36998622  0.28436612  0.04810509  0.0321707   0.01362662
+  0.01656143  0.01365813  0.0249164   0.00297895  0.00195792  0.00211443
+  0.0055148   0.0067636   0.01893935  0.00536592  0.00075753  0.00328641
+  0.0015343   0.02340228  0.03072467] 
+label histogram: [ 0.08525549  0.37109002  0.2948022   0.04398583  0.02751703  0.01414532
+  0.01980821  0.01422481  0.02541447  0.0032114   0.00307486  0.00222805
+  0.00964214  0.0061099   0.02041222  0.00747173  0.00111822  0.00335126
+  0.00271355  0.02163267  0.02279061] 
+
+**** EPOCH 000 ****
+Mon Dec 11 13:49:58 2017       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 384.81                 Driver Version: 384.81                    |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Tesla P100-SXM2...  On   | 00000000:85:00.0 Off |                    0 |
+| N/A   36C    P0    49W / 300W |   8621MiB / 16276MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|=============================================================================|
+|    0     31375      C   python                                      8609MiB |
++-----------------------------------------------------------------------------+
+('total batch num = ', 849)
+train [0 - 0] 	 t_block(d,c):[51.3 117.7]	loss: 10.837 	acc: 0.045
+train [0 - 10] 	 t_block(d,c):[42.5 98.0]	loss: 8.744 	acc: 0.320
+train [0 - 20] 	 t_block(d,c):[39.4 96.6]	loss: 7.816 	acc: 0.451
+train [0 - 30] 	 t_block(d,c):[36.0 96.3]	loss: 7.245 	acc: 0.510
+train [0 - 40] 	 t_block(d,c):[33.4 96.2]	loss: 6.914 	acc: 0.541
+train [0 - 50] 	 t_block(d,c):[31.2 96.1]	loss: 6.726 	acc: 0.558
+train [0 - 60] 	 t_block(d,c):[29.7 95.9]	loss: 6.624 	acc: 0.564
+train [0 - 70] 	 t_block(d,c):[28.5 96.0]	loss: 6.494 	acc: 0.574
+train [0 - 80] 	 t_block(d,c):[27.7 95.9]	loss: 6.418 	acc: 0.582
+train [0 - 90] 	 t_block(d,c):[26.9 95.8]	loss: 6.361 	acc: 0.586
+train [0 - 100] 	 t_block(d,c):[26.2 95.8]	loss: 6.265 	acc: 0.592
+train [0 - 110] 	 t_block(d,c):[25.8 95.7]	loss: 6.188 	acc: 0.597
+train [0 - 120] 	 t_block(d,c):[25.5 95.9]	loss: 6.129 	acc: 0.601
+train [0 - 130] 	 t_block(d,c):[25.3 96.1]	loss: 6.102 	acc: 0.604
+train [0 - 140] 	 t_block(d,c):[25.3 96.2]	loss: 6.075 	acc: 0.606
+train [0 - 150] 	 t_block(d,c):[25.1 96.3]	loss: 6.056 	acc: 0.608
+train [0 - 160] 	 t_block(d,c):[25.0 96.5]	loss: 6.002 	acc: 0.612
+train [0 - 170] 	 t_block(d,c):[24.9 96.6]	loss: 5.944 	acc: 0.615
+train [0 - 180] 	 t_block(d,c):[24.8 96.5]	loss: 5.894 	acc: 0.619
+train [0 - 190] 	 t_block(d,c):[24.7 96.4]	loss: 5.875 	acc: 0.621
+train [0 - 200] 	 t_block(d,c):[24.6 96.3]	loss: 5.842 	acc: 0.623
+train [0 - 210] 	 t_block(d,c):[24.6 96.3]	loss: 5.807 	acc: 0.625
+train [0 - 220] 	 t_block(d,c):[24.6 96.2]	loss: 5.775 	acc: 0.627
+train [0 - 230] 	 t_block(d,c):[24.6 96.2]	loss: 5.755 	acc: 0.629
+train [0 - 240] 	 t_block(d,c):[24.5 96.1]	loss: 5.735 	acc: 0.630
+train [0 - 250] 	 t_block(d,c):[24.5 96.1]	loss: 5.709 	acc: 0.632
+train [0 - 260] 	 t_block(d,c):[24.4 96.1]	loss: 5.669 	acc: 0.635
+train [0 - 270] 	 t_block(d,c):[24.4 96.0]	loss: 5.638 	acc: 0.637
+train [0 - 280] 	 t_block(d,c):[24.4 96.0]	loss: 5.627 	acc: 0.638
+train [0 - 290] 	 t_block(d,c):[24.3 96.0]	loss: 5.624 	acc: 0.638
+train [0 - 300] 	 t_block(d,c):[24.4 96.0]	loss: 5.602 	acc: 0.640
+train [0 - 310] 	 t_block(d,c):[24.2 96.0]	loss: 5.579 	acc: 0.641
+train [0 - 320] 	 t_block(d,c):[24.2 96.0]	loss: 5.558 	acc: 0.642
+train [0 - 330] 	 t_block(d,c):[24.1 95.9]	loss: 5.534 	acc: 0.644
+train [0 - 340] 	 t_block(d,c):[24.0 95.9]	loss: 5.510 	acc: 0.645
+train [0 - 350] 	 t_block(d,c):[23.9 95.9]	loss: 5.487 	acc: 0.647
+train [0 - 360] 	 t_block(d,c):[23.8 95.9]	loss: 5.465 	acc: 0.648
+train [0 - 370] 	 t_block(d,c):[23.8 95.9]	loss: 5.445 	acc: 0.649
+train [0 - 380] 	 t_block(d,c):[23.7 95.9]	loss: 5.419 	acc: 0.651
+train [0 - 390] 	 t_block(d,c):[23.7 95.8]	loss: 5.399 	acc: 0.652
+train [0 - 400] 	 t_block(d,c):[23.6 95.8]	loss: 5.379 	acc: 0.653
+train [0 - 410] 	 t_block(d,c):[23.6 95.8]	loss: 5.356 	acc: 0.654
+train [0 - 420] 	 t_block(d,c):[23.6 95.8]	loss: 5.333 	acc: 0.656
+train [0 - 430] 	 t_block(d,c):[23.5 95.8]	loss: 5.315 	acc: 0.657
+train [0 - 440] 	 t_block(d,c):[23.6 95.8]	loss: 5.295 	acc: 0.658
+train [0 - 450] 	 t_block(d,c):[23.5 95.7]	loss: 5.280 	acc: 0.659
+train [0 - 460] 	 t_block(d,c):[23.6 95.7]	loss: 5.259 	acc: 0.660
+train [0 - 470] 	 t_block(d,c):[23.5 95.7]	loss: 5.245 	acc: 0.660
+train [0 - 480] 	 t_block(d,c):[23.6 95.7]	loss: 5.234 	acc: 0.661
+train [0 - 490] 	 t_block(d,c):[23.5 95.7]	loss: 5.214 	acc: 0.662
+train [0 - 500] 	 t_block(d,c):[23.5 95.7]	loss: 5.196 	acc: 0.663
+train [0 - 510] 	 t_block(d,c):[23.5 95.7]	loss: 5.182 	acc: 0.663
+train [0 - 520] 	 t_block(d,c):[23.6 95.7]	loss: 5.175 	acc: 0.664
+train [0 - 530] 	 t_block(d,c):[23.6 95.7]	loss: 5.163 	acc: 0.665
+train [0 - 540] 	 t_block(d,c):[23.6 95.6]	loss: 5.147 	acc: 0.666
+train [0 - 550] 	 t_block(d,c):[23.6 95.6]	loss: 5.138 	acc: 0.666
+train [0 - 560] 	 t_block(d,c):[23.6 95.6]	loss: 5.122 	acc: 0.667
+train [0 - 570] 	 t_block(d,c):[23.6 95.6]	loss: 5.110 	acc: 0.668
+train [0 - 580] 	 t_block(d,c):[23.6 95.6]	loss: 5.098 	acc: 0.669
+train [0 - 590] 	 t_block(d,c):[23.6 95.6]	loss: 5.082 	acc: 0.670
+train [0 - 600] 	 t_block(d,c):[23.6 95.6]	loss: 5.066 	acc: 0.671
+train [0 - 610] 	 t_block(d,c):[23.6 95.6]	loss: 5.056 	acc: 0.671
+train [0 - 620] 	 t_block(d,c):[23.5 95.6]	loss: 5.042 	acc: 0.672
+train [0 - 630] 	 t_block(d,c):[23.5 95.6]	loss: 5.027 	acc: 0.673
+train [0 - 640] 	 t_block(d,c):[23.5 95.6]	loss: 5.016 	acc: 0.673
+train [0 - 650] 	 t_block(d,c):[23.5 95.6]	loss: 5.004 	acc: 0.674
+train [0 - 660] 	 t_block(d,c):[23.5 95.6]	loss: 4.994 	acc: 0.675
+train [0 - 670] 	 t_block(d,c):[23.5 95.5]	loss: 4.979 	acc: 0.675
+train [0 - 680] 	 t_block(d,c):[23.4 95.5]	loss: 4.972 	acc: 0.676
+train [0 - 690] 	 t_block(d,c):[23.4 95.6]	loss: 4.962 	acc: 0.676
+train [0 - 700] 	 t_block(d,c):[23.4 95.6]	loss: 4.951 	acc: 0.677
+train [0 - 710] 	 t_block(d,c):[23.4 95.6]	loss: 4.945 	acc: 0.678
+train [0 - 720] 	 t_block(d,c):[23.3 95.5]	loss: 4.932 	acc: 0.678
+train [0 - 730] 	 t_block(d,c):[23.3 95.6]	loss: 4.921 	acc: 0.679
+train [0 - 740] 	 t_block(d,c):[23.3 95.6]	loss: 4.913 	acc: 0.679
+train [0 - 750] 	 t_block(d,c):[23.3 95.5]	loss: 4.905 	acc: 0.680
+train [0 - 760] 	 t_block(d,c):[23.2 95.5]	loss: 4.896 	acc: 0.680
+train [0 - 770] 	 t_block(d,c):[23.2 95.5]	loss: 4.888 	acc: 0.681
+train [0 - 780] 	 t_block(d,c):[23.3 95.5]	loss: 4.882 	acc: 0.681
+train [0 - 790] 	 t_block(d,c):[23.3 95.5]	loss: 4.870 	acc: 0.682
+train [0 - 800] 	 t_block(d,c):[23.3 95.5]	loss: 4.858 	acc: 0.682
+train [0 - 810] 	 t_block(d,c):[23.3 95.5]	loss: 4.850 	acc: 0.683
+train [0 - 820] 	 t_block(d,c):[23.3 95.5]	loss: 4.844 	acc: 0.683
+train [0 - 830] 	 t_block(d,c):[23.3 95.5]	loss: 4.835 	acc: 0.683
+train [0 - 840] 	 t_block(d,c):[23.3 95.5]	loss: 4.825 	acc: 0.684
+train [0 - 848] 	 t_block(d,c):[23.3 95.5]	loss: 4.821 	acc: 0.684
+----
+eval [0 - 228] 	 t_block(d,c):[20.0 70.7]	loss: 4.022 	acc: 0.720
+**** EPOCH 001 ****
+Mon Dec 11 15:27:04 2017       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 384.81                 Driver Version: 384.81                    |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Tesla P100-SXM2...  On   | 00000000:85:00.0 Off |                    0 |
+| N/A   36C    P0    49W / 300W |   8621MiB / 16276MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|=============================================================================|
+|    0     31375      C   python                                      8609MiB |
++-----------------------------------------------------------------------------+
+('total batch num = ', 849)
+train [1 - 0] 	 t_block(d,c):[24.5 95.2]	loss: 4.242 	acc: 0.729
+train [1 - 100] 	 t_block(d,c):[23.7 95.4]	loss: 4.034 	acc: 0.721
+train [1 - 200] 	 t_block(d,c):[23.1 95.5]	loss: 3.999 	acc: 0.726
+train [1 - 300] 	 t_block(d,c):[22.7 95.6]	loss: 3.997 	acc: 0.727
+train [1 - 400] 	 t_block(d,c):[22.6 95.5]	loss: 3.951 	acc: 0.729
+train [1 - 500] 	 t_block(d,c):[22.5 95.4]	loss: 3.918 	acc: 0.730
+train [1 - 600] 	 t_block(d,c):[22.5 95.4]	loss: 3.902 	acc: 0.731
+train [1 - 700] 	 t_block(d,c):[22.4 95.4]	loss: 3.882 	acc: 0.732
+train [1 - 800] 	 t_block(d,c):[22.2 95.4]	loss: 3.866 	acc: 0.732
+train [1 - 848] 	 t_block(d,c):[22.3 95.5]	loss: 3.862 	acc: 0.732
+----
+eval [1 - 228] 	 t_block(d,c):[18.9 72.4]	loss: 3.754 	acc: 0.740
+Model saved in file: model.ckpt-1
+**** EPOCH 002 ****
+Mon Dec 11 17:04:03 2017       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 384.81                 Driver Version: 384.81                    |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Tesla P100-SXM2...  On   | 00000000:85:00.0 Off |                    0 |
+| N/A   36C    P0    49W / 300W |   8621MiB / 16276MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|=============================================================================|
+|    0     31375      C   python                                      8609MiB |
++-----------------------------------------------------------------------------+

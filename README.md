@@ -1,6 +1,8 @@
 # pointnet with dynamic sampling, pyramid multiscale architecture and difficulty aware abilities
-created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
+created by benz, xyz based on fork of Pointnet++
 
+### Urgent codeing issues to be fixed
+- [ ] The data preparation time cost is too high. 20 ms each block on NCI. Learning is also to slow, 100 ms.
 
 ### Model optimization plans
 - [ ] Modify pointnet to dense net architecture
@@ -12,9 +14,31 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
 - [ ] Dynamic pooling based on previous prediction
 
 
-### Items to be improved
+### Performace items to be improved
 - [ ] Each box use fix number points
 - [ ] 3D learning on large scale scene: large block size
+
+
+# The main workflow of our 3D instance segmentation network
+* split scene to block [2,2,-1] m
+* sample block to 8192 points. 
+  Output: [b,8192,6]
+* (PFE) point feature encoder: learn the feature of each point with { [1x1 conv]x2 -> block maxpooling -> concatenate to each point } x 5.
+  Output: [b,8192,512]
+* group to voxel [0.2,0.2,0.2]m, num point = 8
+  Output: [b,1000,8,512]
+* (VFE) feed each voxel to voxel feature encoder: { [8x1 conv] }
+  Out: [b,1000,512]
+* (3DRPN)get object regions from voxels by 3D RPN
+* Do semantic segmentation within each region
+* Back inference voxel label to each point within a voxel
+
+## PFE
+1. Stacked PFE architecture
+   just as PointNet++
+2. Pyramid PFE architecture
+   Assume the first point feature encoder is deep enough. Use pyramid pooling to get multi-scale features.
+   Unlike PointNet++ where block feature is only concatenated once, it can be conatenated iteratively like VoxelNet.
 
 
 # Literature Review problems and ideas
@@ -24,7 +48,10 @@ created by xyz  y.xu@student.unsw.edu.au based on fork of Pointnet++
            disadvantage: voxel size is very small, one point can never learn larger scale shape information. But the PointNet block size is much larger.
   -> Generate voxel within a block after feature encoder of PointNet, instead of from the whole scene.
   -> Then feed the voxel to RPN.
-
+* I believe Deformable convolution may be significantly useful for 3D learning.
+  Actually, it is a dynamicaly sampling for convulutional locationsbased on learnt features. Theoretically, the learnt offset should be instance region proposal.
+  - Let deformabel convolution automatically sample dense in difficult area and sparse in easy area.
+  - Or just use deformabel convolution to make region proposal of difficult area. Beacuse the shape of difficult area can definitely be replaced by a box. This technique may be useful.
 
 
 
