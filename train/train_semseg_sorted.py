@@ -219,7 +219,7 @@ def train():
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 4 == 0) or epoch == MAX_EPOCH-1:
+                if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 

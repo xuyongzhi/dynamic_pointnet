@@ -19,4 +19,4 @@ b48_xyz="python $train_script --feed_elements xyz --max_epoch $maxepoch --batch_
 
 
 #./parallel_commands "$b48_xyz1norm"
-
+$b48_xyzmidnorm

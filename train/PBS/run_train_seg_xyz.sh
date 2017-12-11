@@ -18,5 +18,6 @@ b48_xyzmidnorm="python $train_script --feed_elements xyz_midnorm --max_epoch $ma
 b48_xyz="python $train_script --feed_elements xyz --max_epoch $maxepoch --batch_size $batchsize --num_point $numpoint  --dataset_name $dataset_name --log_dir $baselogname"
 
 
+$b48_xyz
 #./parallel_commands "$b48_xyz1norm"
 

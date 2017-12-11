@@ -18,4 +18,4 @@ module load  tensorflow/1.2.1-cudnn6.0-python2.7
 source /home/561/yx2146/scripts/set_env.sh
 module list
  
-./run_train_seg_xyz.sh -> out_run_train_seg_xyz.log
+./run_train_seg_xyz1norm.sh -> out_run_train_seg_xyz1norm.log
