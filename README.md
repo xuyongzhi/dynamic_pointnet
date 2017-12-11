@@ -24,11 +24,11 @@ created by benz, xyz based on fork of Pointnet++
 * sample block to 8192 points. 
   Output: [b,8192,6]
 * (PFE) point feature encoder: learn the feature of each point with { [1x1 conv]x2 -> block maxpooling -> concatenate to each point } x 5.
-  Output: [b,8192,512]
+  Output: [b,8192,512]   --output: mf = multiscale feature in block
 * group to voxel [0.2,0.2,0.2]m, num point = 8
   Output: [b,1000,8,512]
 * (VFE) feed each voxel to voxel feature encoder: { [8x1 conv] }
-  Out: [b,1000,512]
+  Out: [b,1000,512]   --output: vf = voxel feature 
 * (3DRPN)get object regions from voxels by 3D RPN
 * Do semantic segmentation within each region
 * Back inference voxel label to each point within a voxel
