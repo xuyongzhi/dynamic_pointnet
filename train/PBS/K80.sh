@@ -16,7 +16,7 @@
 
 module load  tensorflow/1.2.1-cudnn6.0-python2.7
 #module load tensorflow/1.3.1-cudnn6.0-python2.7
-source /home/561/yx2146/scripts/set_env.sh
+#source /home/561/yx2146/scripts/set_env.sh
 module list
  
 ./run_train_seg_b32_both.sh > out_sem_seg_b32_both.log
