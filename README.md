@@ -52,6 +52,8 @@ created by benz, xyz based on fork of Pointnet++
   Actually, it is a dynamicaly sampling for convulutional locationsbased on learnt features. Theoretically, the learnt offset should be instance region proposal.
   - Let deformabel convolution automatically sample dense in difficult area and sparse in easy area.
   - Or just use deformabel convolution to make region proposal of difficult area. Beacuse the shape of difficult area can definitely be replaced by a box. This technique may be useful.
+ 
+* One feasible idea is to combine the VoxNet and Frustum idea, use the VoxNet method to generate the region proposals and use the Frustum idea to refine the 3D boxes.
 
 
 
