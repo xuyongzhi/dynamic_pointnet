@@ -374,7 +374,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
 
 def add_train_feed_buf(train_feed_buf_q):
-    max_buf_size = 20
+    max_buf_size = 10
     num_blocks = net_provider.train_num_blocks
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
@@ -402,7 +402,7 @@ def add_train_feed_buf(train_feed_buf_q):
         print('add_train_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
 
 def add_eval_feed_buf(eval_feed_buf_q):
-    max_buf_size = 20
+    max_buf_size = 10
     num_blocks = net_provider.eval_num_blocks
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
