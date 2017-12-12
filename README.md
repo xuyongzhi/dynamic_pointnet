@@ -55,6 +55,7 @@ created by benz, xyz based on fork of Pointnet++
  
 * One feasible idea is to combine the VoxNet and Frustum idea, use the VoxNet method to generate the region proposals and use the Frustum idea to refine the 3D boxes.
 
+* Making region proposals directly based semantic sementation points, then, downsampling the semantic points, predict a proposals on every downsampled point. The refine network is used to achieve more accurate classification and boxing estimation. Also try do sematic feature predict and instance predict togother.
 
 
 
