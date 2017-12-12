@@ -10,13 +10,16 @@ train_script=../train_semseg_sorted.py
 dataset_name=scannet
 baselogname=log
 maxepoch=30
-batchsize=48
+batchsize=32
 numpoint=8192
 
 b48_xyz1norm="python $train_script --feed_elements xyz_1norm --max_epoch $maxepoch --batch_size $batchsize --num_point $numpoint  --dataset_name $dataset_name --log_dir $baselogname"
 b48_xyzmidnorm="python $train_script --feed_elements xyz_midnorm --max_epoch $maxepoch --batch_size $batchsize --num_point $numpoint  --dataset_name $dataset_name --log_dir $baselogname"
 b48_xyz="python $train_script --feed_elements xyz --max_epoch $maxepoch --batch_size $batchsize --num_point $numpoint  --dataset_name $dataset_name --log_dir $baselogname"
 
-$b48_xyz1norm
+
+b48_xyz1norm_FT="python $train_script --feed_elements xyz_1norm --max_epoch $maxepoch --batch_size $batchsize --num_point $numpoint  --dataset_name $dataset_name --log_dir $baselogname --finetune --model_epoch 5"
+
+$b48_xyz1norm_FT
 #./parallel_commands "$b48_xyz1norm"
 
