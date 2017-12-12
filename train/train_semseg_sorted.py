@@ -73,8 +73,8 @@ if FLAGS.only_evaluate:
 else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
-    FLAGS.log_dir = FLAGS.log_dir+log_eval_fn_glob+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name
+    FLAGS.log_dir = FLAGS.log_dir+'-B'+str(BATCH_SIZE)+'-'+\
+                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
 FLAGS.feed_elements = FLAGS.feed_elements.split(',')
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
