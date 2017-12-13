@@ -1647,6 +1647,9 @@ class Normed_H5f():
 
 
 def MergeNormed_H5f(in_filename_ls,merged_filename):
+    if len(in_filename_ls) == 0:
+        print('no .nh5 file in the list')
+        return
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
 
