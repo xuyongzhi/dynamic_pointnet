@@ -57,6 +57,8 @@ created by benz, xyz based on fork of Pointnet++
 
 * Making region proposals directly based semantic sementation points, then, downsampling the semantic points, predict a proposals on every downsampled point. The refine network is used to achieve more accurate classification and boxing estimation. Also try do sematic feature predict and instance predict togother.
 
+* Frustum is one way to generate 3D proposals from image detection results, there are some other ways, like enumerating all fixed 3D bounding boxes and projecting it into image, selecting the one with the hight IOU, then do refinement.
+
 
 
 # From Charles R. Qi
