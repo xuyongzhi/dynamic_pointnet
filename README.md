@@ -52,7 +52,12 @@ created by benz, xyz based on fork of Pointnet++
   Actually, it is a dynamicaly sampling for convulutional locationsbased on learnt features. Theoretically, the learnt offset should be instance region proposal.
   - Let deformabel convolution automatically sample dense in difficult area and sparse in easy area.
   - Or just use deformabel convolution to make region proposal of difficult area. Beacuse the shape of difficult area can definitely be replaced by a box. This technique may be useful.
+ 
+* One feasible idea is to combine the VoxNet and Frustum idea, use the VoxNet method to generate the region proposals and use the Frustum idea to refine the 3D boxes.
 
+* Making region proposals directly based semantic sementation points, then, downsampling the semantic points, predict a proposals on every downsampled point. The refine network is used to achieve more accurate classification and boxing estimation. Also try do sematic feature predict and instance predict togother.
+
+* Frustum is one way to generate 3D proposals from image detection results, there are some other ways, like enumerating all fixed 3D bounding boxes and projecting it into image, selecting the one with the hight IOU, then do refinement.
 
 
 
