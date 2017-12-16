@@ -50,12 +50,12 @@ created by benz, xyz based on fork of Pointnet++
 
 ## To-do-list
 - design the model architecture
-  -- set five layers of pointnet_sa_module
-  -- cancel pointnet_fp_module
-  -- adding one FC-layer to every of 1000 points to do classification and regression
+  - set five layers of pointnet_sa_module
+  - cancel pointnet_fp_module
+  - adding one FC-layer to every of 1000 points to do classification and regression
 - write the loss function
-  -- classification
-  -- regression
+  - classification
+  - regression
 - try to learn model with KITTI dataset
  
 
