@@ -45,6 +45,8 @@ created by benz, xyz based on fork of Pointnet++
 - Sampling whole point cloud into 45K points, output data: [batch, 45k, 4] (4=x,y,z,reflective) 
 - (PFE) point feature encoder: using pointnet_sa_module X 4 to do sampling and grouping operation (like convolutioanal neural network) to obtain downsmapled point cloud feature map, [batch, 1000, 512]
 - (3DRPN) do classification and 3D bounding box regression to every point. We can use the 3 anchors bounding box (orientation angle: 0, pi/4, pi/2), so classifiction result is [batch, 1000, 2x3], the regression results is [batch, 1000, 3x7] (7= x, y, z, l, h, w, \theta)
+-- every point is a proposl, every point has two branches, one for classification, one for bounding box regression
+
 ## To-do-list
 - do it step by step
 
