@@ -43,14 +43,21 @@ created by benz, xyz based on fork of Pointnet++
 # 3D object detection network
 ## Workflow
 - Sampling whole point cloud into 45K points, output data: [batch, 45k, 4] (4=x,y,z,reflective) 
-- (PFE) point feature encoder: using pointnet_sa_module X 4 to do sampling and grouping operation (like convolutioanal neural network) to obtain downsmapled point cloud feature map, [batch, 1000, 512]
+- (PFE) point feature encoder: using pointnet_sa_module x4 to do sampling and grouping operation (like convolutioanal neural network) to obtain downsmapled point cloud feature map, [batch, 1000, 512]
 - (3DRPN) do classification and 3D bounding box regression to every point. We can use the 3 anchors bounding box (orientation angle: 0, pi/4, pi/2), so classifiction result is [batch, 1000, 2x3], the regression results is [batch, 1000, 3x7] (7= x, y, z, l, h, w, \theta)
   - every point is a proposl, every point has two branches, one for classification, one for bounding box regression
+  - loss function consists of two part (classification and regression), the prediction bounding boxes whose IoU with ground truth is over a certain thresh is regarded as positive samples to train regression network, negative samples are ignore in regression training.
 
 ## To-do-list
-- do it step by step
-
-
+- design the model architecture
+  -- set five layers of pointnet_sa_module
+  -- cancel pointnet_fp_module
+  -- adding one FC-layer to every of 1000 points to do classification and regression
+- write the loss function
+  -- classification
+  -- regression
+- try to learn model with KITTI dataset
+ 
 
 # Literature Review problems and ideas
 * What is the approach of region mask fusion in MaskRCNN.
