@@ -22,7 +22,7 @@ created by benz, xyz based on fork of Pointnet++
 # The main workflow of our 3D instance segmentation network
 * split scene to block [2,2,-1] m
 * sample block to 8192 points. 
-  Output: [b,8192,6]
+  Output: [b,8192,6] (6=x,y,z,r,g,b)
 * (PFE) point feature encoder: learn the feature of each point with { [1x1 conv]x2 -> block maxpooling -> concatenate to each point } x 5.
   Output: [b,8192,512]   --output: mf = multiscale feature in block
 * group to voxel [0.2,0.2,0.2]m, num point = 8
@@ -32,6 +32,13 @@ created by benz, xyz based on fork of Pointnet++
 * (3DRPN)get object regions from voxels by 3D RPN
 * Do semantic segmentation within each region
 * Back inference voxel label to each point within a voxel
+
+# 3D object detection network
+## Workflow
+1. Sampling whole point cloud into 45K points, output data: [batch, 45k, 4] (4=x,y,z,reflective) 
+2. (PFE) point feature encoder: using pointnet_sa_module X 4 to do sampling and grouping operation (like convolutioanal neural network) to obtain downsmapled point cloud feature map, [batch, 1000, 512]
+3. (3DRPN) do classification and 3D bounding box regression to every point. We can use the 3 anchors bounding box (orientation angle: 0, \pi/4, \pi/2), so classifiction result is [batch, 1000, 2\times3], the regression results is [batch, 1000, 3\times7] (7=\bigvee x, \bigvee y, \bigvee z, \bigvee l, \bigvee h, \bigvee w, \bigvee	\theta)
+## To-do-list
 
 ## PFE
 1. Stacked PFE architecture
