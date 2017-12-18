@@ -430,7 +430,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
 
 
 def main():
-    IsFeedData_MultiProcessing = True
+    IsFeedData_MultiProcessing = False # True
 
     if IsFeedData_MultiProcessing:
         train_feed_buf_q = mp.Queue()
