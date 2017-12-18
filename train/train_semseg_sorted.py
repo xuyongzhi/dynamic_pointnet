@@ -23,6 +23,9 @@ from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 
+ISDEBUG = False
+ISSUMMARY = False
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
 parser.add_argument('--all_fn_globs', type=str,default='stride_1_step_2_8192_normed/',\
@@ -110,6 +113,8 @@ NUM_CHANNELS = net_provider.num_channels
 NUM_CLASSES = net_provider.num_classes
 
 START_TIME = time.time()
+
+
 
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
@@ -204,6 +209,16 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
         log_string(net_provider.data_summary_str)
 
+        if ISDEBUG:
+            builder = tf.profiler.ProfileOptionBuilder
+            opts = builder(builder.time_and_memory()).order_by('micros').build()
+            pctx =  tf.contrib.tfprof.ProfileContext('/tmp/train_dir',
+                                    trace_steps=[],
+                                    dump_steps=[])
+        else:
+            opts = None
+            pctx = None
+
         epoch_start = 0
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
@@ -213,7 +228,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             if train_feed_buf_q == None:
                 net_provider.update_train_eval_shuffled_idx()
             if not FLAGS.only_evaluate:
-                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q)
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts)
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
@@ -250,7 +265,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,Simp
     log_string(log_str)
     return log_str
 
-def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
+def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
@@ -269,6 +284,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
     batch_idx = -1
 
     t_batch_ls=[]
+    train_logstr = ''
     while (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
@@ -291,21 +307,34 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
                      ops['labels_pl']: cur_label,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights}
-        summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
-                                         feed_dict=feed_dict)
-        train_writer.add_summary(summary, step)
-        pred_val = np.argmax(pred_val, 2)
-        total_seen += (BATCH_SIZE*NUM_POINT)
-        loss_sum += loss_val
 
-        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
+        if ISDEBUG  and  epoch == 0 and batch_idx ==5:
+                pctx.trace_next_step()
+                pctx.dump_next_step()
+                summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
+                                            feed_dict=feed_dict)
+                pctx.profiler.profile_operations(options=opts)
+        else:
+            summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
+                                        feed_dict=feed_dict)
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
-        if (epoch == 0 and batch_idx % 10 ==0) or batch_idx%100==0:
-            add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+        if ISSUMMARY: train_writer.add_summary(summary, step)
+        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0:
+            pred_val = np.argmax(pred_val, 2)
+            loss_sum += loss_val
+            total_seen += (BATCH_SIZE*NUM_POINT)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
+
+            train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 100:
             os.system('nvidia-smi')
-    return add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+    return train_logstr
+
+def limit_eval_num_batches(epoch,num_batches):
+    if epoch%5 != 0:
+        num_batches = min(num_batches,31)
+    return num_batches
 
 def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     """ ops: dict mapping from string to tf ops """
@@ -319,14 +348,17 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     num_blocks = net_provider.eval_num_blocks
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
+        num_batches = limit_eval_num_batches(epoch,num_batches)
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
             return ''
     else:
         num_batches = None
 
+    eval_logstr = ''
     t_batch_ls = []
     batch_idx = -1
+
     while (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
@@ -352,17 +384,17 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                      ops['smpws_pl']: cur_smp_weights }
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
                                       feed_dict=feed_dict)
-        if test_writer != None:
+        if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
-        pred_logits = np.argmax(pred_val, 2)
-        total_seen += (BATCH_SIZE*NUM_POINT)
-        loss_sum += loss_val
-        c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
-        if FLAGS.only_evaluate:
+
+        if batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0):
+            pred_logits = np.argmax(pred_val, 2)
+            total_seen += (BATCH_SIZE*NUM_POINT)
+            loss_sum += loss_val
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
             #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
-            if batch_idx%10==0:
-                add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+            eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
     #if FLAGS.only_evaluate:
     #    obj_dump_dir = os.path.join(FLAGS.log_dir,'obj_dump')
@@ -370,63 +402,66 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     #    net_provider.write_file_accuracies(FLAGS.log_dir)
     #    print('\nobj out path:'+obj_dump_dir)
 
-    return add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+    return eval_logstr
 
 
 def add_train_feed_buf(train_feed_buf_q):
-    max_buf_size = 10
-    num_blocks = net_provider.train_num_blocks
-    if num_blocks!=None:
-        num_batches = num_blocks // BATCH_SIZE
-    else:
-        num_batches = None
+    with tf.device('/cpu:0'):
+        max_buf_size = 20
+        num_blocks = net_provider.train_num_blocks
+        if num_blocks!=None:
+            num_batches = num_blocks // BATCH_SIZE
+        else:
+            num_batches = None
 
-    epoch_start = 0
-    if FLAGS.finetune:
-        epoch_start+=(FLAGS.model_epoch+1)
-    for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
-        net_provider.update_train_eval_shuffled_idx()
-        batch_idx = -1
-        while (batch_idx < num_batches-1) or (num_batches==None):
-            if train_feed_buf_q.qsize() < max_buf_size:
-                batch_idx += 1
-                start_idx = batch_idx * BATCH_SIZE
-                end_idx = (batch_idx+1) * BATCH_SIZE
-                cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
-                train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
-                if type(cur_data) == type(None):
-                    print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
-                    break # all data reading finished
-            else:
-                time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
-        print('add_train_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+        epoch_start = 0
+        if FLAGS.finetune:
+            epoch_start+=(FLAGS.model_epoch+1)
+        for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+            net_provider.update_train_eval_shuffled_idx()
+            batch_idx = -1
+            while (batch_idx < num_batches-1) or (num_batches==None):
+                if train_feed_buf_q.qsize() < max_buf_size:
+                    batch_idx += 1
+                    start_idx = batch_idx * BATCH_SIZE
+                    end_idx = (batch_idx+1) * BATCH_SIZE
+                    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+                    train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                    if type(cur_data) == type(None):
+                        print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+                        break # all data reading finished
+                else:
+                    time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
+            print('add_train_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
 
 def add_eval_feed_buf(eval_feed_buf_q):
-    max_buf_size = 10
-    num_blocks = net_provider.eval_num_blocks
-    if num_blocks!=None:
-        num_batches = num_blocks // BATCH_SIZE
-    else:
-        num_batches = None
+    with tf.device('/cpu:1'):
+        max_buf_size = 20
+        num_blocks = net_provider.eval_num_blocks
+        if num_blocks!=None:
+            raw_num_batches = num_blocks // BATCH_SIZE
+        else:
+            raw_num_batches = None
 
-    epoch_start = 0
-    if FLAGS.finetune:
-        epoch_start+=(FLAGS.model_epoch+1)
-    for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
-        batch_idx = -1
-        while (batch_idx < num_batches-1) or (num_batches==None):
-            if eval_feed_buf_q.qsize() < max_buf_size:
-                batch_idx += 1
-                start_idx = batch_idx * BATCH_SIZE
-                end_idx = (batch_idx+1) * BATCH_SIZE
-                cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
-                eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
-                if type(cur_data) == type(None):
-                    print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
-                    break # all data reading finished
-            else:
-                time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
-        print('add_eval_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+        epoch_start = 0
+        if FLAGS.finetune:
+            epoch_start+=(FLAGS.model_epoch+1)
+        for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+            batch_idx = -1
+            num_batches = limit_eval_num_batches(epoch,raw_num_batches)
+            while (batch_idx < num_batches-1) or (num_batches==None):
+                if eval_feed_buf_q.qsize() < max_buf_size:
+                    batch_idx += 1
+                    start_idx = batch_idx * BATCH_SIZE
+                    end_idx = (batch_idx+1) * BATCH_SIZE
+                    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+                    eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                    if type(cur_data) == type(None):
+                        print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
+                        break # all data reading finished
+                else:
+                    time.sleep(0.1*BATCH_SIZE*max_buf_size/3)
+            print('add_eval_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
 
 
 def main():
