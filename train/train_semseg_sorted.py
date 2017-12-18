@@ -108,7 +108,8 @@ net_provider = Net_Provider(dataset_name=FLAGS.dataset_name, \
                             all_filename_glob=FLAGS.all_fn_globs, \
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,\
                             only_evaluate = FLAGS.only_evaluate,\
-                            num_point_block = NUM_POINT)
+                            num_point_block = NUM_POINT,
+                            feed_elements=FLAGS.feed_elements)
 NUM_CHANNELS = net_provider.num_channels
 NUM_CLASSES = net_provider.num_classes
 
@@ -465,7 +466,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
 
 
 def main():
-    IsFeedData_MultiProcessing = True
+    IsFeedData_MultiProcessing = True and (not FLAGS.auto_break)
 
     if IsFeedData_MultiProcessing:
         train_feed_buf_q = mp.Queue()
