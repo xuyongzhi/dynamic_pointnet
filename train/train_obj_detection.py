@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# --------------------------------------------------------
+# 3D object detection train file
+#
+# -------------------------------------------------------
+
 import pdb, traceback
 import argparse
 import math
@@ -155,8 +161,8 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             tf.summary.scalar('bn_decay', bn_decay)
 
             # Get model and loss
-            pred,end_points = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss = get_loss(pred, labels_pl,smpws_pl)
+            end_points, pred_clas, pred_box = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
+            loss = get_loss(pred_class, pred_box, labels_pl,smpws_pl)
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))

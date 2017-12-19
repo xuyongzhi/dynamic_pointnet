@@ -1,10 +1,8 @@
-#!/usr/bin/env python
-
 # --------------------------------------------------------
 # 3D object detection model for point cloud
 # Licensed under The MIT License [see LICENSE for details]
 # Created on 17/12/2017
-# Modified by Yongzhi Xu and Xuesong Li
+# Modified by Xuesong Li
 # --------------------------------------------------------
 
 """
@@ -16,8 +14,10 @@ import sys
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, '../utils'))
+sys.path.append(os.path.join(BASE_DIR, '../config'))
 import tensorflow as tf
 import numpy as np
+from config import cfg
 import tf_util
 from pointnet_util import pointnet_sa_module, pointnet_fp_module
 
@@ -42,15 +42,15 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     #   then apply the predict box deltas to each anchor boxes
     #   calculate the box deltas beween 3D anchor bounding box and ground truth
     #
-    num_3d_anchors = 3
-    num_regression = 7  # 7 = x,y,z,l,w,h,theta
+    num_3d_anchors = cfg.TRAIN.NUM_ANCHORS
+    num_regression = cfg.TRAIN.NUM_REGRESSION  # 7 = x,y,z,l,w,h,theta
     # Layer 1
     # [8,1024,3] [8,1024,64] [8,1024,32]
     # Note: the important tuning parameters  radius_l* = 1 m
-    radius_l1 = 1
-    radius_l2 = 1
-    radius_l3 = 1
-    radius_l4 = 1
+    radius_l1 = cfg.TRAIN.Radius_1
+    radius_l2 = cfg.TRAIN.Radius_2
+    radius_l3 = cfg.TRAIN.Radius_3
+    radius_l4 = cfg.TRAIN.Radius_4
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=8192, radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
     l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=2048, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
     l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoin =1024, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
@@ -66,16 +66,37 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     net = tf_util.conv1d(l4_points, 512, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
-    net_class = tf_util.conv1d(net, num_3d_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2')
-    net_boxes = tf_util.conv1d(net, num_3d_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc2')
+    net_class = tf_util.conv1d(net, num_3d_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2') # outputing the classification for every point
+    net_boxes = tf_util.conv1d(net, num_3d_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc3') # outputing the 3D bounding boxes
 
-    return net, end_points
+    return end_points, net_class, net_boxes
 
 
-def get_loss(pred, label, smpw):
-    """ pred: BxNxC,
-        label: BxN,
-	smpw: BxN """
+def get_loss(pred_class, pred_box, label, smpw):
+    """
+    Input: pred_class: BxNx3xC
+           pred_box: BxNx3x7
+           label: BxNx7
+	       smpw: BxN
+    Description: similar to faster rcnn, overlaps between prediction boxes and ground truth boxes are estimated to decide point labels and further calucuate the box_targets
+    --> preparing all anchors in every space point --> calculating overlaps bewteen anchor boxes and bounding boxes -->  anchors whose overlaps are over a certain threshold are regarded as positive labels, the rest are negative labels
+    --> calculate the box_targets between anchors and ground truth --> prepare the outside_weight and inside_weight -->  then write the loss function
+    """
+    # prepare all possible for all points
+
+    # calculating the overlap between anchors and ground truth
+
+    # decide positive and negative labels
+
+    # calculate the box targets between anchors and ground truth
+
+    # outside weights and inside_weigths
+
+    # classification loss
+
+    # regression loss
+
+
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
     tf.summary.scalar('classify loss', classify_loss)
     return classify_loss

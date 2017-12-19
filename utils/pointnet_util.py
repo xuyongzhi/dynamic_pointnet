@@ -114,12 +114,16 @@ def pointnet_sa_module(xyz, points, npoint, radius, nsample, mlp, mlp2, group_al
             nsample = xyz.get_shape()[1].value
             new_xyz, new_points, idx, grouped_xyz = sample_and_group_all(xyz, points, use_xyz)
         else:
+            # (4, 1024, 6) (4, 1024,32, 0+6) (4, 1024, 32, 6)         1024    0.1    32   (4, 8192, 6) []
             new_xyz, new_points, idx, grouped_xyz = sample_and_group(npoint, radius, nsample, xyz, points, tnet_spec, knn, use_xyz)
+            #                         [32, 32, 64]
+        # There are 1024 groups, each contains 32 points.
         for i, num_out_channel in enumerate(mlp):
             new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
                                         scope='conv%d'%(i), bn_decay=bn_decay)
+            # (4, 1024, 32, 64)
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         elif pooling=='weighted_avg':
