@@ -69,10 +69,10 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     net_class = tf_util.conv1d(net, num_3d_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2') # outputing the classification for every point
     net_boxes = tf_util.conv1d(net, num_3d_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc3') # outputing the 3D bounding boxes
 
-    return end_points, net_class, net_boxes
+    return end_points, net_class, net_boxes, l4_xyz
 
 
-def get_loss(pred_class, pred_box, label, smpw):
+def get_loss(pred_class, pred_box, label, smpw, xyz):
     """
     Input: pred_class: BxNx3xC
            pred_box: BxNx3x7
@@ -82,7 +82,20 @@ def get_loss(pred_class, pred_box, label, smpw):
     --> preparing all anchors in every space point --> calculating overlaps bewteen anchor boxes and bounding boxes -->  anchors whose overlaps are over a certain threshold are regarded as positive labels, the rest are negative labels
     --> calculate the box_targets between anchors and ground truth --> prepare the outside_weight and inside_weight -->  then write the loss function
     """
-    # prepare all possible for all points
+    # prepare all possible anchors for all points, xyz are point central+all the
+    # anchors, we estimate the birdview of 3D bounding boxes to accelerate the
+    # program, coordinate systems x: forward, y: left, z: up, so for the bird
+    # view, we use x and y
+    # xyz = [batch, point, 3]
+    # add all acnhors(1,k,4) to
+    # every point_xyz (N,1,4)
+    # shift the anchors(N, K, 4) to (N*K, 4)
+    A = cfg.TRAIN.NUM_ANCHORS
+    shifts = np.vstack(xyz[0,:,0],xyz[0,:,1],xyz[0,:,0],xyz[0,:,1]).transpose()
+    K = shifts.shape[0]
+    all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
+    all_anchors = all_anchors.reshape(K*A, 4)
+
 
     # calculating the overlap between anchors and ground truth
 

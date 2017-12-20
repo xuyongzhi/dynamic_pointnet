@@ -30,7 +30,10 @@ cfg = __C
 __C.TRAIN = edict()
 
 # number of 3D anchors
-__C.TRAIN.NUM_ANCHORS = 3
+__C.TRAIN.NUM_ANCHORS = 2
+
+# number of classification
+__C.TRAIN.NUM_CLASS = 2  ## background and vehicle, training from simple situation
 
 # number of regression parameters,  7 = x,y,z,l,w,h,theta
 __C.TRAIN.NUM_REGRESSION = 7
@@ -43,11 +46,15 @@ __C.TRAIN.Radius_4 = 1
 
 
 # 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different
-# orientation(pi = 0, pi/4, pi/2)
-__C.TRAIN.Anchors = np.array([3.9 1.9 1.7])
+# orientation alpha (pi = 0, pi/4, pi/2)
+l=3.9
+w=1.6
+h=1.7
+__C.TRAIN.Anchors = np.array([l, w, h])
+__C.TRAIN.Alpha = np.array([0, np.pi/2])  ## if 2 anchor is not enought, change it to 4, [0, np.pi/4, np.pi/2, np.pi*3/4]
+__C.TRAIN.Anchor_bv = np.array([[l/2,  w/2,  -l/2,  -w/2 ] , [w/2,  l/2,  -w/2,  -l/2]])   ## [frowart_left back_right]
 
-
-# Use horizontally-flipped images during training?
+# Use horizontal flipper point cloud, a way of data augmentation
 __C.TRAIN.USE_FLIPPED = False
 
 # Deprecated (inside weights)
@@ -84,6 +91,26 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Testing options
 #
 __C.TEST = edict()
+
+# number of 3D anchors
+__C.TEST.NUM_ANCHORS = 3
+
+# number of classification
+__C.TEST.NUM_CLASS = 2  ## background and vehicle, training from simple situation
+
+# number of regression parameters,  7 = x,y,z,l,w,h,theta
+__C.TEST.NUM_REGRESSION = 7
+
+# radius for grouping
+__C.TEST.Radius_1 = 1
+__C.TEST.Radius_2 = 1
+__C.TEST.Radius_3 = 1
+__C.TEST.Radius_4 = 1
+
+# 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different
+# orientation alpha (pi = 0, pi/4, pi/2)
+__C.TEST.Anchors = np.array([l, w, h])
+__C.TEST.Alpha = np.array([0,np.pi/2])
 
 # IoU >= this threshold)
 __C.TEST.NMS = 0.3
