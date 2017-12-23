@@ -3,6 +3,7 @@ created by benz, xyz based on fork of Pointnet++
 
 ### Urgent codeing issues to be fixed
 - [ ] The data preparation time cost is too high. 20 ms each block on NCI. Learning is also to slow, 100 ms.
+- [ ] The vertexes with multiple semantic labels are deleted. Check this is feasbale.
 
 ### Model optimization plans
 - [ ] Modify pointnet to dense net architecture
