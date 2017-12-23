@@ -95,9 +95,11 @@ def get_loss(pred_class, pred_box, label, smpw, xyz):
     K = shifts.shape[0]
     all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
     all_anchors = all_anchors.reshape(K*A, 4)
-
-
     # calculating the overlap between anchors and ground truth
+   
+    # calculate the angle gap to select one anchor
+
+    # estimate the central points distance
 
     # decide positive and negative labels
 
