@@ -7,8 +7,23 @@ MATTERPORT3D_ROOTDIR = '/home/y/DS/Matterport3D/Matterport3D_Whole'
 SCANS_DIR = MATTERPORT3D_ROOTDIR+'/v1/scans'
 
 
+
 def read_house(house_name):
-    readzip_house_segmentation(SCANS_DIR,house_name)
+    #readzip_house_segmentation(SCANS_DIR,house_name)
+    read_region_segmentations(SCANS_DIR,house_name)
+
+def read_region_segmentations(scans_dir,house_name):
+    house_dir = scans_dir+'/%s'%(house_name)
+    region_segmentations_zip_fn = house_dir+'/region_segmentations.zip'
+    rs_zf = zipfile.ZipFile(region_segmentations_zip_fn,'r')
+    num_region = len(rs_zf.namelist())/4
+    #print (rs_zf.namelist())
+    print('region num = %d'%(num_region))
+
+    for k in range(num_region):
+        ply_path = zip_extract('region_segmentations',house_name,rs_zf,house_dir,'ply')
+        with open(ply_path,'r') as ply_fo:
+            parse_ply_file(ply_fo)
 
 def readzip_house_segmentation(scans_dir,house_name):
     house_dir = scans_dir+'/%s'%(house_name)
@@ -17,40 +32,66 @@ def readzip_house_segmentation(scans_dir,house_name):
     print (hs_zf.namelist())
 
     with hs_zf.open('%s/house_segmentations/%s.house'%(house_name,house_name)) as house_fo:
-        for i,line in enumerate( house_fo ):
-            if i<1:
-                print(line)
+        parse_house_file(house_fo)
+    ply_path = zip_extract('house_segmentations',house_name,hs_zf,house_dir,'ply')
 
-    ply_path = house_dir+'/%s/house_segmentations/%s.ply'%(house_name,house_name)
-    if not os.path.exists(ply_path):
-        print('extracting ply...')
-        ply_path_extracted  = hs_zf.extract('%s/house_segmentations/%s.ply'%(house_name,house_name),house_dir)
-        print('ply extracting finished: %s'%(ply_path_extracted) )
+    with open(ply_path,'r') as ply_fo:
+        parse_ply_file(ply_fo)
+
+def zip_extract(groupname,house_name,zipf,house_dir,file_format='ply'):
+    '''
+    extract file if not already
+    '''
+    file_name = '%s/%s/%s.%s'%(house_name,groupname,house_name,file_format)
+    file_path = house_dir + '/' + file_name
+    if not os.path.exists(file_path):
+        print('extracting %s...'%(file_name))
+        file_path_extracted  = zipf.extract(file_name,house_dir)
+        print('file extracting finished: %s'%(file_path_extracted) )
+        assert file_path == file_path_extracted
     else:
-        print('ply file already extracted: %s'%(ply_path))
-    ply_fn = '/home/y/DS/Matterport3D/Matterport3D_Whole/v1/scans/17DRP5sb8fy/17DRP5sb8fy/house_segmentations/17DRP5sb8fy.ply'
-    with open(ply_fn,'r') as fo:
-        plydata = PlyData.read(fo)
-        print(plydata.elements)
+        print('file file already extracted: %s'%(file_path))
+    return file_path
 
+def parse_ply_file(ply_fo):
+    '''
+    element vertex 1522546
+    property float x
+    property float y
+    property float z
+    property float nx
+    property float ny
+    property float nz
+    property float tx
+    property float ty
+    property uchar red
+    property uchar green
+    property uchar blue
+
+    element face 3016249
+    property list uchar int vertex_indices
+    property int material_id
+    property int segment_id
+    property int category_id
+    '''
+    plydata = PlyData.read(ply_fo)
+    num_ele = len(plydata.elements)
+    num_vertex = plydata['vertex'].count
+    data_vertex = plydata['vertex'].data
+    data_face = plydata['face'].data
+    print(plydata.elements[0])
+    print('\n')
+    print(plydata.elements[1])
+    #xyz = plydata['vertex']
     import pdb; pdb.set_trace()  # XXX BREAKPOINT
-    #print(house)
+    print(data_face[0:2])
 
+def parse_house_file(house_fo):
+    for i,line in enumerate( house_fo ):
+        if i<1:
+            print(line)
+        break
 
-#def read_house_file()
-
-def view_house(house_name):
-    house_dir = SCANS_DIR+'/%s/%s'%(house_name,house_name)
-    house_segmentation_dir = house_dir+'/house_segmentations'
-    region_segmentations_dir = house_dir+'/region_segmentations'
-
-    view_house_segmentation(house_segmentation_dir)
-
-
-def view_house_segmentation(house_segmentation_dir):
-    house_segmentation_fls = glob.glob(house_segmentation_dir+'/*.house')[0]
-    print(house_segmentation_dir)
-    print(house_segmentation_fls)
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET']
+DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT']
 def rm_file_name_midpart(fn,rm_part):
     base_name = os.path.basename(fn)
     parts = base_name.split(rm_part)
@@ -89,15 +89,15 @@ class Raw_H5f():
     '''
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
-    dtypes = { 'xyz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label':np.uint8 }
-    num_channels = {'xyz':3,'intensity':1,'color':3,'label':1}
+    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label':np.uint8 }
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label':1}
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
-        self.raw_h5f = raw_h5_f
+        self.h5f = raw_h5_f
         if datasource_name == None:
-            assert 'datasource_name' in self.raw_h5f.attrs
+            assert 'datasource_name' in self.h5f.attrs
         else:
-            self.raw_h5f.attrs['datasource_name'] = datasource_name
-        assert self.raw_h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
+            self.h5f.attrs['datasource_name'] = datasource_name
+        assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
         self.get_summary_info()
         self.file_name = file_name
         self.num_default_row = 0
@@ -110,24 +110,24 @@ class Raw_H5f():
         self.num_default_row = N
 
     def get_dataset(self,data_name):
-        if data_name in self.raw_h5f:
-            return self.raw_h5f[data_name]
+        if data_name in self.h5f:
+            return self.h5f[data_name]
         assert(data_name in self.dtypes)
         nc = self.num_channels[data_name]
-        dset = self.raw_h5f.create_dataset(data_name,shape=(self.num_default_row,nc),\
+        dset = self.h5f.create_dataset(data_name,shape=(self.num_default_row,nc),\
                                     maxshape=(None,nc),dtype=self.dtypes[data_name],\
                                     chunks = (self.h5_num_row_1M,nc),\
                                     compression = "gzip")
         dset.attrs['valid_num'] = 0
         setattr(self,data_name+'_dset',dset)
-        if 'element_names' not in self.raw_h5f.attrs:
-            self.raw_h5f.attrs['element_names'] = [data_name]
+        if 'element_names' not in self.h5f.attrs:
+            self.h5f.attrs['element_names'] = [data_name]
         else:
-            self.raw_h5f.attrs['element_names'] = [data_name]+[e for e in self.raw_h5f.attrs['element_names']]
+            self.h5f.attrs['element_names'] = [data_name]+[e for e in self.h5f.attrs['element_names']]
         return dset
     def get_total_num_channels_name_list(self):
         total_num_channels = 0
-        data_name_list = [str(dn) for dn in self.raw_h5f]
+        data_name_list = [str(dn) for dn in self.h5f]
         for dn in data_name_list:
             total_num_channels += self.num_channels[dn]
 
@@ -140,8 +140,8 @@ class Raw_H5f():
         out_dset_order = ['xyz','color','label','intensity']
         data_list = []
         for dset_name in out_dset_order:
-            if dset_name in self.raw_h5f:
-                data_k = self.raw_h5f[dset_name][start_idx:end_idx,:]
+            if dset_name in self.h5f:
+                data_k = self.h5f[dset_name][start_idx:end_idx,:]
                 data_list.append(data_k)
         data = np.concatenate(data_list,1)
         return data
@@ -153,7 +153,7 @@ class Raw_H5f():
             start = valid_n
             end = start + new_data.shape[0]
         if dset.shape[0] < end:
-            dset.resize((end,dset.shape[1:]))
+            dset.resize((end,)+dset.shape[1:])
         if valid_n < end:
             dset.attrs['valid_num'] = end
         if new_data.ndim==1 and dset.ndim==2 and dset.shape[1]==1:
@@ -161,17 +161,17 @@ class Raw_H5f():
         dset[start:end,:] = new_data
 
     def rm_invalid(self):
-        for dset_name in self.raw_h5f:
-            dset = self.raw_h5f[dset_name]
+        for dset_name in self.h5f:
+            dset = self.h5f[dset_name]
             if 'valid_num' in dset.attrs:
                 valid_num = dset.attrs['valid_num']
                 if valid_num < dset.shape[0]:
                     dset.resize( (valid_num,dset.shape[1:]) )
 
     def get_summary_info(self):
-        for dset_name in self.raw_h5f:
-            setattr(self,dset_name+'_dset',self.raw_h5f[dset_name])
-        if 'xyz' in self.raw_h5f:
+        for dset_name in self.h5f:
+            setattr(self,dset_name+'_dset',self.h5f[dset_name])
+        if 'xyz' in self.h5f:
             self.total_row_N = self.xyz_dset.shape[0]
             self.xyz_max = self.xyz_dset.attrs['max']
             self.xyz_min = self.xyz_dset.attrs['min']
@@ -239,8 +239,8 @@ class Raw_H5f():
                 break
         xyz_dset.attrs['max'] = max_xyz
         xyz_dset.attrs['min'] = min_xyz
-        self.raw_h5f.attrs['xyz_max'] = max_xyz
-        self.raw_h5f.attrs['xyz_min'] = min_xyz
+        self.h5f.attrs['xyz_max'] = max_xyz
+        self.h5f.attrs['xyz_min'] = min_xyz
         max_str = '  '.join([ str(e) for e in max_xyz ])
         min_str = '  '.join([ str(e) for e in min_xyz ])
         print('max_str=%s\tmin_str=%s'%(max_str,min_str) )
