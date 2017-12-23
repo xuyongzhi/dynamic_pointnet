@@ -4,3 +4,5 @@ This link includes how to estimate the IoU
 
 compare the angle first
 check the central distance
+
+for in the 3D regression, we often know the roung size
