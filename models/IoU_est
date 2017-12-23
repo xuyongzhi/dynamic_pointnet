@@ -1,0 +1,6 @@
+https://stackoverflow.com/questions/46497486/calculating-the-intersection-area-between-two-rectangles-with-axes-not-aligned
+
+This link includes how to estimate the IoU
+
+compare the angle first
+check the central distance
