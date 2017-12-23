@@ -66,7 +66,7 @@ def zip_extract(house_dir,groupe_name,house_name,file_name,file_format,zipf):
         print('file file already extracted: %s'%(file_path))
     return file_path
 
-def parse_ply_file(ply_fo):
+def parse_ply_file(ply_fo,IsDelVexMultiSem):
     '''
     element vertex 1522546
     property float x
@@ -114,13 +114,66 @@ def parse_ply_file(ply_fo):
     vertex_nxnynz = np.concatenate([datas_vertex['nx'],datas_vertex['ny'],datas_vertex['nz']],axis=1)
     vertex_rgb = np.concatenate([datas_vertex['red'],datas_vertex['green'],datas_vertex['blue']],axis=1)
 
-    return vertex_xyz,vertex_nxnynz,vertex_rgb,face_vertex_indices,face_semantic
+    vertex_semantic,vertex_indices_multi_semantic,face_indices_multi_semantic = get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex)
+
+    if IsDelVexMultiSem:
+        vertex_xyz = np.delete(vertex_xyz,vertex_indices_multi_semantic,axis=0)
+        vertex_nxnynz = np.delete(vertex_nxnynz,vertex_indices_multi_semantic,axis=0)
+        vertex_rgb = np.delete(vertex_rgb,vertex_indices_multi_semantic,axis=0)
+        vertex_semantic = np.delete(vertex_semantic,vertex_indices_multi_semantic,axis=0)
+        face_vertex_indices = np.delete(face_vertex_indices,face_indices_multi_semantic,axis=0)
+        face_semantic = np.delete(face_semantic,face_indices_multi_semantic,axis=0)
+
+    return vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic
 
 def parse_house_file(house_fo):
     for i,line in enumerate( house_fo ):
         if i<1:
             print(line)
         break
+def get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex):
+    '''
+    face_vertex_indices: the vertex indices in each face
+    vertex_face_indices: the face indices in each vertex
+    '''
+    vertex_face_indices = -np.ones(shape=[num_vertex,20])
+    face_num_per_vertex = np.zeros(shape=[num_vertex])
+    vertex_semantic = np.zeros(shape=[num_vertex,3]) # only record the first one
+    vertex_semantic_num = np.zeros(shape=[num_vertex])
+    vertex_indices_multi_semantic = set()
+    face_indices_multi_semantic = set()
+    for i in range(face_vertex_indices.shape[0]):
+        for vertex_index in face_vertex_indices[i]:
+            face_num_per_vertex[vertex_index] += 1
+            vertex_face_indices[vertex_index,face_num_per_vertex[vertex_index]-1] = i
+
+            if vertex_semantic_num[vertex_index] == 0:
+                vertex_semantic_num[vertex_index] += 1
+                vertex_semantic[vertex_index] = face_semantic[i]
+            else:
+                # (1) Only 60% vertexs have unique labels for all three semntics
+                # (2) There are 96% vertexs have unique labels for the first two:  category_id and segment_id
+                IsSameSemantic = (vertex_semantic[vertex_index][0:2]==face_semantic[i][0:2]).all()
+                if not IsSameSemantic:
+                    vertex_semantic_num[vertex_index] += 1
+                    vertex_indices_multi_semantic.add(vertex_index)
+                    face_indices_multi_semantic.add(i)
+    vertex_indices_multi_semantic = np.array(list(vertex_indices_multi_semantic))
+    face_indices_multi_semantic = np.array(list(face_indices_multi_semantic))
+    print('vertex rate with multiple semantic: %f'%(1.0*vertex_indices_multi_semantic.shape[0]/num_vertex))
+
+   # vertex_semantic_num_max = np.max(vertex_semantic_num)
+   # vertex_semantic_num_min = np.min(vertex_semantic_num)
+   # vertex_semantic_num_mean = np.mean(vertex_semantic_num)
+   # vertex_semantic_num_one = np.sum(vertex_semantic_num==1)
+
+   # print(vertex_semantic_num_max)
+   # print(vertex_semantic_num_mean)
+   # print(vertex_semantic_num_min)
+   # print(1.0*vertex_semantic_num_one/num_vertex)
+
+    return vertex_semantic,vertex_indices_multi_semantic,face_indices_multi_semantic
+
 class Matterport3D_Prepare():
     '''
     Read each region as a h5f.
@@ -159,15 +212,16 @@ class Matterport3D_Prepare():
 
     def Parse_Region_Ply(self,region_ply_fn,k_region):
         rawh5f_fn = self.house_h5f_dir+'/region'+str(k_region)+'.rh5'
+        IsDelVexMultiSem = True
         with open(region_ply_fn,'r') as ply_fo, h5py.File(rawh5f_fn,'w') as h5f:
-            vertex_xyz,vertex_nxnynz,vertex_rgb,face_vertex_indices,face_semantic = parse_ply_file(ply_fo)
+            vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic = parse_ply_file(ply_fo,IsDelVexMultiSem)
 
             raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MATTERPORT')
             raw_h5f.set_num_default_row(vertex_xyz.shape[0])
             raw_h5f.append_to_dset('xyz',vertex_xyz)
             raw_h5f.append_to_dset('nxnynz',vertex_nxnynz)
             raw_h5f.append_to_dset('color',vertex_rgb)
-            #raw_h5f.append_to_dset('label',semantic_labels_list[n])
+            #raw_h5f.append_to_dset('label',vertex_semantic)
             raw_h5f.create_done()
             raw_h5f.show_h5f_summary_info()
 
