@@ -89,8 +89,8 @@ class Raw_H5f():
     '''
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
-    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label':np.uint8 }
-    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label':1}
+    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label':np.uint32,'label_instance':np.int32,'label_material':np.int32 }
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label':1,'label_instance':1,'label_material':1}
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
         self.h5f = raw_h5_f
         if datasource_name == None:
