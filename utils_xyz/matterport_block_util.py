@@ -22,35 +22,19 @@ DATA_SOURCE= 'scannet_data'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
 
-#def read_house(house_name):
-#    readzip_house_segmentation(SCANS_DIR,house_name)
-#    #read_region_segmentations(SCANS_DIR,house_name)
-#
-#def read_region_segmentations(scans_dir,house_name):
-#    house_dir = scans_dir+'/%s'%(house_name)
-#    region_segmentations_zip_fn = house_dir+'/region_segmentations.zip'
-#    rs_zf = zipfile.ZipFile(region_segmentations_zip_fn,'r')
-#    num_region = len(rs_zf.namelist())/4
-#    #print (rs_zf.namelist())
-#    print('region num = %d'%(num_region))
-#
-#    for k in range(num_region):
-#        ply_path = zip_extract('region_segmentations',house_name,rs_zf,house_dir,'ply')
-#        with open(ply_path,'r') as ply_fo:
-#            parse_ply_file(ply_fo)
-#
-#def readzip_house_segmentation(scans_dir,house_name):
-#    house_dir = scans_dir+'/%s'%(house_name)
-#    house_segmentation_zip_fn = house_dir+'/house_segmentations.zip'
-#    hs_zf = zipfile.ZipFile(house_segmentation_zip_fn,'r')
-#    print (hs_zf.namelist())
-#
-#    with hs_zf.open('%s/house_segmentations/%s.house'%(house_name,house_name)) as house_fo:
-#        parse_house_file(house_fo)
-#    ply_path = zip_extract('house_segmentations',house_name,hs_zf,house_dir,'ply')
-#
-#    with open(ply_path,'r') as ply_fo:
-#        parse_ply_file(ply_fo)
+def get_stride_step_name(block_stride,block_step):
+    assert block_step[0] == block_step[1]
+    assert block_stride[0] == block_stride[1]
+    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
+
+    def get_str(v):
+        assert (v*10) % 1 == 0
+        if v%1!=0: return '%dd%d'%(int(v),(v%1)*10)
+        else: return str(int(v))
+    if block_stride[2] == -1:
+        return 'stride-%s-step-%s'%(get_str(block_stride[0]),get_str(block_step[0]))
+    else:
+        return 'stride_%s_step_%s'%(get_str(block_stride[0]),get_str(block_step[0]))
 
 def zip_extract(house_dir,groupe_name,house_name,file_name,file_format,zipf):
     '''
@@ -174,11 +158,11 @@ def get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex):
 
     return vertex_semantic,vertex_indices_multi_semantic,face_indices_multi_semantic
 
-def Parse_Region_Ply(k_region,rs_zf,house_dir,house_name,house_h5f_dir):
+def WriteRawH5f_Region_Ply(k_region,rs_zf,house_dir,house_name,house_h5f_dir):
     file_name = 'region'+str(k_region)
     region_ply_fn = zip_extract(house_dir,'region_segmentations',house_name,file_name,'ply',rs_zf)
 
-    rawh5f_fn = house_h5f_dir+'/region'+str(k_region)+'.rh5'
+    rawh5f_fn = house_h5f_dir+'/rawh5f/region'+str(k_region)+'.rh5'
     IsDelVexMultiSem = True
     with open(region_ply_fn,'r') as ply_fo, h5py.File(rawh5f_fn,'w') as h5f:
         vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic = parse_ply_file(ply_fo,IsDelVexMultiSem)
@@ -188,11 +172,20 @@ def Parse_Region_Ply(k_region,rs_zf,house_dir,house_name,house_h5f_dir):
         raw_h5f.append_to_dset('xyz',vertex_xyz)
         raw_h5f.append_to_dset('nxnynz',vertex_nxnynz)
         raw_h5f.append_to_dset('color',vertex_rgb)
-        raw_h5f.append_to_dset('label',vertex_semantic[:,0]) # category_id
+        raw_h5f.append_to_dset('label_category',vertex_semantic[:,0]) # category_id
         raw_h5f.append_to_dset('label_instance',vertex_semantic[:,1]) # segment_id
         raw_h5f.append_to_dset('label_material',vertex_semantic[:,0]) # material_id
         raw_h5f.create_done()
         raw_h5f.show_h5f_summary_info()
+
+def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
+    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+
+def MergeSampleNorm_FromSortedH5f( base_sorted_h5fname,new_stride,new_step,new_sorted_path,more_actions_config ):
+    with h5py.File(base_sorted_h5fname,'r') as f:
+        sorted_h5f = Sorted_H5f(f,base_sorted_h5fname)
+        sorted_h5f.merge_to_new_step(new_stride,new_step,new_sorted_path,more_actions_config)
+
 class Matterport3D_Prepare():
     '''
     Read each region as a h5f.
@@ -216,8 +209,9 @@ class Matterport3D_Prepare():
 
         self.scans_h5f_dir = self.matterport3D_h5f_dir+scans_name
         self.house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-        if not os.path.exists(self.house_h5f_dir):
-            os.makedirs(self.house_h5f_dir)
+        self.house_rawh5f_dir = self.house_h5f_dir+'/rawh5f'
+        if not os.path.exists(self.house_rawh5f_dir):
+            os.makedirs(self.house_rawh5f_dir)
 
     def Parse_house_regions(self):
         t0 = time.time()
@@ -229,15 +223,106 @@ class Matterport3D_Prepare():
             pool = mp.Pool(3)
         for k in range(num_region):
             if not IsMultiProcess:
-                Parse_Region_Ply(k,rs_zf,self.house_dir,self.house_name,self.house_h5f_dir)
+                WriteRawH5f_Region_Ply(k,rs_zf,self.house_dir,self.house_name,self.house_h5f_dir)
             else:
-                pool.apply_async(Parse_Region_Ply,(k,rs_zf,self.house_dir,self.house_name,self.house_h5f_dir))
+                pool.apply_async(WriteRawH5f_Region_Ply,(k,rs_zf,self.house_dir,self.house_name,self.house_h5f_dir))
                 print('apply_async %d'%(k))
         if IsMultiProcess:
             pool.close()
             pool.join()
         print('Parse house time: %f'%(time.time()-t0))
 
+    def SortRaw(self):
+        t0 = time.time()
+        rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
+        block_step_xyz = [0.5,0.5,0.5]
+        sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(block_step_xyz,block_step_xyz)
+        IsShowInfoFinished = True
+
+        IsMultiProcess = True
+        if not IsMultiProcess:
+            Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+        else:
+            pool = mp.Pool(3)
+            for rawh5f_fn in rawh5_file_ls:
+                pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path,IsShowInfoFinished))
+            pool.close()
+            pool.join()
+        print('sort raw t= %f'%(time.time()-t0))
+
+    def MergeSampleNorm(self):
+        '''
+         1 merge to new block step/stride size
+             obj_merged: generate obj for merged
+         2 randomly sampling to fix point number in each block
+             obj_sampled_merged
+         3 normalizing sampled block
+        '''
+        base_stride = base_step = [0.5,0.5,0.5]
+        base_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
+        new_stride = [2,2,-1]
+        new_step = [4,4,-1]
+        new_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(new_stride,new_step)
+
+
+        base_file_list = glob.glob( os.path.join(base_path,'*.sh5') )
+        print('%d sh5 files in %s'%(len(base_file_list),base_path))
+
+        more_actions_config = {}
+        more_actions_config['actions'] = []
+        more_actions_config['actions'] = ['sample_merged']
+        #more_actions_config['actions'] = ['sample_merged','norm_sampled_merged']
+        more_actions_config['sample_num'] = 8192
+
+        IsMultiProcess = True
+        if IsMultiProcess:
+            pool = mp.Pool(3)
+        for fn in base_file_list:
+            if not IsMultiProcess:
+                MergeSampleNorm_FromSortedH5f( fn,new_stride,new_step,new_sorted_path,more_actions_config )
+            else:
+                pool.apply_async(MergeSampleNorm_FromSortedH5f,( fn,new_stride,new_step,new_sorted_path,more_actions_config ))
+        if IsMultiProcess:
+            pool.close()
+            pool.join()
+
+    def Norm(self):
+        base_stride = [2,2,-1]
+        base_step = [4,4,-1]
+        sample_num = 8192
+        base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(sample_num)
+        file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
+        for fn in file_list:
+            with h5py.File(fn,'r') as f:
+                sorted_h5f = Sorted_H5f(f,fn)
+                sorted_h5f.file_normalization()
+
+    def MergeNormed(self):
+        #file_list = glob.glob( os.path.join(self.sorted_path_stride_1_step_2_8192_norm,'*.nh5') )
+        #merged_file_name = self.filename_stride_1_step_2_8192_norm_merged
+
+        file_list = glob.glob( os.path.join(self.sorted_path_stride_2_step_4_8192_norm,'*.nh5') )
+        merged_file_name = self.filename_stride_2_step_4_8192_norm_merged
+        MergeNormed_H5f(file_list,merged_file_name)
+
+
+    def GenObj_RawH5f(self):
+        file_name = self.house_rawh5f_dir+'/region5.rh5'
+        xyz_cut_rate= [0,0,0.9]
+        with h5py.File(file_name,'r') as h5f:
+            rawh5f = Raw_H5f(h5f,file_name)
+            rawh5f.generate_objfile(IsLabelColor=True,xyz_cut_rate=xyz_cut_rate)
+
+    def ShowSummary(self):
+        file_name = self.house_rawh5f_dir+'/region1.rh5'
+        with h5py.File(file_name,'r') as h5f:
+            show_h5f_summary_info(h5f)
+
 if __name__ == '__main__':
     matterport3d_prepare = Matterport3D_Prepare()
-    matterport3d_prepare.Parse_house_regions()
+    #matterport3d_prepare.Parse_house_regions()
+    #matterport3d_prepare.SortRaw()
+    #matterport3d_prepare.MergeSampleNorm()
+    matterport3d_prepare.Norm()
+    #matterport3d_prepare.ShowSummary()
+    #matterport3d_prepare.GenObj_RawH5f()

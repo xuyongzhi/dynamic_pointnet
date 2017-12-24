@@ -68,17 +68,24 @@ def show_h5f_summary_info(h5f):
             print(attr+':',h5f.attrs[attr] )
 
     print('\n*** The datasets')
+    def show_dset(dset):
+        for attr in dset.attrs:
+            print(attr,' = ',dset.attrs[attr])
+        print(dset[0:min(2,dset.shape[0]),:])
+        if dset.shape[0] > 3:
+            print(dset[-1,:])
+        print('\n')
+
     for k, dset_n in enumerate(h5f):
+        if dset_n == 'xyz':
+            print('# dataset %d: '%(k),dset_n,'  shape=',dset.shape)
+            show_dset(h5f['xyz'])
+            continue
         dset = h5f[dset_n]
         if k < 10:
             print('# dataset %d: '%(k),dset_n,'  shape=',dset.shape)
         if k < 5:
-            for attr in dset.attrs:
-                print(attr,' = ',dset.attrs[attr])
-            print(dset[0:min(2,dset.shape[0]),:])
-            if dset.shape[0] > 3:
-                print(dset[-1,:])
-            print('\n')
+            show_dset(dset)
     print('%d datasets totally'%(k+1))
 
 class Raw_H5f():
@@ -89,8 +96,8 @@ class Raw_H5f():
     '''
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
-    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label':np.uint32,'label_instance':np.int32,'label_material':np.int32 }
-    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label':1,'label_instance':1,'label_material':1}
+    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32,'label':np.int32 }
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1,'label':1}
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
         self.h5f = raw_h5_f
         if datasource_name == None:
@@ -178,21 +185,55 @@ class Raw_H5f():
             self.xyz_scope = self.xyz_max - self.xyz_min
 
 
-    def generate_objfile(self,obj_file_name,IsLabelColor):
+    def generate_objfile(self,obj_file_name=None,IsLabelColor=False,xyz_cut_rate=None):
+        if obj_file_name==None:
+            base_fn = os.path.basename(self.file_name)
+            base_fn = os.path.splitext(base_fn)[0]
+            folder_path = os.path.dirname(self.file_name)
+            obj_folder = os.path.join(folder_path,base_fn)
+            obj_file_name = os.path.join(obj_folder,base_fn+'.obj')
+            if not os.path.exists(obj_folder):
+                os.makedirs(obj_folder)
+            print('automatic obj file name: %s'%(obj_file_name))
+
+
         with open(obj_file_name,'w') as out_obj_file:
             xyz_dset = self.xyz_dset
             color_dset = self.color_dset
-            label_dset = self.label_dset
+            label_category_dset = self.label_category_dset
+
+            if xyz_cut_rate != None:
+                # when rate < 0.5: cut small
+                # when rate >0.5: cut big
+                xyz_max = np.array([ np.max(xyz_dset[:,i]) for i in range(3) ])
+                xyz_min = np.array([ np.min(xyz_dset[:,i]) for i in range(3) ])
+                xyz_scope = xyz_max - xyz_min
+                xyz_thres = xyz_scope * xyz_cut_rate + xyz_min
+                print('xyz_thres = ',str(xyz_thres))
+            cut_num = 0
 
             row_step = self.h5_num_row_1M * 10
             row_N = xyz_dset.shape[0]
             for k in range(0,row_N,row_step):
                 end = min(k+row_step,row_N)
                 xyz_buf_k = xyz_dset[k:end,:]
+
+
                 color_buf_k = color_dset[k:end,:]
                 buf_k = np.hstack((xyz_buf_k,color_buf_k))
-                label_k = label_dset[k:end,0]
+                label_k = label_category_dset[k:end,0]
                 for j in range(0,buf_k.shape[0]):
+                    is_cut_this_point = False
+                    if xyz_cut_rate!=None:
+                        # cut by position
+                        for xyz_j in range(3):
+                            if (xyz_cut_rate[xyz_j] >0.5 and buf_k[j,xyz_j] > xyz_thres[xyz_j]) or \
+                                (xyz_cut_rate[xyz_j]<=0.5 and buf_k[j,xyz_j] < xyz_thres[xyz_j]):
+                                is_cut_this_point =  True
+                    if is_cut_this_point:
+                        cut_num += 1
+                        continue
+
                     if not IsLabelColor:
                         str_j = 'v   ' + '\t'.join( ['%0.5f'%(d) for d in  buf_k[j,0:3]]) + '  \t'\
                         + '\t'.join( ['%d'%(d) for d in  buf_k[j,3:6]]) + '\n'
@@ -256,8 +297,8 @@ class Sorted_H5f():
 [u'xyz_max', u'xyz_min', u'element_names', u'block_step', u'block_stride', u'block_dims_N', u'xyz_min_aligned', u'xyz_max_aligned', u'xyz_scope_aligned']
     '''
     file_flag = 'SORTED_H5F'
-    data_name_list_candidate = ['xyz','color','label','intensity','org_row_index']
-    data_channels = {'xyz':3,'color':3,'label':1,'intensity':1,'org_row_index':1}
+    data_name_list_candidate = ['xyz','nxnynz','color','label','label_category','label_instance','label_material','intensity','org_row_index']
+    data_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_material':1,'intensity':1,'org_row_index':1}
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
     total_num_channels = 0
@@ -298,7 +339,7 @@ class Sorted_H5f():
         self.data_idxs = data_index
         self.total_num_channels = last_index
 
-    def set_step_stride(self,block_step,block_stride,stride_to_align=1):
+    def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
         self.h5f.attrs['stride_to_align'] = stride_to_align
@@ -309,8 +350,8 @@ class Sorted_H5f():
             return
         xyz_min = self.h5f.attrs['xyz_min']
         xyz_max = self.h5f.attrs['xyz_max']
-        xyz_min_aligned = xyz_min - xyz_min % self.h5f.attrs['stride_to_align'] - [0,0,1]
-        xyz_max_aligned = xyz_max - xyz_max % 1 + 1
+        xyz_min_aligned = xyz_min - xyz_min % self.h5f.attrs['stride_to_align'] - [0,0,0.1]
+        xyz_max_aligned = xyz_max - xyz_max % 0.1 + 0.1
         xyz_scope_aligned =  xyz_max_aligned - xyz_min_aligned
 
         # step or stride ==-1 means one step/stride the whole scene
@@ -1005,11 +1046,12 @@ class Sort_RawH5f():
     sampled: .rsh5  (fix number in each block)
     block_step_xyz=[0.5,0.5,0.5]
     '''
-    def __init__(self,raw_file_list,block_step_xyz,out_folder):
+    def __init__(self,raw_file_list,block_step_xyz,out_folder,IsShowInfoFinished=False):
+        self.IsShowInfoFinished = IsShowInfoFinished
         self.out_folder = out_folder
         self.Do_sort_to_blocks(raw_file_list,block_step_xyz)
 
-    def Do_sort_to_blocks(self,raw_file_list,block_step_xyz = [0.5,0.5,0.5]):
+    def Do_sort_to_blocks(self,raw_file_list,block_step_xyz):
         IsMulti = False
         if not IsMulti:
             for fn in raw_file_list:
@@ -1026,7 +1068,7 @@ class Sort_RawH5f():
             pool.join()
 
 
-    def sort_to_blocks(self,file_name,block_step_xyz=[1,1,1]):
+    def sort_to_blocks(self,file_name,block_step_xyz):
         '''
         split th ewhole scene to space sorted small blocks
         The whole scene is a group. Each block is one dataset in the group.
@@ -1046,7 +1088,7 @@ class Sort_RawH5f():
                 self.raw_h5f = Raw_H5f(h5_f,file_name)
                 self.s_h5f = Sorted_H5f(h5f_blocked,blocked_file_name)
 
-                self.s_h5f.copy_root_attrs_from_raw( self.raw_h5f.raw_h5f )
+                self.s_h5f.copy_root_attrs_from_raw( self.raw_h5f.h5f )
                 self.s_h5f.set_step_stride(block_step,block_step)
 
                 #self.row_num_limit = int(self.raw_h5f.total_row_N/1000)
@@ -1060,7 +1102,7 @@ class Sort_RawH5f():
                     _,data_name_list = self.raw_h5f.get_total_num_channels_name_list()
                     raw_buf = np.zeros((end-k,self.s_h5f.total_num_channels))
                     for dn in data_name_list:
-                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = self.raw_h5f.raw_h5f[dn][k:end,:]
+                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = self.raw_h5f.h5f[dn][k:end,:]
                     if self.s_h5f.IS_CHECK:
                         if end < 16777215: # this is the largest int float32 can acurately present
                             org_row_index = np.arange(k,end)
@@ -1095,7 +1137,8 @@ class Sort_RawH5f():
                         print('both passed')
                     else:
                         print('somewhere check failed')
-                #self.s_h5f.show_summary_info()
+                if self.IsShowInfoFinished:
+                    self.s_h5f.show_summary_info()
         print('sorted OK: %s'%(blocked_file_name))
 
     def sort_buf(self,raw_buf,buf_start_k,sorted_buf_dic):
