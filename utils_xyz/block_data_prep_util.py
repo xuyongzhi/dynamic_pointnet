@@ -185,21 +185,55 @@ class Raw_H5f():
             self.xyz_scope = self.xyz_max - self.xyz_min
 
 
-    def generate_objfile(self,obj_file_name,IsLabelColor):
+    def generate_objfile(self,obj_file_name=None,IsLabelColor=False,xyz_cut_rate=None):
+        if obj_file_name==None:
+            base_fn = os.path.basename(self.file_name)
+            base_fn = os.path.splitext(base_fn)[0]
+            folder_path = os.path.dirname(self.file_name)
+            obj_folder = os.path.join(folder_path,base_fn)
+            obj_file_name = os.path.join(obj_folder,base_fn+'.obj')
+            if not os.path.exists(obj_folder):
+                os.makedirs(obj_folder)
+            print('automatic obj file name: %s'%(obj_file_name))
+
+
         with open(obj_file_name,'w') as out_obj_file:
             xyz_dset = self.xyz_dset
             color_dset = self.color_dset
-            label_dset = self.label_dset
+            label_category_dset = self.label_category_dset
+
+            if xyz_cut_rate != None:
+                # when rate < 0.5: cut small
+                # when rate >0.5: cut big
+                xyz_max = np.array([ np.max(xyz_dset[:,i]) for i in range(3) ])
+                xyz_min = np.array([ np.min(xyz_dset[:,i]) for i in range(3) ])
+                xyz_scope = xyz_max - xyz_min
+                xyz_thres = xyz_scope * xyz_cut_rate + xyz_min
+                print('xyz_thres = ',str(xyz_thres))
+            cut_num = 0
 
             row_step = self.h5_num_row_1M * 10
             row_N = xyz_dset.shape[0]
             for k in range(0,row_N,row_step):
                 end = min(k+row_step,row_N)
                 xyz_buf_k = xyz_dset[k:end,:]
+
+
                 color_buf_k = color_dset[k:end,:]
                 buf_k = np.hstack((xyz_buf_k,color_buf_k))
-                label_k = label_dset[k:end,0]
+                label_k = label_category_dset[k:end,0]
                 for j in range(0,buf_k.shape[0]):
+                    is_cut_this_point = False
+                    if xyz_cut_rate!=None:
+                        # cut by position
+                        for xyz_j in range(3):
+                            if (xyz_cut_rate[xyz_j] >0.5 and buf_k[j,xyz_j] > xyz_thres[xyz_j]) or \
+                                (xyz_cut_rate[xyz_j]<=0.5 and buf_k[j,xyz_j] < xyz_thres[xyz_j]):
+                                is_cut_this_point =  True
+                    if is_cut_this_point:
+                        cut_num += 1
+                        continue
+
                     if not IsLabelColor:
                         str_j = 'v   ' + '\t'.join( ['%0.5f'%(d) for d in  buf_k[j,0:3]]) + '  \t'\
                         + '\t'.join( ['%d'%(d) for d in  buf_k[j,3:6]]) + '\n'

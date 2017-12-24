@@ -286,6 +286,33 @@ class Matterport3D_Prepare():
             pool.close()
             pool.join()
 
+    def Norm(self):
+        base_stride = [2,2,-1]
+        base_step = [4,4,-1]
+        sample_num = 8192
+        base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(sample_num)
+        file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
+        for fn in file_list:
+            with h5py.File(fn,'r') as f:
+                sorted_h5f = Sorted_H5f(f,fn)
+                sorted_h5f.file_normalization()
+
+    def MergeNormed(self):
+        #file_list = glob.glob( os.path.join(self.sorted_path_stride_1_step_2_8192_norm,'*.nh5') )
+        #merged_file_name = self.filename_stride_1_step_2_8192_norm_merged
+
+        file_list = glob.glob( os.path.join(self.sorted_path_stride_2_step_4_8192_norm,'*.nh5') )
+        merged_file_name = self.filename_stride_2_step_4_8192_norm_merged
+        MergeNormed_H5f(file_list,merged_file_name)
+
+
+    def GenObj_RawH5f(self):
+        file_name = self.house_rawh5f_dir+'/region5.rh5'
+        xyz_cut_rate= [0,0,0.9]
+        with h5py.File(file_name,'r') as h5f:
+            rawh5f = Raw_H5f(h5f,file_name)
+            rawh5f.generate_objfile(IsLabelColor=True,xyz_cut_rate=xyz_cut_rate)
+
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
         with h5py.File(file_name,'r') as h5f:
@@ -295,5 +322,7 @@ if __name__ == '__main__':
     matterport3d_prepare = Matterport3D_Prepare()
     #matterport3d_prepare.Parse_house_regions()
     #matterport3d_prepare.SortRaw()
-    matterport3d_prepare.MergeSampleNorm()
+    #matterport3d_prepare.MergeSampleNorm()
+    matterport3d_prepare.Norm()
     #matterport3d_prepare.ShowSummary()
+    #matterport3d_prepare.GenObj_RawH5f()
