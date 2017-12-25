@@ -186,6 +186,11 @@ def MergeSampleNorm_FromSortedH5f( base_sorted_h5fname,new_stride,new_step,new_s
         sorted_h5f = Sorted_H5f(f,base_sorted_h5fname)
         sorted_h5f.merge_to_new_step(new_stride,new_step,new_sorted_path,more_actions_config)
 
+def NormSortedSampledFlie(fn):
+    with h5py.File(fn,'r') as f:
+        sorted_h5f = Sorted_H5f(f,fn)
+        sorted_h5f.file_normalization(True)
+
 class Matterport3D_Prepare():
     '''
     Read each region as a h5f.
@@ -292,10 +297,17 @@ class Matterport3D_Prepare():
         sample_num = 8192
         base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(sample_num)
         file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
+        IsMultiProcess = True
+        if IsMultiProcess:
+            pool = mp.Pool(4)
         for fn in file_list:
-            with h5py.File(fn,'r') as f:
-                sorted_h5f = Sorted_H5f(f,fn)
-                sorted_h5f.file_normalization()
+            if not IsMultiProcess:
+                NormSortedSampledFlie(fn)
+            else:
+                pool.apply_async(NormSortedSampledFlie,(fn,))
+        if IsMultiProcess:
+            pool.close()
+            pool.join()
 
     def MergeNormed(self):
         #file_list = glob.glob( os.path.join(self.sorted_path_stride_1_step_2_8192_norm,'*.nh5') )
