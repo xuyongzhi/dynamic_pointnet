@@ -117,6 +117,23 @@ def get_loss(pred_class, pred_box, label, smpw, xyz):
         labels = np.zeros(shape=(N, A))
         labels.fill(-1)
         # decide positive and negative labels
+	argmin_dist = distance.argmax(axis=1)
+	min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
+	gt_argmin_dist = distance.argmax(axis=0)
+	gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
+	gt_argmin_dist = np.where(distance == gt_min_dist)[0]
+	
+
+	arg_alpha0  = np.where(np.absolute(dif_alpha[:,0])< np.pi/4)  # alpha is 0
+	arg_alpha90 = np.where(np.absolute(dif_alpha[:,1])<= np.pi/4) # alpha is 90
+	
+	labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
+	labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
+	
+	labels[np.intersect1d(arg_alpha0 ,(min_dist<cfg.POSITIVE_CEN_DIST)),0] = 1
+	labels[np.intersect1d(arg_alpha90,(min_dist<cfg.POSITIVE_CEN_DIST)),1] = 1
+
+	num_
 
         # calculate the box targets between anchors and ground truth
 
