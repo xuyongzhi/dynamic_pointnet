@@ -69,7 +69,7 @@ __C.TRAIN.RPN_NEGATIVE_OVERLAP = 0.3
 # Distance between central points
 __C.TRAIN.POSITIVE_CEN_DIST = 0.88
 
-__C.TRAIN.NEGATIVE_CEN_DIST = 0.22 
+__C.TRAIN.NEGATIVE_CEN_DIST = 0.22
 
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5

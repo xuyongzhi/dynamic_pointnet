@@ -20,6 +20,8 @@ import numpy as np
 from config import cfg
 import tf_util
 from pointnet_util import pointnet_sa_module, pointnet_fp_module
+from sklearn.metrics.pairwise import euclidean_distances
+
 
 def placeholder_inputs(batch_size, num_point,num_channel=3):
     pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size, num_point, num_channel))
@@ -90,34 +92,39 @@ def get_loss(pred_class, pred_box, label, smpw, xyz):
     # add all acnhors(1,k,4) to
     # every point_xyz (N,1,4)
     # shift the anchors(N, K, 4) to (N*K, 4)
-    
+
     # A = cfg.TRAIN.NUM_ANCHORS
     # shifts = np.vstack(xyz[0,:,0],xyz[0,:,1],xyz[0,:,0],xyz[0,:,1]).transpose()
     # K = shifts.shape[0]
     # all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
     # all_anchors = all_anchors.reshape(K*A, 4)
-    # calculating the overlap between anchors and ground truth   
+    # calculating the overlap between anchors and ground truth
+    NUM_BATCH = xyz.shape[0]
+    A = cfg.TRAIN.NUM_ANCHORS
 
-    # N is the points number of xyz
-    # all_alpha is the [N 2] 2 anchors
-    # dif_alpha is the angle substract with label 
-    # calculate the angle gap to select one anchor
-    N =  xyz.shape[1]
-    all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-    dif_alpha = all_alpha - label.alpha
-    
-    # estimate the central points distance
-    distance =
+    for n in range(0,NUM_BATCH)
+        # N is the points number of xyz
+        # all_alpha is the [N 2] 2 anchors
+        # dif_alpha is the angle substract with label
+        # calculate the angle gap to select one anchor
+        N =  xyz[n].shape[1]
+        all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
+        dif_alpha = all_alpha - label[n].alpha
 
-    # decide positive and negative labels
+        # estimate the central points distance
+        distance = euclidean_distances(xyz[n],label[n].xyz)
 
-    # calculate the box targets between anchors and ground truth
+        labels = np.zeros(shape=(N, A))
+        labels.fill(-1)
+        # decide positive and negative labels
 
-    # outside weights and inside_weigths
+        # calculate the box targets between anchors and ground truth
 
-    # classification loss
+        # outside weights and inside_weigths
 
-    # regression loss
+        # classification loss
+
+        # regression loss
 
 
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
