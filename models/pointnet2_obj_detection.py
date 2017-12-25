@@ -99,27 +99,32 @@ def get_loss(pred_class, pred_box, label, smpw, xyz):
     # all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
     # all_anchors = all_anchors.reshape(K*A, 4)
     # calculating the overlap between anchors and ground truth
+    NUM_BATCH = xyz.shape[0]
+    A = cfg.TRAIN.NUM_ANCHORS
 
-    # N is the points number of xyz
-    # all_alpha is the [N 2] 2 anchors
-    # dif_alpha is the angle substract with label
-    # calculate the angle gap to select one anchor
-    N =  xyz.shape[1]
-    all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-    dif_alpha = all_alpha - label.alpha
+    for n in range(0,NUM_BATCH)
+        # N is the points number of xyz
+        # all_alpha is the [N 2] 2 anchors
+        # dif_alpha is the angle substract with label
+        # calculate the angle gap to select one anchor
+        N =  xyz[n].shape[1]
+        all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
+        dif_alpha = all_alpha - label[n].alpha
 
-    # estimate the central points distance
-    distance = euclidean_distances(xyz[1],label.xyz) # how to solve batch
+        # estimate the central points distance
+        distance = euclidean_distances(xyz[n],label[n].xyz)
 
-    # decide positive and negative labels
+        labels = np.zeros(shape=(N, A))
+        labels.fill(-1)
+        # decide positive and negative labels
 
-    # calculate the box targets between anchors and ground truth
+        # calculate the box targets between anchors and ground truth
 
-    # outside weights and inside_weigths
+        # outside weights and inside_weigths
 
-    # classification loss
+        # classification loss
 
-    # regression loss
+        # regression loss
 
 
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
