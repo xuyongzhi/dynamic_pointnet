@@ -19,6 +19,8 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
 DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'scannet_data')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
+matterport3D_h5f_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F'
+DATASET_DIR['MATTERPORT'] = matterport3D_h5f_dir
 
 #-------------------------------------------------------------------------------
 # provider for training and testing
@@ -31,7 +33,8 @@ class Net_Provider():
     all_filename_glob:  stride_1_step_2_test_small_4096_normed/*.nh5
     eval_fnglob_or_rate: file name str glob or file number rate. 'scan1*.nh5' 0.2
     num_point_block: if the block point number is not this, do randomly sample
-    feed_elements: sub list of ['xyz_1norm','xyz_midnorm','color_1norm','intensity_1norm']
+    feed_data_elements: sub list of ['xyz_1norm','xyz_midnorm','nxnynz','color_1norm','intensity_1norm']
+    feed_label_elements: sub list of ['label_category','label_instance','label_material']
     '''
     # input normalized h5f files
     # normed_h5f['data']: [blocks*block_num_point*num_channel],like [1000*4096*9]
@@ -40,10 +43,11 @@ class Net_Provider():
 
 
     def __init__(self,dataset_name,all_filename_glob,eval_fnglob_or_rate,\
-                 only_evaluate,num_point_block=None,feed_elements=['xyz_midnorm'],\
+                 only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
                  train_num_block_rate=1,eval_num_block_rate=1 ):
         self.dataset_name = dataset_name
-        self.feed_elements = feed_elements
+        self.feed_data_elements = feed_data_elements
+        self.feed_label_elements = feed_label_elements
         self.num_point_block = num_point_block
         all_file_list = self.get_all_file_name_list(dataset_name,all_filename_glob)
         train_file_list,eval_file_list = self.split_train_eval_file_list\
@@ -108,7 +112,7 @@ class Net_Provider():
         #self.test_tmp()
 
     def update_data_summary(self):
-        self.data_summary_str = '%s \nfeed_elements:%s \n'%(self.dataset_name,self.feed_elements)
+        self.data_summary_str = '%s \nfeed_data_elements:%s \nfeed_label_elements:%s \n'%(self.dataset_name,self.feed_data_elements,self.feed_label_elements)
         self.data_summary_str += 'train data shape: %s \ntest data shape: %s \n'%(
                          str(self.train_data_shape),str(self.eval_data_shape))
         self.data_summary_str += 'train label histogram: %s \n'%( np.array_str(self.train_label_hist_1norm) )
@@ -222,15 +226,15 @@ class Net_Provider():
             else:
                 end = self.norm_h5f_L[f_idx].label_set.shape[0]
 
-            data_i,feed_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_elements)
-            label_i = self.norm_h5f_L[f_idx].label_set[start:end,:]
+            data_i,feed_data_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
+            label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
             data_ls.append(data_i)
             label_ls.append(label_i)
 
-            if 'xyz_midnorm' in self.feed_elements:
-                xyz_midnorm_i = data_i[:,:,feed_elements_idxs['xyz_midnorm']]
+            if 'xyz_midnorm' in self.feed_data_elements:
+                xyz_midnorm_i = data_i[:,:,feed_data_elements_idxs['xyz_midnorm']]
             else:
-                xyz_midnorm_i,_ = self.norm_h5f_L[f_idx].get_normed_data(start,end,'xyz_midnorm')
+                xyz_midnorm_i,_ = self.norm_h5f_L[f_idx].get_normed_data(start,end,['xyz_midnorm'])
             center_mask_i = self.get_center_mask(xyz_midnorm_i)
             center_mask.append(center_mask_i)
 
@@ -238,8 +242,9 @@ class Net_Provider():
         label_batches = np.concatenate(label_ls,0)
         center_mask = np.concatenate(center_mask,0)
         data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
-        sample_weights = self.label_weights[label_batches]
+        sample_weights = self.labels_weights[label_batches]
         sample_weights *= center_mask
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
@@ -314,24 +319,55 @@ class Net_Provider():
     def update_sample_loss_weight(self):
         # amount is larger, the loss weight is smaller
         # get all the labels
-        label_hist = np.zeros(self.num_classes).astype(np.int64)
-        train_label_hist = np.zeros(self.num_classes).astype(np.int64)
-        test_label_hist = np.zeros(self.num_classes).astype(np.int64)
-        for k,norme_h5f in enumerate(self.norm_h5f_L):
-            label_hist_k = norme_h5f.label_set.attrs['label_hist']
-            label_hist += label_hist_k
-            if k < self.train_file_N:
-                train_label_hist += label_hist_k
-            else:
-                test_label_hist += label_hist_k
-        self.train_label_hist_1norm = train_label_hist / np.sum(train_label_hist).astype(float)
-        self.test_label_hist_1norm = test_label_hist / np.sum(test_label_hist).astype(float)
-        self.label_hist_1norm = label_hist / np.sum(label_hist).astype(float)
-        self.label_weights = 1/np.log(1.2+self.label_hist_1norm)
+        train_labels_hist_1norm = []
+        test_labels_hist_1norm = []
+        labels_hist_1norm = []
+        labels_weights = []
+
+        for label_name in self.norm_h5f_L[0].label_set_elements:
+            if label_name in self.feed_label_elements:
+                label_hist = np.zeros(self.num_classes).astype(np.int64)
+                train_label_hist = np.zeros(self.num_classes).astype(np.int64)
+                test_label_hist = np.zeros(self.num_classes).astype(np.int64)
+                for k,norme_h5f in enumerate(self.norm_h5f_L):
+                    label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
+                    label_hist += label_hist_k
+                    if k < self.train_file_N:
+                        train_label_hist += label_hist_k
+                    else:
+                        test_label_hist += label_hist_k
+                train_labels_hist_1norm.append( np.expand_dims( train_label_hist / np.sum(train_label_hist).astype(float),axis=-1) )
+                test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
+                cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
+                labels_hist_1norm.append(  cur_labels_hist_1norm )
+                labels_weights.append(   np.expand_dims(1/np.log(1.2+cur_labels_hist_1norm),axis=-1) )
+        self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
+        self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
+        self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )
+        self.labels_weights = np.concatenate( labels_weights,axis=1 )
 
 
     def write_file_accuracies(self,obj_dump_dir=None):
         Write_all_file_accuracies(self.normed_h5f_file_list,obj_dump_dir)
+
+
+
+if __name__=='__main__':
+    dataset_name = 'MATTERPORT'
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/']
+    eval_fnglob_or_rate = 0.3
+    only_evaluate = False
+    num_point_block = 8192
+    feed_data_elements = ['xyz_1norm']
+    feed_label_elements = ['label_category']
+    #feed_label_elements = ['label_category','label_instance']
+    net_provider=Net_Provider(dataset_name=dataset_name,
+                              all_filename_glob=all_filename_glob,
+                              eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              only_evaluate=only_evaluate,
+                              num_point_block=num_point_block,
+                              feed_data_elements=feed_data_elements,
+                              feed_label_elements=feed_label_elements)
 
 
 

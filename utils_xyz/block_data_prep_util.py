@@ -1225,14 +1225,53 @@ class Sort_RawH5f():
 class Normed_H5f():
     '''
     format: .nhf5
-    (1) There are 4 datasets:
+    (1) There are 3 datasets:
         'data' data_set store all normalized data, shape: N*(H*W)*C, like [num_block,4096,9]
-        'label' [num_block,4096]
-        'pred_logit'
+        'labels' [num_block,4096]
+        'pred_logits'
     (2) The root attrs are inherited from Sorted_H5f, just record the raw data information. Not all attrs are meaningful here.
         Especially, 'element_names' means the raw elements in Sorted_H5f.
         The normed data elements are stored in attrs of dataset "data".
     (3) The elements to be stored are flexible, the idx order responds to self.normed_ele_idx_order
+
+    *** example of root attrs:
+    The root_attr:  [u'datasource_name', u'element_names', u'total_block_N', u'xyz_max', u'xyz_min', u'xyz_max_aligned', u'xyz_min_aligned', u'xyz_scope_aligned', u'block_step', u'block_stride', u'block_dims_N', u'total_row_N', u'sample_num']
+    datasource_name: MATTERPORT
+    element_names: ['label_material' 'label_instance' 'label_category' 'color' 'nxnynz' 'xyz']
+    total_row_N: 98304
+    total_block_N: 12
+    block_step: [4 4 2]
+    block_stride: [2 2 2]
+    block_dims_N: [2 3 2]
+    xyz_min: [-2.2845428   0.40383905 -0.02779843]
+    xyz_max: [ 0.87131613  5.36070538  2.57167315]
+    xyz_min_aligned: [-2.3  0.4 -0.2]
+    xyz_max_aligned: [ 0.9  5.4  2.6]
+    xyz_scope_aligned: [ 3.2  5.   2.8]
+
+    *** example of attrs of data_dset: ( shape= (12, 8192, 15))
+    color_1norm  =  [12 13 14]
+    nxnynz  =  [ 9 10 11]
+    xyz  =  [0 1 2]
+    xyz_midnorm  =  [3 4 5]
+    xyz_1norm  =  [6 7 8]
+    valid_num  =  12
+
+    *** example of attrs of labels_dset:
+    labels   shape= (12, 8192, 3)
+    label_material  =  [2]
+    label_instance  =  [1]
+    label_category  =  [0]
+    valid_num  =  12
+    label_category_hist  =  [    5 25276     0 14310  9288     0     0     0     0     0     0     0
+    5122     0 26148     0     0     0     0     0     0     0     0     0
+    0     0     0     0     0 13049     0     0     0     0     0     0
+    0     0   409     0  1477     0]
+    label_category_1norm  =  [  5.25850827e-05   2.65828110e-01   0.00000000e+00   1.50498507e-01
+    label_instance_hist  =  [   66   572  1477   774   409   694  2819  3105  2495   766  1876  5056
+    label_instance_1norm  =  [ 0.00067142  0.00581898  0.01502559  0.00787394  0.00416077  0.00706009
+    label_material_hist  =  [    0 25276     0 14310  9288     0     0     0     0     0     0     0
+    label_material_1norm  =  [ 0.          0.26584209  0.          0.15050642  0.09768719  0.          0.
     '''
     # -----------------------------------------------------------------------------
     # CONSTANTS
@@ -1278,6 +1317,7 @@ class Normed_H5f():
     normed_data_ele_candi_len = {'xyz':3,'xyz_midnorm':3,'xyz_1norm':3,'nxnynz':3,'color_1norm':3,'intensity_1norm':1}
 
     labels_order = ['label_category','label_instance','label_material']
+    label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
 
     def __init__(self,h5f,file_name,datasource_name=None):
         '''
@@ -1301,10 +1341,28 @@ class Normed_H5f():
             self.g_class2color[cls] = self.g_label2color[i]
         self.num_classes = len(self.g_label2class)
 
-        self.dataset_names = ['data','label','raw_xyz','pred_logit']
+        self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
             if dn in h5f:
                 setattr(self,dn+'_set', h5f[dn])
+        self.update_data_label_eles_by_rootattr()
+
+    #def get_data_label_eles_by_dsetattr(self):
+    def update_data_label_eles_by_rootattr(self):
+        normed_data_set_elements = []
+        label_set_elements = []
+        for e in self.normed_ele_idx_order:
+            if e in self.h5f.attrs['element_names']:
+                normed_data_set_elements += self.normed_data_elements_candi[e]
+        for e in self.labels_order:
+            if e in self.h5f.attrs['element_names']:
+                label_set_elements += [e]
+
+        self.normed_data_set_elements = normed_data_set_elements
+        self.label_set_elements = label_set_elements
+        self.normed_data_ele_idxs = self.get_normeddata_ele_idxs(normed_data_set_elements)
+        self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
+
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
         if feed_elements==None:
             return self.data_set[start_block:end_blcok,:,:]
@@ -1312,6 +1370,13 @@ class Normed_H5f():
             normed_data_ele_idx = np.sort(list(set([k for e in feed_elements for k in self.data_set.attrs[e] ])))
             feed_elements_idxs = self.get_normeddata_ele_idxs(feed_elements)
             return self.data_set[start_block:end_blcok,:,normed_data_ele_idx],feed_elements_idxs
+
+    def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
+        if feed_label_elements==None:
+            return self.labels_set[start_block:end_blcok,:,:]
+        else:
+            labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
+            return self.labels_set[start_block:end_blcok,:,labels_ele_idx]
 
     def copy_root_attrs_from_sorted(self,h5f_sorted,sortedh5f_IS_CHECK):
         attrs=['datasource_name','element_names','total_block_N',
@@ -1382,6 +1447,14 @@ class Normed_H5f():
                 k += self.normed_data_ele_candi_len[e]
                 data_ele_idxs[e] = idx
         return data_ele_idxs
+    def get_label_ele_idxs(self,label_eles):
+        label_ele_idxs = {}
+        k = 0
+        for e in self.labels_order:
+            if e in label_eles:
+                label_ele_idxs[e] = range(k,k+self.label_candi_eles_len[e])
+                k += self.label_candi_eles_len[e]
+        return label_ele_idxs
 
     def create_3dsets(self):
         chunks_n = 1
@@ -1406,19 +1479,17 @@ class Normed_H5f():
 #                maxshape=(None,sample_num,3),dtype=np.float32,compression="gzip",\
 #                chunks = (chunks_n,sample_num,3)  )
         # predicted label
-        pred_logits_set = self.h5f.create_dataset( 'pred_logit',shape=(total_block_N,sample_num,label_eles_num),\
+        pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,sample_num,label_eles_num),\
                 maxshape=(None,sample_num,label_eles_num),dtype=np.int16,compression="gzip",\
                 chunks = (chunks_n,sample_num,label_eles_num)  )
         pred_logits_set[:] = -1
 
-        normed_data_set_elements = []
-        for e in self.h5f.attrs['element_names']:
-            if e in self.normed_data_elements_candi:
-                normed_data_set_elements += self.normed_data_elements_candi[e]
-        self.normed_data_ele_idxs = self.get_normeddata_ele_idxs(normed_data_set_elements)
-
-        for ele in normed_data_set_elements:
+        self.update_data_label_eles_by_rootattr()
+        for ele in self.normed_data_set_elements:
             data_set.attrs[ele] = self.normed_data_ele_idxs[ele]
+        for ele in self.label_set_elements:
+            labels_set.attrs[ele] = self.label_ele_idxs[ele]
+
         data_set.attrs['valid_num'] = 0
         labels_set.attrs['valid_num'] = 0
         #raw_xyz_set.attrs['valid_num'] = 0
@@ -1496,10 +1567,12 @@ class Normed_H5f():
                 #print('resizing block %s from %d to %d'%(dset_name_i,dset_i.shape[0],valid_n))
                 dset_i.resize( (valid_n,)+dset_i.shape[1:] )
     def add_label_histagram(self):
-        label_hist,_ = np.histogram(self.labels_set,range(self.num_classes+1))
-        label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
-        self.labels_set.attrs['label_hist'] = label_hist
-        self.labels_set.attrs['label_hist_1norm'] = label_hist_1norm
+        for label_name in self.labels_order:
+            if label_name in self.labels_set.attrs:
+                label_hist,_ = np.histogram(self.labels_set[:,:,self.labels_set.attrs[label_name]],range(self.num_classes+1))
+                label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
+                self.labels_set.attrs[label_name+'_hist'] = label_hist
+                self.labels_set.attrs[label_name+'_1norm'] = label_hist_1norm
 
     def Get_file_accuracies(self,IsWrite=False,out_path=None):
         # get the accuracy of each file by the pred data in hdf5
