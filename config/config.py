@@ -61,10 +61,13 @@ __C.TRAIN.USE_FLIPPED = False
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 
 # IOU >= thresh: positive example
-__C.TRAIN.RPN_POSITIVE_OVERLAP = 0.7
+#__C.TRAIN.RPN_POSITIVE_OVERLAP = 0.7
 
 # IOU < thresh: negative example
-__C.TRAIN.RPN_NEGATIVE_OVERLAP = 0.3
+#__C.TRAIN.RPN_NEGATIVE_OVERLAP = 0.3
+
+# Alpha thershold between anchors and ground truth
+__C.TRAIN.POSITIVE_ALPHA = np.pi/4
 
 # Distance between central points
 __C.TRAIN.NEGATIVE_CEN_DIST = 0.88
