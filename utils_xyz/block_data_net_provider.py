@@ -242,7 +242,9 @@ class Net_Provider():
         label_batches = np.concatenate(label_ls,0)
         center_mask = np.concatenate(center_mask,0)
         data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         sample_weights = self.labels_weights[label_batches]
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         sample_weights *= center_mask
         import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
