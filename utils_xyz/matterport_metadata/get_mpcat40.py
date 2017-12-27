@@ -1,4 +1,5 @@
 import os,csv
+import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 mpcat40_fn = BASE_DIR+'/mpcat40.tsv'
@@ -43,8 +44,8 @@ with open(category_mapping_fn,'r') as f:
     for i,line in enumerate(reader):
         if i==0:
             ele_names = line
-            print(ele_names)
-            print('\n')
+            #print(ele_names)
+            #print('\n')
             for j in range(18):
                 mapping_vals[ele_names[j]] = []
         else:
@@ -65,12 +66,23 @@ with open(category_mapping_fn,'r') as f:
 rawcategory_2_mpcat40ind = mapping_vals['mpcat40index']
 rawcategory_2_mpcat40 = mapping_vals['mpcat40']
 
-def get_mapcat40(raw_category_index):
-    assert raw_category_index>0, "raw_category_index start from 1"
-    mpcat40 = rawcategory_2_mpcat40[raw_category_index-1]
-    mpcat40_idx = rawcategory_2_mpcat40ind[raw_category_index-1]
-    assert mpcat40 == MatterportMeta['label2class'][mpcat40_idx],"%s != %s"%(mpcat40,MatterportMeta['label2class'][mpcat40_idx])
-    return mpcat40_idx, mpcat40
+def get_cat40_from_rawcat(raw_category_indexs):
+    '''
+    raw_category_indexs.shape=[batch_size,num_point,1]
+    '''
+    assert raw_category_indexs.shape[2]==1
+    mpcat40_idxs = np.zeros(shape=raw_category_indexs.shape)
+    batch_size = raw_category_indexs.shape[0]
+    num_point = raw_category_indexs.shape[1]
+    mpcat40s = [ ['']*num_point ]*batch_size
+    for i in range(batch_size):
+        for j in range(num_point):
+            raw_category_index = raw_category_indexs[i,j,0]
+            assert raw_category_index>0, "raw_category_index start from 1"
+            mpcat40_ij = rawcategory_2_mpcat40[raw_category_index-1]
+            mpcat40_idx_ij = rawcategory_2_mpcat40ind[raw_category_index-1]
+            mpcat40_idxs[i,j,0] = mpcat40_idx_ij
+            assert mpcat40_ij == MatterportMeta['label2class'][mpcat40_idx_ij],"%s != %s"%(mpcat40_ij,MatterportMeta['label2class'][mpcat40_idx_ij])
+            mpcat40s[i][j] += mpcat40_ij
+    return mpcat40_idxs
 
-#for i in range(1,10):
-#    print(get_mapcat40(i))

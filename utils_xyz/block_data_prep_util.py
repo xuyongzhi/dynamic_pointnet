@@ -37,7 +37,7 @@ import itertools
 #import argparse
 from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import MatterportMeta
+from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 
 START_T = time.time()
 
@@ -1373,10 +1373,18 @@ class Normed_H5f():
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         if feed_label_elements==None:
-            return self.labels_set[start_block:end_blcok,:,:]
+            labels = self.labels_set[start_block:end_blcok,:,:]
+            raw_category_idx = self.label_ele_idxs['label_category']
+            labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
         else:
             labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
-            return self.labels_set[start_block:end_blcok,:,labels_ele_idx]
+            labels = self.labels_set[start_block:end_blcok,:,labels_ele_idx]
+            if labels.ndim == 2:
+                labels = np.expand_dims(labels,axis=-1)
+            if 'label_category' in feed_label_elements:
+                raw_category_idx = self.labels_set.attrs['label_category']
+                labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
+        return labels
 
     def copy_root_attrs_from_sorted(self,h5f_sorted,sortedh5f_IS_CHECK):
         attrs=['datasource_name','element_names','total_block_N',
