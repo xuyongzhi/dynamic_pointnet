@@ -115,9 +115,9 @@ class Net_Provider():
         self.data_summary_str = '%s \nfeed_data_elements:%s \nfeed_label_elements:%s \n'%(self.dataset_name,self.feed_data_elements,self.feed_label_elements)
         self.data_summary_str += 'train data shape: %s \ntest data shape: %s \n'%(
                          str(self.train_data_shape),str(self.eval_data_shape))
-        self.data_summary_str += 'train label histogram: %s \n'%( np.array_str(self.train_label_hist_1norm) )
-        self.data_summary_str += 'test label histogram: %s \n'%( np.array_str(self.test_label_hist_1norm) )
-        self.data_summary_str += 'label histogram: %s \n'%( np.array_str(self.label_hist_1norm) )
+        self.data_summary_str += 'train labels histogram: %s \n'%( np.array_str(self.train_labels_hist_1norm) )
+        self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(self.test_labels_hist_1norm) )
+        self.data_summary_str += 'labels histogram: %s \n'%( np.array_str(self.labels_hist_1norm) )
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):
         all_file_list = []
@@ -241,12 +241,18 @@ class Net_Provider():
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         center_mask = np.concatenate(center_mask,0)
+        center_mask = np.expand_dims(center_mask,axis=-1)
+        center_mask = np.tile(center_mask,(1,1,2))
         data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        sample_weights = self.labels_weights[label_batches]
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+        num_label_types = self.labels_weights.shape[1]
+        sample_weights = []
+        for k in range(num_label_types):
+            sample_weights_k = np.take(self.labels_weights[:,k],label_batches[:,:,k])
+            sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
+        sample_weights = np.concatenate(sample_weights,axis=-1)
+
         sample_weights *= center_mask
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
@@ -342,7 +348,7 @@ class Net_Provider():
                 test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
                 cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
                 labels_hist_1norm.append(  cur_labels_hist_1norm )
-                labels_weights.append(   np.expand_dims(1/np.log(1.2+cur_labels_hist_1norm),axis=-1) )
+                labels_weights.append(  1/np.log(1.2+cur_labels_hist_1norm) )
         self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
         self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
         self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )
@@ -361,7 +367,7 @@ if __name__=='__main__':
     only_evaluate = False
     num_point_block = 8192
     feed_data_elements = ['xyz_1norm']
-    feed_label_elements = ['label_category']
+    feed_label_elements = ['label_category','label_instance']
     #feed_label_elements = ['label_category','label_instance']
     net_provider=Net_Provider(dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
