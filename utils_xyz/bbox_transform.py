@@ -5,7 +5,7 @@
 
 import numpy as np
 
-def 3D_box_transform(anch_boxes, gt_boxes):
+def bbox_transform(anch_boxes, gt_boxes):
     # getting the l,w,h,alpha,x,y,z from anchors
     anch_lengths = anch_boxes[:, 0]
     anch_widths  = anch_boxes[:, 1]
@@ -31,8 +31,8 @@ def 3D_box_transform(anch_boxes, gt_boxes):
     targets_dh   = np.log( gt_heights / anch_heights )
     targets_alpha= ( gt_alpha - anch_alpha ) / (np.pi/4)
 
-    targets      = np.vstack( 
+    targets      = np.vstack(
 	(targets_dl, targets_dw, targets_dh, targets_alpha, targets_dx, targets_dy, targets_dz)).transpose()
 
     return targets
- 
+

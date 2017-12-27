@@ -21,7 +21,7 @@ import numpy as np
 from config import cfg
 import numpy.random as npr
 import tf_util
-from 3D_box_transform import 3D_box_transform
+from bbox_transform import bbox_transform
 from pointnet_util import pointnet_sa_module, pointnet_fp_module
 from sklearn.metrics.pairwise import euclidean_distances
 
@@ -102,8 +102,10 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     # all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
     # all_anchors = all_anchors.reshape(K*A, 4)
     # calculating the overlap between anchors and ground truth
+    assert xyz.shape[1] == 3
     NUM_BATCH = xyz.shape[0]
     A = cfg.TRAIN.NUM_ANCHORS
+    loss_all = 0
 
     for n in range(0,NUM_BATCH)
         # N is the points number of xyz
@@ -111,74 +113,124 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # dif_alpha is the angle substract with label
         # calculate the angle gap to select one anchor
         N =  xyz[n].shape[1]
-        all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-        dif_alpha = all_alpha - gt_box[n].alpha
-	dif_alpha = dif_alpha.reshape(-1,1)
+
         # estimate the central points distance
-        distance = euclidean_distances(xyz[n], gt_box[n,:,1:4])
-	distance = np.tile(distance, (1,A))
- 	distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
+        distance = euclidean_distances(xyz[n], gt_box[n,:,0:3])
+        distance = np.tile(distance, (1,A))
+        distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
 
         labels = np.zeros(shape=(N*A,1))
         labels.fill(-1)
-        # decide positive and negative labels
-	argmin_dist = distance.argmax(axis=1)
-	min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
-	gt_argmin_dist = distance.argmax(axis=0)
-	gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
-	gt_argmin_dist = np.where(distance == gt_min_dist)[0]
-	
-	# Deleting hard coding
-	# arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
-	# arg_alpha90 = np.where(np.absolute(dif_alpha[:,1]) <= np.pi/4) # alpha is 90
-	# labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
-	# labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
-	# labels[np.intersect1d(arg_alpha0 ,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),0] = 1
-	# labels[np.intersect1d(arg_alpha90,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),1] = 1	
-	#labels[np.intersect1d(arg_alpha90 ,(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),0] = 0
-	#labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
-	arg_alpha = np.where(np.absolute(dif_alpha[:0] < cfg.TRAIN.POSITIVE_ALPHA))[0]
-	labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
-	min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
-	labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
-	min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
-	labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
 
-	num_positive_labels = int( cfg.TRAIN.RPN_FG_FRACTION*cfg.TRAIN.RPN_BATCHSIZE )
-	# labels = labels.reshape(-1,1)
-	positive_inds = np.where(labels == 1)[0]
-	if len(positive_inds) > num_positive_labels:
+        # decide positive and negative labels
+        argmin_dist = distance.argmax(axis=1)
+        min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
+        gt_argmin_dist = distance.argmax(axis=0)
+        gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
+        gt_argmin_dist = np.where(distance == gt_min_dist)[0]
+
+        all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
+        all_alpha = all_alpha.reshape(-1,1)
+        dif_alpha = all_alpha - gt_box[n, argmin_dist, 4]
+
+
+        # Deleting hard coding
+        # arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
+        # arg_alpha90 = np.where(np.absolute(dif_alpha[:,1]) <= np.pi/4) # alpha is 90
+        # labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
+        # labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
+        # labels[np.intersect1d(arg_alpha0 ,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),0] = 1
+        # labels[np.intersect1d(arg_alpha90,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),1] = 1
+        #labels[np.intersect1d(arg_alpha90 ,(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),0] = 0
+        #labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
+        arg_alpha = np.where(np.absolute(dif_alpha[:0] < cfg.TRAIN.POSITIVE_ALPHA))[0]
+        labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
+        min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
+        labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
+        min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
+        labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
+
+        num_positive_labels = int( cfg.TRAIN.RPN_FG_FRACTION*cfg.TRAIN.RPN_BATCHSIZE )
+        # labels = labels.reshape(-1,1)
+        positive_inds = np.where(labels == 1)[0]
+        if len(positive_inds) > num_positive_labels:
 		disable_inds = npr.choice(
 			positive_inds, size = (len(positive_inds) - num_positive_labels), replace = False )
 		labels[disable_inds] = -1
 
-	num_negative_labels = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
-	negative_inds = np.where(labels == 0)[0]
-	if len(negative_inds) > num_negative_labels
-		disable_inds = npr.choice(
+        num_negative_labels = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
+        negative_inds = np.where(labels == 0)[0]
+        if len(negative_inds) > num_negative_labels
+            disable_inds = npr.choice(
 			negative_inds, size = (len(negative_inds) - num_negative_labels), replace = False )
-		labels[disable_inds] = -1
-	# labels = labels.reshape(-1,A)
-	box_targets = np.zeros((N*A,cfg.TRAIN.NUM_REGRESSION, dtype = np.float32 )
-	box_targets = 3D_box_transform()
+            labels[disable_inds] = -1
+            # labels = labels.reshape(-1,A)
 
-        # calculate the box targets between anchors and ground truth
-	
+
+        box_targets = anch_boxes = gt_boxes = box_inside_weights = box_outside_weights = np.zeros((N*A,cfg.TRAIN.NUM_REGRESSION), dtype = np.float32 )
+        anch_box[:,0] = cfg.TRAIN.Anchors[0,0]
+        anch_box[:,1] = cfg.TRAIN.Anchors[0,1]
+        anch_box[:,2] = cfg.TRAIN.Anchors[0,2]
+        anch_box[:,3] = all_alpha
+        all_xyz       = np.tile(xyz,(1,A))
+        all_xyz       = all_xyz.reshape(-1, 3)
+        anch_box[:,4] = all_xyz[:,0]
+        anch_box[:,5] = all_xyz[:,1]
+        anch_box[:,6] = all_xyz[:,2]
+
         # outside weights and inside_weigths
 
+        box_inside_weights[labels==1,:]  = np.array(cfg.TRAIN.BBOX_INSIDE_WEIGHTS)
+        box_outside_weights[labels==1,:] = np.ones(1,cfg.TRAIN.NUM_REGRESSION)*1.0/cfg.TRAIN.RPN_BATCHSIZE
+        box_outside_weights[labels==0,:] = np.ones(1,cfg.TRAIN.NUM_REGRESSION)*1.0/cfg.TRAIN.RPN_BATCHSIZE
+
+        # calculate the box targets between anchors and ground truth
+        assert anch_box.shape[1] == cfg.TRAIN.NUM_REGRESSION
+        # assert gt_box.shape[1] == cfg.TRAIN.NUM_REGRESSION
+        box_targets   = bbox_transform(anch_box, gt_box[argmin_dist,0:7])
+
+        box_pred = tf.reshape(box_pred, [-1, cfg.TRAIN.NUM_REGRESSION])
+        regresion_smooth = _smooth_l1(cfg.TRAIN.SIGMA, box_pred, box_targets, box_inside_weights, box_outside_weights)
+        loss_regression  = tf.reduce_mean(tf.reduce_sum(regression_smooth, axis = 1))
+
         # classification loss
-	pred_class = tf.reshape(pred_class, [-1,2])
-	labels = tf.reshape(labels, [-1])
-	pred_class = tf.reshape(tf.gather(pred_class, tf.where(tf.not_equal(labels,-1))),[-1, 2])
-	labels = tf.reshape(tf.gather(labels, tf.where(tf.not_equal(labels, -1))), [-1])
-	loss_classification = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits = pred_class, labels = labels))
+        pred_class = tf.reshape(pred_class, [-1,2])
+        labels = tf.reshape(labels, [-1])
+        pred_class = tf.reshape(tf.gather(pred_class, tf.where(tf.not_equal(labels,-1))),[-1, 2])
+        labels = tf.reshape(tf.gather(labels, tf.where(tf.not_equal(labels, -1))), [-1])
+        loss_classification = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw))
+
+        loss_all = loss_all +  loss_classification + cfg.TRAIN.LAMBDA * loss_regression
 
         # regression loss
 
+    loss_all = loss_all/NUM_BATCH
+    tf.summary.scalar('classify loss', loss_all)
+    return loss_all
 
-    classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
-    tf.summary.scalar('classify loss', classify_loss)
-    return classify_loss
+
+def _smmoth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_weights):
+    """
+        loss = bbox_outside_weights*smoothL1(inside_weights * (box_pred - box_targets))
+        smoothL1(x) = 0.5*(sigma*x)^2, if |x| < 1 / sigma^2
+                       |x| - 0.5 / sigma^2, otherwise
+    """
+    sigma2 = sigma * sigma
+    inside_mul = tf.multiply(box_inside_weights, tf.substract(box_pred, box_targets))
+
+    smooth_l1_sign    = tf.cast(tf.less(tf.abs(inside_mul), 1.0/sigma2), tf.float32)
+    smooth_l1_option1 = tf.multiply(tf.multiply(inside_mul,inside_mul), 0.5*sigma2)
+    smooth_l1_option2 = tf.substract(tf.abs(inside_mul), 0.5*sigma2)
+
+    smooth_l1_result  = tf.add(tf.multiply(smooth_l1_option1, smooth_l1_sign),
+                               tf.multiply(smooth_l1_option2, tf.abs(tf.substract(smooth_l1_sign, 1.0))))
+
+    outside_mul   = tf.multiply(box_outside_weights, smooth_l1_result)
+
+    return outside_mul
+
+
+
 
 if __name__=='__main__':
     with tf.Graph().as_default():
