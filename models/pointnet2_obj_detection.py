@@ -105,7 +105,8 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     assert xyz.shape[1] == 3
     NUM_BATCH = xyz.shape[0]
     A = cfg.TRAIN.NUM_ANCHORS
-    loss_all = 0
+    loss_classification_all = 0
+    loss_regression_all  = 0
 
     for n in range(0,NUM_BATCH)
         # N is the points number of xyz
@@ -200,12 +201,14 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
         labels = tf.reshape(tf.gather(labels, tf.where(tf.not_equal(labels, -1))), [-1])
         loss_classification = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw))
 
-        loss_all = loss_all +  loss_classification + cfg.TRAIN.LAMBDA * loss_regression
+        loss_classification_all = loss_classification_all +  loss_classification
+        loss_regression_all     = loss_regression_all + loss_regression
 
         # regression loss
 
-    loss_all = loss_all/NUM_BATCH
-    tf.summary.scalar('classify loss', loss_all)
+    loss_all = (loss_classification_all + cfg.TRAIN.LAMBDA*loss_regression_all)/NUM_BATCH
+    tf.summary.scalar('classification loss', loss_classification_all/NUM_BATCH)
+    tf.summary.scalar('regression loss', loss_regression_all/NUM_BATCH)
     return loss_all
 
 
