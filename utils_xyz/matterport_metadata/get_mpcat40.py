@@ -78,6 +78,16 @@ def get_cat40_from_rawcat(raw_category_indexs):
     for i in range(batch_size):
         for j in range(num_point):
             raw_category_index = raw_category_indexs[i,j,0]
+
+            #???????????????????????????????????????????????????????????????????
+            if raw_category_index==0:
+                raw_category_index = 40
+
+
+            if raw_category_index<=0:
+                print('raw_category_index=%d bug should >0'%(raw_category_index))
+                print('err num: %d'%(np.sum(raw_category_indexs<=0)))
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert raw_category_index>0, "raw_category_index start from 1"
             mpcat40_ij = rawcategory_2_mpcat40[raw_category_index-1]
             mpcat40_idx_ij = rawcategory_2_mpcat40ind[raw_category_index-1]

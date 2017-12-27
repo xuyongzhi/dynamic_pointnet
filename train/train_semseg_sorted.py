@@ -27,10 +27,11 @@ ISDEBUG = False
 ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
-parser.add_argument('--all_fn_globs', type=str,default='stride_1_step_2_8192_normed/',\
+parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
+parser.add_argument('--all_fn_globs', type=str,default='v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/',\
                     help='The file name glob for both training and evaluation')
-parser.add_argument('--feed_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
+parser.add_argument('--feed_data_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
+parser.add_argument('--feed_label_elements', default='label_category', help='label_category,label_instance')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=8192, help='Point number [default: 4096]')
@@ -77,8 +78,9 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
     FLAGS.log_dir = FLAGS.log_dir+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
-FLAGS.feed_elements = FLAGS.feed_elements.split(',')
+                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
+FLAGS.feed_data_elements = FLAGS.feed_data_elements.split(',')
+FLAGS.feed_label_elements = FLAGS.feed_label_elements.split(',')
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
@@ -104,15 +106,18 @@ HOSTNAME = socket.gethostname()
 
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
-net_provider = Net_Provider(dataset_name=FLAGS.dataset_name, \
-                            all_filename_glob=FLAGS.all_fn_globs, \
-                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,\
-                            only_evaluate = FLAGS.only_evaluate,\
+net_provider = Net_Provider(dataset_name=FLAGS.dataset_name,
+                            all_filename_glob=FLAGS.all_fn_globs,
+                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
+                            only_evaluate = FLAGS.only_evaluate,
                             num_point_block = NUM_POINT,
-                            feed_elements=FLAGS.feed_elements)
+                            feed_data_elements=FLAGS.feed_data_elements,
+                            feed_label_elements=FLAGS.feed_label_elements)
 NUM_CHANNELS = net_provider.num_channels
 NUM_CLASSES = net_provider.num_classes
-
+NUM_LABEL_ELES = net_provider.num_label_eles
+LABEL_ELE_IDXS = net_provider.label_ele_idxs
+CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 START_TIME = time.time()
 
 
@@ -304,10 +309,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         t1 = time.time()
         if type(cur_data) == type(None):
             break # all data reading finished
+        label_category = cur_label[:,:,CATEGORY_LABEL_IDX]
         feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: cur_label,
+                     ops['labels_pl']: label_category,
                      ops['is_training_pl']: is_training,
-                     ops['smpws_pl']: cur_smp_weights}
+                     ops['smpws_pl']: cur_smp_weights[:,:,CATEGORY_LABEL_IDX]}
 
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
@@ -380,9 +386,9 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: cur_label,
+                     ops['labels_pl']: cur_label[:,:,CATEGORY_LABEL_IDX],
                      ops['is_training_pl']: is_training,
-                     ops['smpws_pl']: cur_smp_weights }
+                     ops['smpws_pl']: cur_smp_weights[:,:,CATEGORY_LABEL_IDX]}
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:

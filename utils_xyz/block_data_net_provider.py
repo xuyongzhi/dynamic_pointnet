@@ -20,7 +20,7 @@ DATASET_DIR={}
 DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'scannet_data')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F'
-DATASET_DIR['MATTERPORT'] = matterport3D_h5f_dir
+DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 
 #-------------------------------------------------------------------------------
 # provider for training and testing
@@ -87,6 +87,8 @@ class Net_Provider():
         else: self.train_num_blocks = 0
         self.eval_num_blocks = self.g_block_idxs[-1,1] - self.train_num_blocks
         self.num_classes = self.norm_h5f_L[0].num_classes
+        self.label_ele_idxs = self.norm_h5f_L[0].label_ele_idxs
+        self.label_eles = self.norm_h5f_L[0].label_set_elements
 
         self.update_sample_loss_weight()
         self.update_train_eval_shuffled_idx()
@@ -115,14 +117,21 @@ class Net_Provider():
         self.data_summary_str = '%s \nfeed_data_elements:%s \nfeed_label_elements:%s \n'%(self.dataset_name,self.feed_data_elements,self.feed_label_elements)
         self.data_summary_str += 'train data shape: %s \ntest data shape: %s \n'%(
                          str(self.train_data_shape),str(self.eval_data_shape))
-        self.data_summary_str += 'train labels histogram: %s \n'%( np.array_str(self.train_labels_hist_1norm) )
-        self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(self.test_labels_hist_1norm) )
-        self.data_summary_str += 'labels histogram: %s \n'%( np.array_str(self.labels_hist_1norm) )
+       # self.data_summary_str += 'train labels histogram: %s \n'%( np.array_str(np.transpose(self.train_labels_hist_1norm) ))
+       # self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(np.transpose(self.test_labels_hist_1norm) ))
+        self.data_summary_str += 'labels histogram: %s \n'%( np.array_str(np.transpose(self.labels_hist_1norm[:,0]) ))
+        #print(self.data_summary_str)
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):
         all_file_list = []
+        fn_globs = []
         for all_filename_glob in all_filename_globs:
-            all_file_list  += glob.glob( os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'*.nh5') )
+            fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'*.nh5')
+            all_file_list  += glob.glob( fn_glob )
+            fn_globs.append(fn_glob)
+        if len(all_file_list)== 0:
+            print('no file in:')
+            print(fn_globs)
         return all_file_list
 
     def split_train_eval_file_list(self,all_file_list,eval_fnglob_or_rate=None):
@@ -159,6 +168,7 @@ class Net_Provider():
         self.num_channels = self.train_data_shape[2]
         self.eval_data_shape = list(data_batches.shape)
         self.eval_data_shape[0] = self.eval_num_blocks
+        self.num_label_eles = label_batches.shape[2]
 
     def test_tmp(self):
         s = 0
@@ -241,13 +251,13 @@ class Net_Provider():
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         center_mask = np.concatenate(center_mask,0)
-        center_mask = np.expand_dims(center_mask,axis=-1)
-        center_mask = np.tile(center_mask,(1,1,2))
         data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
 
-        num_label_types = self.labels_weights.shape[1]
+        num_label_eles = self.labels_weights.shape[1]
+        center_mask = np.expand_dims(center_mask,axis=-1)
+        center_mask = np.tile(center_mask,(1,1,num_label_eles))
         sample_weights = []
-        for k in range(num_label_types):
+        for k in range(num_label_eles):
             sample_weights_k = np.take(self.labels_weights[:,k],label_batches[:,:,k])
             sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
         sample_weights = np.concatenate(sample_weights,axis=-1)
@@ -293,8 +303,8 @@ class Net_Provider():
         np.random.shuffle(self.eval_shuffled_idx)
 
     def get_train_batch(self,train_start_batch_idx,train_end_batch_idx):
-        assert(train_start_batch_idx>=0 and train_start_batch_idx<self.train_num_blocks)
-        assert(train_end_batch_idx>=0 and train_end_batch_idx<self.train_num_blocks)
+        assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
+        assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
         IsShuffleIdx = True
         if IsShuffleIdx:
@@ -304,8 +314,8 @@ class Net_Provider():
             return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
-        assert(eval_start_batch_idx>=0 and eval_start_batch_idx<self.eval_num_blocks)
-        assert(eval_end_batch_idx>=0 and eval_end_batch_idx<self.eval_num_blocks)
+        assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
+        assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks)
         g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
         return self.get_shuffled_global_batch(g_shuffled_batch_idx)
 
@@ -361,7 +371,7 @@ class Net_Provider():
 
 
 if __name__=='__main__':
-    dataset_name = 'MATTERPORT'
+    dataset_name = 'matterport3d'
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/']
     eval_fnglob_or_rate = 0.3
     only_evaluate = False
@@ -376,6 +386,9 @@ if __name__=='__main__':
                               num_point_block=num_point_block,
                               feed_data_elements=feed_data_elements,
                               feed_label_elements=feed_label_elements)
+
+    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(0,net_provider.train_num_blocks-1)
+    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(0,net_provider.eval_num_blocks-1)
 
 
 
