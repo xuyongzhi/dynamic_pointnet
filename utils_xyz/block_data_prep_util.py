@@ -579,9 +579,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             check: all xyz_scope_k_new contain xyz_scope_k
             '''
             assert( (self.h5f.attrs['block_step'] <= new_sorted_h5f.h5f.attrs['block_step']).all() )
-            assert( (new_sorted_h5f.h5f.attrs['block_step'] % self.h5f.attrs['block_step'] == 0).all() )
+            assert( ((new_sorted_h5f.h5f.attrs['block_step'] / self.h5f.attrs['block_step'])%1 == 0).all() )
             assert( (new_sorted_h5f.h5f.attrs['block_stride'] >= self.h5f.attrs['block_step']).all() )
-            assert( (new_sorted_h5f.h5f.attrs['block_stride'] % self.h5f.attrs['block_step'] == 0).all() )
+            assert( ((new_sorted_h5f.h5f.attrs['block_stride'] / self.h5f.attrs['block_step'])%1 == 0).all() )
 
             search = ( new_sorted_h5f.h5f.attrs['block_step'] / new_sorted_h5f.h5f.attrs['block_stride'] ).astype(np.float64)
             if ( search%1*new_sorted_h5f.h5f.attrs['block_stride'] >= self.h5f.attrs['block_step']).all() :
@@ -1349,6 +1349,8 @@ class Normed_H5f():
 
     #def get_data_label_eles_by_dsetattr(self):
     def update_data_label_eles_by_rootattr(self):
+        if 'element_names' not in self.h5f.attrs:
+            return # new created file
         normed_data_set_elements = []
         label_set_elements = []
         for e in self.normed_ele_idx_order:
@@ -1817,7 +1819,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename):
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 merged_normed_h5f.append_to_dset('data',in_normed_h5f.data_set)
-                merged_normed_h5f.append_to_dset('label',in_normed_h5f.label_set)
+                merged_normed_h5f.append_to_dset('labels',in_normed_h5f.labels_set)
         merged_normed_h5f.create_done()
         print('merged h5f OK: %s'%(merged_filename))
 

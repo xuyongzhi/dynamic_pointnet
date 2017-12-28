@@ -31,6 +31,7 @@ b48_xyz1norm_FT="python $train_script --feed_data_elements xyz_1norm  --feed_lab
 
 #----------------  fast code test with small data
 matterport_fnglob="v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/"
+matterport_fnglob="v1*"
 scanet_small_fnglob="v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/"
 small_test_xyz1norm="python $train_script --feed_data_elements xyz_midnorm  --feed_label_elements $feed_label_elements --all_fn_globs $matterport_fnglob --eval_fnglob_or_rate 0.4   --max_epoch 3 --batch_size 8  --num_point $numpoint  --dataset_name $dataset_name --log_dir small_data_test_log --auto_break"
 $small_test_xyz1norm

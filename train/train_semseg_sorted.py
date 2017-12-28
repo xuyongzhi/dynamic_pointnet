@@ -103,7 +103,6 @@ BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
-
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
 net_provider = Net_Provider(dataset_name=FLAGS.dataset_name,

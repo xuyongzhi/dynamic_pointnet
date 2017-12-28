@@ -19,7 +19,7 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
 DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'scannet_data')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
-matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
+matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F/all_merged_nf5')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 
 #-------------------------------------------------------------------------------
