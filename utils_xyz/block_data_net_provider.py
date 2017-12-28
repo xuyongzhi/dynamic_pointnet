@@ -19,7 +19,7 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
 DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'scannet_data')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
-matterport3D_h5f_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F'
+matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 
 #-------------------------------------------------------------------------------
@@ -234,7 +234,7 @@ class Net_Provider():
             if f_idx == end_file_idx:
                 end = local_end_idx
             else:
-                end = self.norm_h5f_L[f_idx].label_set.shape[0]
+                end = self.norm_h5f_L[f_idx].labels_set.shape[0]
 
             data_i,feed_data_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
             label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
@@ -306,7 +306,7 @@ class Net_Provider():
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
-        IsShuffleIdx = True
+        IsShuffleIdx = False
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
@@ -316,8 +316,15 @@ class Net_Provider():
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks)
-        g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
-        return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+        eval_start_batch_idx  += self.eval_global_start_idx
+        eval_end_batch_idx  += self.eval_global_start_idx
+
+        IsShuffleIdx = False
+        if IsShuffleIdx:
+            g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)]
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+        else:
+            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx)
 
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
         for k,norm_h5f in enumerate(self.norm_h5f_L):
