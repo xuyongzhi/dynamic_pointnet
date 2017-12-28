@@ -222,6 +222,7 @@ class Net_Provider():
     def get_global_batch(self,g_start_idx,g_end_idx):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
+        #t0 = time.time()
 
         data_ls = []
         label_ls = []
@@ -238,6 +239,8 @@ class Net_Provider():
 
             data_i,feed_data_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
             label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
+
+
             data_ls.append(data_i)
             label_ls.append(label_i)
 
@@ -270,6 +273,8 @@ class Net_Provider():
      #   print('local_start = ',local_start_idx)
      #   print('local end = ',local_end_idx)
      #   #print('data = \n',data_batches[0,:])
+        #t_block = (time.time()-t0)/(g_end_idx-g_start_idx)
+        #print('get_global_batch t_block:%f ms'%(1000.0*t_block))
 
         return data_batches,label_batches,sample_weights
 

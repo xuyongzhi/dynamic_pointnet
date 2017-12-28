@@ -296,11 +296,11 @@ class Matterport3D_Prepare():
             pool.close()
             pool.join()
 
-    def Norm(self,MultiProcess=0):
-        base_stride = [2,2,-1]
-        base_step = [4,4,-1]
-        sample_num = 8192
-        base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(sample_num)
+    def Norm(self,base_stride,base_step,numpoint_block,MultiProcess=0):
+      #  base_stride = [2,2,-1]
+      #  base_step = [4,4,-1]
+      #  numpoint_block = 8192
+        base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(numpoint_block)
         file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -342,12 +342,13 @@ class Matterport3D_Prepare():
 
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
+        file_name = self.matterport3D_h5f_allmerged_dir+'/v1_scans_17DRP5sb8fy_stride-1-step-2_8192_normed.nh5'
         with h5py.File(file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
 
 
-def main(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
+    MultiProcess = 4
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     #matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -360,16 +361,27 @@ def main(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     numpoint_block = 8192
     #matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
 
-    #matterport3d_prepare.Norm()
+    matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
     #matterport3d_prepare.ShowSummary()
     #matterport3d_prepare.GenObj_RawH5f()
     #matterport3d_prepare.GenObj_SortedH5f()
 
-if __name__ == '__main__':
+def parse_house_ls():
     #house_names = ['17DRP5sb8fy']
     house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     scans_name = '/v1/scans'
     #house_names = ['1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     for house_name in house_names:
-        main(house_name,scans_name)
+        parse_house(house_name,scans_name)
+
+def show_summary():
+    matterport3d_prepare = Matterport3D_Prepare()
+    matterport3d_prepare.ShowSummary()
+
+if __name__ == '__main__':
+    parse_house_ls()
+    #show_summary()
+
+
+

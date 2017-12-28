@@ -309,7 +309,7 @@ xyz_max: [ 2.48232388  0.5618372   2.2046504 ]
 xyz_min_aligned: [-1.  -2.2 -0.2]
 xyz_max_aligned: [ 2.5  0.6  2.3]
 xyz_scope_aligned: [ 3.5  2.8  2.5]
-
+    (4) The label_category in Sorted_H5f is raw_category_idx, the label_category in Normed_H5f is mpcat40 index
     '''
     file_flag = 'SORTED_H5F'
     data_name_list_candidate = ['xyz','nxnynz','color','label','label_category','label_instance','label_material','intensity','org_row_index']
@@ -923,7 +923,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for i,k_str in  enumerate(self.h5f):
                 normed_data_i,normed_labels_i,raw_xyz_i = self.normalize_dset(k_str,xyz_1norm_method)
                 normed_h5f.append_to_dset('data',normed_data_i)
-                normed_h5f.append_to_dset('labels',normed_labels_i)
+                normed_h5f.append_to_dset('labels',normed_labels_i,IsLabelWithRawCategory=True)
                 #normed_h5f.append_to_dset('raw_xyz',raw_xyz_i)
             normed_h5f.create_done()
             if IsShowSummaryFinished:
@@ -1233,6 +1233,7 @@ class Normed_H5f():
         Especially, 'element_names' means the raw elements in Sorted_H5f.
         The normed data elements are stored in attrs of dataset "data".
     (3) The elements to be stored are flexible, the idx order responds to self.normed_ele_idx_order
+    (4) The label_category in Sorted_H5f is raw_category_idx, the label_category in Normed_H5f is mpcat40 index
 
     *** example of root attrs:
     The root_attr:  [u'datasource_name', u'element_names', u'total_block_N', u'xyz_max', u'xyz_min', u'xyz_max_aligned', u'xyz_min_aligned', u'xyz_scope_aligned', u'block_step', u'block_stride', u'block_dims_N', u'total_row_N', u'sample_num']
@@ -1376,17 +1377,24 @@ class Normed_H5f():
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,:,:]
-            raw_category_idx = self.label_ele_idxs['label_category']
-            labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
+            #raw_category_idx = self.label_ele_idxs['label_category']
+            #labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
         else:
             labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
             labels = self.labels_set[start_block:end_blcok,:,labels_ele_idx]
             if labels.ndim == 2:
                 labels = np.expand_dims(labels,axis=-1)
-            if 'label_category' in feed_label_elements:
-                raw_category_idx = self.labels_set.attrs['label_category']
-                labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
+            #if 'label_category' in feed_label_elements:
+                #labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
         return labels
+
+    def raw_category_idx_2_mpcat40(self,labels_with_rawcategory):
+        assert labels_with_rawcategory.ndim == 2
+        assert 'label_category' in self.labels_set.attrs, "no label_category"
+        raw_category_idx = self.labels_set.attrs['label_category'][0]
+        labels_with_rawcategory[:,raw_category_idx] = get_cat40_from_rawcat(labels_with_rawcategory[:,raw_category_idx])
+        labels_without_rawcategory = labels_with_rawcategory
+        return labels_without_rawcategory
 
     def copy_root_attrs_from_sorted(self,h5f_sorted,sortedh5f_IS_CHECK):
         attrs=['datasource_name','element_names','total_block_N',
@@ -1519,7 +1527,7 @@ class Normed_H5f():
                 chunks = (chunks_n,sample_num)  )
         area_no_set.attrs['valid_num'] = 0
 
-    def append_to_dset(self,dset_name,data_i,vacant_size=0):
+    def append_to_dset(self,dset_name,data_i,vacant_size=0,IsLabelWithRawCategory=False):
         dset = self.h5f[dset_name]
         valid_num = dset.attrs['valid_num']
         if data_i.ndim == len(dset.shape) -1:
@@ -1533,6 +1541,9 @@ class Normed_H5f():
 
         if new_valid_num > dset.shape[0]:
             dset.resize( (new_valid_num + vacant_size,)+dset.shape[1:] )
+
+        if IsLabelWithRawCategory and dset_name == 'labels':
+            data_i = self.raw_category_idx_2_mpcat40(data_i)
         dset[valid_num : new_valid_num,...] = data_i
         dset.attrs['valid_num'] = new_valid_num
         self.h5f.flush()

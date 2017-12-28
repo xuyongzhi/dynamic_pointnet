@@ -68,31 +68,29 @@ rawcategory_2_mpcat40 = mapping_vals['mpcat40']
 
 def get_cat40_from_rawcat(raw_category_indexs):
     '''
-    raw_category_indexs.shape=[batch_size,num_point,1]
+    raw_category_indexs.shape=[num_point]
     '''
-    assert raw_category_indexs.shape[2]==1
+    assert raw_category_indexs.ndim==1
     mpcat40_idxs = np.zeros(shape=raw_category_indexs.shape)
-    batch_size = raw_category_indexs.shape[0]
-    num_point = raw_category_indexs.shape[1]
-    mpcat40s = [ ['']*num_point ]*batch_size
-    for i in range(batch_size):
-        for j in range(num_point):
-            raw_category_index = raw_category_indexs[i,j,0]
+    num_point = raw_category_indexs.shape[0]
+    mpcat40s =['']*num_point
+    for j in range(num_point):
+        raw_category_index = int(raw_category_indexs[j])
 
-            #???????????????????????????????????????????????????????????????????
-            if raw_category_index==0:
-                raw_category_index = 40
+        #???????????????????????????????????????????????????????????????????
+        if raw_category_index==0:
+            raw_category_index = 40
 
 
-            if raw_category_index<=0:
-                print('raw_category_index=%d bug should >0'%(raw_category_index))
-                print('err num: %d'%(np.sum(raw_category_indexs<=0)))
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            assert raw_category_index>0, "raw_category_index start from 1"
-            mpcat40_ij = rawcategory_2_mpcat40[raw_category_index-1]
-            mpcat40_idx_ij = rawcategory_2_mpcat40ind[raw_category_index-1]
-            mpcat40_idxs[i,j,0] = mpcat40_idx_ij
-            assert mpcat40_ij == MatterportMeta['label2class'][mpcat40_idx_ij],"%s != %s"%(mpcat40_ij,MatterportMeta['label2class'][mpcat40_idx_ij])
-            mpcat40s[i][j] += mpcat40_ij
+        if raw_category_index<=0:
+            print('raw_category_index=%d bug should >0'%(raw_category_index))
+            print('err num: %d'%(np.sum(raw_category_indexs<=0)))
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        assert raw_category_index>0, "raw_category_index start from 1"
+        mpcat40_j = rawcategory_2_mpcat40[raw_category_index-1]
+        mpcat40_idx_j = rawcategory_2_mpcat40ind[raw_category_index-1]
+        mpcat40_idxs[j] = mpcat40_idx_j
+        assert mpcat40_j == MatterportMeta['label2class'][mpcat40_idx_j],"%s != %s"%(mpcat40_j,MatterportMeta['label2class'][mpcat40_idx_j])
+        mpcat40s[j] += mpcat40_j
     return mpcat40_idxs
 
