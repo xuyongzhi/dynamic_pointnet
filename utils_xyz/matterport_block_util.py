@@ -41,7 +41,7 @@ def zip_extract(groupe_name,house_name,file_name,file_format,zipf,house_dir_extr
     extract file if not already
     '''
     zipfile_name = '%s/%s/%s.%s'%(house_name,groupe_name,file_name,file_format)
-    file_path = house_dir + '/' + zipfile_name
+    file_path = house_dir_extracted + '/' + zipfile_name
     if not os.path.exists(file_path):
         print('extracting %s...'%(file_name))
         file_path_extracted  = zipf.extract(zipfile_name,house_dir_extracted)
@@ -178,13 +178,17 @@ def WriteRawH5f_Region_Ply(k_region,rs_zf,house_name,house_h5f_dir,house_dir_ext
         raw_h5f.create_done()
         raw_h5f.show_h5f_summary_info()
 
+    return file_name
+
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+    return rawh5_file_ls
 
 def MergeSampleNorm_FromSortedH5f( base_sorted_h5fname,new_stride,new_step,new_sorted_path,more_actions_config ):
     with h5py.File(base_sorted_h5fname,'r') as f:
         sorted_h5f = Sorted_H5f(f,base_sorted_h5fname)
         sorted_h5f.merge_to_new_step(new_stride,new_step,new_sorted_path,more_actions_config)
+    return base_sorted_h5fname
 
 def NormSortedSampledFlie(fn):
     with h5py.File(fn,'r') as f:
@@ -206,6 +210,9 @@ class Matterport3D_Prepare():
     matterport3D_extracted_dir = '/home/y/DS/Matterport3D/Matterport3D_Whole_extracted'
     matterport3D_h5f_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F'
     matterport3D_h5f_allmerged_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5'
+    if not os.path.exists(matterport3D_h5f_allmerged_dir):
+        os.makedirs(matterport3D_h5f_allmerged_dir)
+
     def __init__(self,house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
         self.house_name = house_name
         self.scans_name = scans_name
@@ -235,11 +242,21 @@ class Matterport3D_Prepare():
             if not IsMultiProcess:
                 WriteRawH5f_Region_Ply(k,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted)
             else:
-                pool.apply_async(WriteRawH5f_Region_Ply,(k,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted))
+                results = pool.apply_async(WriteRawH5f_Region_Ply,(k,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted))
                 print('apply_async %d'%(k))
         if IsMultiProcess:
             pool.close()
             pool.join()
+
+            success_fns = []
+            success_N = num_region
+            try:
+                for k in range(success_N):
+                    success_fns.append(results.get(timeout=0.1))
+            except:
+                assert len(success_fns)==success_N,"Parse_house_regions failed. only %d files successed"%(success_N)
+            print("\n\n Parse_house_regions:all %d files successed\n******************************\n"%(success_N))
+
         print('Parse house time: %f'%(time.time()-t0))
 
     def SortRaw(self,block_step_xyz,MultiProcess=0):
@@ -255,9 +272,18 @@ class Matterport3D_Prepare():
         else:
             pool = mp.Pool(MultiProcess)
             for rawh5f_fn in rawh5_file_ls:
-                pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path,IsShowInfoFinished))
+                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path,IsShowInfoFinished))
             pool.close()
             pool.join()
+
+            success_fns = []
+            success_N = len(rawh5_file_ls)
+            try:
+                for k in range(success_N):
+                    success_fns.append(results.get(timeout=0.1))
+            except:
+                assert len(success_fns)==success_N,"SortRaw failed. only %d files successed"%(success_N)
+            print("\n\nSortRaw:all %d files successed\n******************************\n"%(success_N))
         print('sort raw t= %f'%(time.time()-t0))
 
     def MergeSampleNorm(self,base_step_stride,new_stride,new_step,numpoint_block,MultiProcess=0):
@@ -291,10 +317,19 @@ class Matterport3D_Prepare():
             if not IsMultiProcess:
                 MergeSampleNorm_FromSortedH5f( fn,new_stride,new_step,new_sorted_path,more_actions_config )
             else:
-                pool.apply_async(MergeSampleNorm_FromSortedH5f,( fn,new_stride,new_step,new_sorted_path,more_actions_config ))
+                results = pool.apply_async(MergeSampleNorm_FromSortedH5f,( fn,new_stride,new_step,new_sorted_path,more_actions_config ))
         if IsMultiProcess:
             pool.close()
             pool.join()
+
+            success_fns = []
+            success_N = len(base_file_list)
+            try:
+                for k in range(success_N):
+                    success_fns.append(results.get(timeout=0.1))
+            except:
+                assert len(success_fns)==success_N,"MergeSampleNorm failed. only %d files successed"%(success_N)
+            print("\n\n MergeSampleNorm:all %d files successed\n******************************\n"%(success_N))
 
     def Norm(self,base_stride,base_step,numpoint_block,MultiProcess=0):
       #  base_stride = [2,2,-1]
@@ -342,26 +377,28 @@ class Matterport3D_Prepare():
 
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
-        file_name = self.matterport3D_h5f_allmerged_dir+'/v1_scans_17DRP5sb8fy_stride-1-step-2_8192_normed.nh5'
+        step = stride = [0.2,0.2,0.2]
+        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region0.sh5'
+        #file_name = self.matterport3D_h5f_allmerged_dir+'/v1_scans_17DRP5sb8fy_stride-1-step-2_8192_normed.nh5'
         with h5py.File(file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 4
+    MultiProcess = 3
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
-    #matterport3d_prepare.Parse_house_regions(MultiProcess)
+    matterport3d_prepare.Parse_house_regions(MultiProcess)
 
     base_step_stride = [0.2,0.2,0.2]
-    #matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
+    matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
 
     new_stride = [1,1,-1]
     new_step = [2,2,-1]
     numpoint_block = 8192
-    #matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
+    matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
 
-    matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
+    #matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
     #matterport3d_prepare.ShowSummary()
     #matterport3d_prepare.GenObj_RawH5f()
@@ -369,9 +406,12 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
 def parse_house_ls():
     #house_names = ['17DRP5sb8fy']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     scans_name = '/v1/scans'
-    #house_names = ['1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names = ['2azQ1b91cZZ','2t7WUuJeko7','5q7pvUzZiYa']
+    #house_names = ['759xd9YjKW5']
+    house_names = ['8194nk5LbLH']
+    #house_names = ['759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
     for house_name in house_names:
         parse_house(house_name,scans_name)
 
