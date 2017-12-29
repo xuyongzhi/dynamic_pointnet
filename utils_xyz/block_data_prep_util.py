@@ -743,7 +743,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         source_N = source_dset.shape[0]
         if IsSample:
             sample_choice = self.sample(source_N,sample_num)
-            sample_choice = np.sort(sample_choice)
+            #sample_choice = np.sort(sample_choice)
             new_row_N = sample_choice.size
         else:
             new_row_N = source_N
@@ -861,7 +861,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #print(str)
         return sample_choice
 
-    def file_random_sampling(self,sample_num,gen_norm=False,gen_obj=False):
+    def file_random_sampling(self,sample_num,gen_norm=False,gen_obj=False,min_keep_rate=0.01):
         '''
         automatically create a folder in uper directory to store sampled files
         '''
@@ -882,8 +882,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #sampled_sh5f.set_root_attr('sample_num',sample_num)
             for i, k_str in enumerate( self.h5f ):
                 dset_k = self.h5f[k_str]
-                #if dset_k.shape[0] < sample_num*0.3:
-                if dset_k.shape[0] < 100:
+                if dset_k.shape[0] < sample_num*min_keep_rate:
                     continue
                 sampled_sh5f.append_to_dset(int(k_str),dset_k,vacant_size=0,\
                                             IsSample=True,sample_num=sample_num)
@@ -924,7 +923,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 normed_data_i,normed_labels_i,raw_xyz_i = self.normalize_dset(k_str,xyz_1norm_method)
                 normed_h5f.append_to_dset('data',normed_data_i)
                 normed_h5f.append_to_dset('labels',normed_labels_i,IsLabelWithRawCategory=True)
-                #normed_h5f.append_to_dset('raw_xyz',raw_xyz_i)
+                #normed_h5f.append_to_dset('blockid',int(k_str))
             normed_h5f.create_done()
             if IsShowSummaryFinished:
                 normed_h5f.show_summary_info()
@@ -1492,6 +1491,10 @@ class Normed_H5f():
                 maxshape=(None,sample_num,label_eles_num),dtype=np.int16,compression="gzip",\
                 chunks = (chunks_n,sample_num,label_eles_num)  )
 
+        #blockid_set = self.h5f.create_dataset( 'blockid',shape=(total_block_N),\
+        #        maxshape=(None),dtype=np.int32,compression="gzip",\
+        #        chunks = (chunks_n)  )
+
 #        # record the original xyz for gen obj
 #        raw_xyz_set = self.h5f.create_dataset( 'raw_xyz',shape=(total_block_N,sample_num,3),\
 #                maxshape=(None,sample_num,3),dtype=np.float32,compression="gzip",\
@@ -1510,11 +1513,10 @@ class Normed_H5f():
 
         data_set.attrs['valid_num'] = 0
         labels_set.attrs['valid_num'] = 0
-        #raw_xyz_set.attrs['valid_num'] = 0
         pred_logits_set.attrs['valid_num'] = 0
         self.data_set = data_set
         self.labels_set  =labels_set
-        #self.raw_xyz_set = raw_xyz_set
+        #self.blockid_set = blockid_set
         self.pred_logits_set = pred_logits_set
 
     def raw_xyz_set(self):
