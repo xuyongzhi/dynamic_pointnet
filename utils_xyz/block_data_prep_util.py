@@ -58,16 +58,28 @@ def rm_file_name_midpart(fn,rm_part):
     return new_fn
 
 
+def copy_h5f_attrs(h5f_attrs):
+    attrs = {}
+    for e in h5f_attrs:
+        attrs[e] = h5f_attrs[e]
+    return attrs
+def show_attrs(attrs):
+    attrs_str = ''
+    for a in attrs:
+        attrs_str += ( a+':'+str(attrs[a])+'\n' )
+    print(attrs_str)
+
 def show_h5f_summary_info(h5f):
     root_attrs = [attr for attr in h5f.attrs]
     print('*** The root_attr: ',root_attrs)
-    key_root_attrs = ['datasource_name','element_names','total_row_N','total_block_N','block_step',\
-                    'block_stride','block_dims_N','xyz_min','xyz_max','xyz_min_aligned','xyz_max_aligned',\
-                    'xyz_scope_aligned']
+    show_attrs(h5f.attrs)
+  #  key_root_attrs = ['datasource_name','element_names','total_row_N','total_block_N','block_step',\
+  #                  'block_stride','block_dims_N','xyz_min','xyz_max','xyz_min_aligned','xyz_max_aligned',\
+  #                  'xyz_scope_aligned']
 
-    for attr in key_root_attrs:
-        if attr in h5f.attrs:
-            print(attr+':',h5f.attrs[attr] )
+  #  for attr in key_root_attrs:
+  #      if attr in h5f.attrs:
+  #          print(attr+':',h5f.attrs[attr] )
 
     print('\n*** The datasets')
     def show_dset(dset):
@@ -360,6 +372,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         self.h5f.attrs['stride_to_align'] = stride_to_align
         self.update_align_scope_by_stridetoalign()
 
+    @staticmethod
+    def set_whole_scene_stride_step(h5fattrs):
+        for i in range(0,len(h5fattrs['block_step'])):
+            if h5fattrs['block_step'][i]  == -1:
+                h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
+            if h5fattrs['block_stride'][i]  == -1:
+                h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
+       # show_attrs(h5fattrs)
+       # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
+
+
     def update_align_scope_by_stridetoalign(self):
         if 'xyz_min' not in self.h5f.attrs:
             return
@@ -373,14 +396,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if 'block_step' in self.h5f.attrs:
             block_step = self.h5f.attrs['block_step']
             block_stride = self.h5f.attrs['block_stride']
-            for i in range(0,len(block_step)):
-                if block_step[i]  == -1:
-                    block_step[i] = xyz_scope_aligned[i]
-                if block_stride[i]  == -1:
-                    block_stride[i] = xyz_scope_aligned[i]
+         #   for i in range(0,len(block_step)):
+         #       if block_step[i]  == -1:
+         #           block_step[i] = xyz_scope_aligned[i]
+         #       if block_stride[i]  == -1:
+         #           block_stride[i] = xyz_scope_aligned[i]
             self.h5f.attrs['block_step']  = block_step
             self.h5f.attrs['block_stride'] = block_stride
             self.h5f.attrs['block_dims_N'] = np.ceil(xyz_scope_aligned / self.h5f.attrs['block_stride']).astype(np.int64)
+            Sorted_H5f.set_whole_scene_stride_step(self.h5f.attrs)
         self.h5f.attrs['xyz_min_aligned'] = xyz_min_aligned
         self.h5f.attrs['xyz_max_aligned'] = xyz_max_aligned
         self.h5f.attrs['xyz_scope_aligned'] = xyz_scope_aligned
@@ -499,12 +523,26 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k = int( k / block_dims_N[1] )
         i_xyz[0] = k % block_dims_N[0]
         return i_xyz
+    @staticmethod
+    def block_index_to_ixyz_(block_k,attrs):
+        i_xyz = np.zeros(3,np.int64)
+        if 'block_dims_N' not in attrs:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            print('e')
+        block_dims_N = attrs['block_dims_N']
+        i_xyz[2] = block_k % block_dims_N[2]
+        k = int( block_k / block_dims_N[2] )
+        i_xyz[1] = k % block_dims_N[1]
+        k = int( k / block_dims_N[1] )
+        i_xyz[0] = k % block_dims_N[0]
+        return i_xyz
 
     def ixyz_to_block_index(self,i_xyz):
         i_xyz = i_xyz.astype(np.uint64)
         block_dims_N = self.h5f.attrs['block_dims_N']
         block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
         return block_k
+
     def xyz_to_block_index(self,xyz_k):
         assert((self.h5f.attrs['block_step'] == self.h5f.attrs['block_stride']).all()),"step != stride,the out k is not unique"
 
@@ -515,6 +553,159 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # if (i_xyz_test != i_xyz).any():
        #     print('get i_xyz ERROR!')
         return block_k
+
+    @staticmethod
+    def ixyz_to_block_index_(i_xyz,attrs):
+        i_xyz = i_xyz.astype(np.uint64)
+        block_dims_N = attrs['block_dims_N']
+        block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
+        return block_k
+
+    @staticmethod
+    def xyz_to_block_index_(xyz_k,attrs):
+        assert((attrs['block_step'] == attrs['block_stride']).all()),"step != stride,the out k is not unique"
+
+        #i_xyz = ( (xyz_k - self.raw_h5f.xyz_min)/block_step ).astype(np.int64)
+        i_xyz = ( (xyz_k - attrs['xyz_min_aligned'])/attrs['block_stride'] ).astype(np.int64)
+        block_k = Sorted_H5f.ixyz_to_block_index_(i_xyz,attrs)
+       # i_xyz_test = self.block_index_to_ixyz(block_k)
+       # if (i_xyz_test != i_xyz).any():
+       #     print('get i_xyz ERROR!')
+        return block_k, i_xyz
+
+    def get_block_scope_from_k(self,block_k):
+        i_xyz = self.block_index_to_ixyz(block_k)
+        block_dims_N = self.h5f.attrs['block_dims_N']
+        block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
+        block_min = i_xyz * self.h5f.attrs['block_stride'] + self.h5f.attrs['xyz_min_aligned']
+        block_max = block_min + self.h5f.attrs['block_step']
+        return block_min,block_max,i_xyz
+    @staticmethod
+    def get_block_scope_from_k_(block_k,attrs):
+        i_xyz = Sorted_H5f.block_index_to_ixyz(block_k,attrs)
+        block_dims_N = attrs['block_dims_N']
+        block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
+        block_min = i_xyz * attrs['block_stride'] + attrs['xyz_min_aligned']
+        block_max = block_min + attrs['block_step']
+        return block_min,block_max,i_xyz
+
+
+    def get_similar_attrs(self,new_stride,new_step):
+        new_sorted_h5f_attrs = copy_h5f_attrs( self.h5f.attrs )
+        new_sorted_h5f_attrs['block_step'] = np.array(new_step).astype(np.float64)
+        new_sorted_h5f_attrs['block_stride'] = np.array(new_stride).astype(np.float64)
+        Sorted_H5f.set_whole_scene_stride_step(new_sorted_h5f_attrs)
+       # print('new_attrs')
+        #show_attrs(new_sorted_h5f_attrs)
+       # print('\n\norg_attrs')
+       # show_attrs(self.h5f.attrs)
+        return new_sorted_h5f_attrs
+
+    def get_sub_block_ks_(self,cur_block_k,new_stride,new_step):
+        '''
+        For the space k in current file,
+        return the corresponding block_ks in a new file with new step and stride
+        block_ks is a list
+        '''
+        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+
+        i_xyz = self.block_index_to_ixyz(cur_block_k)
+        i_xyz_new_start = i_xyz * self.h5f.attrs['block_stride'] / new_sorted_h5f_attrs['block_stride']
+        i_xyz_new_start = (i_xyz_new_start).astype(np.int)
+        #print( self.xyz_min_aligned )
+        #print( new_sorted_h5f.xyz_min_aligned )
+        i_xyz_new_list = []
+        block_k_new_list = []
+
+        # for check
+        IsCheck_Scope =  False
+        if IsCheck_Scope:
+            min_k,max_k,_ = self.get_block_scope_from_k(cur_block_k)
+
+        if (self.h5f.attrs['block_step'] > new_sorted_h5f_attrs['block_step']).any():
+            '''
+            find all the small(out) blocks within the large input block
+            The out dataset is a base dataset in which: block_step_out == block_stride_out
+            '''
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            assert((self.h5f.attrs['block_step'] > new_sorted_h5f_attrs['block_step'] ).all())
+            assert((new_sorted_h5f_attrs['block_step'] == new_sorted_h5f_attrs['block_stride']).all())
+
+            search = np.ceil(self.block_step / new_sorted_h5f_attrs['block_step']).astype(np.int64)
+            for i_x in range(0,search[0]):
+                for i_y in range(0,search[1]):
+                    for i_z in range(0,search[2]):
+                        i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.uint64)
+                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,new_sorted_h5f_attrs)
+
+                        #check
+                        if IsCheck_Scope:
+                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k(block_k_new,new_sorted_h5f_attrs)
+                            min_check = (min_k_new >= min_k).all()
+                            max_check = (max_k_new <= max_k).all()
+                        else:
+                            min_check = True
+                            max_check = True
+                        if not min_check & max_check:
+                            print('new=small failed i_xyz=',[i_x,i_y,i_z])
+                            if not min_check:
+                                print('\nmin check failed in get_sub_blcok_ks')
+                                print('new min = ',min_k_new,'\norg min = ',min_k)
+                            if not max_check:
+                                print('\nmax check failed in get_sub_blcok_ks')
+                                print('new max = ',max_k_new,'\norg max = ',max_k)
+
+                        else:
+                            i_xyz_new_list.append(i_xyz_new)
+                            block_k_new_list.append(block_k_new)
+                            #print('both min and max check passed')
+
+        else:
+            '''
+            find all the large(out) blocks contains the small input block
+            check: all xyz_scope_k_new contain xyz_scope_k
+            '''
+            assert( (self.h5f.attrs['block_step'] <= new_sorted_h5f_attrs['block_step']).all() )
+            assert( ((new_sorted_h5f_attrs['block_step'] / self.h5f.attrs['block_step'])%1 == 0).all() )
+            assert( (new_sorted_h5f_attrs['block_stride'] >= self.h5f.attrs['block_step']).all() )
+            assert( ((new_sorted_h5f_attrs['block_stride'] / self.h5f.attrs['block_step'])%1 == 0).all() )
+
+            search = ( new_sorted_h5f_attrs['block_step'] / new_sorted_h5f_attrs['block_stride'] ).astype(np.float64)
+            if ( search%1*new_sorted_h5f_attrs['block_stride'] >= self.h5f.attrs['block_step']).all() :
+                search = np.ceil(search).astype(np.int64)
+            else:
+                search = np.trunc(search).astype(np.int64)
+            for i_x in range( -search[0]+1,1 ):
+                for i_y in range(  -search[1]+1,1  ):
+                    for i_z in range(  -search[2]+1,1 ):
+                        i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.int64)
+                        if ( (i_xyz_new < 0).any() or (i_xyz_new > new_sorted_h5f_attrs['block_dims_N']).any() ):
+                            continue
+
+                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,new_sorted_h5f_attrs)
+                        # check
+                        if IsCheck_Scope:
+                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,new_sorted_h5f_attrs)
+                            min_check = (min_k_new <= min_k).all()
+                            max_check = (max_k_new >= max_k).all()
+                        else:
+                            min_check = True
+                            max_check = True
+
+                        if not min_check & max_check:
+                            print('new=large failed i_xyz=',[i_x,i_y,i_z])
+                            if not min_check:
+                                print('\nmin check failed in get_sub_blcok_ks')
+                                print('new min = ',min_k_new,'\norg min = ',min_k)
+                            if not max_check:
+                                print('\nmax check failed in get_sub_blcok_ks')
+                                print('new max = ',max_k_new,'\norg max = ',max_k)
+
+                        else:
+                            #print('both min and max check passed, i_xyz= ',[i_x,i_y,i_z])
+                            i_xyz_new_list.append(i_xyz_new)
+                            block_k_new_list.append(block_k_new)
+        return block_k_new_list,i_xyz_new_list
 
 
     def get_sub_block_ks(self,block_k,new_sorted_h5f):
@@ -648,13 +839,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 #print('resizing block %s from %d to %d'%(dset_name_i,dset_i.shape[0],valid_n))
                 dset_i.resize( (valid_n,dset_i.shape[1]) )
 
-    def get_block_scope_from_k(self,block_k):
-        i_xyz = self.block_index_to_ixyz(block_k)
-        block_dims_N = self.h5f.attrs['block_dims_N']
-        block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
-        block_min = i_xyz * self.h5f.attrs['block_stride'] + self.h5f.attrs['xyz_min_aligned']
-        block_max = block_min + self.h5f.attrs['block_step']
-        return block_min,block_max,i_xyz
 
     def check_xyz_scope_k(self,block_k):
         '''
@@ -992,6 +1176,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         new_sh5f.file_random_sampling(more_actions_config['sample_num'],\
                                             gen_norm=Is_gen_norm,gen_obj = Is_gen_obj)
 
+
+    #***************************************************************************
+    #Net feed utils: extract data from unsampled sorted dataset
+    #***************************************************************************
+    def get_new_blockids( self,xyz1norm_k, new_stride, new_step ):
+        '''
+        1) get all the block ids intersected with this scope
+        '''
+        xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
+        cur_block_id,cur_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,self.h5f.attrs)
+        print(xyz_k)
+        print(cur_block_id)
+        print(cur_ixyz)
+        new_block_id_ls,i_xyz_new_ls = self.get_sub_block_ks_(cur_block_id,new_stride,new_step)
+        return new_block_id_ls,i_xyz_new_ls,cur_block_id
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''
@@ -2172,13 +2371,46 @@ def Do_sample(file_list):
             sh5f.file_random_sampling(sample_num)
 
 
+def Test_sub_block_ks_():
+    folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
+    folder_new = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_testtmp'
+    if not os.path.exists(folder_new):
+        os.makedirs(folder_new)
+    base_h5f_name = os.path.join(folder_base,'region0.sh5')
+    new_h5f_name = os.path.join(folder_new,'region0_testtmp.sh5')
+
+
+    org_xyz1norm_k = [0.6,0.3,0.5]
+    new_stride = [0.1,0.1,0.1]
+    new_step = [0.2,0.2,0.2]
+
+    with h5py.File(base_h5f_name,'r') as base_h5f:
+        with h5py.File(new_h5f_name,'w') as new_h5f:
+            base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
+            new_sh5f = Sorted_H5f(new_h5f,new_h5f_name)
+            new_sh5f.copy_root_summaryinfo_from_another(base_h5f,'new_stride')
+            new_sh5f.set_step_stride(new_step,new_stride)
+            #base_sh5f.show_summary_info()
+
+            new_block_id_ls,i_xyz_new_ls,org_blockid0 = base_sh5f.get_new_blockids(xyz1norm_k, new_stride, new_step )
+            print(new_block_id_ls)
+            print(i_xyz_new_ls)
+            for new_block_id in new_block_id_ls:
+                org_block_id_ls,org_i_xyz_ls = new_sh5f.get_sub_block_ks_(new_block_id,base_h5f.attrs['block_stride'],base_h5f.attrs['block_step'])
+                assert org_blockid0 in org_block_id_ls
+                print(org_block_id_ls)
+
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+
 def Test_sub_block_ks():
-    h5f_name0 = os.path.join(GLOBAL_PARA.ETH_A_stride_1_step_1,'bildstein_station5_stride_1_step_1_sub_m80_m5.h5')
-    h5f_name1 = os.path.join(GLOBAL_PARA.ETH_A_stride_1_step_1,'t_bildstein_station5_stride_1_step_1_sub_m80_m5.h5')
+    folder0 = folder1 = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
+    h5f_name0 = os.path.join(folder0,'region0.sh5')
+    h5f_name1 = os.path.join(folder0,'region0_testtmp.sh5')
     with h5py.File(h5f_name0,'r') as h5f0:
       with h5py.File(h5f_name1,'w') as h5f1:
-        sh5f0 = Sorted_H5f(h5f0)
-        sh5f1 = Sorted_H5f(h5f1)
+        sh5f0 = Sorted_H5f(h5f0,h5f_name0)
+        sh5f1 = Sorted_H5f(h5f1,h5f_name1)
 
         block_step1 = np.array([1,1,1])*4
         block_stride1 = np.array([1,1,1])*2
@@ -2202,7 +2434,7 @@ def Test_sub_block_ks():
                     check_flag = False
 
                 for block_k0_ in block_k0s:
-                    # all the scope block_k0_ should constain
+                    # all the scope block_k0_ should contain
                     block_k1s_,i_xyz_1s_ = sh5f0.get_sub_block_ks(block_k0_,sh5f1)
                     if block_k1 not in block_k1s_:
                         check_flag = False
@@ -2360,7 +2592,7 @@ if __name__ == '__main__':
     #Do_gen_raw_obj()
     #Add_sorted_total_row_block_N()
     #Do_Check_xyz()
-    #Test_sub_block_ks()
+    Test_sub_block_ks_()
     #Do_sample()
     #Do_gen_sorted_block_obj(file_list)
     #Do_gen_normed_obj(file_list)
