@@ -601,16 +601,23 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # show_attrs(self.h5f.attrs)
         return new_sorted_h5f_attrs
 
-    def get_sub_block_ks_(self,cur_block_k,new_stride,new_step):
-        '''
-        For the space k in current file,
-        return the corresponding block_ks in a new file with new step and stride
-        block_ks is a list
-        '''
-        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
 
-        i_xyz = self.block_index_to_ixyz(cur_block_k)
-        i_xyz_new_start = i_xyz * self.h5f.attrs['block_stride'] / new_sorted_h5f_attrs['block_stride']
+    @staticmethod
+    def get_blockids_of_dif_stride_step(base_block_id,base_attrs,aim_attrs):
+        '''
+        1) base_attrs: self.h5f.attrs or new_sorted_h5f_attrs
+           aim_attrs:  new_sorted_h5f_attrs or self.h5f.attrs
+            True: based on blockid of current(self) stride and step,
+                find the  corresponding block_ids of new step and stride
+            Fale: based on blockid of new stride and step,
+                find the  corresponding block_ids of current step and stride
+        returned block_ks is a list
+        2) If aim_stride and step is larger, returned blocks contains base block.
+            The containing relationship should be totally containing.
+           If aim stride and step is smaller, returned blocks are contained within the base block.
+        '''
+        i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
+        i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
         i_xyz_new_start = (i_xyz_new_start).astype(np.int)
         #print( self.xyz_min_aligned )
         #print( new_sorted_h5f.xyz_min_aligned )
@@ -620,27 +627,26 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # for check
         IsCheck_Scope =  False
         if IsCheck_Scope:
-            min_k,max_k,_ = self.get_block_scope_from_k(cur_block_k)
+            min_k,max_k,_ = Sorted_H5f.get_block_scope_from_k_(cur_block_k,base_attrs)
 
-        if (self.h5f.attrs['block_step'] > new_sorted_h5f_attrs['block_step']).any():
+        if (base_attrs['block_step'] > aim_attrs['block_step']).any():
             '''
             find all the small(out) blocks within the large input block
             The out dataset is a base dataset in which: block_step_out == block_stride_out
             '''
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            assert((self.h5f.attrs['block_step'] > new_sorted_h5f_attrs['block_step'] ).all())
-            assert((new_sorted_h5f_attrs['block_step'] == new_sorted_h5f_attrs['block_stride']).all())
+            assert((base_attrs['block_step'] > aim_attrs['block_step'] ).all())
+            assert((aim_attrs['block_step'] == aim_attrs['block_stride']).all())
 
-            search = np.ceil(self.block_step / new_sorted_h5f_attrs['block_step']).astype(np.int64)
+            search = np.ceil( base_attrs['block_step'] / aim_attrs['block_step']).astype(np.int64)
             for i_x in range(0,search[0]):
                 for i_y in range(0,search[1]):
                     for i_z in range(0,search[2]):
                         i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.uint64)
-                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,new_sorted_h5f_attrs)
+                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
 
                         #check
                         if IsCheck_Scope:
-                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k(block_k_new,new_sorted_h5f_attrs)
+                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k(block_k_new,aim_attrs)
                             min_check = (min_k_new >= min_k).all()
                             max_check = (max_k_new <= max_k).all()
                         else:
@@ -665,13 +671,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             find all the large(out) blocks contains the small input block
             check: all xyz_scope_k_new contain xyz_scope_k
             '''
-            assert( (self.h5f.attrs['block_step'] <= new_sorted_h5f_attrs['block_step']).all() )
-            assert( ((new_sorted_h5f_attrs['block_step'] / self.h5f.attrs['block_step'])%1 == 0).all() )
-            assert( (new_sorted_h5f_attrs['block_stride'] >= self.h5f.attrs['block_step']).all() )
-            assert( ((new_sorted_h5f_attrs['block_stride'] / self.h5f.attrs['block_step'])%1 == 0).all() )
+            assert( (base_attrs['block_step'] <= aim_attrs['block_step']).all() )
+            assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
+            assert( (aim_attrs['block_stride'] >= base_attrs['block_step']).all() )
+            assert( ((aim_attrs['block_stride'] / base_attrs['block_step'])%1 == 0).all() )
 
-            search = ( new_sorted_h5f_attrs['block_step'] / new_sorted_h5f_attrs['block_stride'] ).astype(np.float64)
-            if ( search%1*new_sorted_h5f_attrs['block_stride'] >= self.h5f.attrs['block_step']).all() :
+            search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
+            if ( search%1*aim_attrs['block_stride'] >= base_attrs['block_step']).all() :
                 search = np.ceil(search).astype(np.int64)
             else:
                 search = np.trunc(search).astype(np.int64)
@@ -679,13 +685,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for i_y in range(  -search[1]+1,1  ):
                     for i_z in range(  -search[2]+1,1 ):
                         i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.int64)
-                        if ( (i_xyz_new < 0).any() or (i_xyz_new > new_sorted_h5f_attrs['block_dims_N']).any() ):
+                        if ( (i_xyz_new < 0).any() or (i_xyz_new > aim_attrs['block_dims_N']).any() ):
                             continue
 
-                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,new_sorted_h5f_attrs)
+                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
                         # check
                         if IsCheck_Scope:
-                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,new_sorted_h5f_attrs)
+                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
                             min_check = (min_k_new <= min_k).all()
                             max_check = (max_k_new >= max_k).all()
                         else:
@@ -1136,7 +1142,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for dset_name in  base_h5f:
                     block_i_base = int(dset_name)
                     base_dset_i = base_h5f[dset_name]
-                    block_k_new_ls,i_xyz_new_ls = self.get_sub_block_ks(block_i_base,new_sh5f)
+                    #block_k_new_ls,i_xyz_new_ls = self.get_sub_block_ks(block_i_base,new_sh5f)
+                    block_k_new_ls,i_xyz_new_ls = Sorted_H5f.get_blockids_of_dif_stride_step(block_i_base,self.h5f.attrs,new_sh5f.h5f.attrs)
 
                     read_row_N += base_dset_i.shape[0]
                     rate = 100.0 * read_row_N / self.h5f.attrs['total_row_N']
@@ -1180,17 +1187,33 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     #***************************************************************************
     #Net feed utils: extract data from unsampled sorted dataset
     #***************************************************************************
-    def get_new_blockids( self,xyz1norm_k, new_stride, new_step ):
+    def get_blockids_of_new_stride_step( self,xyz1norm_k, new_stride, new_step ):
         '''
-        1) get all the block ids intersected with this scope
+        1) new stride and step is larger than current
+        2) get the new_blockid with new stride and step include xyz_k
+        3) get all the current block ids included within the new block
         '''
+        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
         xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
-        cur_block_id,cur_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,self.h5f.attrs)
-        print(xyz_k)
-        print(cur_block_id)
-        print(cur_ixyz)
-        new_block_id_ls,i_xyz_new_ls = self.get_sub_block_ks_(cur_block_id,new_stride,new_step)
-        return new_block_id_ls,i_xyz_new_ls,cur_block_id
+        new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
+       # print(xyz_k)
+       # print(cur_block_id)
+       # print(cur_ixyz)
+        cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+        return cur_block_id_ls,cur_i_xyz_ls,new_block_id
+    def get_block_data_of_new_stride_step( self,xyz1norm_k, new_stride,new_step ):
+        cur_block_id_ls,cur_i_xyz_ls,_ = self.get_blockids_of_new_stride_step( xyz1norm_k,new_stride,new_step )
+        print(cur_block_id_ls)
+        data_labels = []
+        for cur_block_id in cur_block_id_ls:
+            if str(cur_block_id) not in self.h5f:
+                continue
+            dset = self.h5f[str(cur_block_id)]
+            data_labels.append(dset[:])
+            print(dset.shape)
+        data_labels = np.concatenate(data_labels,axis=0)
+        print(data_labels.shape)
+
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''
@@ -2099,225 +2122,6 @@ def Write_Area_accuracies():
 #-------------------------------------------------------------------------------
 # Test above codes
 #-------------------------------------------------------------------------------
-class MAIN_DATA_PREP():
-
-    def __init__(self):
-        print('Init Class MAIN_DATA_PREP')
-
-    def Do_merge_blocks(self,file_list,stride=[4,4,4],step=[8,8,8]):
-        #file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_step_0d5_stride_0d5,   '*_step_0d5_stride_0d5.h5') )
-        #file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_stride_1_step_1,   '*_4096.h5') )
-        #file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_step_10_stride_10,   '*_blocked.h5_sorted_step_10_stride_10.hdf5') )
-        block_step = (np.array(step)).astype(np.int)
-        block_stride = (np.array(stride)).astype(np.int)
-        #block_stride = (block_step*0.5).astype(np.int)
-        print('step = ',block_step)
-        print('stride = ',block_stride)
-
-        IsMulti_merge = True
-        if not IsMulti_merge:
-            for file_name in file_list:
-                merged_name = self.merge_blocks_to_new_step(file_name,block_step,block_stride)
-                merged_names.append(merged_name)
-        else:
-            pool = []
-            for file_name in file_list:
-                p = mp.Process( target=self.merge_blocks_to_new_step, args=(file_name,block_step,block_stride,) )
-                p.start()
-                pool.append(p)
-            for p in pool:
-                p.join()
-
-    def merge_blocks_to_new_step(self,base_file_name,larger_step,larger_stride):
-        '''merge blocks of sorted raw h5f to get new larger step
-        '''
-        #new_name = base_file_name.split('_xyz_intensity_rgb')[0] + '_step_' + str(larger_step[0]) + '_stride_' + str(larger_stride[0]) + '.hdf5'
-        tmp = rm_file_name_midpart(base_file_name,'_stride_1_step_1')
-        new_part = '_stride_' + str(larger_stride[0])+ '_step_' + str(larger_step[0])
-        if larger_step[2] != larger_step[0]:
-            if larger_step[2]>0:
-                new_part += '_z' + str(larger_step[2])
-            else:
-                new_part += '_zall'
-
-        new_name = os.path.splitext(tmp)[0]  + new_part + '.h5'
-        print('new file: ',new_name)
-        print('id = ',os.getpid())
-        with h5py.File(new_name,'w') as new_h5f:
-                base_sh5f = Sorted_H5f(base_h5f,base_file_name)
-                new_sh5f = Sorted_H5f(new_h5f,new_name)
-                new_sh5f.copy_root_summaryinfo_from_another(self.h5f,'new_stride')
-                new_sh5f.set_step_stride(larger_step,larger_stride)
-
-                read_row_N = 0
-                rate_last = -10
-                print('%d rows and %d blocks to merge'%(base_sh5f.total_row_N,base_sh5f.total_block_N))
-                for dset_name in  self.h5f:
-                    block_i_base = int(dset_name)
-                    base_dset_i = self.h5f[dset_name]
-                    block_k_new_ls,i_xyz_new_ls = base_sh5f.get_sub_block_ks(block_i_base,new_sh5f)
-
-                    read_row_N += base_dset_i.shape[0]
-                    rate = 100.0 * read_row_N / base_sh5f.total_row_N
-                    if int(rate)%10 < 1 and rate-rate_last>5:
-                        rate_last = rate
-                        print(str(rate),'%   ','  dset_name = ',dset_name, '  new_k= ',block_k_new_ls,'   id= ',os.getpid())
-                        new_sh5f.h5f.flush()
-
-                    for block_k_new in block_k_new_ls:
-                        new_sh5f.append_to_dset(block_k_new,base_dset_i)
-                    #if rate > 5:
-                        #break
-                if read_row_N != base_sh5f.total_row_N:
-                    print('ERROR!!!  total_row_N = %d, but only read %d'%(base_sh5f.total_row_N,read_row_N))
-
-                total_block_N = 0
-                total_row_N = 0
-                for total_block_N,dn in enumerate(new_sh5f.h5f):
-                    total_row_N += new_sh5f.h5f[dn].shape[0]
-                total_block_N += 1
-                new_sh5f.h5f.attrs['total_row_N']=total_row_N
-                new_sh5f.h5f.attrs['total_block_N']=total_block_N
-                print('total_row_N = ',total_row_N)
-                print('total_block_N = ',total_block_N)
-                new_sh5f.h5f.flush()
-
-                #new_sh5f.check_xyz_scope()
-
-                if 'sample_merged' in self.actions:
-                    Is_gen_obj = 'obj_sampled_merged' in self.actions
-                    Is_gen_norm = 'norm_sampled_merged' in self.actions
-                    new_sh5f.file_random_sampling(self.sample_num,self.sample_method,\
-                                         gen_norm=Is_gen_norm,gen_obj = Is_gen_obj)
-
-
-    def gen_rawETH_to_h5(self,label_files_glob,line_num_limit=None):
-        '''
-        transform the data and label to h5 format
-        put every dim to a single dataset
-            to speed up search and compare of a single dim
-        data is large, chunk to speed up slice
-        '''
-
-        label_files_list = glob.glob(label_files_glob)
-        data_files_list, h5_files_list = self.clean_label_files_list(label_files_list)
-        print('%d data-label files detected'%(len(label_files_list)))
-        for lf in label_files_list:
-            print('\t%s'%(lf))
-
-        for i,label_fn in enumerate(label_files_list):
-            data_fn = data_files_list[i]
-            h5_fn = h5_files_list[i]
-            with open(data_fn,'r') as data_f:
-                with open(label_fn,'r') as label_f:
-                    with h5py.File(h5_fn,'w') as h5_f:
-                        raw_h5f = Raw_H5f(h5_f,h5_fn)
-                        raw_h5f.set_num_default_row(GLOBAL_PARA.h5_num_row_1G)
-                        data_label_fs = itertools.izip(data_f,label_f)
-                        buf_rows = GLOBAL_PARA.h5_num_row_10M*5
-                        data_buf = np.zeros((buf_rows,7),np.float32)
-                        label_buf = np.zeros((buf_rows,1),np.int8)
-                        for k,data_label_line in enumerate(data_label_fs):
-                            k_buf = k%buf_rows
-                            data_buf[k_buf,:] =np.fromstring( data_label_line[0].strip(),dtype=np.float32,sep=' ' )
-                            label_buf[k_buf,:] = np.fromstring( data_label_line[1].strip(),dtype=np.float32,sep=' ' )
-                            if k_buf == buf_rows-1:
-                                start = int(k/buf_rows)*buf_rows
-                                end = k+1
-                                print('start = %d, end = %d in file: %s'%(start,end,data_fn))
-                                raw_h5f.add_to_dset('xyz',data_buf[:,0:3],start,end)
-                                raw_h5f.add_to_dset('intensity',data_buf[:,3:4],start,end)
-                                raw_h5f.add_to_dset('color',data_buf[:,4:7],start,end)
-                                raw_h5f.add_to_dset('label',label_buf[:,0:1],start,end)
-                                h5_f.flush()
-
-                            if line_num_limit != None and k+1 >= line_num_limit:
-                                print('break at k= ',k)
-                                break
-
-                        self.add_to_dset_all(raw_h5f,data_buf,label_buf,k,buf_rows)
-                        raw_h5f.create_done()
-
-                        print('having read %d lines from %s \n'%(k+1,data_fn))
-                        #print('h5 file line num = %d'%(xyz_dset.shape[0]))
-
-    def add_to_dset_all(self,raw_h5f,data_buf,label_buf,k,buf_rows):
-        k_buf = k%buf_rows
-        start = int(k/buf_rows)*buf_rows
-        end = k+1
-        #print( 'start = %d, end = %d'%(start,end))
-        raw_h5f.add_to_dset('xyz',data_buf[0:k_buf+1,0:3],start,end)
-        raw_h5f.add_to_dset('intensity',data_buf[0:k_buf+1,3:4],start,end)
-        raw_h5f.add_to_dset('color',data_buf[0:k_buf+1,4:7],start,end)
-        raw_h5f.add_to_dset('label',label_buf[0:k_buf+1,0:1],start,end)
-        raw_h5f.raw_h5f.flush()
-        #print('flushing k = ',k)
-
-    def clean_label_files_list(self,label_files_list):
-        data_files_list = []
-        h5_files_list = []
-        for i,label_file_name in enumerate(label_files_list):
-            no_format_name = os.path.splitext(label_file_name)[0]
-            data_file_name = no_format_name + '.txt'
-            h5_file_name = no_format_name + '.hdf5'
-            if not os.path.exists(data_file_name):
-                label_files_list.pop(i)
-                print('del label_files_list[%d]:%s'%(i,label_file_name))
-            else:
-                data_files_list.append(data_file_name)
-                h5_files_list.append(h5_file_name)
-        return data_files_list, h5_files_list
-
-
-    def DO_add_geometric_scope_file(self):
-        files_glob = os.path.join(self.ETH_training_partBh5_folder,'*.hdf5')
-        #files_glob = os.path.join(self.ETH_training_partAh5_folder,'*.hdf5')
-        #files_glob = os.path.join(self.Local_training_partAh5_folder,'*.hdf5')
-        files_list = glob.glob(files_glob)
-        print('%d files detected'%(len(files_list)))
-
-        IsMultiProcess = False
-        line_num_limit = 1000*100
-        line_num_limit = None
-
-        if not IsMultiProcess:
-            for file_name in files_list:
-                with h5py.File(file_name,'a') as h5f:
-                    raw_h5f = Raw_H5f(h5f,file_name)
-                    raw_h5f.add_geometric_scope(line_num_limit)
-                #self.add_geometric_scope_file(file_name,line_num_limit)
-        else:
-            mp_n = min(len(files_list),mp.cpu_count())
-            pool = mp.Pool(mp_n)
-            pool.imap_unordered(self.add_geometric_scope_file,files_list)
-
-
-    def DO_gen_rawETH_to_h5(self,ETH_raw_labels_glob=None):
-        if ETH_raw_labels_glob == None:
-            labels_folder = '/home/x/Research/Dataset/ETH_Semantic3D_Dataset/training/part_A'
-            labels_folder = '/short/dh01/yx2146/Dataset/ETH_Semantic3D_Dataset/training/part_B'
-            #labels_folder = '/other/ETH_Semantic3D_Dataset/training/part_A
-            ETH_raw_labels_glob = os.path.join(labels_folder,'*.labels')
-        line_num_limit = None
-        self.gen_rawETH_to_h5(ETH_raw_labels_glob)
-
-
-    def main(self,file_list,actions,sample_num=4096,sample_method='random',stride=[4,4,100],step=[8,8,100]):
-        # self.actions: [
-        # 'merge','sample_merged','obj_sampled_merged','norm_sampled_merged' ]
-        self.actions = actions
-        self.sample_num = sample_num
-        self.sample_method = sample_method
-        self.stride = stride
-        self.step = step
-        if 'merge' in self.actions:
-            self.Do_merge_blocks(file_list,self.stride,self.step)
-
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
-
-
-
 def Gen_raw_label_color_obj():
     base_fn = os.path.join(GLOBAL_PARA.ETH_raw_partA,'untermaederbrunnen_station1_xyz_intensity_rgb')
     data_fn = base_fn + '.txt'
@@ -2371,6 +2175,18 @@ def Do_sample(file_list):
             sh5f.file_random_sampling(sample_num)
 
 
+def Test_get_block_data_of_new_stride_step():
+    folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
+    base_h5f_name = os.path.join(folder_base,'region0.sh5')
+
+    xyz1norm_k = [0.2,0.3,0.1]
+    new_stride = np.array([0.1,0.1,0.1])*2
+    new_step = np.array([0.1,0.1,0.1])*2
+
+    with h5py.File(base_h5f_name,'r') as base_h5f:
+        base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
+        base_sh5f.get_block_data_of_new_stride_step(xyz1norm_k,new_stride,new_step)
+
 def Test_sub_block_ks_():
     folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
     folder_new = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_testtmp'
@@ -2380,9 +2196,9 @@ def Test_sub_block_ks_():
     new_h5f_name = os.path.join(folder_new,'region0_testtmp.sh5')
 
 
-    org_xyz1norm_k = [0.6,0.3,0.5]
+    xyz1norm_k = [0.2,0.3,0.1]
     new_stride = [0.1,0.1,0.1]
-    new_step = [0.2,0.2,0.2]
+    new_step = [0.1,0.1,0.1]
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
         with h5py.File(new_h5f_name,'w') as new_h5f:
@@ -2392,56 +2208,17 @@ def Test_sub_block_ks_():
             new_sh5f.set_step_stride(new_step,new_stride)
             #base_sh5f.show_summary_info()
 
-            new_block_id_ls,i_xyz_new_ls,org_blockid0 = base_sh5f.get_new_blockids(xyz1norm_k, new_stride, new_step )
-            print(new_block_id_ls)
-            print(i_xyz_new_ls)
+            new_block_id_ls,i_xyz_new_ls,org_blockid0 = base_sh5f.get_blockids_of_new_stride_step(xyz1norm_k, new_stride, new_step )
+            #print(new_block_id_ls)
+            #print(i_xyz_new_ls)
             for new_block_id in new_block_id_ls:
-                org_block_id_ls,org_i_xyz_ls = new_sh5f.get_sub_block_ks_(new_block_id,base_h5f.attrs['block_stride'],base_h5f.attrs['block_step'])
+                org_block_id_ls,org_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id, base_attrs = new_h5f.attrs, aim_attrs= base_h5f.attrs)
                 assert org_blockid0 in org_block_id_ls
-                print(org_block_id_ls)
+                #print(org_block_id_ls)
 
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    print('check get_sub_block_ks OK')
 
 
-def Test_sub_block_ks():
-    folder0 = folder1 = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
-    h5f_name0 = os.path.join(folder0,'region0.sh5')
-    h5f_name1 = os.path.join(folder0,'region0_testtmp.sh5')
-    with h5py.File(h5f_name0,'r') as h5f0:
-      with h5py.File(h5f_name1,'w') as h5f1:
-        sh5f0 = Sorted_H5f(h5f0,h5f_name0)
-        sh5f1 = Sorted_H5f(h5f1,h5f_name1)
-
-        block_step1 = np.array([1,1,1])*4
-        block_stride1 = np.array([1,1,1])*2
-
-        sh5f1.copy_root_summaryinfo_from_another(h5f0,'new_stride')
-        sh5f1.set_step_stride(block_step1,block_stride1)
-
-        for i,block_k0_str in enumerate( sh5f0.h5f ):
-            if i > 3:
-                break
-            block_k0 = int(block_k0_str)
-            check_flag = True
-            #print('block_k0 = ',block_k0)
-            block_k1s,i_xyz_1s = sh5f0.get_sub_block_ks(block_k0,sh5f1)
-            print('block_k1s = ',len(block_k1s),'   ',block_k1s,'\n')
-            for block_k1 in block_k1s:
-                # all the space block_k1 should contain block_k0
-                block_k0s,i_xyz_0s = sh5f1.get_sub_block_ks(block_k1,sh5f0)
-                print('k1 = ',block_k1,'  block_k0 = ',block_k0s,'\nlen = ',len(block_k0s),'\n')
-                if block_k0 not in block_k0s:
-                    check_flag = False
-
-                for block_k0_ in block_k0s:
-                    # all the scope block_k0_ should contain
-                    block_k1s_,i_xyz_1s_ = sh5f0.get_sub_block_ks(block_k0_,sh5f1)
-                    if block_k1 not in block_k1s_:
-                        check_flag = False
-            if check_flag:
-                print('all check passed')
-            else:
-                print('check failed')
 
 def Do_Check_xyz():
     #fnl = glob.glob(os.path.join(folder,'*.hdf5'))
@@ -2592,7 +2369,7 @@ if __name__ == '__main__':
     #Do_gen_raw_obj()
     #Add_sorted_total_row_block_N()
     #Do_Check_xyz()
-    Test_sub_block_ks_()
+    #Test_sub_block_ks_()
     #Do_sample()
     #Do_gen_sorted_block_obj(file_list)
     #Do_gen_normed_obj(file_list)
@@ -2602,7 +2379,7 @@ if __name__ == '__main__':
 
     #Write_Area_accuracies()
     #Write_all_file_accuracies()
-
+    Test_get_block_data_of_new_stride_step()
     #Normed_H5f.show_all_colors()
     #Gen_raw_label_color_obj()
     T = time.time() - START_T
