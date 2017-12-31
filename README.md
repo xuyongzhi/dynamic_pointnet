@@ -12,8 +12,9 @@ created by benz, xyz based on fork of Pointnet++
 - [ ] Be difficulty-aware
 - [ ] Compare pyramid and stacked feature encodering
 
-### Sampling optimization plans
+### Sampling + normalization optimization plans
 - [ ] Dynamic pooling based on previous prediction
+- [ ] Currently, 1norm within the whole region is used. This should make scene. But 1norm within the whole house does not make scene. How to solve this?
 
 
 ### Performace items to be improved
