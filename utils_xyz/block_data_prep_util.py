@@ -365,6 +365,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
     total_num_channels = 0
+    corres_cur_blockids={}
 
     actions = ''
     h5_num_row_1M = g_h5_num_row_1M
@@ -402,12 +403,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         self.data_idxs = data_index
         self.total_num_channels = last_index
 
-        label_set_elements = []
-        for e in self.labels_order:
-            if e in self.h5f.attrs['element_names']:
-                label_set_elements += [e]
-        self.label_set_elements = label_set_elements
-        self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
+        if 'element_names' in self.h5f.attrs:
+            label_set_elements = []
+            for e in self.labels_order:
+                if e in self.h5f.attrs['element_names']:
+                    label_set_elements += [e]
+            self.label_set_elements = label_set_elements
+            self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
 
         if 'datasource_name' in self.h5f.attrs:
             self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
@@ -607,7 +609,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
         i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
-        i_xyz_new_start = (i_xyz_new_start).astype(np.int)
+        i_xyz_new_start = np.rint(i_xyz_new_start).astype(np.int32)
         #print( self.xyz_min_aligned )
         #print( new_sorted_h5f.xyz_min_aligned )
         i_xyz_new_list = []
@@ -1302,7 +1304,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(xyz_k)
        # print(cur_block_id)
        # print(cur_ixyz)
+
         cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+        print(cur_block_id_ls)
         return cur_block_id_ls,cur_i_xyz_ls,new_block_id
 
     def get_block_data_of_new_stride_step( self,xyz1norm_k, new_stride,new_step,
@@ -1344,28 +1348,33 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
         '''
-        new_sorted_h5f_attrs = self.get_similar_attrs(larger_stride,larger_step)
-        new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
-        max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
-        new_total_block_N = 0
-        corres_cur_blockids = {}
-        print('max_new_block_id = ',max_new_block_id)
-        for new_block_id in range(max_new_block_id+1):
-            block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
-            for i,block_id in enumerate(block_k_cur_list):
-                if not str(block_id) in self.h5f:
-                    del block_k_cur_list[i]
-            if len(block_k_cur_list) > 0:
-                new_total_block_N += 1
-                corres_cur_blockids[new_block_id] = block_k_cur_list
-        print('new_total_block_N = ',len(corres_cur_blockids))
-
         base_fn = os.path.splitext(self.file_name)[0]
         corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
-        with open(corres_cur_blockids_fn,'wb') as pickle_f:
-            pickle.dump(corres_cur_blockids,pickle_f)
-        print('write: %s'%(corres_cur_blockids_fn))
-        return corres_cur_blockids
+        if os.path.exists(corres_cur_blockids_fn):
+            corres_cur_blockids = self.load_blockids(larger_stride,larger_step)
+        else:
+            new_sorted_h5f_attrs = self.get_similar_attrs(larger_stride,larger_step)
+            new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
+            max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
+            new_total_block_N = 0
+            corres_cur_blockids = {}
+            #print('max_new_block_id = ',max_new_block_id)
+            for new_block_id in range(max_new_block_id+1):
+                block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+                for i,block_id in enumerate(block_k_cur_list):
+                    if not str(block_id) in self.h5f:
+                        del block_k_cur_list[i]
+                if len(block_k_cur_list) > 0:
+                    new_total_block_N += 1
+                    corres_cur_blockids[new_block_id] = block_k_cur_list
+            #print('new_total_block_N = ',len(corres_cur_blockids))
+
+            with open(corres_cur_blockids_fn,'wb') as pickle_f:
+                pickle.dump(corres_cur_blockids,pickle_f)
+            print('write: %s'%(corres_cur_blockids_fn))
+
+        self.corres_cur_blockids[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids
+        return len(corres_cur_blockids)
 
     def load_blockids(self,larger_stride,larger_step):
         base_fn = os.path.splitext(self.file_name)[0]
@@ -1376,17 +1385,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         with open(corres_cur_blockids_fn,'rb') as pickle_f:
             corres_cur_blockids = pickle.load(pickle_f)
-
-      #  for new_id,base_id in corres_cur_blockids.items():
-      #      check = ( len(base_id)==1 and new_id==base_id[0] )
-      #      if not check:
-      #          print(new_id,base_id)
         return corres_cur_blockids
-
-    def get_total_block_N(self,new_stride=None,new_step=None):
-        if new_stride == None:
-            return self.h5f.attrs['total_block_N']
-
 
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
@@ -2606,6 +2605,7 @@ if __name__ == '__main__':
     #Write_Area_accuracies()
     #Write_all_file_accuracies()
     Test_get_block_data_of_new_stride_step()
+    #Test_sub_block_ks_()
     #Do_normalize_sorted_to_self()
     #Normed_H5f.show_all_colors()
     #Gen_raw_label_color_obj()
