@@ -45,7 +45,8 @@ class Net_Provider():
     def __init__(self,dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
                  train_num_block_rate=1,eval_num_block_rate=1 ):
-        self.IsSampled = True
+        self.InputType = 'Sorted_H5f'
+        #self.InputType = 'Normed_H5f'
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -77,9 +78,9 @@ class Net_Provider():
         for i,fn in enumerate(normed_h5f_file_list):
             assert(os.path.exists(fn))
             h5f = h5py.File(fn,open_type)
-            if self.IsSampled:
+            if self.InputType=='Normed_H5f':
                 norm_h5f = Normed_H5f(h5f,fn)
-            else:
+            elif self.InputType=='Sorted_H5f':
                 norm_h5f = Sorted_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + norm_h5f.data_set.shape[0]

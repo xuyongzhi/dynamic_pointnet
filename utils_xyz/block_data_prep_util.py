@@ -38,6 +38,7 @@ import itertools
 from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
+import csv,pickle
 
 START_T = time.time()
 
@@ -47,6 +48,21 @@ UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
 DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT']
+
+
+def get_stride_step_name(block_stride,block_step):
+    assert block_step[0] == block_step[1]
+    assert block_stride[0] == block_stride[1]
+    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
+
+    def get_str(v):
+        assert (v*10) % 1 == 0
+        if v%1!=0: return '%dd%d'%(int(v),(v%1)*10)
+        else: return str(int(v))
+    if block_stride[2] == -1:
+        return 'stride-%s-step-%s'%(get_str(block_stride[0]),get_str(block_step[0]))
+    else:
+        return 'stride_%s_step_%s'%(get_str(block_stride[0]),get_str(block_step[0]))
 def rm_file_name_midpart(fn,rm_part):
     base_name = os.path.basename(fn)
     parts = base_name.split(rm_part)
@@ -341,10 +357,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     (4) The label_category in Sorted_H5f is raw_category_idx, the label_category in Normed_H5f is mpcat40 index
     '''
     file_flag = 'SORTED_H5F'
-    data_ele_candidates_order = ['xyz','nxnynz','color','label','label_category','label_instance','label_material','intensity']
-    #data_ele_candidates_order += ['xyz_1norm','xyz_midnorm','color_1norm']
-    data_ele_candidates_order += ['org_row_index']
-    data_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_material':1,'intensity':1,'org_row_index':1}
+    labels_order = ['label_category','label_instance','label_material']
+    #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
+    data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
+    data_label_ele_candidates_order += ['org_row_index']
+    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_material':1,'intensity':1,'org_row_index':1}
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
     total_num_channels = 0
@@ -378,12 +395,32 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if self.IS_CHECK and 'org_row_index' not in element_names:
             element_names += ['org_row_index']
         element_names = set(element_names)
-        for dn in self.data_ele_candidates_order:
+        for dn in self.data_label_ele_candidates_order:
             if dn in element_names:
-                data_index[dn] = range(last_index,last_index+self.data_channels[dn])
-                last_index += self.data_channels[dn]
+                data_index[dn] = range(last_index,last_index+self.data_label_channels[dn])
+                last_index += self.data_label_channels[dn]
         self.data_idxs = data_index
         self.total_num_channels = last_index
+
+        label_set_elements = []
+        for e in self.labels_order:
+            if e in self.h5f.attrs['element_names']:
+                label_set_elements += [e]
+        self.label_set_elements = label_set_elements
+        self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
+
+        if 'datasource_name' in self.h5f.attrs:
+            self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
+            self.num_classes = self.DatasetMeta.num_classes
+
+    def get_label_ele_idxs(self,label_eles):
+        label_ele_idxs = {}
+        k = 0
+        for e in self.labels_order:
+            if e in label_eles:
+                label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
+                k += self.data_label_channels[e]
+        return label_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
         self.h5f.attrs['block_step'] = block_step
@@ -556,6 +593,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def get_blockids_of_dif_stride_step(base_block_id,base_attrs,aim_attrs):
         '''
+        base_block_id: int
         1) base_attrs: self.h5f.attrs or new_sorted_h5f_attrs
            aim_attrs:  new_sorted_h5f_attrs or self.h5f.attrs
             True: based on blockid of current(self) stride and step,
@@ -1252,7 +1290,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     #***************************************************************************
     #Net feed utils: extract data from unsampled sorted dataset
     #***************************************************************************
-    def get_blockids_of_new_stride_step( self,xyz1norm_k, new_stride, new_step ):
+    def get_blockids_of_dif_stride_step_byxyz( self,xyz1norm_k, new_stride, new_step ):
         '''
         1) new stride and step is larger than current
         2) get the new_blockid with new stride and step include xyz_k
@@ -1269,10 +1307,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     def get_block_data_of_new_stride_step( self,xyz1norm_k, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        cur_block_id_ls,cur_i_xyz_ls,_ = self.get_blockids_of_new_stride_step( xyz1norm_k,new_stride,new_step )
-        #print(cur_block_id_ls)
-        #for cur_i_xyz in cur_i_xyz_ls:
-        #    print(cur_i_xyz)
+        cur_block_id_ls,cur_i_xyz_ls,_ = self.get_blockids_of_dif_stride_step_byxyz( xyz1norm_k,new_stride,new_step )
         datas = []
         labels = []
         for cur_block_id in cur_block_id_ls:
@@ -1298,10 +1333,59 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sample_choice,reduced_num = get_sample_choice(datas.shape[0],sample_num)
             datas = datas[sample_choice,:]
             labels = labels[sample_choice,:]
-        print(datas.shape)
-        print(labels.shape)
-        print(datas)
-        print(labels)
+       # print(datas.shape)
+       # print(labels.shape)
+       # print(datas)
+       # print(labels)
+        return datas,labels
+
+    def get_blockids_in_new_stride_step(self,larger_stride,larger_step):
+        '''
+        find all the valid block ids with larger_stride and larger_step,
+        and all the base block ids in each larger_stride and larger_step.
+        '''
+        new_sorted_h5f_attrs = self.get_similar_attrs(larger_stride,larger_step)
+        new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
+        max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
+        new_total_block_N = 0
+        corres_cur_blockids = {}
+        print('max_new_block_id = ',max_new_block_id)
+        for new_block_id in range(max_new_block_id+1):
+            block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+            for i,block_id in enumerate(block_k_cur_list):
+                if not str(block_id) in self.h5f:
+                    del block_k_cur_list[i]
+            if len(block_k_cur_list) > 0:
+                new_total_block_N += 1
+                corres_cur_blockids[new_block_id] = block_k_cur_list
+        print('new_total_block_N = ',len(corres_cur_blockids))
+
+        base_fn = os.path.splitext(self.file_name)[0]
+        corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
+        with open(corres_cur_blockids_fn,'wb') as pickle_f:
+            pickle.dump(corres_cur_blockids,pickle_f)
+        print('write: %s'%(corres_cur_blockids_fn))
+        return corres_cur_blockids
+
+    def load_blockids(self,larger_stride,larger_step):
+        base_fn = os.path.splitext(self.file_name)[0]
+        corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
+        if not os.path.exists(corres_cur_blockids_fn):
+            print('file not exist, generate it now')
+            return self.get_blockids_in_new_stride_step(larger_stride,larger_step)
+
+        with open(corres_cur_blockids_fn,'rb') as pickle_f:
+            corres_cur_blockids = pickle.load(pickle_f)
+
+      #  for new_id,base_id in corres_cur_blockids.items():
+      #      check = ( len(base_id)==1 and new_id==base_id[0] )
+      #      if not check:
+      #          print(new_id,base_id)
+        return corres_cur_blockids
+
+    def get_total_block_N(self,new_stride=None,new_step=None):
+        if new_stride == None:
+            return self.h5f.attrs['total_block_N']
 
 
 
@@ -1531,6 +1615,46 @@ class Sort_RawH5f():
         for i in range(sub_buf_xyz.shape[0]):
             block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])
 
+
+
+class DatasetMeta():
+    g_label2class_dic = {}
+    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
+    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
+                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
+                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
+
+    g_label2class_dic['STANFORD_INDOOR3D'] = \
+                    {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
+                     8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
+
+    g_label2class_dic['SCANNET'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
+                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
+                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
+                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
+    g_label2color_dic = {}
+    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
+    g_label2color_dic['ETH'] = \
+                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
+                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
+    g_label2color_dic['STANFORD_INDOOR3D'] = \
+                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
+                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
+    g_label2color_dic['SCANNET'] = \
+                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
+                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
+                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
+                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+    def __init__(self,datasource_name):
+        self.datasource_name = datasource_name
+        self.g_label2class = self.g_label2class_dic[self.datasource_name]
+        self.g_label2color = self.g_label2color_dic[self.datasource_name]
+        self.g_class2label = {cls:label for label,cls in self.g_label2class.iteritems()}
+        self.g_class2color = {}
+        for i in self.g_label2class:
+            cls = self.g_label2class[i]
+            self.g_class2color[cls] = self.g_label2color[i]
+        self.num_classes = len(self.g_label2class)
 
 
 class Normed_H5f():
@@ -2278,8 +2402,10 @@ def Test_get_block_data_of_new_stride_step():
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
-        base_sh5f.get_block_data_of_new_stride_step(xyz1norm_k,new_stride,new_step,
-                                                    feed_data_elements,feed_label_elements,sample_num)
+        base_sh5f.load_blockids(new_stride,new_step)
+        #base_sh5f.get_blockids_in_new_stride_step(new_stride,new_step)
+        #base_sh5f.get_block_data_of_new_stride_step(xyz1norm_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+        #base_sh5f.show_summary_info()
 
 def Do_normalize_sorted_to_self():
     folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
@@ -2296,7 +2422,6 @@ def Test_sub_block_ks_():
     base_h5f_name = os.path.join(folder_base,'region0.sh5')
     new_h5f_name = os.path.join(folder_new,'region0_testtmp.sh5')
 
-
     xyz1norm_k = [0.2,0.3,0.1]
     new_stride = [0.1,0.1,0.1]
     new_step = [0.1,0.1,0.1]
@@ -2309,7 +2434,7 @@ def Test_sub_block_ks_():
             new_sh5f.set_step_stride(new_step,new_stride)
             #base_sh5f.show_summary_info()
 
-            new_block_id_ls,i_xyz_new_ls,org_blockid0 = base_sh5f.get_blockids_of_new_stride_step(xyz1norm_k, new_stride, new_step )
+            new_block_id_ls,i_xyz_new_ls,org_blockid0 = base_sh5f.get_blockids_of_dif_stride_step_byxyz(xyz1norm_k, new_stride, new_step )
             #print(new_block_id_ls)
             #print(i_xyz_new_ls)
             for new_block_id in new_block_id_ls:

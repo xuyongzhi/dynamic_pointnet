@@ -5,7 +5,7 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
 import numpy as np
 import h5py
 import glob
@@ -23,19 +23,6 @@ DATA_SOURCE= 'scannet_data'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
 
-def get_stride_step_name(block_stride,block_step):
-    assert block_step[0] == block_step[1]
-    assert block_stride[0] == block_stride[1]
-    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
-
-    def get_str(v):
-        assert (v*10) % 1 == 0
-        if v%1!=0: return '%dd%d'%(int(v),(v%1)*10)
-        else: return str(int(v))
-    if block_stride[2] == -1:
-        return 'stride-%s-step-%s'%(get_str(block_stride[0]),get_str(block_step[0]))
-    else:
-        return 'stride_%s_step_%s'%(get_str(block_stride[0]),get_str(block_step[0]))
 
 def zip_extract(groupe_name,house_name,file_name,file_format,zipf,house_dir_extracted):
     '''
