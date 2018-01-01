@@ -431,7 +431,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
         self.h5f.attrs['stride_to_align'] = stride_to_align
-        self.update_align_scope_by_stridetoalign()
+        Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
 
     @staticmethod
     def set_whole_scene_stride_step(h5fattrs):
@@ -443,6 +443,28 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # show_attrs(h5fattrs)
        # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
 
+
+    @staticmethod
+    def update_align_scope_by_stridetoalign_(h5fattrs):
+        if 'xyz_min' not in h5fattrs:
+            return
+        xyz_min = h5fattrs['xyz_min']
+        xyz_max = h5fattrs['xyz_max']
+        xyz_min_aligned = xyz_min - xyz_min % h5fattrs['stride_to_align'] - [0,0,0.1]
+        xyz_max_aligned = xyz_max - xyz_max % 0.1 + 0.1
+        xyz_scope_aligned =  xyz_max_aligned - xyz_min_aligned
+
+        # step or stride ==-1 means one step/stride the whole scene
+        if 'block_step' in h5fattrs:
+            block_step = h5fattrs['block_step']
+            block_stride = h5fattrs['block_stride']
+            h5fattrs['block_step']  = block_step
+            h5fattrs['block_stride'] = block_stride
+            h5fattrs['block_dims_N'] = np.ceil(xyz_scope_aligned / h5fattrs['block_stride']).astype(np.int64)
+            Sorted_H5f.set_whole_scene_stride_step(h5fattrs)
+        h5fattrs['xyz_min_aligned'] = xyz_min_aligned
+        h5fattrs['xyz_max_aligned'] = xyz_max_aligned
+        h5fattrs['xyz_scope_aligned'] = xyz_scope_aligned
 
     def update_align_scope_by_stridetoalign(self):
         if 'xyz_min' not in self.h5f.attrs:
@@ -457,11 +479,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if 'block_step' in self.h5f.attrs:
             block_step = self.h5f.attrs['block_step']
             block_stride = self.h5f.attrs['block_stride']
-         #   for i in range(0,len(block_step)):
-         #       if block_step[i]  == -1:
-         #           block_step[i] = xyz_scope_aligned[i]
-         #       if block_stride[i]  == -1:
-         #           block_stride[i] = xyz_scope_aligned[i]
             self.h5f.attrs['block_step']  = block_step
             self.h5f.attrs['block_stride'] = block_stride
             self.h5f.attrs['block_dims_N'] = np.ceil(xyz_scope_aligned / self.h5f.attrs['block_stride']).astype(np.int64)
@@ -483,6 +500,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             os.path.basename(self.file_name),total_row_N,n+1))
         return total_row_N, n+1
 
+    def add_label_histagram(self):
+        label_name = 'label_category'
+        if label_name in self.label_ele_idxs:
+            label_category_id = self.data_idxs['label_category'][0]
+            label_hist  = np.zeros(shape=[self.num_classes]).astype(np.int64)
+            for k in self.h5f:
+                label_hist_k,_ = np.histogram(self.h5f[k][:,label_category_id],range(self.num_classes+1))
+                label_hist += label_hist_k.astype(np.int64)
+            label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
+            self.h5f.attrs[label_name+'_hist'] = label_hist
+            self.h5f.attrs[label_name+'_hist1norm'] = label_hist_1norm
+            print('adding label hist ok:',label_hist)
+
     def copy_root_summaryinfo_from_another(self,h5f0,copy_flag):
         attrs = ['datasource_name','xyz_max','xyz_min','element_names','stride_to_align']   # 'new_stride'
         if copy_flag == 'sub' or copy_flag == 'sample':
@@ -493,7 +523,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for attr in attrs:
             if attr in h5f0.attrs:
                 self.h5f.attrs[attr] = h5f0.attrs[attr]
-        self.update_align_scope_by_stridetoalign()
+        Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
         self.update_data_index_by_elementnames()
 
     def copy_root_attrs_from_raw(self,h5f_raw):
@@ -583,11 +613,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return block_min,block_max,i_xyz
 
 
-    def get_similar_attrs(self,new_stride,new_step):
+    def get_attrs_of_new_stride_step(self,new_stride,new_step):
         new_sorted_h5f_attrs = copy_h5f_attrs( self.h5f.attrs )
         new_sorted_h5f_attrs['block_step'] = np.array(new_step).astype(np.float64)
         new_sorted_h5f_attrs['block_stride'] = np.array(new_stride).astype(np.float64)
-        Sorted_H5f.set_whole_scene_stride_step(new_sorted_h5f_attrs)
+        Sorted_H5f.update_align_scope_by_stridetoalign_(new_sorted_h5f_attrs)
        # print('new_attrs')
         #show_attrs(new_sorted_h5f_attrs)
        # print('\n\norg_attrs')
@@ -610,6 +640,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             The containing relationship should be totally containing.
            If aim stride and step is smaller, returned blocks are contained within the base block.
         '''
+        IsRecordTime = False
+        if IsRecordTime:
+            t0 = time.time()
+
         i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
         i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
         i_xyz_new_start = np.rint(i_xyz_new_start).astype(np.int32)
@@ -705,6 +739,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                             #print('both min and max check passed, i_xyz= ',[i_x,i_y,i_z])
                             i_xyz_new_list.append(i_xyz_new)
                             block_k_new_list.append(block_k_new)
+        if IsRecordTime:
+            print('base: ',base_attrs['block_stride'],base_attrs['block_step'])
+            print('aim: ',aim_attrs['block_stride'],aim_attrs['block_step'])
+            print('t = %f  ms'%(1000.0*(time.time()-t0)))
+            print('search = ',search)
+            print('\n')
+            '''
+            base:  [ 1.  1.  1.] [ 2.  2.  2.]
+            aim:  [ 0.1  0.1  0.1] [ 0.1  0.1  0.1]
+            t = 332.636118  ms
+            search =  [20 20 20]
+            '''
         return block_k_new_list,i_xyz_new_list
 
 
@@ -1301,7 +1347,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         2) get the new_blockid with new stride and step include xyz_k
         3) get all the current block ids included within the new block
         '''
-        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
         new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
        # print(xyz_k)
@@ -1318,13 +1364,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
     def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
         return self.get_block_data_of_new_stride_step_byid(new_block_id,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
 
     def get_block_data_of_new_stride_step_byid( self,new_block_id, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
 
         datas = []
@@ -1393,7 +1439,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
  #       IsCheckSubblockParas = True
  #       if IsCheckSubblockParas:
- #           sub_h5fattrs = self.get_similar_attrs(sub_block_stride,sub_block_step)
+ #           sub_h5fattrs = self.get_attrs_of_new_stride_step(sub_block_stride,sub_block_step)
  #           for base_blockid in all_cur_blockids:
  #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
  #               for k_new in block_k_new_list:
@@ -1434,12 +1480,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if os.path.exists(corres_cur_blockids_fn):
             corres_cur_blockids_dic,larger_blockid_ls = self.load_blockids(larger_stride,larger_step)
         else:
-            new_sorted_h5f_attrs = self.get_similar_attrs(larger_stride,larger_step)
+            print('creating: ',corres_cur_blockids_fn)
+            new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(larger_stride,larger_step)
             new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
             max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
             new_total_block_N = 0
             corres_cur_blockids_dic = {}
-            #print('max_new_block_id = ',max_new_block_id)
+            print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
                 block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
                 for i,block_id in enumerate(block_k_cur_list):
@@ -1448,6 +1495,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if len(block_k_cur_list) > 0:
                     new_total_block_N += 1
                     corres_cur_blockids_dic[new_block_id] = block_k_cur_list
+                rate = 1.0*new_block_id/max_new_block_id*100
+                if int(rate)%20 == 0:
+                    print('finish %d%%'%(rate))
             larger_blockid_ls = list(corres_cur_blockids_dic.keys())
             larger_blockid_ls.sort()
             #print('new_total_block_N = ',len(corres_cur_blockids_dic))
@@ -1455,7 +1505,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             with open(corres_cur_blockids_fn,'wb') as pickle_f:
                 pickle.dump(corres_cur_blockids_dic,pickle_f)
                 pickle.dump(larger_blockid_ls,pickle_f)
-            print('write: %s'%(corres_cur_blockids_fn))
+            print('write ok: %s'%(corres_cur_blockids_fn))
 
         self.corres_cur_blockids_dic_dic[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids_dic
         self.larger_blockid_ls_dic[get_stride_step_name(larger_stride,larger_step)] = larger_blockid_ls
@@ -1630,6 +1680,7 @@ class Sort_RawH5f():
                         break
 
                 total_row_N,total_block_N = self.s_h5f.add_total_row_block_N()
+                self.s_h5f.add_label_histagram()
 
                 if total_row_N != self.raw_h5f.total_row_N:
                     print('ERROR: blocked total_row_N= %d, raw = %d'%(total_row_N,self.raw_h5f.total_row_N))
@@ -2117,7 +2168,7 @@ class Normed_H5f():
             label_hist,_ = np.histogram(self.labels_set[:,:,self.labels_set.attrs[label_name]],range(self.num_classes+1))
             label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
             self.labels_set.attrs[label_name+'_hist'] = label_hist
-            self.labels_set.attrs[label_name+'_1norm'] = label_hist_1norm
+            self.labels_set.attrs[label_name+'_hist1norm'] = label_hist_1norm
 
     def Get_file_accuracies(self,IsWrite=False,out_path=None):
         # get the accuracy of each file by the pred data in hdf5
