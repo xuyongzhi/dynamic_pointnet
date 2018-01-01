@@ -47,6 +47,9 @@ class Net_Provider():
                  train_num_block_rate=1,eval_num_block_rate=1 ):
         self.InputType = 'Sorted_H5f'
         #self.InputType = 'Normed_H5f'
+        if self.InputType == 'Sorted_H5f':
+            self.larger_feed_stride = np.array([0.1,0.1,0.1])*2
+            self.larger_feed_step = np.array([0.1,0.1,0.1])*2
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -83,7 +86,11 @@ class Net_Provider():
             elif self.InputType=='Sorted_H5f':
                 norm_h5f = Sorted_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
-            self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + norm_h5f.data_set.shape[0]
+            if self.InputType == 'Normed_H5f':
+                file_block_N = norm_h5f.data_set.shape[0]
+            elif self.InputType == 'Sorted_H5f':
+                file_block_N = norm_h5f.get_allblockids_in_new_stride_step( self.larger_feed_stride,self.larger_feed_step )
+            self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
 
@@ -245,7 +252,6 @@ class Net_Provider():
 
             data_i,feed_data_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
             label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
-
 
             data_ls.append(data_i)
             label_ls.append(label_i)

@@ -105,7 +105,7 @@ def show_h5f_summary_info(h5f):
         if dset.shape[0] > 3:
             print(dset[-1,:])
         print('\n')
-
+    k = -1
     for k, dset_n in enumerate(h5f):
         if dset_n == 'xyz':
             print('# dataset %d: '%(k),dset_n,'  shape=',dset.shape)
@@ -118,14 +118,14 @@ def show_h5f_summary_info(h5f):
             show_dset(dset)
     print('%d datasets totally'%(k+1))
 
-def get_sample_choice(org_N,sample_N):
+def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
     reduced_num = 0
     sample_method='random'
     if sample_method == 'random':
         if org_N == sample_N:
             sample_choice = np.arange(sample_N)
         elif org_N > sample_N:
-            sample_choice = np.random.choice(org_N,sample_N)
+            sample_choice = np.random.choice(org_N,sample_N,p=random_sampl_pro)
             reduced_num += org_N - sample_N
         else:
             #sample_choice = np.arange(org_N)
@@ -365,7 +365,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
     total_num_channels = 0
-    corres_cur_blockids={}
+
+    #all_cur_blockids = []    # all the block ids in cur h5f
+    corres_cur_blockids = {} # the corresponding cur block ids for each larger_blockid of larger stride and step
 
     actions = ''
     h5_num_row_1M = g_h5_num_row_1M
@@ -1309,9 +1311,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         print(cur_block_id_ls)
         return cur_block_id_ls,cur_i_xyz_ls,new_block_id
 
-    def get_block_data_of_new_stride_step( self,xyz1norm_k, new_stride,new_step,
+    def get_block_data_of_new_stride_step_byxyz1norm( self,xyz1norm_k, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        cur_block_id_ls,cur_i_xyz_ls,_ = self.get_blockids_of_dif_stride_step_byxyz( xyz1norm_k,new_stride,new_step )
+        xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
+        return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+    def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
+                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+        new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
+        return self.get_block_data_of_new_stride_step_byid(new_block_id,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+
+    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_stride,new_step,
+                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+        new_sorted_h5f_attrs = self.get_similar_attrs(new_stride,new_step)
+        cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+
         datas = []
         labels = []
         for cur_block_id in cur_block_id_ls:
@@ -1343,7 +1357,70 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels)
         return datas,labels
 
-    def get_blockids_in_new_stride_step(self,larger_stride,larger_step):
+    def get_data_large_block( self,global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+        '''
+        1) global block is the learning block unit. Use current stride and step as base block units.
+        2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
+        Use 0.1 stride and 0.1 step block as base blocks. All the base block centers are candidate sub-points. Randomly select nsubblock points from all candidate sub-points.
+        3) Get sub-group data for each sub-point.
+
+        * Return:
+            sampled_xyzs: [nsubblock,xyz] the sampled points in global block
+            global_block_datas: [ nsubblock,npoint_subblock,data_nchannel ]
+            global_block_labels: [ nsubblock,npoint_subblock,label_nchannel ]
+
+        * Check + Problem:
+            If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
+        * Candidate improvement:
+            1) save all_cur_blockids and all_cur_block_size in h5f to save time.
+        '''
+        h5f = self.h5f
+        # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
+        all_cur_blockids = np.array([k for k in h5f]).astype(np.int32)
+        if 1.0 * all_cur_blockids.shape[0] / nsubblock > 1.5:
+            all_cur_block_size = np.array([h5f[k_str].shape[0] for k_str in h5f])
+            random_sampl_pro = 1.0 * all_cur_block_size / np.sum(all_cur_block_size)
+        else: random_sampl_pro = None
+        sample_choice,_ = get_sample_choice( all_cur_blockids.shape[0],nsubblock,random_sampl_pro )
+        sub_point_ids = all_cur_blockids[sample_choice]
+
+        sampled_xyzs = [ (h5f[k].attrs['xyz_min']+h5f[k].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
+        sampled_xyzs = np.concatenate( [ np.expand_dims(xyz,axis=0) for xyz in sampled_xyzs ],axis=0 )
+
+        # (1.5) Check how many base block ids are misssed in sub block valid space.
+        sub_block_stride = sub_block_step = np.array([1.0,1.0,1.0])*sub_block_size
+
+ #       IsCheckSubblockParas = True
+ #       if IsCheckSubblockParas:
+ #           sub_h5fattrs = self.get_similar_attrs(sub_block_stride,sub_block_step)
+ #           for base_blockid in all_cur_blockids:
+ #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
+ #               for k_new in block_k_new_list:
+
+        # (2) GROUP: Collect all the base blocks for each sub-point.
+        global_block_datas = []
+        global_block_labels = []
+        for sampled_xyz in sampled_xyzs:
+            datas_k,labels_k = self.get_block_data_of_new_stride_step_byxyz(sampled_xyz,sub_block_stride,sub_block_step,feed_data_elements,feed_label_elements,npoint_subblock)
+            global_block_datas.append(np.expand_dims(datas_k,axis=0))
+            global_block_labels.append(np.expand_dims(labels_k,axis=0))
+        global_block_datas = np.concatenate(global_block_datas,axis=0)
+        global_block_labels = np.concatenate(global_block_labels,axis=0)
+
+        return global_block_datas,global_block_labels
+
+    def get_batch_of_large_block( self,global_blockid_ls, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+        batch_datas = []
+        batch_labels = []
+        for global_block_id in global_blockid_ls:
+            block_datas,block_labels = self.get_data_large_block( global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements )
+            batch_datas.append(np.expand_dims(block_datas,axis=0))
+            batch_labels.append(np.expand_dims(block_labels,axis=0))
+        batch_datas = np.concatenate(batch_datas,axis=0)
+        batch_labels = np.concatenate(batch_labels,axis=0)
+        return batch_datas, batch_labels
+
+    def get_allblockids_in_new_stride_step(self,larger_stride,larger_step):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
@@ -1381,7 +1458,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
         if not os.path.exists(corres_cur_blockids_fn):
             print('file not exist, generate it now')
-            return self.get_blockids_in_new_stride_step(larger_stride,larger_step)
+            return self.get_allblockids_in_new_stride_step(larger_stride,larger_step)
 
         with open(corres_cur_blockids_fn,'rb') as pickle_f:
             corres_cur_blockids = pickle.load(pickle_f)
@@ -2393,17 +2470,17 @@ def Test_get_block_data_of_new_stride_step():
     base_h5f_name = os.path.join(folder_base,'region0.sh5')
 
     xyz1norm_k = [0.2,0.3,0.1]
-    new_stride = np.array([0.1,0.1,0.1])*1
-    new_step = np.array([0.1,0.1,0.1])*1
+    new_stride = np.array([0.1,0.1,0.1])*10
+    new_step = np.array([0.1,0.1,0.1])*20
     feed_data_elements=['xyz_midnorm','color_1norm']
     feed_label_elements=['label_category','label_instance']
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
-        base_sh5f.load_blockids(new_stride,new_step)
-        #base_sh5f.get_blockids_in_new_stride_step(new_stride,new_step)
-        #base_sh5f.get_block_data_of_new_stride_step(xyz1norm_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+        #base_sh5f.load_blockids(new_stride,new_step)
+        base_sh5f.get_allblockids_in_new_stride_step(new_stride,new_step)
+        #base_sh5f.get_block_data_of_new_stride_step_byxyz1norm(xyz1norm_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
         #base_sh5f.show_summary_info()
 
 def Do_normalize_sorted_to_self():
