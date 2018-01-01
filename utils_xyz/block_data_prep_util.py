@@ -367,7 +367,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     total_num_channels = 0
 
     #all_cur_blockids = []    # all the block ids in cur h5f
-    corres_cur_blockids = {} # the corresponding cur block ids for each larger_blockid of larger stride and step
+    corres_cur_blockids_dic_dic = {} # key is get_stride_step_name(global_stride,global_step), value is the corresponding cur block ids for each larger_blockid of larger stride and step
+    larger_blockid_ls_dic = {}       # key is get_stride_step_name(global_stride,global_step), value is sorted blockids of larger block, this is the key of corres_cur_blockids_dic
 
     actions = ''
     h5_num_row_1M = g_h5_num_row_1M
@@ -420,10 +421,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def get_label_ele_idxs(self,label_eles):
         label_ele_idxs = {}
         k = 0
-        for e in self.labels_order:
-            if e in label_eles:
-                label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
-                k += self.data_label_channels[e]
+        for e in label_eles:
+            assert e in self.labels_order
+            label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
+            k += self.data_label_channels[e]
         return label_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
@@ -1409,7 +1410,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return global_block_datas,global_block_labels
 
-    def get_batch_of_large_block( self,global_blockid_ls, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+    def get_batch_of_large_block( self,global_blockid_start,global_block_id_end, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+        global_name = get_stride_step_name(global_stride,global_step)
+        corres_cur_blockids_dic = self.corres_cur_blockids_dic_dic[global_name]
+        global_blockid_ls = self.larger_blockid_ls_dic[global_name][global_blockid_start:global_block_id_end]
         batch_datas = []
         batch_labels = []
         for global_block_id in global_blockid_ls:
@@ -1428,13 +1432,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         base_fn = os.path.splitext(self.file_name)[0]
         corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
         if os.path.exists(corres_cur_blockids_fn):
-            corres_cur_blockids = self.load_blockids(larger_stride,larger_step)
+            corres_cur_blockids_dic,larger_blockid_ls = self.load_blockids(larger_stride,larger_step)
         else:
             new_sorted_h5f_attrs = self.get_similar_attrs(larger_stride,larger_step)
             new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
             max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
             new_total_block_N = 0
-            corres_cur_blockids = {}
+            corres_cur_blockids_dic = {}
             #print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
                 block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
@@ -1443,15 +1447,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         del block_k_cur_list[i]
                 if len(block_k_cur_list) > 0:
                     new_total_block_N += 1
-                    corres_cur_blockids[new_block_id] = block_k_cur_list
-            #print('new_total_block_N = ',len(corres_cur_blockids))
+                    corres_cur_blockids_dic[new_block_id] = block_k_cur_list
+            larger_blockid_ls = list(corres_cur_blockids_dic.keys())
+            larger_blockid_ls.sort()
+            #print('new_total_block_N = ',len(corres_cur_blockids_dic))
 
             with open(corres_cur_blockids_fn,'wb') as pickle_f:
-                pickle.dump(corres_cur_blockids,pickle_f)
+                pickle.dump(corres_cur_blockids_dic,pickle_f)
+                pickle.dump(larger_blockid_ls,pickle_f)
             print('write: %s'%(corres_cur_blockids_fn))
 
-        self.corres_cur_blockids[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids
-        return len(corres_cur_blockids)
+        self.corres_cur_blockids_dic_dic[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids_dic
+        self.larger_blockid_ls_dic[get_stride_step_name(larger_stride,larger_step)] = larger_blockid_ls
+        return len(corres_cur_blockids_dic)
 
     def load_blockids(self,larger_stride,larger_step):
         base_fn = os.path.splitext(self.file_name)[0]
@@ -1461,8 +1469,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             return self.get_allblockids_in_new_stride_step(larger_stride,larger_step)
 
         with open(corres_cur_blockids_fn,'rb') as pickle_f:
-            corres_cur_blockids = pickle.load(pickle_f)
-        return corres_cur_blockids
+            corres_cur_blockids_dic = pickle.load(pickle_f)
+            larger_blockid_ls = pickle.load(pickle_f)
+        return corres_cur_blockids_dic,larger_blockid_ls
 
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
@@ -1780,10 +1789,6 @@ class Normed_H5f():
     0     0     0     0     0 13049     0     0     0     0     0     0
     0     0   409     0  1477     0]
     label_category_1norm  =  [  5.25850827e-05   2.65828110e-01   0.00000000e+00   1.50498507e-01
-    label_instance_hist  =  [   66   572  1477   774   409   694  2819  3105  2495   766  1876  5056
-    label_instance_1norm  =  [ 0.00067142  0.00581898  0.01502559  0.00787394  0.00416077  0.00706009
-    label_material_hist  =  [    0 25276     0 14310  9288     0     0     0     0     0     0     0
-    label_material_1norm  =  [ 0.          0.26584209  0.          0.15050642  0.09768719  0.          0.
     '''
     # -----------------------------------------------------------------------------
     # CONSTANTS
@@ -1878,26 +1883,50 @@ class Normed_H5f():
         self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
 
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
+        # the data ele order store according to feed_elements
         if feed_elements==None:
-            return self.data_set[start_block:end_blcok,:,:]
+            datas = self.data_set[start_block:end_blcok,:,:]
+            feed_data_ele_idxs = self.normed_data_ele_idxs
         else:
             normed_data_ele_idx = np.sort(list(set([k for e in feed_elements for k in self.data_set.attrs[e] ])))
-            feed_elements_idxs = self.get_normeddata_ele_idxs(feed_elements)
-            return self.data_set[start_block:end_blcok,:,normed_data_ele_idx],feed_elements_idxs
+            feed_data_ele_idxs = self.get_normeddata_ele_idxs(feed_elements)
+            datas = self.data_set[start_block:end_blcok,:,normed_data_ele_idx]
+        return datas, feed_data_ele_idxs
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
+        # order according to feed_label_elements
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,:,:]
-            #raw_category_idx = self.label_ele_idxs['label_category']
-            #labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
+            feed_label_ele_ids = self.label_ele_idxs
         else:
             labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
             labels = self.labels_set[start_block:end_blcok,:,labels_ele_idx]
             if labels.ndim == 2:
                 labels = np.expand_dims(labels,axis=-1)
-            #if 'label_category' in feed_label_elements:
-                #labels[:,:,raw_category_idx] = get_cat40_from_rawcat(labels[:,:,raw_category_idx])
-        return labels
+            feed_label_ele_ids = self.get_label_ele_idxs(feed_label_elements)
+        return labels,feed_label_ele_ids
+
+    def get_normeddata_ele_idxs(self,normed_data_elements):
+        # order according to normed_data_elements
+        # len of each ele according to  normed_data_ele_candi_len
+        data_ele_idxs = {}
+        k = 0
+        for e in normed_data_elements:
+            assert e in self.normed_ele_idx_order
+            idx = range(k,k+self.normed_data_ele_candi_len[e])
+            k += self.normed_data_ele_candi_len[e]
+            data_ele_idxs[e] = idx
+        return data_ele_idxs
+
+    def get_label_ele_idxs(self,label_elements):
+        # order according to label_elements
+        label_ele_idxs = {}
+        k = 0
+        for e in label_elements:
+            assert e in self.labels_order
+            label_ele_idxs[e] = range(k,k+self.label_candi_eles_len[e])
+            k += self.label_candi_eles_len[e]
+        return label_ele_idxs
 
     def raw_category_idx_2_mpcat40(self,labels_with_rawcategory):
         assert labels_with_rawcategory.ndim == 2
@@ -1965,25 +1994,6 @@ class Normed_H5f():
         dset = self.h5f['data']
         return dset.shape
 
-    def get_normeddata_ele_idxs(self,normed_data_elements):
-        # input elements
-        # output the indexes for each elements according to normed_ele_idx_order and normed_data_ele_candi_len
-        data_ele_idxs = {}
-        k = 0
-        for e in self.normed_ele_idx_order:
-            if e in normed_data_elements:
-                idx = range(k,k+self.normed_data_ele_candi_len[e])
-                k += self.normed_data_ele_candi_len[e]
-                data_ele_idxs[e] = idx
-        return data_ele_idxs
-    def get_label_ele_idxs(self,label_eles):
-        label_ele_idxs = {}
-        k = 0
-        for e in self.labels_order:
-            if e in label_eles:
-                label_ele_idxs[e] = range(k,k+self.label_candi_eles_len[e])
-                k += self.label_candi_eles_len[e]
-        return label_ele_idxs
 
     def create_3dsets(self):
         chunks_n = 1
@@ -2102,12 +2112,12 @@ class Normed_H5f():
                 #print('resizing block %s from %d to %d'%(dset_name_i,dset_i.shape[0],valid_n))
                 dset_i.resize( (valid_n,)+dset_i.shape[1:] )
     def add_label_histagram(self):
-        for label_name in self.labels_order:
-            if label_name in self.labels_set.attrs:
-                label_hist,_ = np.histogram(self.labels_set[:,:,self.labels_set.attrs[label_name]],range(self.num_classes+1))
-                label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
-                self.labels_set.attrs[label_name+'_hist'] = label_hist
-                self.labels_set.attrs[label_name+'_1norm'] = label_hist_1norm
+        label_name = 'label_category'
+        if label_name in self.labels_set.attrs:
+            label_hist,_ = np.histogram(self.labels_set[:,:,self.labels_set.attrs[label_name]],range(self.num_classes+1))
+            label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
+            self.labels_set.attrs[label_name+'_hist'] = label_hist
+            self.labels_set.attrs[label_name+'_1norm'] = label_hist_1norm
 
     def Get_file_accuracies(self,IsWrite=False,out_path=None):
         # get the accuracy of each file by the pred data in hdf5

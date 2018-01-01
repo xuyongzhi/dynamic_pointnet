@@ -42,14 +42,18 @@ class Net_Provider():
     # provider with train_start_idx and test_start_idx
 
 
-    def __init__(self,dataset_name,all_filename_glob,eval_fnglob_or_rate,\
+    def __init__(self,InputType, dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
                  train_num_block_rate=1,eval_num_block_rate=1 ):
-        self.InputType = 'Sorted_H5f'
+        #self.InputType = 'Sorted_H5f'
         #self.InputType = 'Normed_H5f'
+        self.InputType = InputType
         if self.InputType == 'Sorted_H5f':
-            self.larger_feed_stride = np.array([0.1,0.1,0.1])*2
-            self.larger_feed_step = np.array([0.1,0.1,0.1])*2
+            self.global_stride = np.array([0.1,0.1,0.1])*10
+            self.global_step = np.array([0.1,0.1,0.1])*20
+            self.sub_block_size = 0.2
+            self.nsubblock = 1024
+            self.npoint_subblock = 32
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -89,7 +93,7 @@ class Net_Provider():
             if self.InputType == 'Normed_H5f':
                 file_block_N = norm_h5f.data_set.shape[0]
             elif self.InputType == 'Sorted_H5f':
-                file_block_N = norm_h5f.get_allblockids_in_new_stride_step( self.larger_feed_stride,self.larger_feed_step )
+                file_block_N = norm_h5f.get_allblockids_in_new_stride_step( self.global_stride,self.global_step )
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
@@ -100,8 +104,8 @@ class Net_Provider():
         else: self.train_num_blocks = 0
         self.eval_num_blocks = self.g_block_idxs[-1,1] - self.train_num_blocks
         self.num_classes = self.norm_h5f_L[0].num_classes
-        self.label_ele_idxs = self.norm_h5f_L[0].label_ele_idxs
-        self.label_eles = self.norm_h5f_L[0].label_set_elements
+        self.label_ele_idxs_inh5f = self.norm_h5f_L[0].label_ele_idxs
+        self.label_eles_inh5f = self.norm_h5f_L[0].label_set_elements
 
         self.update_sample_loss_weight()
         self.update_train_eval_shuffled_idx()
@@ -250,14 +254,22 @@ class Net_Provider():
             else:
                 end = self.norm_h5f_L[f_idx].labels_set.shape[0]
 
-            data_i,feed_data_elements_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
-            label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
-
+            if self.InputType == 'Normed_H5f':
+                data_i,feed_data_ele_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
+                label_i,feed_label_ele_ids = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
+                # data_i: [batch_size,npoint_block,data_nchannels]
+                # label_i: [batch_size,npoint_block,label_nchannels]
+            elif self.InputType == 'Sorted_H5f':
+                data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_large_block( start,end,
+                                self.global_stride,self.global_step, self.sub_block_size, self.nsubblock,
+                                self.npoint_subblock,self.feed_data_elements,self.feed_label_elements )
+                # data_i: [batch_size,nsubblock,npoint_subblock,data_nchannels]
+                # label_i: [batch_size,nsubblock,npoint_subblock,label_nchannels]
             data_ls.append(data_i)
             label_ls.append(label_i)
 
             if 'xyz_midnorm' in self.feed_data_elements:
-                xyz_midnorm_i = data_i[:,:,feed_data_elements_idxs['xyz_midnorm']]
+                xyz_midnorm_i = data_i[:,:,feed_data_ele_idxs['xyz_midnorm']]
             else:
                 xyz_midnorm_i,_ = self.norm_h5f_L[f_idx].get_normed_data(start,end,['xyz_midnorm'])
             center_mask_i = self.get_center_mask(xyz_midnorm_i)
@@ -266,14 +278,17 @@ class Net_Provider():
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         center_mask = np.concatenate(center_mask,0)
-        data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
+        #data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
 
-        num_label_eles = self.labels_weights.shape[1]
+        num_label_eles = len(self.feed_label_elements)
         center_mask = np.expand_dims(center_mask,axis=-1)
         center_mask = np.tile(center_mask,(1,1,num_label_eles))
         sample_weights = []
         for k in range(num_label_eles):
-            sample_weights_k = np.take(self.labels_weights[:,k],label_batches[:,:,k])
+            if k == feed_label_ele_ids['label_category'][0]:
+                sample_weights_k = np.take(self.labels_weights[:,k],label_batches[:,:,k])
+            else:
+                sample_weights_k = np.ones_like(label_batches[:,:,k])
             sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
         sample_weights = np.concatenate(sample_weights,axis=-1)
 
@@ -366,23 +381,24 @@ class Net_Provider():
         labels_hist_1norm = []
         labels_weights = []
 
-        for label_name in self.norm_h5f_L[0].label_set_elements:
-            if label_name in self.feed_label_elements:
-                label_hist = np.zeros(self.num_classes).astype(np.int64)
-                train_label_hist = np.zeros(self.num_classes).astype(np.int64)
-                test_label_hist = np.zeros(self.num_classes).astype(np.int64)
-                for k,norme_h5f in enumerate(self.norm_h5f_L):
-                    label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
-                    label_hist += label_hist_k
-                    if k < self.train_file_N:
-                        train_label_hist += label_hist_k
-                    else:
-                        test_label_hist += label_hist_k
-                train_labels_hist_1norm.append( np.expand_dims( train_label_hist / np.sum(train_label_hist).astype(float),axis=-1) )
-                test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
-                cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
-                labels_hist_1norm.append(  cur_labels_hist_1norm )
-                labels_weights.append(  1/np.log(1.2+cur_labels_hist_1norm) )
+        label_name = 'label_category'
+        #for label_name in self.norm_h5f_L[0].label_set_elements:
+        if label_name in self.feed_label_elements:
+            label_hist = np.zeros(self.num_classes).astype(np.int64)
+            train_label_hist = np.zeros(self.num_classes).astype(np.int64)
+            test_label_hist = np.zeros(self.num_classes).astype(np.int64)
+            for k,norme_h5f in enumerate(self.norm_h5f_L):
+                label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
+                label_hist += label_hist_k
+                if k < self.train_file_N:
+                    train_label_hist += label_hist_k
+                else:
+                    test_label_hist += label_hist_k
+            train_labels_hist_1norm.append( np.expand_dims( train_label_hist / np.sum(train_label_hist).astype(float),axis=-1) )
+            test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
+            cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
+            labels_hist_1norm.append(  cur_labels_hist_1norm )
+            labels_weights.append(  1/np.log(1.2+cur_labels_hist_1norm) )
         self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
         self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
         self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )
@@ -394,16 +410,51 @@ class Net_Provider():
 
 
 
-if __name__=='__main__':
+def main_NormedH5f():
+    t0 = time.time()
+    InputType = 'Normed_H5f'
     dataset_name = 'matterport3d'
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/']
+    all_filename_glob = ['v1_scans']
     eval_fnglob_or_rate = 0.3
     only_evaluate = False
     num_point_block = 8192
-    feed_data_elements = ['xyz_1norm']
+    feed_data_elements = ['xyz_1norm','xyz_midnorm']
     feed_label_elements = ['label_category','label_instance']
     #feed_label_elements = ['label_category','label_instance']
-    net_provider=Net_Provider(dataset_name=dataset_name,
+    net_provider=Net_Provider(InputType=InputType,
+                              dataset_name=dataset_name,
+                              all_filename_glob=all_filename_glob,
+                              eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              only_evaluate=only_evaluate,
+                              num_point_block=num_point_block,
+                              feed_data_elements=feed_data_elements,
+                              feed_label_elements=feed_label_elements)
+    t1 = time.time()
+    print(net_provider.data_summary_str)
+    print('init time:',t1-t0)
+
+    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(0,net_provider.train_num_blocks-1)
+    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(0,net_provider.eval_num_blocks-1)
+    print(cur_data.shape)
+    print(cur_data[0,0:3,:])
+    print(cur_label.shape)
+    print(cur_label[0,0:3,:])
+    print(cur_smp_weights.shape)
+    print(cur_smp_weights[0,0:3,:])
+    print('read all t:',time.time()-t1)
+
+def main_SortedH5f():
+    InputType = 'Sorted_H5f'
+    dataset_name = 'matterport3d'
+    all_filename_glob = ['/*']
+    eval_fnglob_or_rate = 0.3
+    only_evaluate = False
+    num_point_block = 8192
+    feed_data_elements = ['xyz_1norm','xyz_midnorm']
+    feed_label_elements = ['label_category','label_instance']
+    #feed_label_elements = ['label_category','label_instance']
+    net_provider=Net_Provider(InputType=InputType,
+                              dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
                               eval_fnglob_or_rate=eval_fnglob_or_rate,
                               only_evaluate=only_evaluate,
@@ -414,5 +465,5 @@ if __name__=='__main__':
     cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(0,net_provider.train_num_blocks-1)
     cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(0,net_provider.eval_num_blocks-1)
 
-
-
+if __name__=='__main__':
+    main_NormedH5f()
