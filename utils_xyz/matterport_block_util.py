@@ -414,7 +414,7 @@ class Matterport3D_Prepare():
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
         step = stride = [0.1,0.1,0.1]
-        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region0.sh5'
+        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
         #file_name = self.matterport3D_h5f_allmerged_dir+'/v1_scans_17DRP5sb8fy_stride-1-step-2_8192_normed.nh5'
         with h5py.File(file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
@@ -463,8 +463,8 @@ def show_summary():
     matterport3d_prepare.ShowSummary()
 
 if __name__ == '__main__':
-    parse_house_ls()
-    #show_summary()
+    #parse_house_ls()
+    show_summary()
 
 
 

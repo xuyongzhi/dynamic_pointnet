@@ -12,7 +12,7 @@ import glob
 import time
 import multiprocessing as mp
 import itertools
-from block_data_prep_util import Normed_H5f,Sorted_H5f
+from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -50,11 +50,7 @@ class Net_Provider():
         #self.InputType = 'Normed_H5f'
         self.InputType = InputType
         if self.InputType == 'Sorted_H5f':
-            self.global_stride = np.array([1.0,1.0,-1])
-            self.global_step = np.array([2.0,2.0,-1])
-            self.sub_block_size = 0.2
-            self.nsubblock = 1024
-            self.npoint_subblock = 32
+            self.GlobalSubBaseBlock = GlobalSubBaseBLOCK()
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -95,10 +91,7 @@ class Net_Provider():
             elif self.InputType=='Sorted_H5f':
                 norm_h5f = Sorted_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
-            if self.InputType == 'Normed_H5f':
-                file_block_N = norm_h5f.data_set.shape[0]
-            elif self.InputType == 'Sorted_H5f':
-                file_block_N = norm_h5f.get_allblockids_in_new_stride_step( self.global_stride,self.global_step )
+            file_block_N = self.get_block_n(norm_h5f)
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
@@ -135,6 +128,13 @@ class Net_Provider():
         self.get_data_label_shape()
         self.update_data_summary()
         print('Net_Provider init t: %f ms'%(1000*(time.time()-t_init0)))
+
+    def get_block_n(self,norm_h5f):
+        if self.InputType == 'Normed_H5f':
+            file_block_N = norm_h5f.data_set.shape[0]
+        elif self.InputType == 'Sorted_H5f':
+            file_block_N = norm_h5f.get_block_n_of_new_stride_step( self.GlobalSubBaseBlock.global_stride,self.GlobalSubBaseBlock.global_step )
+        return file_block_N
 
     def update_data_summary(self):
         self.data_summary_str = '%s \nfeed_data_elements:%s \nfeed_label_elements:%s \n'%(self.dataset_name,self.feed_data_elements,self.feed_label_elements)
@@ -231,20 +231,23 @@ class Net_Provider():
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         pred_start_idx = 0
-        for f_idx in range(start_file_idx,end_file_idx+1):
-            if f_idx == start_file_idx:
-                start = local_start_idx
-            else:
-                start = 0
-            if f_idx == end_file_idx:
-                end = local_end_idx
-            else:
-                end = self.norm_h5f_L[f_idx].label_set.shape[0]
-            n = end-start
-            self.norm_h5f_L[f_idx].set_dset_value('pred_label',\
-                pred_label[pred_start_idx:pred_start_idx+n,:],start,end)
-            pred_start_idx += n
-        self.norm_h5f_L[f_idx].h5f.flush()
+        assert self.InputType=='Normed_H5f'
+        if self.InputType=='Normed_H5f':
+            for f_idx in range(start_file_idx,end_file_idx+1):
+                if f_idx == start_file_idx:
+                    start = local_start_idx
+                else:
+                    start = 0
+                if f_idx == end_file_idx:
+                    end = local_end_idx
+                else:
+                    end = self.get_block_n( self.norm_h5f_L[f_idx] )
+                n = end-start
+                self.norm_h5f_L[f_idx].set_dset_value('pred_label',\
+                    pred_label[pred_start_idx:pred_start_idx+n,:],start,end)
+                pred_start_idx += n
+            self.norm_h5f_L[f_idx].h5f.flush()
+
 
 
     def get_global_batch(self,g_start_idx,g_end_idx):
@@ -263,27 +266,30 @@ class Net_Provider():
             if f_idx == end_file_idx:
                 end = local_end_idx
             else:
-                end = self.norm_h5f_L[f_idx].labels_set.shape[0]
+                end = self.get_block_n(self.norm_h5f_L[f_idx])
 
+            IsInclude_xyz_midnorm = 'xyz_midnorm' in self.feed_data_elements
+            feed_data_elements = self.feed_data_elements
+            if not IsInclude_xyz_midnorm:
+                feed_data_elements += ['xyz_midnorm']
             if self.InputType == 'Normed_H5f':
-                data_i,feed_data_ele_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,self.feed_data_elements)
+                data_i,feed_data_ele_idxs = self.norm_h5f_L[f_idx].get_normed_data(start,end,feed_data_elements)
                 label_i,feed_label_ele_ids = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
                 # data_i: [batch_size,npoint_block,data_nchannels]
                 # label_i: [batch_size,npoint_block,label_nchannels]
             elif self.InputType == 'Sorted_H5f':
                 data_i,label_i,feed_data_ele_idxs,feed_label_ele_ids = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
-                                start,end,
-                                self.global_stride,self.global_step, self.sub_block_size, self.nsubblock,
-                                self.npoint_subblock,self.feed_data_elements,self.feed_label_elements )
+                                start,end,self.GlobalSubBaseBlock,feed_data_elements,self.feed_label_elements )
                 # data_i: [batch_size,nsubblock,npoint_subblock,data_nchannels]
                 # label_i: [batch_size,nsubblock,npoint_subblock,label_nchannels]
+            if not IsInclude_xyz_midnorm:
+                data_i = np.delete(data_i,feed_data_ele_idxs['xyz_midnorm'],axis=-1)
+
             data_ls.append(data_i)
             label_ls.append(label_i)
 
-            if 'xyz_midnorm' in self.feed_data_elements:
-                xyz_midnorm_i = data_i[:,:,feed_data_ele_idxs['xyz_midnorm']]
-            else:
-                xyz_midnorm_i,_ = self.norm_h5f_L[f_idx].get_normed_data(start,end,['xyz_midnorm'])
+            xyz_midnorm_i = data_i[...,feed_data_ele_idxs['xyz_midnorm']]
+
             center_mask_i = self.get_center_mask(xyz_midnorm_i)
             center_mask.append(center_mask_i)
 
@@ -467,7 +473,7 @@ def main_SortedH5f():
     eval_fnglob_or_rate = 0.3
     only_evaluate = False
     num_point_block = 8192
-    feed_data_elements = ['xyz_1norm','xyz_midnorm']
+    feed_data_elements = ['xyz_1norm_file','xyz_midnorm_block']
     feed_label_elements = ['label_category','label_instance']
     #feed_label_elements = ['label_category','label_instance']
     net_provider=Net_Provider(InputType=InputType,

@@ -355,6 +355,9 @@ xyz_min_aligned: [-1.  -2.2 -0.2]
 xyz_max_aligned: [ 2.5  0.6  2.3]
 xyz_scope_aligned: [ 3.5  2.8  2.5]
     (4) The label_category in Sorted_H5f is raw_category_idx, the label_category in Normed_H5f is mpcat40 index
+    (5) The xyz_1norm_file in h5f is normed with file space scale. Can be used directly in training.
+        The xyz_midnorm_block may be not useful if larger scale used in training.
+        While using larger block scale in training, xyz_1norm_block and xyz_midnorm_block has to be generated online.
     '''
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_material']
@@ -362,7 +365,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
     data_label_ele_candidates_order += ['org_row_index']
     data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,
-                           'label_material':1,'intensity':1,'org_row_index':1,'xyz_1norm':3,'xyz_midnorm':3,
+                           'label_material':1,'intensity':1,'org_row_index':1,'xyz_1norm_file':3,'xyz_midnorm_block':3,
                            'color_1norm':3}
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
@@ -400,6 +403,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             element_names = []
         if self.IS_CHECK and 'org_row_index' not in element_names:
             element_names += ['org_row_index']
+
         element_names = set(element_names)
         for dn in self.data_label_ele_candidates_order:
             if dn in element_names:
@@ -559,9 +563,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def block_index_to_ixyz_(block_k,attrs):
         i_xyz = np.zeros(3,np.int64)
-        if 'block_dims_N' not in attrs:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            print('e')
+        assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
         i_xyz[2] = block_k % block_dims_N[2]
         k = int( block_k / block_dims_N[2] )
@@ -612,6 +614,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
         block_min = i_xyz * self.h5f.attrs['block_stride'] + self.h5f.attrs['xyz_min_aligned']
         block_max = block_min + self.h5f.attrs['block_step']
+        return block_min,block_max,i_xyz
+    @staticmethod
+    def get_block_scope_from_k_(block_k,h5fattrs):
+        i_xyz = Sorted_H5f.block_index_to_ixyz(block_k,h5fattrs)
+        block_dims_N = h5fattrs['block_dims_N']
+        block_k = int( i_xyz[0]*block_dims_N[1]*block_dims_N[2] + i_xyz[1]*block_dims_N[2] + i_xyz[2] )
+        block_min = i_xyz * h5fattrs['block_stride'] + h5fattrs['xyz_min_aligned']
+        block_max = block_min + h5fattrs['block_step']
         return block_min,block_max,i_xyz
     @staticmethod
     def get_block_scope_from_k_(block_k,attrs):
@@ -980,6 +990,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         if append frequently to one dataset, vacant_size > 0 to avoid frequent resize
         '''
+
         source_N = source_dset.shape[0]
         if IsSample:
             sample_choice,reduced_num = get_sample_choice(source_N,sample_num)
@@ -1128,8 +1139,43 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 dset = self.h5f[k_str]
                 return dset.shape
 
+    @staticmethod
+    def norm_xyz(raw_xyz,h5fattrs,block_id,norm_list,out_norm_data_dic):
+        block_min,block_max,_ = Sorted_H5f.get_block_scope_from_k_(block_id,h5fattrs)
+        if norm_list==None or 'xyz_1norm_file' in norm_list:
+            #  xyz_1norm
+            if xyz_1norm_scale == 'file': # used by QI
+                # 1norm within the whole scene
+                # use by QI in indoor. Since room scale is not large, this is fine.
+                # For outdoor,a scene could be too large, maybe not a good choice
+                IsUseAligned = True
+                if IsUseAligned:
+                    file_scene_zero = h5fattrs['xyz_min_aligned']
+                    file_scene_scope = h5fattrs['xyz_max_aligned'] - h5fattrs['xyz_min_aligned']
+                else:
+                    file_scene_zero = h5fattrs['xyz_min']
+                    file_scene_scope = h5fattrs['xyz_max'] - h5fattrs['xyz_min']
+                xyz_1norm_file = (raw_xyz - file_scene_zero) / file_scene_scope
+                out_norm_data_dic['xyz_1norm_file'] = xyz_1norm_file
+        if norm_list==None or 'xyz_1norm_block' in norm_list:
+                # 1norm within the block
+                block_scope = block_max - block_min
+                xyz_1norm_block = (raw_xyz-block_min) / block_scope
+                out_norm_data_dic['xyz_1norm_block'] = xyz_1norm_block
 
-    def normalize_dset(self,block_k_str,xyz_1norm_method='global'):
+        # xyz_midnorm
+        if norm_list==None or 'xyz_midnorm_block' in norm_list:
+            xyz_midnorm_block = raw_xyz+0 # as a new variable, not a reference
+            # only norm x,y. Keep z be the raw value
+            #xyz_min_real = np.min(raw_xyz,axis=0)
+            #xyz_midnorm_block[:,0:2] -= (xyz_min_real[0:2] + self.block_step[0:2]/2)  # used by QI
+            block_mid = (block_min + block_max ) / 2
+            xyz_midnorm_block[:,0:2] -= block_mid[0:2]  # I think is better
+            # for z, just be positive
+            xyz_midnorm_block[:,2] -= h5fattrs['xyz_min'][2]
+            out_norm_data_dic['xyz_midnorm_block'] = xyz_midnorm_block
+
+    def normalize_dset(self,block_k_str,xyz_1norm_scale='file'):
         '''
         (1) xyz/max
         (2) xy-min-block_size/2  (only xy)
@@ -1141,36 +1187,38 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         raw_xyz = raw_dset_k[:,self.data_idxs['xyz']]
         norm_data_dic['xyz'] = raw_xyz
         norm_data_dic['nxnynz'] = raw_dset_k[:,self.data_idxs['nxnynz']]
-        #  xyz_1norm
-        if xyz_1norm_method == 'global': # used by QI
-            # 1norm within the whole scene
-            # use by QI in indoor. Since room scale is not large, this is fine.
-            # For outdoor,a scene could be too large, maybe not a good choice
-            IsUseAligned = False
-            if IsUseAligned:
-                file_scene_zero = self.h5f.attrs['xyz_min_aligned']
-                file_scene_scope = self.h5f.attrs['xyz_max_aligned'] - self.h5f.attrs['xyz_min_aligned']
-            else:
-                file_scene_zero = self.h5f.attrs['xyz_min']
-                file_scene_scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
-            xyz_1norm = (raw_xyz - file_scene_zero) / file_scene_scope
-        elif xyz_1norm_method == 'local':
-            # 1norm within the block
-            block_scope = raw_dset_k.attrs['xyz_max'] - raw_dset_k.attrs['xyz_min']
-            xyz_1norm = (raw_xyz-raw_dset_k.attrs['xyz_min']) / block_scope
+      #  #  xyz_1norm
+      #  if xyz_1norm_scale == 'file': # used by QI
+      #      # 1norm within the whole scene
+      #      # use by QI in indoor. Since room scale is not large, this is fine.
+      #      # For outdoor,a scene could be too large, maybe not a good choice
+      #      IsUseAligned = True
+      #      if IsUseAligned:
+      #          file_scene_zero = self.h5f.attrs['xyz_min_aligned']
+      #          file_scene_scope = self.h5f.attrs['xyz_max_aligned'] - self.h5f.attrs['xyz_min_aligned']
+      #      else:
+      #          file_scene_zero = self.h5f.attrs['xyz_min']
+      #          file_scene_scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
+      #      xyz_1norm = (raw_xyz - file_scene_zero) / file_scene_scope
+      #  elif 'block' in xyz_1norm_scale:
+      #      # 1norm within the block
+      #      block_scope = raw_dset_k.attrs['xyz_max'] - raw_dset_k.attrs['xyz_min']
+      #      xyz_1norm = (raw_xyz-raw_dset_k.attrs['xyz_min']) / block_scope
 
-        # xyz_midnorm
-        xyz_midnorm = raw_xyz+0 # as a new variable, not a reference
-        # only norm x,y. Keep z be the raw value
-        #xyz_min_real = np.min(raw_xyz,axis=0)
-        #xyz_midnorm[:,0:2] -= (xyz_min_real[0:2] + self.block_step[0:2]/2)  # used by QI
-        block_mid = (raw_dset_k.attrs['xyz_min'] + raw_dset_k.attrs['xyz_max'] ) / 2
-        xyz_midnorm[:,0:2] -= block_mid[0:2]  # I think is better
-        # for z, just be positive
-        xyz_midnorm[:,2] -= self.h5f.attrs['xyz_min'][2]
+      #  # xyz_midnorm
+      #  xyz_midnorm = raw_xyz+0 # as a new variable, not a reference
+      #  # only norm x,y. Keep z be the raw value
+      #  #xyz_min_real = np.min(raw_xyz,axis=0)
+      #  #xyz_midnorm[:,0:2] -= (xyz_min_real[0:2] + self.block_step[0:2]/2)  # used by QI
+      #  block_mid = (raw_dset_k.attrs['xyz_min'] + raw_dset_k.attrs['xyz_max'] ) / 2
+      #  xyz_midnorm[:,0:2] -= block_mid[0:2]  # I think is better
+      #  # for z, just be positive
+      #  xyz_midnorm[:,2] -= self.h5f.attrs['xyz_min'][2]
 
-        norm_data_dic['xyz_midnorm'] = xyz_midnorm
-        norm_data_dic['xyz_1norm'] = xyz_1norm
+        xyz_norm_list = ['xyz_1norm_file','xyz_midnorm_block']
+        Sorted_H5f.norm_xyz(raw_xyz,self.h5f.attrs,block_k_str,xyz_norm_list,norm_data_dic)
+      #  norm_data_dic['xyz_midnorm_block'] = xyz_midnorm
+      #  norm_data_dic['xyz_1norm_'+xyz_1norm_scale] = xyz_1norm
 
         # color_1norm
         if 'color' in self.data_idxs:
@@ -1185,57 +1233,41 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             intensity_1norm = (intensity+2047)/(2048+2047)
             norm_data_dic['intensity_1norm']=intensity_1norm
 
-       # norm_data_list = []
-       # norm_eles_order = []
-       # for data_name in Normed_H5f.normed_ele_idx_order:
-       #     if data_name in norm_data_dic:
-       #         norm_eles_order.append(data_name)
-       #         norm_data_list.append(norm_data_dic[data_name])
-       # data_norm = np.concatenate( norm_data_list,1 )
-
-       # label_eles = [lb for lb in Normed_H5f.labels_order if lb in self.h5f.attrs['element_names']]
-       # labels = []
-       # for label_e_name in label_eles:
-       #     label_e_d = raw_dset_k[:,self.data_idxs[label_e_name][0]]
-       #     labels.append(np.expand_dims(label_e_d,axis=-1))
-       # labels = np.concatenate(labels,axis=-1)
-       # return data_norm,norm_eles_order,labels,raw_xyz
         return norm_data_dic
 
-    def file_normalize_to_self(self,IsShowSummaryFinished=False):
-        xyz_1norm_method = 'global'
-
-        out_folder = os.path.dirname(self.file_name)+'_addnorm'
-        if not os.path.exists(out_folder):
-            os.makedirs(out_folder)
-        file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
-        normalized_filename = os.path.join(out_folder,file_name_base+'.nsh5')
-
-        print('start gen normalized file: ',normalized_filename)
-        with h5py.File(normalized_filename,'w') as snormed_h5f:
-            normed_sh5f = Sorted_H5f(snormed_h5f,normalized_filename)
-            normed_sh5f.copy_root_summaryinfo_from_another(self.h5f,'all')
-
-            for i,k_str in  enumerate(self.h5f):
-                norm_data_dic = self.normalize_dset(k_str,xyz_1norm_method)
-
-                norm_data_list = []
-                for data_name in Normed_H5f.normed_ele_idx_order:
-                    if data_name in norm_data_dic:
-                        norm_data_list.append(norm_data_dic[data_name])
-                data_norm = np.concatenate( norm_data_list,1 )
-
-                label_eles = [lb for lb in Normed_H5f.labels_order if lb in self.h5f.attrs['element_names']]
-                labels = []
-                for label_e_name in label_eles:
-                    label_e_d = raw_dset_k[:,self.data_idxs[label_e_name][0]]
-                    labels.append(np.expand_dims(label_e_d,axis=-1))
-                labels = np.concatenate(labels,axis=-1)
+    def add_normalize_to_self(self,IsShowSummaryFinished=False):
+        xyz_1norm_scale = 'file'
+        IsAddColor1Norm = ('color' in self.h5f) and ('color_1norm' not in self.h5f)
+        IsAddXyzNorm = ('xyz' in self.h5f) and ('xyz_1norm_file' not in self.h5f)
+        if IsAddColor1Norm:
+            self.h5f.attrs['element_names'] += ['color1norm']
+        for i,k_str in  enumerate(self.h5f):
+            dset_i = self.h5f[k_str]
+            if IsAddColor1Norm:
+                color = dset_i[...,self.data_idxs['color']]
+                color1norm = color / 255.0
 
 
-                normed_h5f.append_to_dset('data',normed_data_i)
-                normed_h5f.append_to_dset('labels',normed_labels_i,IsLabelWithRawCategory=True)
-                #normed_h5f.append_to_dset('blockid',int(k_str))
+
+            norm_data_dic = self.normalize_dset(k_str,xyz_1norm_scale)
+
+            norm_data_list = []
+            for data_name in Normed_H5f.normed_ele_idx_order:
+                if data_name in norm_data_dic:
+                    norm_data_list.append(norm_data_dic[data_name])
+            data_norm = np.concatenate( norm_data_list,1 )
+
+            label_eles = [lb for lb in Normed_H5f.labels_order if lb in self.h5f.attrs['element_names']]
+            labels = []
+            for label_e_name in label_eles:
+                label_e_d = raw_dset_k[:,self.data_idxs[label_e_name][0]]
+                labels.append(np.expand_dims(label_e_d,axis=-1))
+            labels = np.concatenate(labels,axis=-1)
+
+
+            normed_h5f.append_to_dset('data',normed_data_i)
+            normed_h5f.append_to_dset('labels',normed_labels_i,IsLabelWithRawCategory=True)
+            #normed_h5f.append_to_dset('blockid',int(k_str))
             normed_h5f.create_done()
             if IsShowSummaryFinished:
                 normed_h5f.show_summary_info()
@@ -1245,7 +1277,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         automatically create a folder in uper directory to store sampled files
         '''
-        xyz_1norm_method = 'global'
+        xyz_1norm_scale = 'global'
 
         out_folder = os.path.dirname(self.file_name)+'_normed'
         if not os.path.exists(out_folder):
@@ -1259,7 +1291,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             normed_h5f.copy_root_attrs_from_sorted(self.h5f,self.IS_CHECK)
 
             for i,k_str in  enumerate(self.h5f):
-                norm_data_dic = self.normalize_dset(k_str,xyz_1norm_method)
+                norm_data_dic = self.normalize_dset(k_str,xyz_1norm_scale)
 
                 norm_data_list = []
                 for data_name in Normed_H5f.normed_ele_idx_order:
@@ -1384,16 +1416,23 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
 
+        xyz_1norm_scale = 'file'
         datas = []
         labels = []
         for cur_block_id in cur_block_id_ls:
             if str(cur_block_id) not in self.h5f:
                 continue
             dset = self.h5f[str(cur_block_id)]
-            # Add normalizaed data
-            norm_data_dic = self.normalize_dset(str(cur_block_id),xyz_1norm_method='global')
+            norm_data_dic = {}
+            # cal normalizaed data
+            Sorted_H5f.norm_xyz(dset[...,self.data_idxs['xyz']],
+                                new_sorted_h5f_attrs,new_block_id,feed_data_elements,norm_data_dic)
+            if 'color_1norm' in feed_data_elements:
+                color = dset[...,self.data_idxs['color']]
+                color_1norm = color/255.0
+                norm_data_dic['color_1norm'] = color_1norm
 
-            feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=1 )
+            feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=-1 )
             feed_label_ids_inall = []
             for le in feed_label_elements:
                 feed_label_ids_inall += self.data_idxs[le]
@@ -1401,7 +1440,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             datas.append(feed_data)
             labels.append(feed_label)
-            #print(dset.shape)
+            print(feed_data.shape)
+            print(feed_label.shape)
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
         datas = np.concatenate(datas,axis=0)
         labels = np.concatenate(labels,axis=0)
 
@@ -1415,7 +1456,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels)
         return datas,labels
 
-    def get_data_larger_block( self,global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+    def get_data_larger_block( self,global_block_id,GlobalSubBaseBlock ,feed_data_elements,feed_label_elements ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -1435,18 +1476,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
         all_cur_blockids = np.array([k for k in h5f]).astype(np.int32)
-        if 1.0 * all_cur_blockids.shape[0] / nsubblock > 1.5:
+        if 1.0 * all_cur_blockids.shape[0] / GlobalSubBaseBlock.nsubblock > 1.5:
             all_cur_block_size = np.array([h5f[k_str].shape[0] for k_str in h5f])
             random_sampl_pro = 1.0 * all_cur_block_size / np.sum(all_cur_block_size)
         else: random_sampl_pro = None
-        sample_choice,_ = get_sample_choice( all_cur_blockids.shape[0],nsubblock,random_sampl_pro )
+        sample_choice,_ = get_sample_choice( all_cur_blockids.shape[0],GlobalSubBaseBlock.nsubblock,random_sampl_pro )
         sub_point_ids = all_cur_blockids[sample_choice]
 
         sampled_xyzs = [ (h5f[str(k)].attrs['xyz_min']+h5f[str(k)].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
         sampled_xyzs = np.concatenate( [ np.expand_dims(xyz,axis=0) for xyz in sampled_xyzs ],axis=0 )
 
         # (1.5) Check how many base block ids are misssed in sub block valid space.
-        sub_block_stride = sub_block_step = np.array([1.0,1.0,1.0])*sub_block_size
+        sub_block_stride = sub_block_step = np.array([1.0,1.0,1.0])*GlobalSubBaseBlock.sub_block_size
 
  #       IsCheckSubblockParas = True
  #       if IsCheckSubblockParas:
@@ -1459,7 +1500,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_datas = []
         global_block_labels = []
         for sampled_xyz in sampled_xyzs:
-            datas_k,labels_k = self.get_block_data_of_new_stride_step_byxyz(sampled_xyz,sub_block_stride,sub_block_step,feed_data_elements,feed_label_elements,npoint_subblock)
+            datas_k,labels_k = self.get_block_data_of_new_stride_step_byxyz(sampled_xyz,sub_block_stride,sub_block_step,feed_data_elements,feed_label_elements,GlobalSubBaseBlock.npoint_subblock)
             global_block_datas.append(np.expand_dims(datas_k,axis=0))
             global_block_labels.append(np.expand_dims(labels_k,axis=0))
         global_block_datas = np.concatenate(global_block_datas,axis=0)
@@ -1467,14 +1508,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return global_block_datas,global_block_labels
 
-    def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
-        global_name = get_stride_step_name(global_stride,global_step)
+    def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end,GlobalSubBaseBlock,feed_data_elements,feed_label_elements ):
+        global_name = get_stride_step_name(GlobalSubBaseBlock.global_stride,GlobalSubBaseBlock.global_step)
         corres_cur_blockids_dic = self.corres_cur_blockids_dic_dic[global_name]
         global_blockid_ls = self.larger_blockid_ls_dic[global_name][global_blockid_start:global_block_id_end]
         batch_datas = []
         batch_labels = []
         for global_block_id in global_blockid_ls:
-            block_datas,block_labels = self.get_data_larger_block( global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements )
+            block_datas,block_labels = self.get_data_larger_block( global_block_id,GlobalSubBaseBlock ,feed_data_elements,feed_label_elements )
             batch_datas.append(np.expand_dims(block_datas,axis=0))
             batch_labels.append(np.expand_dims(block_labels,axis=0))
         batch_datas = np.concatenate(batch_datas,axis=0)
@@ -1485,7 +1526,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return batch_datas, batch_labels, feed_data_ele_ids,feed_label_ele_ids
 
-    def get_allblockids_in_new_stride_step(self,larger_stride,larger_step):
+    def update_allblockids_in_new_stride_step(self,larger_stride,larger_step):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
@@ -1526,20 +1567,34 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         self.corres_cur_blockids_dic_dic[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids_dic
         self.larger_blockid_ls_dic[get_stride_step_name(larger_stride,larger_step)] = larger_blockid_ls
-        return len(corres_cur_blockids_dic)
+
+    def get_block_n_of_new_stride_step(self,larger_stride,larger_step):
+        largerblock_name = get_stride_step_name(larger_stride,larger_step)
+        if largerblock_name not in self.larger_blockid_ls_dic:
+            self.update_allblockids_in_new_stride_step(larger_stride,larger_step)
+        block_N = self.larger_blockid_ls_dic[largerblock_name].shape[0]
+        return block_N
 
     def load_blockids(self,larger_stride,larger_step):
         base_fn = os.path.splitext(self.file_name)[0]
         corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
         if not os.path.exists(corres_cur_blockids_fn):
             print('file not exist, generate it now')
-            return self.get_allblockids_in_new_stride_step(larger_stride,larger_step)
+            return self.update_allblockids_in_new_stride_step(larger_stride,larger_step)
 
         with open(corres_cur_blockids_fn,'rb') as pickle_f:
             corres_cur_blockids_dic = pickle.load(pickle_f)
             larger_blockid_ls = pickle.load(pickle_f)
         return corres_cur_blockids_dic,larger_blockid_ls
 
+
+class GlobalSubBaseBLOCK():
+    def __init__(self):
+        self.global_stride = np.array([1.0,1.0,-1])
+        self.global_step = np.array([2.0,2.0,-1])
+        self.sub_block_size = 0.2
+        self.nsubblock = 1024
+        self.npoint_subblock = 32
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''
@@ -1739,14 +1794,6 @@ class Sort_RawH5f():
             sorted_buf_dic[key] = np.concatenate(sorted_buf_dic[key],axis=0)
         for block_k in sorted_buf_dic:
             self.s_h5f.append_to_dset(block_k,sorted_buf_dic[block_k],vacant_size=GLOBAL_PARA.h5_num_row_1M)
-
-#            dset_k =  self.s_h5f.get_blocked_dset(block_k)
-#            valid_n = dset_k.attrs['valid_num']
-#            new_valid_n = valid_n + sorted_buf_dic[block_k].shape[0]
-#            while dset_k.shape[0] < new_valid_n:
-#                dset_k.resize(( dset_k.shape[0]+self.h5_num_row_1M,dset_k.shape[1]))
-#            dset_k[valid_n:new_valid_n,:] = sorted_buf_dic[block_k]
-#            dset_k.attrs['valid_num'] = new_valid_n
         self.s_h5f.rm_invalid_data()
         self.s_h5f.h5f.flush()
 
@@ -2557,7 +2604,7 @@ def Test_get_block_data_of_new_stride_step():
     with h5py.File(base_h5f_name,'r') as base_h5f:
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
         #base_sh5f.load_blockids(new_stride,new_step)
-        base_sh5f.get_allblockids_in_new_stride_step(new_stride,new_step)
+        base_sh5f.update_allblockids_in_new_stride_step(new_stride,new_step)
         #base_sh5f.get_block_data_of_new_stride_step_byxyz1norm(xyz1norm_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
         #base_sh5f.show_summary_info()
 
