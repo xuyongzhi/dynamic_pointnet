@@ -361,7 +361,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
     data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
     data_label_ele_candidates_order += ['org_row_index']
-    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_material':1,'intensity':1,'org_row_index':1}
+    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,
+                           'label_material':1,'intensity':1,'org_row_index':1,'xyz_1norm':3,'xyz_midnorm':3,
+                           'color_1norm':3}
     IS_CHECK = False # when true, store org_row_index
     data_idxs = {}
     total_num_channels = 0
@@ -412,13 +414,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if e in self.h5f.attrs['element_names']:
                     label_set_elements += [e]
             self.label_set_elements = label_set_elements
-            self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
+            self.label_ele_idxs = self.get_label_ele_ids(label_set_elements)
 
         if 'datasource_name' in self.h5f.attrs:
             self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
             self.num_classes = self.DatasetMeta.num_classes
 
-    def get_label_ele_idxs(self,label_eles):
+    def get_label_ele_ids(self,label_eles):
         label_ele_idxs = {}
         k = 0
         for e in label_eles:
@@ -426,6 +428,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
             k += self.data_label_channels[e]
         return label_ele_idxs
+    def get_data_ele_ids(self,data_eles):
+        data_ele_idxs = {}
+        k = 0
+        for e in data_eles:
+            assert e in self.data_label_channels, "%s not in self.data_label_channels"%(e)
+            data_ele_idxs[e] = range(k,k+self.data_label_channels[e])
+            k += self.data_label_channels[e]
+        return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
         self.h5f.attrs['block_step'] = block_step
@@ -460,8 +470,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             block_stride = h5fattrs['block_stride']
             h5fattrs['block_step']  = block_step
             h5fattrs['block_stride'] = block_stride
-            h5fattrs['block_dims_N'] = np.ceil(xyz_scope_aligned / h5fattrs['block_stride']).astype(np.int64)
             Sorted_H5f.set_whole_scene_stride_step(h5fattrs)
+            h5fattrs['block_dims_N'] = np.ceil(xyz_scope_aligned / h5fattrs['block_stride']).astype(np.int64)
         h5fattrs['xyz_min_aligned'] = xyz_min_aligned
         h5fattrs['xyz_max_aligned'] = xyz_max_aligned
         h5fattrs['xyz_scope_aligned'] = xyz_scope_aligned
@@ -1370,6 +1380,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     def get_block_data_of_new_stride_step_byid( self,new_block_id, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+        # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
 
@@ -1383,10 +1394,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             norm_data_dic = self.normalize_dset(str(cur_block_id),xyz_1norm_method='global')
 
             feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=1 )
-            feed_label_ids = []
+            feed_label_ids_inall = []
             for le in feed_label_elements:
-                feed_label_ids += self.data_idxs[le]
-            feed_label = dset[:,feed_label_ids]
+                feed_label_ids_inall += self.data_idxs[le]
+            feed_label = dset[:,feed_label_ids_inall]
 
             datas.append(feed_data)
             labels.append(feed_label)
@@ -1404,7 +1415,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels)
         return datas,labels
 
-    def get_data_large_block( self,global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+    def get_data_larger_block( self,global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -1431,7 +1442,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         sample_choice,_ = get_sample_choice( all_cur_blockids.shape[0],nsubblock,random_sampl_pro )
         sub_point_ids = all_cur_blockids[sample_choice]
 
-        sampled_xyzs = [ (h5f[k].attrs['xyz_min']+h5f[k].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
+        sampled_xyzs = [ (h5f[str(k)].attrs['xyz_min']+h5f[str(k)].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
         sampled_xyzs = np.concatenate( [ np.expand_dims(xyz,axis=0) for xyz in sampled_xyzs ],axis=0 )
 
         # (1.5) Check how many base block ids are misssed in sub block valid space.
@@ -1456,19 +1467,23 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return global_block_datas,global_block_labels
 
-    def get_batch_of_large_block( self,global_blockid_start,global_block_id_end, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
+    def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end, global_stride,global_step, sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements ):
         global_name = get_stride_step_name(global_stride,global_step)
         corres_cur_blockids_dic = self.corres_cur_blockids_dic_dic[global_name]
         global_blockid_ls = self.larger_blockid_ls_dic[global_name][global_blockid_start:global_block_id_end]
         batch_datas = []
         batch_labels = []
         for global_block_id in global_blockid_ls:
-            block_datas,block_labels = self.get_data_large_block( global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements )
+            block_datas,block_labels = self.get_data_larger_block( global_block_id, global_stride,global_step,sub_block_size, nsubblock,npoint_subblock,feed_data_elements,feed_label_elements )
             batch_datas.append(np.expand_dims(block_datas,axis=0))
             batch_labels.append(np.expand_dims(block_labels,axis=0))
         batch_datas = np.concatenate(batch_datas,axis=0)
         batch_labels = np.concatenate(batch_labels,axis=0)
-        return batch_datas, batch_labels
+
+        feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
+        feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
+
+        return batch_datas, batch_labels, feed_data_ele_ids,feed_label_ele_ids
 
     def get_allblockids_in_new_stride_step(self,larger_stride,larger_step):
         '''
@@ -1483,6 +1498,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             print('creating: ',corres_cur_blockids_fn)
             new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(larger_stride,larger_step)
             new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
+            if larger_stride[-1]==-1 and larger_step[-1]==-1:
+                assert new_block_dims_N[-1]==1
             max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
             new_total_block_N = 0
             corres_cur_blockids_dic = {}
@@ -1494,12 +1511,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         del block_k_cur_list[i]
                 if len(block_k_cur_list) > 0:
                     new_total_block_N += 1
-                    corres_cur_blockids_dic[new_block_id] = block_k_cur_list
+                    corres_cur_blockids_dic[new_block_id] = np.array(block_k_cur_list).astype(np.uint32)
                 rate = 1.0*new_block_id/max_new_block_id*100
                 if int(rate)%20 == 0:
                     print('finish %d%%'%(rate))
-            larger_blockid_ls = list(corres_cur_blockids_dic.keys())
-            larger_blockid_ls.sort()
+            larger_blockid_ls = np.array(list(corres_cur_blockids_dic.keys())).astype(np.uint32)
+            larger_blockid_ls = np.sort(larger_blockid_ls)
             #print('new_total_block_N = ',len(corres_cur_blockids_dic))
 
             with open(corres_cur_blockids_fn,'wb') as pickle_f:
@@ -1931,7 +1948,7 @@ class Normed_H5f():
         self.normed_data_set_elements = normed_data_set_elements
         self.label_set_elements = label_set_elements
         self.normed_data_ele_idxs = self.get_normeddata_ele_idxs(normed_data_set_elements)
-        self.label_ele_idxs = self.get_label_ele_idxs(label_set_elements)
+        self.label_ele_idxs = self.get_label_ele_ids(label_set_elements)
 
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
         # the data ele order store according to feed_elements
@@ -1954,7 +1971,7 @@ class Normed_H5f():
             labels = self.labels_set[start_block:end_blcok,:,labels_ele_idx]
             if labels.ndim == 2:
                 labels = np.expand_dims(labels,axis=-1)
-            feed_label_ele_ids = self.get_label_ele_idxs(feed_label_elements)
+            feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
         return labels,feed_label_ele_ids
 
     def get_normeddata_ele_idxs(self,normed_data_elements):
@@ -1969,7 +1986,7 @@ class Normed_H5f():
             data_ele_idxs[e] = idx
         return data_ele_idxs
 
-    def get_label_ele_idxs(self,label_elements):
+    def get_label_ele_ids(self,label_elements):
         # order according to label_elements
         label_ele_idxs = {}
         k = 0

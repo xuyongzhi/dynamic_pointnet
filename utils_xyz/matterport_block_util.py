@@ -421,13 +421,13 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 2
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     #matterport3d_prepare.Parse_house_regions(MultiProcess)
 
     base_step_stride = [0.1,0.1,0.1]
-    #matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
+    matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
 
     new_stride = [1,1,-1]
     new_step = [2,2,-1]
@@ -439,7 +439,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     #matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
 
     new_stride=new_step=base_step_stride
-    matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
+    #matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
     #matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     #matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
 
@@ -463,8 +463,8 @@ def show_summary():
     matterport3d_prepare.ShowSummary()
 
 if __name__ == '__main__':
-    #parse_house_ls()
-    show_summary()
+    parse_house_ls()
+    #show_summary()
 
 
 

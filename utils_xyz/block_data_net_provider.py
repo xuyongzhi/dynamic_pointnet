@@ -45,12 +45,13 @@ class Net_Provider():
     def __init__(self,InputType, dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
                  train_num_block_rate=1,eval_num_block_rate=1 ):
+        t_init0 = time.time()
         #self.InputType = 'Sorted_H5f'
         #self.InputType = 'Normed_H5f'
         self.InputType = InputType
         if self.InputType == 'Sorted_H5f':
-            self.global_stride = np.array([0.1,0.1,0.1])*10
-            self.global_step = np.array([0.1,0.1,0.1])*20
+            self.global_stride = np.array([1.0,1.0,-1])
+            self.global_step = np.array([2.0,2.0,-1])
             self.sub_block_size = 0.2
             self.nsubblock = 1024
             self.npoint_subblock = 32
@@ -82,6 +83,10 @@ class Net_Provider():
         #   self.eval_global_start_idx: 303
         self.g_block_idxs = np.zeros((self.g_file_N,2),np.int32)
         self.eval_global_start_idx = None
+
+        file_N = len(normed_h5f_file_list)
+        print('Totally %d files. \nReading the block number in each file.'%(file_N))
+        t_start_global_blockid = time.time()
         for i,fn in enumerate(normed_h5f_file_list):
             assert(os.path.exists(fn))
             h5f = h5py.File(fn,open_type)
@@ -97,6 +102,7 @@ class Net_Provider():
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
+        print('global block id reading finished, t=%f ms'%(1000.0*(time.time()-t_start_global_blockid)))
 
         self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
         if train_file_N > 0:
@@ -128,7 +134,7 @@ class Net_Provider():
 
         self.get_data_label_shape()
         self.update_data_summary()
-        #self.test_tmp()
+        print('Net_Provider init t: %f ms'%(1000*(time.time()-t_init0)))
 
     def update_data_summary(self):
         self.data_summary_str = '%s \nfeed_data_elements:%s \nfeed_label_elements:%s \n'%(self.dataset_name,self.feed_data_elements,self.feed_label_elements)
@@ -265,7 +271,8 @@ class Net_Provider():
                 # data_i: [batch_size,npoint_block,data_nchannels]
                 # label_i: [batch_size,npoint_block,label_nchannels]
             elif self.InputType == 'Sorted_H5f':
-                data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_large_block( start,end,
+                data_i,label_i,feed_data_ele_idxs,feed_label_ele_ids = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
+                                start,end,
                                 self.global_stride,self.global_step, self.sub_block_size, self.nsubblock,
                                 self.npoint_subblock,self.feed_data_elements,self.feed_label_elements )
                 # data_i: [batch_size,nsubblock,npoint_subblock,data_nchannels]
