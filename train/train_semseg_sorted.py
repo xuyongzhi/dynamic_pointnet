@@ -28,13 +28,14 @@ ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
+parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f')
 parser.add_argument('--all_fn_globs', type=str,default='v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/',\
                     help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category,label_instance')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
-parser.add_argument('--num_point', type=int, default=8192, help='Point number [default: 4096]')
+parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
@@ -55,6 +56,8 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 FLAGS = parser.parse_args()
 
 BATCH_SIZE = FLAGS.batch_size
+if FLAGS.num_point < 0:
+    FLAGS.num_point = None
 NUM_POINT = FLAGS.num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
@@ -105,18 +108,20 @@ HOSTNAME = socket.gethostname()
 
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
-net_provider = Net_Provider(dataset_name=FLAGS.dataset_name,
+net_provider = Net_Provider(InputType=FLAGS.datafeed_type,
+                            dataset_name=FLAGS.dataset_name,
                             all_filename_glob=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             only_evaluate = FLAGS.only_evaluate,
                             num_point_block = NUM_POINT,
                             feed_data_elements=FLAGS.feed_data_elements,
                             feed_label_elements=FLAGS.feed_label_elements)
-NUM_CHANNELS = net_provider.num_channels
+NUM_DATA_ELES = net_provider.data_num_eles
 NUM_CLASSES = net_provider.num_classes
-NUM_LABEL_ELES = net_provider.num_label_eles
-LABEL_ELE_IDXS = net_provider.label_ele_idxs
+NUM_LABEL_ELES = net_provider.label_num_eles
+LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
+
 START_TIME = time.time()
 
 
@@ -149,7 +154,7 @@ def get_bn_decay(batch):
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS)
+            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_DATA_ELES)
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.

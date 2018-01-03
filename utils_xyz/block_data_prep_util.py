@@ -1607,12 +1607,15 @@ class GlobalSubBaseBLOCK():
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
     '''
-    def __init__(self):
-        self.global_stride = np.array([1.0,1.0,-1])
-        self.global_step = np.array([2.0,2.0,-1])
-        self.sub_block_size = 0.2
-        self.nsubblock = 1024
-        self.npoint_subblock = 32
+    global_stride = np.array([1.0,1.0,-1])
+    global_step = np.array([2.0,2.0,-1])
+    sub_block_size_candis = [0.2,0.4,0.8,1.6]
+    nsubblock_candis = [1024,256,64,16]
+    npoint_subblock_candis = [32,64,64,64]
+    def __init__(self,cascade_flag):
+        self.sub_block_size = self.sub_block_size_candis[cascade_flag]
+        self.nsubblock = self.nsubblock_candis[cascade_flag]
+        self.npoint_subblock = self.npoint_subblock_candis[cascade_flag]
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''

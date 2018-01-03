@@ -50,7 +50,7 @@ class Net_Provider():
         #self.InputType = 'Normed_H5f'
         self.InputType = InputType
         if self.InputType == 'Sorted_H5f':
-            self.GlobalSubBaseBlock = GlobalSubBaseBLOCK()
+            self.GlobalSubBaseBlock = GlobalSubBaseBLOCK(cascade_flag=0)
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -188,6 +188,8 @@ class Net_Provider():
             file_format = '.nh5'
         elif self.InputType=='Sorted_H5f':
             file_format = '.sh5'
+        else:
+            assert False,"file format err: no "+self.InputType
 
         for all_filename_glob in all_filename_globs:
             fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'/*'+file_format)
