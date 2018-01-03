@@ -129,7 +129,6 @@ class Net_Provider():
             self.eval_num_blocks = new_eval_num_blocks
 
         self.get_data_label_shape_info()
-        self.get_data_label_shape()
         t_get_data_laebl_shape = time.time()
         print('get_data_label_shape t: %f ms'%(1000*(t_get_data_laebl_shape - t_end_update_loss_weight)))
         self.update_data_summary()
@@ -146,11 +145,13 @@ class Net_Provider():
             self.whole_eval_data_shape[0] = self.eval_num_blocks
             self.whole_train_label_shape = np.copy(self.whole_train_data_shape)
             self.whole_train_label_shape[-1] = self.label_num_eles
+        elif InputType=='Normed_H5f':
+            self.get_data_label_shape_byread()
         print('\ntrain data shape',self.whole_train_data_shape)
         print('train label shape',self.whole_train_label_shape)
         print('eval data shape',self.whole_eval_data_shape)
 
-    def get_data_label_shape(self):
+    def get_data_label_shape_byread(self):
         data_batches,label_batches,_ = self.get_train_batch(0,1)
         self.whole_train_data_shape = np.array(data_batches.shape)
         self.whole_train_data_shape[0] = self.train_num_blocks
