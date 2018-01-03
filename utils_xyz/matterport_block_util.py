@@ -421,7 +421,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 2
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     #matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -463,8 +463,8 @@ def show_summary():
     matterport3d_prepare.ShowSummary()
 
 if __name__ == '__main__':
-    #parse_house_ls()
-    show_summary()
+    parse_house_ls()
+    #show_summary()
 
 
 
