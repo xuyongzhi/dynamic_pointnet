@@ -8,10 +8,9 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from kitti_block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f
 #from block_data_prep_util import  Raw_H5f,Sort_RawH5f,Sorted_H5f
 import numpy as np
-import numpy.random as npr
 import h5py
 import glob
 import time
@@ -52,23 +51,6 @@ def read_point_cloud_from_bin(point_cloud_file_name):
     inside_index = np.logical_and( (point_cloud[:,1] < point_cloud[:,0] - 0.27), (-point_cloud[:,1] < point_cloud[:,0] - 0.27))
     return point_cloud[inside_index]
 
-def random_sample_to_fix_num(point_cloud_raw_data , random_point_cloud_num):
-    '''
-    the step is specific for KITTI benchmark, num of poinc cloud ranges from 19273 to 31670, all the point cloud are randomly sampled to fixed num, random_point_cloud_num
-    '''
-    length_raw_data = len(point_cloud_raw_data)
-    assert length_raw_data < random_point_cloud_num
-    assert length_raw_data > random_point_cloud_num/2
-
-    padding_index = npr.choice( range(length_raw_data), size=(random_point_cloud_num - length_raw_data), replace = False)
-
-    padding_data  = point_cloud_raw_data[padding_index,:]
-
-    point_cloud_data = np.concatenate((point_cloud_raw_data, padding_data),axis = 0)
-    return point_cloud_data
-
-
-
 class kitti_prepare():
     '''
     Reading the KITTI data into h5f
@@ -76,12 +58,11 @@ class kitti_prepare():
     '''
     benchmark_name = '/KITTI'
     point_cloud_name = 'velodyne'
-    label_name  = 'output'
+    label_name  = 'labels'
     point_cloud_file_path = os.path.join(KITTI_DATA_DIR,point_cloud_name)
     label_file_path = os.path.join(KITTI_DATA_DIR, label_name)
     rawh5f_path = os.path.join(KITTI_DATA_DIR,'rawh5f')
-    sort_raw_path = os.path.join(KITTI_DATA_DIR,'sort_raw')
-    random_point_cloud_num = 2**15 # 32768
+
 
 
     @staticmethod
@@ -99,12 +80,8 @@ class kitti_prepare():
 
             with h5py.File(h5f_file_name, 'w') as h5f:
                 raw_h5f = Raw_H5f(h5f, h5f_file_name,'KITTI')
-                point_cloud_raw_data = read_point_cloud_from_bin(point_cloud_file_name)
-
-                point_cloud_data = random_sample_to_fix_num(point_cloud_raw_data , kitti_prepare.random_point_cloud_num) ## specifial for kitti dataset
-
+                point_cloud_data = read_point_cloud_from_bin(point_cloud_file_name)
                 label_data = read_label_from_txt(label_file_name)
-
                 num_row = point_cloud_data.shape[0]
                 raw_h5f.set_num_default_row(num_row)
                 raw_h5f.append_to_dset('xyz',point_cloud_data[:,0:3])
@@ -114,43 +91,36 @@ class kitti_prepare():
                 raw_h5f.append_to_dset('bounding_box', label_data)
                 raw_h5f.create_done()
 
-    @staticmethod
-    def read_rawh5f():
-        rawh5f_list = glob.glob(os.path.join(kitti_prepare.rawh5f_path,'*.h5'))
-        for file_name in rawh5f_list:
-            with h5py.File(file_name,'r') as h5f:
-                #raw_h5f = Raw_H5f(h5f,file_name)
-                raw_data = h5f['xyz'][:,:]
-
-
-    @staticmethod
-    def sort_raw():
-        raw_file_list = glob.glob(os.path.join(kitti_prepare.rawh5f_path, '*.h5'))
-        block_step = [0.5,0.5,0.5]
-        print('%d files in %s' %(len(raw_file_list), kitti_prepare.rawh5f_path))
-        sort_raw_file_path = kitti_prepare.sort_raw_path
-        if not os.path.exists(sort_raw_file_path):
-            os.makedirs(sort_raw_file_path)
-        Sort_RawH5f(raw_file_list, block_step, sort_raw_file_path)
-
-
 
     @staticmethod
     def showfilesummary(file_name):
-        h5f_file_name = kitti_prepare.sort_raw_path + file_name
+        h5f_file_name = kitti_prepare.rawh5f_path + file_name
         with h5py.File(h5f_file_name,'r') as h5f:
             show_h5f_summary_info(h5f)
 
 
 if __name__ == '__main__':
     START_T = time.time()
-    benchmark_name = '/KITTI'
-    dataset_names  = ['velodnye']
-    file_name = '/000059.sh5'
+    min_num = 3000000
+    max_num = 0
 
+    benchmark_name = '/KITTI'
+    point_cloud_name = 'velodyne'
+    point_cloud_file_path = os.path.join(KITTI_DATA_DIR,point_cloud_name)
+
+    point_cloud_file_list = glob.glob(os.path.join(point_cloud_file_path,'*.bin'))
+    for pc_f_n in point_cloud_file_list:
+        point_cloud_data = read_point_cloud_from_bin(pc_f_n)
+        pc_num = point_cloud_data.shape[0]
+        if pc_num < min_num:
+            min_num = pc_num
+
+        if pc_num > max_num:
+            max_num = pc_num
+
+
+    print('min num is %d, and max num is %d' %(min_num, max_num) )
     #kitti_prepare.generate_kitti_to_rawh5f()
-    kitti_prepare.read_rawh5f()
-    #kitti_prepare.sort_raw()
     #kitti_prepare.showfilesummary(file_name)
 
-    T = time.time() - START_T
+    T = time.time(()) - START_T

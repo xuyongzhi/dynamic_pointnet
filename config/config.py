@@ -55,10 +55,10 @@ __C.TRAIN.Alpha = np.array([0, np.pi/2])  ## if 2 anchor is not enought, change 
 __C.TRAIN.Anchor_bv = np.array([[l/2,  w/2,  -l/2,  -w/2 ] , [w/2,  l/2,  -w/2,  -l/2]])   ## [frowart_left back_right]
 
 # Use horizontal flipper point cloud, a way of data augmentation
-__C.TRAIN.USE_FLIPPED = False
+__C.TRAIN.USE_FLIPPED = True
 
 # Deprecated (inside weights)
-__C.TRAIN.BBOX_INSIDE_WEIGHTS = np.ones(1,__C.TRAIN.NUM_REGRESSION)*1.0 # (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+__C.TRAIN.BBOX_INSIDE_WEIGHTS = np.ones((1,__C.TRAIN.NUM_REGRESSION))*1.0 # (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 
 
 __C.TRAIN.SIGMA = 2.0
