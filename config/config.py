@@ -33,16 +33,22 @@ __C.TRAIN = edict()
 __C.TRAIN.NUM_ANCHORS = 2
 
 # number of classification
-__C.TRAIN.NUM_CLASS = 2  ## background and vehicle, training from simple situation
+__C.TRAIN.NUM_CLASS = 2  ## background and vehicle, start training from simple situation
+
+# number of channels
+__C.TRAIN.NUM_CHANNELS = 3 ## xyz
+
+# number of evaluation
+__C.TRAIN.EVALUATION_NUM = 1000
 
 # number of regression parameters,  7 = x,y,z,l,w,h,theta
 __C.TRAIN.NUM_REGRESSION = 7
 
 # radius for grouping
-__C.TRAIN.Radius_1 = 1
-__C.TRAIN.Radius_2 = 1
-__C.TRAIN.Radius_3 = 1
-__C.TRAIN.Radius_4 = 1
+__C.TRAIN.Radius_1 = 0.4
+__C.TRAIN.Radius_2 = 0.8
+__C.TRAIN.Radius_3 = 1.2
+__C.TRAIN.Radius_4 = 1.6
 
 
 # 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different

@@ -58,7 +58,7 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     radius_l4 = cfg.TRAIN.Radius_4
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=8192, radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
     l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=2048, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
-    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoin =1024, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
+    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=1024, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
     l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 512, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
 
     # Feature Propagation layers
@@ -108,7 +108,7 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     loss_classification_all = 0
     loss_regression_all  = 0
 
-    for n in range(0,NUM_BATCH)
+    for n in range(0,NUM_BATCH):
         # N is the points number of xyz
         # all_alpha is the [N A] A anchors, reshape to [N*A 1]
         # dif_alpha is the angle substract with label
@@ -161,7 +161,7 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
 
         num_negative_labels = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
         negative_inds = np.where(labels == 0)[0]
-        if len(negative_inds) > num_negative_labels
+        if len(negative_inds) > num_negative_labels:
             disable_inds = npr.choice(
 			negative_inds, size = (len(negative_inds) - num_negative_labels), replace = False )
             labels[disable_inds] = -1
@@ -238,5 +238,6 @@ def _smmoth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_wei
 if __name__=='__main__':
     with tf.Graph().as_default():
         inputs = tf.zeros((32,2048,3))
-        net, _ = get_model(inputs, tf.constant(True), 10)
+        num_class = cfg.TRAIN.NUM_CLASS
+        net, _ , _ , _ = get_model(inputs, tf.constant(True), num_class)
         print(net)

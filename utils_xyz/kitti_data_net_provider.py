@@ -20,9 +20,9 @@ KITTI_DATA_DIR = os.path.join(DATA_DIR, BENCHMARK)
 
 from config import cfg
 
-Channels_xyz  = 3
-Channels_label =7
-
+Channels_xyz  =  cfg.TRAIN.NUM_CHANNELS
+Channels_label = cfg.TRAIN.NUM_REGRESSION
+evaluation_num = cfg.TRAIN.EVALUATION_NUM
 
 
 class kitti_data_net_provider():
@@ -38,13 +38,21 @@ class kitti_data_net_provider():
         self.rawh5_name = rawh5_name
         self.batch_size = batch_size
 
+        self.data_summary_str = 'Input XYZ:(32768,3); Label bounding box: (N, 7)'
+
         self.rawh5_file_path = os.path.join(KITTI_DATA_DIR, rawh5_name)
         self.rawh5_file_list = glob.glob(os.path.join(self.rawh5_file_path,'*.h5'))
+        self.evaluation_num = evaluation_num
+
+        self.num_train_data = len(self.rawh5_file_list)
+
+        self.evaluation_file_list = self.rawh5_file_list[0:self.evaluation_num]
+
         self.all_file_name = []
         assert len(self.rawh5_file_list) > 0
-        for name in self.rawh5_file_list:
-            if name.endswith('.h5'):
-                self.all_file_name.append(name.rstrip('.h5'))
+        #for name in self.rawh5_file_list:
+        #    if name.endswith('.h5'):
+        #        self.all_file_name.append(name.rstrip('.h5'))
 
         self._shuffle_rawh5_inds()
 
@@ -92,6 +100,22 @@ class kitti_data_net_provider():
 
         return point_cloud_data, label_data
 
+    def _get_evaluation_minibatch(self, start_idx, end_idx):
+        ind = np.arange(start_idx,end_idx)
+        point_cloud_data = []
+        label_data = []
+        _index_ = 0
+        for ii in ind:
+            evaluation_file_name = self.evaluation_file_list[ii]
+            with h5py.File(evaluation_file_name,'r') as h5f:
+                temp_xyz = h5f['xyz'][:,:]
+                temp_bounding_box = h5f['bounding_box'][:,:]
+                point_cloud_data.append(temp_xyz)
+                label_data.append(temp_bounding_box)
+            _index_ = _index_ + 1
+
+        return point_cloud_data, label_data
+
 
 
 
@@ -107,6 +131,9 @@ if __name__ == '__main__':
 
     point_cloud_data, label_data = data_provider._get_next_minibatch() ## both of them are list type
 
+    start_ind = 0
+    end_ind = 20
+    point_cloud_data, label_data = data_provider._get_evaluation_minibatch(start_ind ,end_ind)
     print(len(point_cloud_data))
     END_T = time.time()
     print('the time is %d' %(END_T - START_T))

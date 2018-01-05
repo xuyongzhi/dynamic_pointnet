@@ -21,25 +21,28 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
-sys.path.append(os.path.join(ROOT_DIR,'scannet'))
-from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
-import provider
+sys.path.append(os.path.join(ROOT_DIR,'config'))
+from pointnet2_obj_detection import  placeholder_inputs,get_model,get_loss
+#import provider
 import get_dataset
 from evaluation import EvaluationMetrics
-from block_data_net_provider import Normed_H5f,Net_Provider
+from kitti_data_net_provider import kitti_data_net_provider #Normed_H5f,Net_Provider
+from config import cfg
 import multiprocessing as mp
+
+
 
 ISDEBUG = False
 ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor')
-parser.add_argument('--all_fn_globs', type=str,default='stride_1_step_2_8192_normed/',\
-                    help='The file name glob for both training and evaluation')
-parser.add_argument('--feed_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
+parser.add_argument('--dataset_name', default='rawh5_kitti', help='rawh5_kitti')
+#parser.add_argument('--all_fn_globs', type=str,default='stride_1_step_2_8192_normed/',\
+#                    help='The file name glob for both training and evaluation')
+parser.add_argument('--feed_elements', default='xyz_raw', help='xyz_1norm,xyz_midnorm,color_1norm')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
-parser.add_argument('--num_point', type=int, default=8192, help='Point number [default: 4096]')
+parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
@@ -59,6 +62,7 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 
 FLAGS = parser.parse_args()
 
+DATASET_NAME = FLAGS.dataset_name
 BATCH_SIZE = FLAGS.batch_size
 NUM_POINT = FLAGS.num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
@@ -86,12 +90,12 @@ else:
                     FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
 FLAGS.feed_elements = FLAGS.feed_elements.split(',')
 
-LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
+LOG_DIR = os.path.join(ROOT_DIR,'train_res/object_detection_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
-LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
+LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/object_detection_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
-os.system('cp %s/train_semseg_sorted.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
+os.system('cp %s/models/pointnet2_obj_detection.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/train_obj_detection.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
 if FLAGS.finetune:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
 else:
@@ -109,15 +113,16 @@ HOSTNAME = socket.gethostname()
 
 
 # Load Data
-FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
-net_provider = Net_Provider(dataset_name=FLAGS.dataset_name, \
-                            all_filename_glob=FLAGS.all_fn_globs, \
-                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,\
-                            only_evaluate = FLAGS.only_evaluate,\
-                            num_point_block = NUM_POINT,
-                            feed_elements=FLAGS.feed_elements)
-NUM_CHANNELS = net_provider.num_channels
-NUM_CLASSES = net_provider.num_classes
+# FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+#net_provider = Net_Provider(dataset_name=FLAGS.dataset_name, \
+#                            all_filename_glob=FLAGS.all_fn_globs, \
+#                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,\
+#                            only_evaluate = FLAGS.only_evaluate,\
+#                            num_point_block = NUM_POINT,
+#                            feed_elements=FLAGS.feed_elements)
+data_provider = kitti_data_net_provider(DATASET_NAME,BATCH_SIZE)
+NUM_CHANNELS = cfg.TRAIN.NUM_CHANNELS  # x, y, z
+NUM_CLASSES =  cfg.TRAIN.NUM_CLASSES   # bg, fg
 
 START_TIME = time.time()
 
@@ -165,9 +170,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             loss = get_loss(pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
             tf.summary.scalar('loss', loss)
 
-            correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
-            accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
-            tf.summary.scalar('accuracy', accuracy)
+            #correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
+            #accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
+            #tf.summary.scalar('accuracy', accuracy)
 
             # Get training operator
             learning_rate = get_learning_rate(batch)
@@ -214,7 +219,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             saver.restore(sess,MODEL_PATH)
             log_string('finetune, restored model from: \n\t%s'%MODEL_PATH)
 
-        log_string(net_provider.data_summary_str)
+        log_string(data_provider.data_summary_str)
 
         if ISDEBUG:
             builder = tf.profiler.ProfileOptionBuilder
@@ -232,8 +237,8 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
-            if train_feed_buf_q == None:
-                net_provider.update_train_eval_shuffled_idx()
+            #if train_feed_buf_q == None:
+            #    net_provider.update_train_eval_shuffled_idx()
             if not FLAGS.only_evaluate:
                 train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts)
             else:
@@ -276,7 +281,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
-    num_blocks = net_provider.train_num_blocks
+    num_blocks = data_provider.num_train_data
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
         if num_batches ==0: return ''
@@ -295,23 +300,24 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     while (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
-        start_idx = batch_idx * BATCH_SIZE
-        end_idx = (batch_idx+1) * BATCH_SIZE
-
+        #start_idx = batch_idx * BATCH_SIZE
+        #end_idx = (batch_idx+1) * BATCH_SIZE
+        poinr_cloud_data = []
+        label_data = []
         if train_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+            point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
                 break
-            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf = train_feed_buf_q.get()
-            #assert batch_idx == batch_idx_buf and epoch== epoch_buf
+            #cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf = train_feed_buf_q.get()
+            point_cloud_data, label_data = train_feed_buf_q.get()
 
         t1 = time.time()
-        if type(cur_data) == type(None):
+        if type(point_cloud_data) == type(None):
             break # all data reading finished
-        feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: cur_label,
+        feed_dict = {ops['pointclouds_pl']: point_cloud_data,
+                     ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights}
 
@@ -352,7 +358,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     log_string('----')
 
-    num_blocks = net_provider.eval_num_blocks
+    num_blocks = data_provider.evaluation_num
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
         num_batches = limit_eval_num_batches(epoch,num_batches)
@@ -373,20 +379,20 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+            point_cloud_data, label_data = data_provider._get_evaluation_minibatch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
                 break
-            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
+            point_cloud_data, label_data ,epoch_buf = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         t1 = time.time()
         if type(cur_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
-        feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: cur_label,
+        feed_dict = {ops['pointclouds_pl']: point_cloud_data,
+                     ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights }
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
@@ -415,7 +421,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 def add_train_feed_buf(train_feed_buf_q):
     with tf.device('/cpu:0'):
         max_buf_size = 20
-        num_blocks = net_provider.train_num_blocks
+        num_blocks = data_provider.num_train_data  #num_blocks = net_provider.train_num_blocks
         if num_blocks!=None:
             num_batches = num_blocks // BATCH_SIZE
         else:
@@ -425,14 +431,14 @@ def add_train_feed_buf(train_feed_buf_q):
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
-            net_provider.update_train_eval_shuffled_idx()
+            # net_provider.update_train_eval_shuffled_idx()
             batch_idx = -1
             while (batch_idx < num_batches-1) or (num_batches==None):
                 if train_feed_buf_q.qsize() < max_buf_size:
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+                    point_cloud_data, label_data = data_provider._get_next_minibatch()   #cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
                     train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
@@ -444,7 +450,7 @@ def add_train_feed_buf(train_feed_buf_q):
 def add_eval_feed_buf(eval_feed_buf_q):
     with tf.device('/cpu:1'):
         max_buf_size = 20
-        num_blocks = net_provider.eval_num_blocks
+        num_blocks = data_provider.evaluation_num
         if num_blocks!=None:
             raw_num_batches = num_blocks // BATCH_SIZE
         else:
@@ -461,7 +467,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+                    point_cloud_data, label_data = data_provider._get_evaluation_minibatch(start_idx, end_idx)  #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
                     eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
@@ -473,7 +479,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
 
 def main():
 
-    IsFeedData_MultiProcessing = True and (not FLAGS.auto_break)
+    IsFeedData_MultiProcessing = False and (not FLAGS.auto_break)
 
     if IsFeedData_MultiProcessing:
         train_feed_buf_q = mp.Queue()
