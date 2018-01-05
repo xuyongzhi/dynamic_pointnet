@@ -40,6 +40,8 @@ sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
 
+DEBUGTMP=True
+
 START_T = time.time()
 
 g_h5_num_row_1M = 50*1000
@@ -50,7 +52,7 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT']
 
 
-def get_stride_step_name(block_stride,block_step):
+def get_stride_step__name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
     assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
@@ -371,10 +373,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     data_idxs = {}
     total_num_channels = 0
 
-    #all_cur_blockids = []    # all the block ids in cur h5f
-    basebids_in_each_largerbid_dic_dic = {} # key is get_stride_step_name(global_stride,global_step), value is the corresponding cur block ids for each larger_blockid of larger stride and step
-    larger_blockid_ls_dic = {}       # key is get_stride_step_name(global_stride,global_step), value is sorted blockids of larger block, this is the key of basebids_in_each_largerbid_dic
-
     actions = ''
     h5_num_row_1M = g_h5_num_row_1M
 
@@ -634,7 +632,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     def get_attrs_of_new_stride_step(self,new_stride,new_step):
-        return Sorted_H5f.get_attrs_of_new_stride_step_(self.h5f.attrs)
+        return Sorted_H5f.get_attrs_of_new_stride_step_(self.h5f.attrs,new_stride,new_step)
     @staticmethod
     def get_attrs_of_new_stride_step_(base_h5fattrs,new_stride,new_step):
         new_sorted_h5f_attrs = copy_h5f_attrs( base_h5fattrs )
@@ -1175,6 +1173,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # xyz_midnorm
         if norm_list==None or 'xyz_midnorm_block' in norm_list:
+            if DEBUGTMP:
+                out_norm_data_dic['xyz_midnorm_block'] = raw_xyz
+                return
+
             xyz_midnorm_block = raw_xyz+0 # as a new variable, not a reference
             # only norm x,y. Keep z be the raw value
             #xyz_min_real = np.min(raw_xyz,axis=0)
@@ -1393,45 +1395,44 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     #***************************************************************************
     #Net feed utils: extract data from unsampled sorted dataset
     #***************************************************************************
-    def get_blockids_of_dif_stride_step_byxyz( self,xyz1norm_k, new_stride, new_step ):
-        '''
-        1) new stride and step is larger than current
-        2) get the new_blockid with new stride and step include xyz_k
-        3) get all the current block ids included within the new block
-        '''
-        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
-        xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
-        new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
-       # print(xyz_k)
-       # print(cur_block_id)
-       # print(cur_ixyz)
+   # def get_blockids_of_dif_stride_step_byxyz( self,xyz1norm_k, new_stride, new_step ):
+   #     '''
+   #     1) new stride and step is larger than current
+   #     2) get the new_blockid with new stride and step include xyz_k
+   #     3) get all the current block ids included within the new block
+   #     '''
+   #     new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
+   #     xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
+   #     new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
+   #    # print(xyz_k)
+   #    # print(cur_block_id)
+   #    # print(cur_ixyz)
 
-        cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
-        print(cur_block_id_ls)
-        return cur_block_id_ls,cur_i_xyz_ls,new_block_id
+   #     cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
+   #     print(cur_block_id_ls)
+   #     return cur_block_id_ls,cur_i_xyz_ls,new_block_id
 
-    def get_block_data_of_new_stride_step_byxyz1norm( self,xyz1norm_k, new_stride,new_step,
-                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
-        return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
-    def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
-                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
-        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
-        new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
-        return self.get_block_data_of_new_stride_step_byid(new_block_id,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+   # def get_block_data_of_new_stride_step_byxyz1norm( self,xyz1norm_k, new_stride,new_step,
+   #                                       feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+   #     xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
+   #     return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
+   # def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
+   #                                       feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+   #     new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
+   #     new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
+   #     return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements,sample_num)
 
-    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_stride,new_step,
+    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
-        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
-        cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
-
+        #new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         xyz_1norm_scale = 'file'
         datas = []
         labels = []
-        for cur_block_id in cur_block_id_ls:
-            if str(cur_block_id) not in self.h5f:
-                continue
+        root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        for cur_block_id in root_bids_in_cas0:
+           # if str(cur_block_id) not in self.h5f:
+           #     continue
             dset = self.h5f[str(cur_block_id)]
             norm_data_dic = {}
             # cal normalizaed data
@@ -1465,7 +1466,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels[0:3,:])
         return datas,labels
 
-    def get_data_larger_block( self,global_block_id,GlobalSubBaseBlock ,feed_data_elements,feed_label_elements ):
+    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -1479,29 +1480,103 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
-        * Candidate improvement:
-            1) save all_cur_blockids and all_cur_block_size in h5f to save time.
         '''
+        IsRecordTime = True and DEBUGTMP
+        if IsRecordTime: t0 = time.time()
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
-        all_cur_blockids = np.array([k for k in h5f]).astype(np.int32)
-        if 1.0 * all_cur_blockids.shape[0] / GlobalSubBaseBlock.nsubblock > 1.5:
-            all_cur_block_size = np.array([h5f[k_str].shape[0] for k_str in h5f])
-            random_sampl_pro = 1.0 * all_cur_block_size / np.sum(all_cur_block_size)
-        else: random_sampl_pro = None
-        sample_choice,_ = get_sample_choice( all_cur_blockids.shape[0],GlobalSubBaseBlock.nsubblock,random_sampl_pro )
-        sub_point_ids = all_cur_blockids[sample_choice]
+        nsubblock = gsbb.nsubblock_candis[0]
+        sub_block_size = gsbb.sub_block_size_candis[0]
+        npoint_subblock = gsbb.npoint_subblock_candis[0]
+        cas0b_attrs = gsbb.get_new_attrs(0)
+        cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
 
-        sampled_xyzs = [ (h5f[str(k)].attrs['xyz_min']+h5f[str(k)].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
-        sampled_xyzs = np.concatenate( [ np.expand_dims(xyz,axis=0) for xyz in sampled_xyzs ],axis=0 )
+        if DEBUGTMP==True:
+            random_sampl_pro = None
+        else:
+            if 1.0 * cas0_bids_in_global.shape[0] / nsubblock > 1.5:
+                all_cur_block_size = np.array([h5f[k_str].shape[0] for k_str in h5f])
+                random_sampl_pro = 1.0 * all_cur_block_size / np.sum(all_cur_block_size)
+            else: random_sampl_pro = None
 
+
+        sample_choice,_ = get_sample_choice( cas0_bids_in_global.shape[0],nsubblock,random_sampl_pro )
+        cas0_bids_in_global_sp = cas0_bids_in_global[sample_choice]
+
+        if IsRecordTime: t1 = time.time()
         # (1.5) Check how many base block ids are misssed in sub block valid space.
-        sub_block_stride = sub_block_step = np.array([1.0,1.0,1.0])*GlobalSubBaseBlock.sub_block_size
 
  #       IsCheckSubblockParas = True
  #       if IsCheckSubblockParas:
  #           sub_h5fattrs = self.get_attrs_of_new_stride_step(sub_block_stride,sub_block_step)
- #           for base_blockid in all_cur_blockids:
+ #           for base_blockid in cas0_bids_in_global:
+ #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
+ #               for k_new in block_k_new_list:
+
+        # (2) GROUP: Collect all the base blocks for each sub-point.
+        global_block_datas = []
+        global_block_labels = []
+        for cas0_bid in cas0_bids_in_global_sp:
+            datas_k,labels_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
+            global_block_datas.append(np.expand_dims(datas_k,axis=0))
+            global_block_labels.append(np.expand_dims(labels_k,axis=0))
+        global_block_datas = np.concatenate(global_block_datas,axis=0)
+        global_block_labels = np.concatenate(global_block_labels,axis=0)
+       # print(global_block_datas.shape)
+       # print(global_block_labels.shape)
+        if IsRecordTime:
+           t2 = time.time()
+           print('\nsampling t=%f ms'%(1000*(t1-t0)))
+           print('grouping t=%f ms'%(1000*(t2-t1)))
+
+        return global_block_datas,global_block_labels
+    def get_data_larger_block______root_2_global( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
+        '''
+        1) global block is the learning block unit. Use current stride and step as base block units.
+        2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
+        Use 0.1 stride and 0.1 step block as base blocks. All the base block centers are candidate sub-points. Randomly select nsubblock points from all candidate sub-points.
+        3) Get sub-group data for each sub-point.
+
+        * Return:
+            sampled_xyzs: [nsubblock,xyz] the sampled points in global block
+            global_block_datas: [ nsubblock,npoint_subblock,data_nchannel ]
+            global_block_labels: [ nsubblock,npoint_subblock,label_nchannel ]
+
+        * Check + Problem:
+            If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
+        '''
+        IsRecordTime = True and DEBUGTMP
+        if IsRecordTime: t0 = time.time()
+        h5f = self.h5f
+        # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
+        nsubblock = gsbb.nsubblock_candis[0]
+        sub_block_size = gsbb.sub_block_size_candis[0]
+        npoint_subblock = gsbb.npoint_subblock_candis[0]
+        sub_attrs = gsbb.get_new_attrs(0)
+        root_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
+
+        if DEBUGTMP==True:
+            random_sampl_pro = None
+        else:
+            if 1.0 * root_bids_in_global.shape[0] / nsubblock > 1.5:
+                all_cur_block_size = np.array([h5f[k_str].shape[0] for k_str in h5f])
+                random_sampl_pro = 1.0 * all_cur_block_size / np.sum(all_cur_block_size)
+            else: random_sampl_pro = None
+
+
+        sample_choice,_ = get_sample_choice( root_bids_in_global.shape[0],nsubblock,random_sampl_pro )
+        sub_point_ids = root_bids_in_global[sample_choice]
+
+        sampled_xyzs = [ (h5f[str(k)].attrs['xyz_min']+h5f[str(k)].attrs['xyz_max'])/2.0 for k in sub_point_ids ]
+        sampled_xyzs = np.concatenate( [ np.expand_dims(xyz,axis=0) for xyz in sampled_xyzs ],axis=0 )
+        if IsRecordTime: t1 = time.time()
+        # (1.5) Check how many base block ids are misssed in sub block valid space.
+        sub_block_stride = sub_block_step = np.array([1.0,1.0,1.0])*sub_block_size
+
+ #       IsCheckSubblockParas = True
+ #       if IsCheckSubblockParas:
+ #           sub_h5fattrs = self.get_attrs_of_new_stride_step(sub_block_stride,sub_block_step)
+ #           for base_blockid in root_bids_in_global:
  #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
  #               for k_new in block_k_new_list:
 
@@ -1509,24 +1584,34 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_datas = []
         global_block_labels = []
         for sampled_xyz in sampled_xyzs:
-            datas_k,labels_k = self.get_block_data_of_new_stride_step_byxyz(sampled_xyz,sub_block_stride,sub_block_step,feed_data_elements,feed_label_elements,GlobalSubBaseBlock.npoint_subblock)
+
+
+            sub_block_id,_ = Sorted_H5f.xyz_to_block_index_(xyz_k,sub_attrs)
+            datas_k,labels_k = self.get_block_data_of_new_stride_step_byid(sub_block_id,sub_attrs,gsbb,feed_data_elements,feed_label_elements,sample_num)
+
+
+            #datas_k,labels_k = self.get_block_data_of_new_stride_step_byxyz(sampled_xyz,sub_block_stride,sub_block_step,feed_data_elements,
+                                                                            #feed_label_elements,npoint_subblock)
             global_block_datas.append(np.expand_dims(datas_k,axis=0))
             global_block_labels.append(np.expand_dims(labels_k,axis=0))
         global_block_datas = np.concatenate(global_block_datas,axis=0)
         global_block_labels = np.concatenate(global_block_labels,axis=0)
        # print(global_block_datas.shape)
        # print(global_block_labels.shape)
+        if IsRecordTime:
+           t2 = time.time()
+           print('\nsampling t=%f ms'%(1000*(t1-t0)))
+           print('grouping t=%f ms'%(1000*(t2-t1)))
 
         return global_block_datas,global_block_labels
 
-    def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end,GlobalSubBaseBlock,feed_data_elements,feed_label_elements ):
-        global_name = get_stride_step_name(GlobalSubBaseBlock.global_stride,GlobalSubBaseBlock.global_step)
-        basebids_in_each_largerbid_dic = self.basebids_in_each_largerbid_dic_dic[global_name]
-        global_blockid_ls = self.larger_blockid_ls_dic[global_name][global_blockid_start:global_block_id_end]
+    def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end,feed_data_elements,feed_label_elements ):
+        gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
+        all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global')
         batch_datas = []
         batch_labels = []
-        for global_block_id in global_blockid_ls:
-            block_datas,block_labels = self.get_data_larger_block( global_block_id,GlobalSubBaseBlock ,feed_data_elements,feed_label_elements )
+        for global_block_id in all_sorted_global_bids:
+            block_datas,block_labels = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
             batch_datas.append(np.expand_dims(block_datas,axis=0))
             batch_labels.append(np.expand_dims(block_labels,axis=0))
         batch_datas = np.concatenate(batch_datas,axis=0)
@@ -1554,35 +1639,76 @@ class GlobalSubBaseBLOCK():
     nsubblock_candis = [1024,256,64,16]
     npoint_subblock_candis = [32,64,64,64]
     cascade_num = len(sub_block_size_candis)
-    def __init__(self,cascade_id):
-        self.cascade_id  = cascade_id
-        self.sub_block_size = self.sub_block_size_candis[cascade_id]
-        self.nsubblock = self.nsubblock_candis[cascade_id]
-        self.npoint_subblock = self.npoint_subblock_candis[cascade_id]
-
-    @staticmethod
-    def get_stride_step(cascade_id):
-        larger_stride = larger_step =  np.array([1.0,1.0,1.0])*GlobalSubBaseBLOCK.sub_block_size_candis[cascade_id]
-        return larger_stride,larger_step
-
-    @staticmethod
-    def get_group_name(cascade_id,base_attrs=None):
-        if cascade_id==0:
-            base_stride,base_step = [base_attrs['block_stride'],base_attrs['block_step']]
+    cascade_id_ls = ['root']+range(cascade_num)+['global']
+    base_cascade_ids = {}
+    base_cascade_ids['global'] = 0
+    for i in range(cascade_num):
+        if i==0:
+            base_cascade_ids[0] = 'root'
         else:
-            base_stride,base_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id-1)
-        larger_stride,larger_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id)
-        group_name = 'BASE_'+get_stride_step_name(base_stride,base_step)+'-AIM_'+get_stride_step_name(larger_stride,larger_step)
+            base_cascade_ids[i] = i-1
+    def __init__(self,root_s_h5f,root_s_h5f_fn):
+        self.root_s_h5f = root_s_h5f
+        self.root_s_h5f_fn = root_s_h5f_fn
+        self.new_attrs = {}
+        self.bm_output = {}
+
+    def get_new_attrs(self,cascade_id) :
+        if cascade_id not in self.new_attrs:
+            stride,step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,self.root_s_h5f)
+            self.new_attrs[cascade_id] = Sorted_H5f.get_attrs_of_new_stride_step_(self.root_s_h5f.attrs,stride,step)
+        return self.new_attrs[cascade_id]
+
+    def get_stride_step(self,cascade_id):
+        return GlobalSubBaseBLOCK.get_stride_step_(cascade_id,self.root_s_h5f.attrs)
+    @staticmethod
+    def get_stride_step_(cascade_id,root_h5fattrs=None):
+        if cascade_id=='root': assert root_h5fattrs!=None
+        if cascade_id == 'global':
+            stride = GlobalSubBaseBLOCK.global_stride
+            step = GlobalSubBaseBLOCK.global_step
+        elif cascade_id == 'root':
+            stride = root_h5fattrs['block_stride']
+            step = root_h5fattrs['block_step']
+        else:
+            assert cascade_id <= GlobalSubBaseBLOCK.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
+            stride = step =  np.array([1.0,1.0,1.0])*GlobalSubBaseBLOCK.sub_block_size_candis[cascade_id]
+        return stride,step
+
+    @staticmethod
+    def get_group_name(cascade_id,root_h5fattrs=None):
+        aim_stride,aim_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_h5fattrs)
+        aim_name = get_stride_step__name(aim_stride,aim_step)
+        if cascade_id=='root':
+            group_name = 'root-'+aim_name
+        else:
+            base_stride,base_step = GlobalSubBaseBLOCK.get_stride_step_(GlobalSubBaseBLOCK.base_cascade_ids[cascade_id],root_h5fattrs)
+            base_name = get_stride_step__name(base_stride,base_step)
+            group_name = 'BASE_'+base_name+'-AIM_'+aim_name
         return group_name
 
-    def get_block_n_of_new_stride_step(self,root_s_h5f,root_s_h5f_fn):
-        output = GlobalSubBaseBLOCK.load_one_bidmap(root_s_h5f,root_s_h5f_fn,self.cascade_id,out=['block_num'])
-        block_N = output['block_num']
-        return block_N
+    @staticmethod
+    def get_block_n_of_new_stride_step_(root_s_h5f,root_s_h5f_fn,cascade_id):
+        return  GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num'])['block_num']
+
+    def get_all_sorted_aimbids(self,cascade_id):
+        ele_name = 'all_sorted_aimbids_'+str(cascade_id)
+        if ele_name not in self.bm_output:
+            self.bm_output[ele_name] = self.load_one_bidmap(cascade_id,['all_sorted_aimbids'])['all_sorted_aimbids']
+        return self.bm_output[ele_name]
+
+    def get_baseids_inanew(self,cascade_id,new_bid):
+        return self.load_one_bidmap(cascade_id,['baseids_inanew'],new_bid=new_bid)['baseids_inanew']
+
+    def load_one_bidmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+        # load one block id map
+        # return block id map from cascade_id-1 to cascade_id
+        root_s_h5f = self.root_s_h5f
+        root_s_h5f_fn = self.root_s_h5f_fn
+        return GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid)
 
     @staticmethod
-    def load_one_bidmap(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','sorted_newids','baseids_inanew','allbaseids_in_new_dic'],meta_input=None):
-        # from cascade_id-1 to cascade_id
+    def load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
         base_fn = os.path.splitext(root_s_h5f_fn)[0]
         blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
 
@@ -1590,75 +1716,94 @@ class GlobalSubBaseBLOCK():
             GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
         assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
         with h5py.File(blockid_maps_fn,'r') as h5f:
-            larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id)
+            larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_s_h5f.attrs)
             group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
             grp = h5f[group_name]
 
-            output = {}
-            if 'block_num' in out or 'sorted_newids' in out:
-                sorted_newids = grp.attrs['sorted_newids']
+            bm_output = {}
+            if 'block_num' in out or 'all_sorted_aimbids' in out:
+                all_sorted_aimbids = grp.attrs['all_sorted_aimbids']
                 if 'block_num' in out:
-                    output['block_num'] = sorted_newids.shape[0]
-                if 'sorted_newids' in out:
-                    output['sorted_newids'] = sorted_newids
+                    bm_output['block_num'] = all_sorted_aimbids.shape[0]
+                if 'all_sorted_aimbids' in out:
+                    bm_output['all_sorted_aimbids'] = all_sorted_aimbids
             if 'baseids_inanew' in out:
-                output['baseids_inanew'] = grp[str(meta_input['new_id'])][...]
+                bm_output['baseids_inanew'] = grp[str(new_bid)][...]
             if 'allbaseids_in_new_dic' in out:
                 allbaseids_in_new_dic = {}
-                for new_id_str in grp:
-                    allbaseids_in_new_dic[int(new_id_str)] = grp[new_id_str][...]
-                output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
-            return output
+                for new_bid_str in grp:
+                    allbaseids_in_new_dic[int(new_bid_str)] = grp[new_bid_str][...]
+                bm_output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
+            return bm_output
+
+    @staticmethod
+    def show_all_groupnames(root_s_h5f_fn):
+        base_fn = os.path.splitext(root_s_h5f_fn)[0]
+        blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
+        group_names = []
+        with h5py.File(blockid_maps_fn,'r') as h5f:
+            print('\nall group names')
+            for group_name in h5f:
+                group_names.append(group_name)
+                print(group_name)
 
     @staticmethod
     def show_all(root_s_h5f,root_s_h5f_fn):
+        GlobalSubBaseBLOCK.show_all_groupnames(root_s_h5f_fn)
         t0 = time.time()
-        out = ['allbaseids_in_new_dic']
-        out = ['baseids_inanew']
-        out = ['block_num']
-        #out = ['sorted_newids']
-        meta_input={}
-        meta_input['new_id'] = 0
-        for cascade_id in range(GlobalSubBaseBLOCK.cascade_num):
-            output = GlobalSubBaseBLOCK.load_one_bidmap(root_s_h5f,root_s_h5f_fn,cascade_id,out,meta_input)
-            print('t = %f ms, cascade_id = %d   out=%s'%(1000*(time.time()-t0),cascade_id,out))
-            #print(output['allbaseids_in_new_dic'][0])
-            #print(output['baseids_inanew'])
-            print(output['block_num'])
-            #print(output['sorted_newids'])
+        new_bid = 0
+        for out in ['block_num','all_sorted_aimbids','baseids_inanew']:
+            cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
+            for cascade_id in cascade_id_ls:
+                if cascade_id=='root' and out=='baseids_inanew':
+                    continue
+                output = GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,[out],new_bid)
+                print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
+                print(output[out])
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
     @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,CreatNewIfExist=False):
         base_fn = os.path.splitext(root_s_h5f_fn)[0]
         blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
-        if os.path.exists(blockid_maps_fn):
+        if (not CreatNewIfExist) and os.path.exists(blockid_maps_fn):
             print('file exist: %s'%(blockid_maps_fn))
         else:
             with h5py.File(blockid_maps_fn,'w') as h5f:
-                base_attrs = root_s_h5f.attrs
-                for i in range(GlobalSubBaseBLOCK.cascade_num):
-                    larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step(i)
-                    new_attrs, basebids_in_each_largerbid_dic, sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(root_s_h5f,larger_stride,larger_step)
-                    group_name = GlobalSubBaseBLOCK.get_group_name(i,base_attrs)
+                all_sorted_base_blockids = np.sort([int(k) for k in root_s_h5f])
+
+                cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
+                cascade_attrs = {}
+                cascade_attrs['root'] = root_s_h5f.attrs
+                for cascade_id in cascade_id_ls:
+                    if cascade_id == 'root':
+                        all_sorted_larger_blockids = all_sorted_base_blockids
+                    else:
+                        base_attrs = cascade_attrs[GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]]
+                        larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id)
+                        new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
+                                                                base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
+                        all_sorted_base_blockids = all_sorted_larger_blockids
+                        cascade_attrs[cascade_id] = new_attrs
+                    group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
+
                     grp = h5f.create_group(group_name)
-                    grp.attrs['sorted_newids'] = sorted_larger_blockids
-                    for new_id,base_ids in basebids_in_each_largerbid_dic.items():
-                        blockid_map_dset = grp.create_dataset( str(new_id),shape=(len(base_ids),),dtype=np.int32  )
-                        blockid_map_dset[...] = base_ids
-                    base_attrs = new_attrs
+                    grp.attrs['all_sorted_aimbids'] = all_sorted_larger_blockids
+                    if not cascade_id == 'root':
+                        for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
+                            blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
+                            blockid_map_dset[...] = base_ids
                 h5f.flush()
                 print('write finish: %s'%(blockid_maps_fn))
 
     @staticmethod
-    def get_basebids_in_each_largerbid(root_s_h5f,larger_stride,larger_step):
+    def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
         root_s_h5f: sorted h5f object
         '''
-        new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(root_s_h5f.attrs,larger_stride,larger_step)
+        new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
         if larger_stride[-1]==-1 and larger_step[-1]==-1:
             assert new_block_dims_N[-1]==1
@@ -1667,20 +1812,22 @@ class GlobalSubBaseBLOCK():
         basebids_in_each_largerbid_dic = {}
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
-            block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,root_s_h5f.attrs)
-            for i,block_id in enumerate(block_k_cur_list):
-                if not str(block_id) in root_s_h5f:
-                    del block_k_cur_list[i]
-            if len(block_k_cur_list) > 0:
+            block_k_cur_list,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
+                                    new_block_id,new_sorted_h5f_attrs,base_attrs)
+            cur_bids = np.array(block_k_cur_list).astype(np.uint32)
+            mask = np.in1d( cur_bids,all_base_blockids )
+            valid_cur_bids = cur_bids[mask]
+            if valid_cur_bids.shape[0] > 0:
                 new_total_block_N += 1
-                basebids_in_each_largerbid_dic[new_block_id] = np.array(block_k_cur_list).astype(np.uint32)
+                basebids_in_each_largerbid_dic[new_block_id] = valid_cur_bids
             if new_block_id%max(1,int(max_new_block_id/5))==0:
                 rate = 1.0*new_block_id/max_new_block_id*100
-                print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,get_stride_step_name(larger_stride,larger_step),get_stride_step_name(root_s_h5f.attrs['block_stride'],root_s_h5f.attrs['block_step'])))
+                print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
+                      get_stride_step__name(larger_stride,larger_step),get_stride_step__name(base_attrs['block_stride'],base_attrs['block_step'])))
         larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
-        sorted_larger_blockids = np.sort(larger_blockids)
+        all_sorted_larger_blockids = np.sort(larger_blockids)
 
-        return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, sorted_larger_blockids
+        return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
@@ -2696,7 +2843,7 @@ def Test_get_block_data_of_new_stride_step():
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
-        #GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name)
+        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name,CreatNewIfExist=True)
         GlobalSubBaseBLOCK.show_all(base_h5f,base_h5f_name)
 
         #base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
