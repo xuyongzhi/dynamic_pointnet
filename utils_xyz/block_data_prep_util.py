@@ -372,8 +372,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     total_num_channels = 0
 
     #all_cur_blockids = []    # all the block ids in cur h5f
-    corres_cur_blockids_dic_dic = {} # key is get_stride_step_name(global_stride,global_step), value is the corresponding cur block ids for each larger_blockid of larger stride and step
-    larger_blockid_ls_dic = {}       # key is get_stride_step_name(global_stride,global_step), value is sorted blockids of larger block, this is the key of corres_cur_blockids_dic
+    basebids_in_each_largerbid_dic_dic = {} # key is get_stride_step_name(global_stride,global_step), value is the corresponding cur block ids for each larger_blockid of larger stride and step
+    larger_blockid_ls_dic = {}       # key is get_stride_step_name(global_stride,global_step), value is sorted blockids of larger block, this is the key of basebids_in_each_largerbid_dic
 
     actions = ''
     h5_num_row_1M = g_h5_num_row_1M
@@ -634,7 +634,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     def get_attrs_of_new_stride_step(self,new_stride,new_step):
-        new_sorted_h5f_attrs = copy_h5f_attrs( self.h5f.attrs )
+        return Sorted_H5f.get_attrs_of_new_stride_step_(self.h5f.attrs)
+    @staticmethod
+    def get_attrs_of_new_stride_step_(base_h5fattrs,new_stride,new_step):
+        new_sorted_h5f_attrs = copy_h5f_attrs( base_h5fattrs )
         new_sorted_h5f_attrs['block_step'] = np.array(new_step).astype(np.float64)
         new_sorted_h5f_attrs['block_stride'] = np.array(new_stride).astype(np.float64)
         Sorted_H5f.update_align_scope_by_stridetoalign_(new_sorted_h5f_attrs)
@@ -643,7 +646,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print('\n\norg_attrs')
        # show_attrs(self.h5f.attrs)
         return new_sorted_h5f_attrs
-
 
     @staticmethod
     def get_blockids_of_dif_stride_step(base_block_id,base_attrs,aim_attrs):
@@ -1519,7 +1521,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     def get_batch_of_larger_block( self,global_blockid_start,global_block_id_end,GlobalSubBaseBlock,feed_data_elements,feed_label_elements ):
         global_name = get_stride_step_name(GlobalSubBaseBlock.global_stride,GlobalSubBaseBlock.global_step)
-        corres_cur_blockids_dic = self.corres_cur_blockids_dic_dic[global_name]
+        basebids_in_each_largerbid_dic = self.basebids_in_each_largerbid_dic_dic[global_name]
         global_blockid_ls = self.larger_blockid_ls_dic[global_name][global_blockid_start:global_block_id_end]
         batch_datas = []
         batch_labels = []
@@ -1540,68 +1542,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
         return feed_data_ele_ids,feed_label_ele_ids
 
-    def update_allblockids_in_new_stride_step(self,larger_stride,larger_step):
-        '''
-        find all the valid block ids with larger_stride and larger_step,
-        and all the base block ids in each larger_stride and larger_step.
-        '''
-        base_fn = os.path.splitext(self.file_name)[0]
-        corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
-        if os.path.exists(corres_cur_blockids_fn):
-            corres_cur_blockids_dic,larger_blockid_ls = self.load_blockids(larger_stride,larger_step)
-        else:
-            print('creating: ',corres_cur_blockids_fn)
-            new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(larger_stride,larger_step)
-            new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
-            if larger_stride[-1]==-1 and larger_step[-1]==-1:
-                assert new_block_dims_N[-1]==1
-            max_new_block_id = self.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
-            new_total_block_N = 0
-            corres_cur_blockids_dic = {}
-            print('max_new_block_id = ',max_new_block_id)
-            for new_block_id in range(max_new_block_id+1):
-                block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
-                for i,block_id in enumerate(block_k_cur_list):
-                    if not str(block_id) in self.h5f:
-                        del block_k_cur_list[i]
-                if len(block_k_cur_list) > 0:
-                    new_total_block_N += 1
-                    corres_cur_blockids_dic[new_block_id] = np.array(block_k_cur_list).astype(np.uint32)
-                rate = 1.0*new_block_id/max_new_block_id*100
-                if int(rate)%20 == 0:
-                    print('finish %d%%'%(rate))
-            larger_blockid_ls = np.array(list(corres_cur_blockids_dic.keys())).astype(np.uint32)
-            larger_blockid_ls = np.sort(larger_blockid_ls)
-            #print('new_total_block_N = ',len(corres_cur_blockids_dic))
-
-            with open(corres_cur_blockids_fn,'wb') as pickle_f:
-                pickle.dump(corres_cur_blockids_dic,pickle_f)
-                pickle.dump(larger_blockid_ls,pickle_f)
-            print('write ok: %s'%(corres_cur_blockids_fn))
-
-        self.corres_cur_blockids_dic_dic[get_stride_step_name(larger_stride,larger_step)] = corres_cur_blockids_dic
-        self.larger_blockid_ls_dic[get_stride_step_name(larger_stride,larger_step)] = larger_blockid_ls
-
-    def get_block_n_of_new_stride_step(self,larger_stride,larger_step):
-        largerblock_name = get_stride_step_name(larger_stride,larger_step)
-        if largerblock_name not in self.larger_blockid_ls_dic:
-            self.update_allblockids_in_new_stride_step(larger_stride,larger_step)
-        block_N = self.larger_blockid_ls_dic[largerblock_name].shape[0]
-        return block_N
-
-    def load_blockids(self,larger_stride,larger_step):
-        base_fn = os.path.splitext(self.file_name)[0]
-        corres_cur_blockids_fn = base_fn + '_blockids_'+get_stride_step_name(larger_stride,larger_step) + '.pickle'
-        if not os.path.exists(corres_cur_blockids_fn):
-            print('file not exist, generate it now')
-            return self.update_allblockids_in_new_stride_step(larger_stride,larger_step)
-
-        with open(corres_cur_blockids_fn,'rb') as pickle_f:
-            corres_cur_blockids_dic = pickle.load(pickle_f)
-            larger_blockid_ls = pickle.load(pickle_f)
-        return corres_cur_blockids_dic,larger_blockid_ls
-
-
 class GlobalSubBaseBLOCK():
     '''
         * Check + Problem:
@@ -1609,13 +1549,139 @@ class GlobalSubBaseBLOCK():
     '''
     global_stride = np.array([1.0,1.0,-1])
     global_step = np.array([2.0,2.0,-1])
+
     sub_block_size_candis = [0.2,0.4,0.8,1.6]
     nsubblock_candis = [1024,256,64,16]
     npoint_subblock_candis = [32,64,64,64]
-    def __init__(self,cascade_flag):
-        self.sub_block_size = self.sub_block_size_candis[cascade_flag]
-        self.nsubblock = self.nsubblock_candis[cascade_flag]
-        self.npoint_subblock = self.npoint_subblock_candis[cascade_flag]
+    cascade_num = len(sub_block_size_candis)
+    def __init__(self,cascade_id):
+        self.cascade_id  = cascade_id
+        self.sub_block_size = self.sub_block_size_candis[cascade_id]
+        self.nsubblock = self.nsubblock_candis[cascade_id]
+        self.npoint_subblock = self.npoint_subblock_candis[cascade_id]
+
+    @staticmethod
+    def get_stride_step(cascade_id):
+        larger_stride = larger_step =  np.array([1.0,1.0,1.0])*GlobalSubBaseBLOCK.sub_block_size_candis[cascade_id]
+        return larger_stride,larger_step
+
+    @staticmethod
+    def get_group_name(cascade_id,base_attrs=None):
+        if cascade_id==0:
+            base_stride,base_step = [base_attrs['block_stride'],base_attrs['block_step']]
+        else:
+            base_stride,base_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id-1)
+        larger_stride,larger_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id)
+        group_name = 'BASE_'+get_stride_step_name(base_stride,base_step)+'-AIM_'+get_stride_step_name(larger_stride,larger_step)
+        return group_name
+
+    def get_block_n_of_new_stride_step(self,root_s_h5f,root_s_h5f_fn):
+        output = GlobalSubBaseBLOCK.load_one_bidmap(root_s_h5f,root_s_h5f_fn,self.cascade_id,out=['block_num'])
+        block_N = output['block_num']
+        return block_N
+
+    @staticmethod
+    def load_one_bidmap(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','sorted_newids','baseids_inanew','allbaseids_in_new_dic'],meta_input=None):
+        # from cascade_id-1 to cascade_id
+        base_fn = os.path.splitext(root_s_h5f_fn)[0]
+        blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
+
+        if not os.path.exists(blockid_maps_fn):
+            GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
+        assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
+        with h5py.File(blockid_maps_fn,'r') as h5f:
+            larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step(cascade_id)
+            group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
+            grp = h5f[group_name]
+
+            output = {}
+            if 'block_num' in out or 'sorted_newids' in out:
+                sorted_newids = grp.attrs['sorted_newids']
+                if 'block_num' in out:
+                    output['block_num'] = sorted_newids.shape[0]
+                if 'sorted_newids' in out:
+                    output['sorted_newids'] = sorted_newids
+            if 'baseids_inanew' in out:
+                output['baseids_inanew'] = grp[str(meta_input['new_id'])][...]
+            if 'allbaseids_in_new_dic' in out:
+                allbaseids_in_new_dic = {}
+                for new_id_str in grp:
+                    allbaseids_in_new_dic[int(new_id_str)] = grp[new_id_str][...]
+                output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
+            return output
+
+    @staticmethod
+    def show_all(root_s_h5f,root_s_h5f_fn):
+        t0 = time.time()
+        out = ['allbaseids_in_new_dic']
+        out = ['baseids_inanew']
+        out = ['block_num']
+        #out = ['sorted_newids']
+        meta_input={}
+        meta_input['new_id'] = 0
+        for cascade_id in range(GlobalSubBaseBLOCK.cascade_num):
+            output = GlobalSubBaseBLOCK.load_one_bidmap(root_s_h5f,root_s_h5f_fn,cascade_id,out,meta_input)
+            print('t = %f ms, cascade_id = %d   out=%s'%(1000*(time.time()-t0),cascade_id,out))
+            #print(output['allbaseids_in_new_dic'][0])
+            #print(output['baseids_inanew'])
+            print(output['block_num'])
+            #print(output['sorted_newids'])
+
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+    @staticmethod
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
+        base_fn = os.path.splitext(root_s_h5f_fn)[0]
+        blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
+        if os.path.exists(blockid_maps_fn):
+            print('file exist: %s'%(blockid_maps_fn))
+        else:
+            with h5py.File(blockid_maps_fn,'w') as h5f:
+                base_attrs = root_s_h5f.attrs
+                for i in range(GlobalSubBaseBLOCK.cascade_num):
+                    larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step(i)
+                    new_attrs, basebids_in_each_largerbid_dic, sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(root_s_h5f,larger_stride,larger_step)
+                    group_name = GlobalSubBaseBLOCK.get_group_name(i,base_attrs)
+                    grp = h5f.create_group(group_name)
+                    grp.attrs['sorted_newids'] = sorted_larger_blockids
+                    for new_id,base_ids in basebids_in_each_largerbid_dic.items():
+                        blockid_map_dset = grp.create_dataset( str(new_id),shape=(len(base_ids),),dtype=np.int32  )
+                        blockid_map_dset[...] = base_ids
+                    base_attrs = new_attrs
+                h5f.flush()
+                print('write finish: %s'%(blockid_maps_fn))
+
+    @staticmethod
+    def get_basebids_in_each_largerbid(root_s_h5f,larger_stride,larger_step):
+        '''
+        find all the valid block ids with larger_stride and larger_step,
+        and all the base block ids in each larger_stride and larger_step.
+        root_s_h5f: sorted h5f object
+        '''
+        new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(root_s_h5f.attrs,larger_stride,larger_step)
+        new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
+        if larger_stride[-1]==-1 and larger_step[-1]==-1:
+            assert new_block_dims_N[-1]==1
+        max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
+        new_total_block_N = 0
+        basebids_in_each_largerbid_dic = {}
+        print('max_new_block_id = ',max_new_block_id)
+        for new_block_id in range(max_new_block_id+1):
+            block_k_cur_list,i_xyz_cur_list = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,root_s_h5f.attrs)
+            for i,block_id in enumerate(block_k_cur_list):
+                if not str(block_id) in root_s_h5f:
+                    del block_k_cur_list[i]
+            if len(block_k_cur_list) > 0:
+                new_total_block_N += 1
+                basebids_in_each_largerbid_dic[new_block_id] = np.array(block_k_cur_list).astype(np.uint32)
+            if new_block_id%max(1,int(max_new_block_id/5))==0:
+                rate = 1.0*new_block_id/max_new_block_id*100
+                print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,get_stride_step_name(larger_stride,larger_step),get_stride_step_name(root_s_h5f.attrs['block_stride'],root_s_h5f.attrs['block_step'])))
+        larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
+        sorted_larger_blockids = np.sort(larger_blockids)
+
+        return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, sorted_larger_blockids
+
 
 def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''
@@ -2620,7 +2686,7 @@ def Do_sample(file_list):
 
 def Test_get_block_data_of_new_stride_step():
     folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
-    base_h5f_name = os.path.join(folder_base,'region0.sh5')
+    base_h5f_name = os.path.join(folder_base,'region2.sh5')
 
     xyz1norm_k = [0.2,0.3,0.1]
     new_stride = np.array([0.1,0.1,0.1])*10
@@ -2630,9 +2696,11 @@ def Test_get_block_data_of_new_stride_step():
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
-        base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
+        #GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name)
+        GlobalSubBaseBLOCK.show_all(base_h5f,base_h5f_name)
+
+        #base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
         #base_sh5f.load_blockids(new_stride,new_step)
-        base_sh5f.update_allblockids_in_new_stride_step(new_stride,new_step)
         #base_sh5f.get_block_data_of_new_stride_step_byxyz1norm(xyz1norm_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
         #base_sh5f.show_summary_info()
 

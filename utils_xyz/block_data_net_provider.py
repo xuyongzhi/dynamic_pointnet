@@ -50,7 +50,7 @@ class Net_Provider():
         #self.InputType = 'Normed_H5f'
         self.InputType = InputType
         if self.InputType == 'Sorted_H5f':
-            self.GlobalSubBaseBlock = GlobalSubBaseBLOCK(cascade_flag=0)
+            self.GlobalSubBaseBlock = GlobalSubBaseBLOCK(cascade_id=0)
 
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -169,7 +169,7 @@ class Net_Provider():
         if self.InputType == 'Normed_H5f':
             file_block_N = norm_h5f.data_set.shape[0]
         elif self.InputType == 'Sorted_H5f':
-            file_block_N = norm_h5f.get_block_n_of_new_stride_step( self.GlobalSubBaseBlock.global_stride,self.GlobalSubBaseBlock.global_step )
+            file_block_N = self.GlobalSubBaseBlock.get_block_n_of_new_stride_step(norm_h5f.h5f,norm_h5f.file_name)
         return file_block_N
 
     def update_data_summary(self):
