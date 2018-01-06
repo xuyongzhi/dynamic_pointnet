@@ -14,7 +14,6 @@ import multiprocessing as mp
 import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 
-DEBUGTMP  =True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -157,7 +156,8 @@ class Net_Provider():
 
     def get_data_label_shape_byread(self):
         t0 = time.time()
-        data_batches,label_batches,_ = self.get_train_batch(0,self.train_num_blocks)
+        #data_batches,label_batches,_ = self.get_train_batch(0,min(self.train_num_blocks,32))
+        data_batches,label_batches,_ = self.get_train_batch(0,1)
         self.whole_train_data_shape = np.array(data_batches.shape)
         self.whole_train_data_shape[0] = self.train_num_blocks
         self.data_num_eles = self.whole_train_data_shape[-1]
@@ -327,34 +327,30 @@ class Net_Provider():
 
             xyz_midnorm_block_i = data_i[...,self.feed_data_ele_idxs['xyz_midnorm_block']]
 
-            if not DEBUGTMP:
-                center_mask_i = self.get_center_mask(xyz_midnorm_block_i)
-                center_mask.append(center_mask_i)
+            center_mask_i = self.get_center_mask(xyz_midnorm_block_i)
+            center_mask.append(center_mask_i)
 
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
 
-        if not DEBUGTMP:
-            center_mask = np.concatenate(center_mask,0)
-            if self.InputType=='Normed_H5f':
-                assert data_batches.shape[1] == self.num_point_block
-                #data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
+        center_mask = np.concatenate(center_mask,0)
+        if self.InputType=='Normed_H5f':
+            assert data_batches.shape[1] == self.num_point_block
+            #data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
 
-            num_label_eles = len(self.feed_label_elements)
-            center_mask = np.expand_dims(center_mask,axis=-1)
-            center_mask = np.tile(center_mask,(1,1,num_label_eles))
-            sample_weights = []
-            for k in range(num_label_eles):
-                if k == self.feed_label_ele_idxs['label_category'][0]:
-                    sample_weights_k = np.take(self.labels_weights[:,k],label_batches[...,k])
-                else:
-                    sample_weights_k = np.ones_like(label_batches[...,k])
-                sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
-            sample_weights = np.concatenate(sample_weights,axis=-1)
+        num_label_eles = len(self.feed_label_elements)
+        center_mask = np.expand_dims(center_mask,axis=-1)
+        center_mask = np.tile(center_mask,(1,1,num_label_eles))
+        sample_weights = []
+        for k in range(num_label_eles):
+            if k == self.feed_label_ele_idxs['label_category'][0]:
+                sample_weights_k = np.take(self.labels_weights[:,k],label_batches[...,k])
+            else:
+                sample_weights_k = np.ones_like(label_batches[...,k])
+            sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
+        sample_weights = np.concatenate(sample_weights,axis=-1)
 
-            sample_weights *= center_mask
-        else:
-            sample_weights = np.zeros_like(label_batches)
+        sample_weights *= center_mask
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
@@ -400,7 +396,7 @@ class Net_Provider():
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
-        IsShuffleIdx = True
+        IsShuffleIdx = False
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
