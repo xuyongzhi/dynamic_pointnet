@@ -121,18 +121,17 @@ def show_h5f_summary_info(h5f):
     print('%d datasets totally'%(k+1))
 
 def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
-    reduced_num = 0
     sample_method='random'
     if sample_method == 'random':
         if org_N == sample_N:
             sample_choice = np.arange(sample_N)
         elif org_N > sample_N:
             sample_choice = np.random.choice(org_N,sample_N,p=random_sampl_pro)
-            reduced_num += org_N - sample_N
         else:
             #sample_choice = np.arange(org_N)
             new_samp = np.random.choice(org_N,sample_N-org_N)
             sample_choice = np.concatenate( (np.arange(org_N),new_samp) )
+        reduced_num = org_N - sample_N
         #str = '%d -> %d  %d%%'%(org_N,sample_N,100.0*sample_N/org_N)
         #print(str)
     return sample_choice,reduced_num
@@ -1426,6 +1425,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         #new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
+        IsRecordTime = False and DEBUGTMP
+        if IsRecordTime: t0 = time.time()
         xyz_1norm_scale = 'file'
         datas = []
         labels = []
@@ -1455,6 +1456,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
            # print(feed_label.shape)
         datas = np.concatenate(datas,axis=0)
         labels = np.concatenate(labels,axis=0)
+        if IsRecordTime: t1 = time.time()
 
         if sample_num != None:
             sample_choice,reduced_num = get_sample_choice(datas.shape[0],sample_num)
@@ -1464,6 +1466,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels.shape)
        # print(datas[0:3,:])
        # print(labels[0:3,:])
+        if IsRecordTime:
+           t2 = time.time()
+           print('\nreading t=%f ms'%(1000*(t1-t0)))
+           print('sampling t=%f ms'%(1000*(t2-t1)))
         return datas,labels
 
     def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
@@ -1481,7 +1487,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
         '''
-        IsRecordTime = True and DEBUGTMP
+        IsRecordTime = False and DEBUGTMP
         if IsRecordTime: t0 = time.time()
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
@@ -1490,6 +1496,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         npoint_subblock = gsbb.npoint_subblock_candis[0]
         cas0b_attrs = gsbb.get_new_attrs(0)
         cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
+        print('cas0_bids_in_global n = %d'%(cas0_bids_in_global.shape[0]))
 
         if DEBUGTMP==True:
             random_sampl_pro = None
@@ -1635,9 +1642,9 @@ class GlobalSubBaseBLOCK():
     global_stride = np.array([1.0,1.0,-1])
     global_step = np.array([2.0,2.0,-1])
 
-    sub_block_size_candis = [0.2,0.4,0.8,1.6]
-    nsubblock_candis = [1024,256,64,16]
-    npoint_subblock_candis = [32,64,64,64]
+    sub_block_size_candis = [0.2,0.4]
+    nsubblock_candis = [16]
+    npoint_subblock_candis = [32]
     cascade_num = len(sub_block_size_candis)
     cascade_id_ls = ['root']+range(cascade_num)+['global']
     base_cascade_ids = {}
@@ -1752,14 +1759,16 @@ class GlobalSubBaseBLOCK():
         GlobalSubBaseBLOCK.show_all_groupnames(root_s_h5f_fn)
         t0 = time.time()
         new_bid = 0
-        for out in ['block_num','all_sorted_aimbids','baseids_inanew']:
+        for out in ['block_num','all_sorted_aimbids']:
             cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
             for cascade_id in cascade_id_ls:
                 if cascade_id=='root' and out=='baseids_inanew':
                     continue
                 output = GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,[out],new_bid)
+
                 print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
-                print(output[out])
+                if out=='block_num':
+                    print(output[out])
 
 
     @staticmethod
@@ -1770,20 +1779,23 @@ class GlobalSubBaseBLOCK():
             print('file exist: %s'%(blockid_maps_fn))
         else:
             with h5py.File(blockid_maps_fn,'w') as h5f:
-                all_sorted_base_blockids = np.sort([int(k) for k in root_s_h5f])
+                all_sorted_blockids_dic={}
+                all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
 
                 cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
                 cascade_attrs = {}
                 cascade_attrs['root'] = root_s_h5f.attrs
                 for cascade_id in cascade_id_ls:
                     if cascade_id == 'root':
-                        all_sorted_larger_blockids = all_sorted_base_blockids
+                        all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
                     else:
-                        base_attrs = cascade_attrs[GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]]
+                        base_bid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
+                        all_sorted_base_blockids = all_sorted_blockids_dic[base_bid]
+                        base_attrs = cascade_attrs[base_bid]
                         larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id)
                         new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
                                                                 base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
-                        all_sorted_base_blockids = all_sorted_larger_blockids
+                        all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
                         cascade_attrs[cascade_id] = new_attrs
                     group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
 
@@ -1826,6 +1838,18 @@ class GlobalSubBaseBLOCK():
                       get_stride_step__name(larger_stride,larger_step),get_stride_step__name(base_attrs['block_stride'],base_attrs['block_step'])))
         larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
         all_sorted_larger_blockids = np.sort(larger_blockids)
+
+        # check: basebids_in_each_largerbid_dic shoule contain all the all_base_blockids. If larger_stride==larger_step, each base bid should occur one time.
+        CHECK = True
+        if CHECK:
+            all_base_blockids_indic = np.concatenate( basebids_in_each_largerbid_dic.values())
+            all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
+            all_base_blockids_indic = np.sort(all_base_blockids_indic)
+            assert all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]
+            if (larger_stride == larger_step).all():
+                assert (all_base_blockids_indic == all_base_blockids).all()
+            print('basebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
+                      get_stride_step__name(larger_stride,larger_step),get_stride_step__name(base_attrs['block_stride'],base_attrs['block_step'])))
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
@@ -3028,6 +3052,11 @@ def main(file_list):
     #outdoor_prep.DO_add_geometric_scope_file()
     #outdoor_prep.DO_gen_rawETH_to_h5()
 
+def show_h5f_file():
+    fn = '/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1/region2.sh5'
+    with h5py.File(fn,'r') as h5f:
+        show_h5f_summary_info(h5f)
+
 if __name__ == '__main__':
  #   file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_stride_1_step_1, \
  #               '*_m5.h5') )
@@ -3046,6 +3075,7 @@ if __name__ == '__main__':
     #Do_Norm(file_list)
     #gen_file_list(GLOBAL_PARA.seg_train_path)
     #Do_gen_gt_pred_objs()
+
 
     #Write_Area_accuracies()
     #Write_all_file_accuracies()

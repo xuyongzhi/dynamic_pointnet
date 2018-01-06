@@ -157,7 +157,7 @@ class Net_Provider():
 
     def get_data_label_shape_byread(self):
         t0 = time.time()
-        data_batches,label_batches,_ = self.get_train_batch(0,1)
+        data_batches,label_batches,_ = self.get_train_batch(0,self.train_num_blocks)
         self.whole_train_data_shape = np.array(data_batches.shape)
         self.whole_train_data_shape[0] = self.train_num_blocks
         self.data_num_eles = self.whole_train_data_shape[-1]
