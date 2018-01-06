@@ -1604,7 +1604,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             file_datas = []
             file_labels = []
 
-            feed_data_ele_num,feed_data_elements,feed_label_eles_num,feed_label_elements = Normed_H5f.get_norm_eles_by_attrs(self.h5f.attrs['element_names'])
+            feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(self.h5f.attrs['element_names'])
+            feed_data_elements = feed_norm_ele_info['norm_data_eles']
+            feed_label_elements = feed_norm_ele_info['label_eles']
 
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
@@ -2245,25 +2247,36 @@ class Normed_H5f():
         for dn in self.dataset_names:
             if dn in h5f:
                 setattr(self,dn+'_set', h5f[dn])
-        self.update_data_label_eles_by_rootattr()
+        self.update_norm_eles_by_attrs()
 
-    #def get_data_label_eles_by_dsetattr(self):
-    def update_data_label_eles_by_rootattr(self):
+    @staticmethod
+    def get_norm_eles_by_attrs(h5f_attrs_element_names):
+        norm_ele_info = {}
+        norm_data_eles = [Normed_H5f.normed_data_elements_candi[de] for de in Normed_H5f.normed_data_elements_candi if de in h5f_attrs_element_names]
+        norm_data_eles = [e  for e_ls in norm_data_eles for e in e_ls]
+        norm_ele_info['norm_data_eles'] = [e for e in Normed_H5f.normed_ele_idx_order if e in norm_data_eles]
+        norm_data_ele_lens = np.array( [Normed_H5f.normed_data_ele_candi_len[e] for e in norm_data_eles ])
+        norm_ele_info['norm_data_eles_num'] = np.sum(norm_data_ele_lens)
+
+        norm_ele_info['label_eles'] = [lb for lb in Normed_H5f.labels_order if lb in h5f_attrs_element_names]
+        norm_ele_info['label_eles_num'] = len(norm_ele_info['label_eles'])
+
+        norm_ele_info['norm_data_ele_idxs'] = Normed_H5f.get_normeddata_ele_idxs(norm_ele_info['norm_data_eles'])
+        norm_ele_info['label_ele_idxs'] = Normed_H5f.get_label_ele_ids(norm_ele_info['label_eles'])
+
+        return norm_ele_info
+
+    def update_norm_eles_by_attrs(self):
         if 'element_names' not in self.h5f.attrs:
             return # new created file
-        normed_data_set_elements = []
-        label_set_elements = []
-        for e in self.normed_ele_idx_order:
-            if e in self.h5f.attrs['element_names']:
-                normed_data_set_elements += self.normed_data_elements_candi[e]
-        for e in self.labels_order:
-            if e in self.h5f.attrs['element_names']:
-                label_set_elements += [e]
+        norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(self.h5f.attrs['element_names'])
 
-        self.normed_data_set_elements = normed_data_set_elements
-        self.label_set_elements = label_set_elements
-        self.normed_data_ele_idxs = self.get_normeddata_ele_idxs(normed_data_set_elements)
-        self.label_ele_idxs = self.get_label_ele_ids(label_set_elements)
+        self.norm_data_eles_num = norm_ele_info['norm_data_eles_num']
+        self.label_eles_num = norm_ele_info['label_eles_num']
+        self.normed_data_set_elements = norm_ele_info['norm_data_eles']
+        self.label_set_elements = norm_ele_info['label_eles']
+        self.normed_data_ele_idxs = norm_ele_info['norm_data_ele_idxs']
+        self.label_ele_idxs = norm_ele_info['label_ele_idxs']
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
         if feed_data_elements==None:
@@ -2295,27 +2308,27 @@ class Normed_H5f():
             if labels.ndim == 2:
                 labels = np.expand_dims(labels,axis=-1)
         return labels
-
-    def get_normeddata_ele_idxs(self,normed_data_elements):
+    @staticmethod
+    def get_normeddata_ele_idxs(normed_data_elements):
         # order according to normed_data_elements
         # len of each ele according to  normed_data_ele_candi_len
         data_ele_idxs = {}
         k = 0
         for e in normed_data_elements:
-            assert e in self.normed_ele_idx_order
-            idx = range(k,k+self.normed_data_ele_candi_len[e])
-            k += self.normed_data_ele_candi_len[e]
+            assert e in Normed_H5f.normed_ele_idx_order
+            idx = range(k,k+Normed_H5f.normed_data_ele_candi_len[e])
+            k += Normed_H5f.normed_data_ele_candi_len[e]
             data_ele_idxs[e] = idx
         return data_ele_idxs
-
-    def get_label_ele_ids(self,label_elements):
+    @staticmethod
+    def get_label_ele_ids(label_elements):
         # order according to label_elements
         label_ele_idxs = {}
         k = 0
         for e in label_elements:
-            assert e in self.labels_order
-            label_ele_idxs[e] = range(k,k+self.label_candi_eles_len[e])
-            k += self.label_candi_eles_len[e]
+            assert e in Normed_H5f.labels_order
+            label_ele_idxs[e] = range(k,k+Normed_H5f.label_candi_eles_len[e])
+            k += Normed_H5f.label_candi_eles_len[e]
         return label_ele_idxs
 
     def raw_category_idx_2_mpcat40(self,labels_with_rawcategory):
@@ -2382,18 +2395,6 @@ class Normed_H5f():
         dset = self.h5f['data']
         return dset.shape
 
-    @staticmethod
-    def get_norm_eles_by_attrs(h5f_attrs_element_names):
-        norm_data_eles = [Normed_H5f.normed_data_elements_candi[de] for de in Normed_H5f.normed_data_elements_candi if de in h5f_attrs_element_names]
-        norm_data_eles = [e  for e_ls in norm_data_eles for e in e_ls]
-        norm_data_eles = [e for e in Normed_H5f.normed_ele_idx_order if e in norm_data_eles]
-        norm_data_ele_lens = np.array( [Normed_H5f.normed_data_ele_candi_len[e] for e in norm_data_eles ])
-        norm_data_ele_num = np.sum(norm_data_ele_lens)
-
-        label_eles = [lb for lb in Normed_H5f.labels_order if lb in h5f_attrs_element_names]
-        label_eles_num = len(label_eles)
-
-        return norm_data_ele_num,norm_data_eles,label_eles_num,label_eles
 
 
     def create_3dsets(self):
@@ -2404,11 +2405,13 @@ class Normed_H5f():
             sample_num = (sample_num,)
         elif sample_num.size==2:
             sample_num = (sample_num[0],sample_num[1],)
-        norm_data_ele_num,norm_data_eles,label_eles_num,label_eles = Normed_H5f.get_norm_eles_by_attrs(self.h5f.attrs['element_names'])
+        self.update_norm_eles_by_attrs()
+        norm_data_eles_num = self.norm_data_eles_num
+        label_eles_num = self.label_eles_num
 
-        data_set = self.h5f.create_dataset( 'data',shape=(total_block_N,)+sample_num+(norm_data_ele_num,),\
-                maxshape=(None,)+sample_num+(norm_data_ele_num,),dtype=np.float32,compression="gzip",\
-                chunks = (chunks_n,)+sample_num+(norm_data_ele_num,)  )
+        data_set = self.h5f.create_dataset( 'data',shape=(total_block_N,)+sample_num+(norm_data_eles_num,),\
+                maxshape=(None,)+sample_num+(norm_data_eles_num,),dtype=np.float32,compression="gzip",\
+                chunks = (chunks_n,)+sample_num+(norm_data_eles_num,)  )
         labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
                 chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
@@ -2427,7 +2430,6 @@ class Normed_H5f():
                 chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
         pred_logits_set[:] = -1
 
-        self.update_data_label_eles_by_rootattr()
         for ele in self.normed_data_set_elements:
             data_set.attrs[ele] = self.normed_data_ele_idxs[ele]
         for ele in self.label_set_elements:
