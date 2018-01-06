@@ -81,16 +81,21 @@ def copy_h5f_attrs(h5f_attrs):
     for e in h5f_attrs:
         attrs[e] = h5f_attrs[e]
     return attrs
-def show_attrs(attrs):
+def get_attrs_str(attrs):
     attrs_str = ''
     for a in attrs:
-        attrs_str += ( a+':'+str(attrs[a])+'\n' )
-    print(attrs_str)
+        if type(attrs[a])==str:
+            a_str = attrs[a]
+        else:
+            a_val = attrs[a]
+            a_str = np.array2string(a_val,precision=2,separator=',',suppress_small=True)
+        attrs_str += ( a+':'+a_str+'\n' )
+    return attrs_str
 
 def show_h5f_summary_info(h5f):
     root_attrs = [attr for attr in h5f.attrs]
     print('*** The root_attr: ',root_attrs)
-    show_attrs(h5f.attrs)
+    print(get_attrs_str(h5f.attrs))
   #  key_root_attrs = ['datasource_name','element_names','total_row_N','total_block_N','block_step',\
   #                  'block_stride','block_dims_N','xyz_min','xyz_max','xyz_min_aligned','xyz_max_aligned',\
   #                  'xyz_scope_aligned']
@@ -101,11 +106,12 @@ def show_h5f_summary_info(h5f):
 
     print('\n*** The datasets')
     def show_dset(dset):
-        for attr in dset.attrs:
-            print(attr,' = ',dset.attrs[attr])
-        print(dset[0:min(2,dset.shape[0]),:])
-        if dset.shape[0] > 3:
-            print(dset[-1,:])
+        print(get_attrs_str(dset.attrs))
+        if len(dset.shape)==3:
+            print(dset[0:min(2,dset.shape[0]),:])
+        elif len(dset.shape)==4:
+            var = dset[0:min(1,dset.shape[0]),0,0:min(2,dset.shape[2]),:]
+            print(np.array2string(var,formatter={'float_kind':lambda var:"%0.2f"%var}))
         print('\n')
     k = -1
     for k, dset_n in enumerate(h5f):
@@ -451,7 +457,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
             if h5fattrs['block_stride'][i]  == -1:
                 h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
-       # show_attrs(h5fattrs)
+       # get_attrs_str(h5fattrs)
        # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
 
 
@@ -641,9 +647,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         del new_sorted_h5f_attrs['total_row_N']
         Sorted_H5f.update_align_scope_by_stridetoalign_(new_sorted_h5f_attrs)
        # print('new_attrs')
-        #show_attrs(new_sorted_h5f_attrs)
+        #get_attrs_str(new_sorted_h5f_attrs)
        # print('\n\norg_attrs')
-       # show_attrs(self.h5f.attrs)
+       # get_attrs_str(self.h5f.attrs)
         return new_sorted_h5f_attrs
 
     @staticmethod
@@ -1657,7 +1663,7 @@ class GlobalSubBaseBLOCK():
     @staticmethod
     def get_block_sample_shape(cascade_id):
         base_casid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
-        return (GlobalSubBaseBLOCK.nsubblock_candis[base_casid],GlobalSubBaseBLOCK.npoint_subblock_candis[base_casid],)
+        return np.array((GlobalSubBaseBLOCK.nsubblock_candis[base_casid],GlobalSubBaseBLOCK.npoint_subblock_candis[base_casid],))
 
     def get_new_attrs(self,cascade_id) :
         if cascade_id not in self.new_attrs:
