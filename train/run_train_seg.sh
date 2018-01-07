@@ -35,6 +35,6 @@ scanet_small_fnglob="v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/"
 small_test_xyz1norm="python $train_script --feed_data_elements xyz_midnorm_block  --feed_label_elements $feed_label_elements --all_fn_globs $matterport_fnglob --eval_fnglob_or_rate 0.4   --max_epoch 3 --batch_size 8  --num_point $numpoint  --dataset_name $dataset_name --log_dir small_data_test_log --auto_break --datafeed_type Normed_H5f"
 
 
-matterport_fnglob="v1/scans/17DRP5sb8fy/stride_0d1_step_0d1"
-S_small_test_xyz1norm="python  $train_script --feed_data_elements xyz_midnorm_block  --feed_label_elements $feed_label_elements --all_fn_globs $matterport_fnglob --eval_fnglob_or_rate 0.4   --max_epoch 3 --batch_size 2  --dataset_name $dataset_name --log_dir small_data_test_log --auto_break --datafeed_type Sorted_H5f"
-$S_small_test_xyz1norm
+pyramid_matterport_fnglob="v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-256_64_16-0d2_0d4_0d8"
+pyramid_small_test_xyz1norm="python  $train_script --feed_data_elements xyz_midnorm_block  --feed_label_elements $feed_label_elements --all_fn_globs $pyramid_matterport_fnglob --eval_fnglob_or_rate 0.4   --max_epoch 3 --batch_size 2  --dataset_name $dataset_name --log_dir small_data_test_log --auto_break --datafeed_type Pr_Normed_H5f"
+$pyramid_small_test_xyz1norm

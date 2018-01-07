@@ -1743,6 +1743,35 @@ class GlobalSubBaseBLOCK():
             self.bm_output[ele_name]  = self.load_one_bidmap(cascade_id,['allbaseids_in_new_dic'])['allbaseids_in_new_dic']
         return self.bm_output[ele_name]
 
+    def get_bidmap_matrix(self,cascade_id):
+        '''
+        output:
+            bidmap[base_block_num]:
+                bidmap[base_bid_index] = aim_bid_index
+        '''
+        base_casid = self.base_cascade_ids[cascade_id]
+        all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
+        all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
+        all_sorted_basebids = self.get_all_sorted_aimbids(base_casid)
+        bidmap = np.zeros(shape=(all_sorted_basebids.size)).astype(np.int32)
+        for aim_bid,base_bid in all_base_blockids_indic.items():
+            aim_bid_index = np.searchsorted(all_sorted_aimbids,aim_bid)
+            base_bid_index = np.searchsorted(all_sorted_basebids,base_bid)
+            bidmap[base_bid_index] = aim_bid_index
+        return bidmap
+
+    def get_all_bidmap_fused(self):
+        #fuse bidmap from cascade_id 0 to end
+        cas0_block_n = GlobalSubBaseBLOCK.get_block_n_of_new_stride_step_(self.root_s_h5f,self.root_s_h5f_fn,0)
+        bidmaps = np.zeros(shape=(cas0_block_n,self.cascade_num-1))
+        for cascade_id in range(1,self.cascade_num):
+            bid_map = self.get_bidmap_matrix(cascade_id)
+            if cascade_id==1:
+                bidmaps[:,0] = bid_map
+            else:
+                bid_map_fused = np.zeros(shape=(cas0_block_n,1))
+                bidmaps[:,cascade_id-1] = bid_map_fused
+
     def load_one_bidmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id

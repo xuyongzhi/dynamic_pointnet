@@ -16,7 +16,6 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'scannet'))
-from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
 import provider
 import get_dataset
 from evaluation import EvaluationMetrics
@@ -55,10 +54,16 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 
 FLAGS = parser.parse_args()
 
+if FLAGS.datafeed_type == 'Normed_H5f':
+    from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
+else:
+    from pointnet2_sem_seg_pyramid_feed import  placeholder_inputs,get_model,get_loss
+
+
+
 BATCH_SIZE = FLAGS.batch_size
 if FLAGS.num_point < 0:
     FLAGS.num_point = None
-NUM_POINT = FLAGS.num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
 MOMENTUM = FLAGS.momentum
@@ -81,7 +86,7 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
     FLAGS.log_dir = FLAGS.log_dir+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
+                    FLAGS.feed_data_elements+'-'+str(FLAGS.num_point)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
 FLAGS.feed_data_elements = FLAGS.feed_data_elements.split(',')
 FLAGS.feed_label_elements = FLAGS.feed_label_elements.split(',')
 
@@ -113,7 +118,7 @@ net_provider = Net_Provider(InputType=FLAGS.datafeed_type,
                             all_filename_glob=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             only_evaluate = FLAGS.only_evaluate,
-                            num_point_block = NUM_POINT,
+                            num_point_block = FLAGS.num_point,
                             feed_data_elements=FLAGS.feed_data_elements,
                             feed_label_elements=FLAGS.feed_label_elements)
 NUM_DATA_ELES = net_provider.data_num_eles
@@ -121,6 +126,8 @@ NUM_CLASSES = net_provider.num_classes
 NUM_LABEL_ELES = net_provider.label_num_eles
 LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
+
+BLOCK_SAMPLE = net_provider.block_sample
 
 START_TIME = time.time()
 
@@ -154,7 +161,7 @@ def get_bn_decay(batch):
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_DATA_ELES)
+            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.
@@ -183,6 +190,11 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Add ops to save and restore all the variables.
             saver = tf.train.Saver(max_to_keep=50)
+
+            IsShowModel = True
+            if IsShowModel:
+                print('pointclouds_pl',pointclouds_pl)
+                print('labels_pl',labels_pl)
 
         # Create a session
         config = tf.ConfigProto()

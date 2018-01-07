@@ -148,6 +148,12 @@ class Net_Provider():
             #self.get_data_label_shape_byread()
         elif self.InputType=='Normed_H5f':
             self.get_data_label_shape_byread()
+        block_sample = self.whole_train_data_shape[1:-1]
+        if block_sample.size==1:
+            block_sample= block_sample[0]
+        elif block_sample.size==2:
+            block_sample = (block_sample[0],block_sample[1])
+        self.block_sample = block_sample
         print('\ntrain data shape',self.whole_train_data_shape)
         print('train label shape',self.whole_train_label_shape)
         print('eval data shape',self.whole_eval_data_shape)
