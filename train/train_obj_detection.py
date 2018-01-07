@@ -123,6 +123,7 @@ HOSTNAME = socket.gethostname()
 data_provider = kitti_data_net_provider(DATASET_NAME,BATCH_SIZE)
 NUM_CHANNELS = cfg.TRAIN.NUM_CHANNELS  # x, y, z
 NUM_CLASSES =  cfg.TRAIN.NUM_CLASSES   # bg, fg
+NUM_REGRESSION = cfg.TRAIN.NUM_REGRESSION
 
 START_TIME = time.time()
 
@@ -156,7 +157,7 @@ def get_bn_decay(batch):
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS)
+            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS, NUM_REGRESSION)
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.
@@ -166,7 +167,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             tf.summary.scalar('bn_decay', bn_decay)
 
             # Get model and loss
-            end_points, pred_clas, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
+            end_points, pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
             loss = get_loss(pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
             tf.summary.scalar('loss', loss)
 

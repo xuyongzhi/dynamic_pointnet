@@ -33,7 +33,7 @@ __C.TRAIN = edict()
 __C.TRAIN.NUM_ANCHORS = 2
 
 # number of classification
-__C.TRAIN.NUM_CLASS = 2  ## background and vehicle, start training from simple situation
+__C.TRAIN.NUM_CLASSES = 2  ## background and vehicle, start training from simple situation
 
 # number of channels
 __C.TRAIN.NUM_CHANNELS = 3 ## xyz

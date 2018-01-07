@@ -38,13 +38,13 @@ class kitti_data_net_provider():
         self.rawh5_name = rawh5_name
         self.batch_size = batch_size
 
-        self.data_summary_str = 'Input XYZ:(32768,3); Label bounding box: (N, 7)'
-
         self.rawh5_file_path = os.path.join(KITTI_DATA_DIR, rawh5_name)
         self.rawh5_file_list = glob.glob(os.path.join(self.rawh5_file_path,'*.h5'))
         self.evaluation_num = evaluation_num
 
         self.num_train_data = len(self.rawh5_file_list)
+        self.data_summary_str = 'Input XYZ:(N,{}); Label bounding box: (M,{}); Train dataset num is {}, evaluation dataset num is {}'.format(Channels_xyz ,Channels_label, self.num_train_data, self.evaluation_num)
+
 
         self.evaluation_file_list = self.rawh5_file_list[0:self.evaluation_num]
 
@@ -74,7 +74,7 @@ class kitti_data_net_provider():
         '''
         returen a minibatch including point cloud and labels
         point_cloud_data = [batch, num, 3]
-        labels = [batch, num, 7]
+        labels = [batch, num, 8]  # category, l, w, h, alpha, x, y, z
         both of them are saved in the format of list, for different point cloud blocks have different number of bounding box
         '''
         ind = self._get_next_minibatch_ind()
@@ -88,8 +88,8 @@ class kitti_data_net_provider():
                 temp_bounding_box = h5f['bounding_box'][:,:]
                 if cfg.TRAIN.USE_FLIPPED and random.choice([True, False]):
                     temp_xyz[:,1] = -temp_xyz[:,1]
-                    temp_bounding_box[:,3] = np.pi - temp_bounding_box[:,3]
-                    temp_bounding_box[:,5] = - temp_bounding_box[:,5]
+                    temp_bounding_box[:,4] = np.pi - temp_bounding_box[:,4] # 0:category, 1:l, 2:w, 3:h, 4:alpha, 5:x, 6:y, 7:z
+                    temp_bounding_box[:,6] = - temp_bounding_box[:,6]
 
                 #point_cloud_data.append(h5f['xyz'][:,:])
                 point_cloud_data.append(temp_xyz)

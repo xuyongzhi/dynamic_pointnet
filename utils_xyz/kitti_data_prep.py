@@ -40,10 +40,12 @@ def read_label_from_txt(label_file_name):
                 continue
             label = label.split(' ')
             if label[0] == 'Car':
-                bounding_box.append(label[1:8])
+                car_label = np.concatenate((np.array([1]),label[1:8]), axis = 0) ## 1 means car
+                # bounding_box.append(label[1:8])
+                bounding_box.append(car_label)
     assert bounding_box
     data = np.array(bounding_box, dtype = np.float32)
-    return data[:,0:7]
+    return data[:,0:8]
 
 
 def read_point_cloud_from_bin(point_cloud_file_name):
@@ -121,7 +123,7 @@ class kitti_prepare():
             with h5py.File(file_name,'r') as h5f:
                 #raw_h5f = Raw_H5f(h5f,file_name)
                 raw_data = h5f['xyz'][:,:]
-
+                label_data = h5f['bounding_box'][:,:]
 
     @staticmethod
     def sort_raw():

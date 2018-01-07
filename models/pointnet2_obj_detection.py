@@ -26,9 +26,9 @@ from pointnet_util import pointnet_sa_module, pointnet_fp_module
 from sklearn.metrics.pairwise import euclidean_distances
 
 
-def placeholder_inputs(batch_size, num_point,num_channel=3):
+def placeholder_inputs(batch_size, num_point,num_channel=3, num_regression=7):
     pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size, num_point, num_channel))
-    labels_pl = tf.placeholder(tf.int32, shape=(batch_size, num_point))
+    labels_pl = tf.placeholder(tf.float32, shape=(batch_size, None, num_regression+1))   # label = category, l, w ,h, alpha, x, y, z
     smpws_pl = tf.placeholder(tf.float32, shape=(batch_size, num_point))
     return pointclouds_pl, labels_pl, smpws_pl
 
@@ -48,7 +48,7 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     #   calculate the box deltas beween 3D anchor bounding box and ground truth
     #
     num_3d_anchors = cfg.TRAIN.NUM_ANCHORS
-    num_regression = cfg.TRAIN.NUM_REGRESSION  # 7 = x,y,z,l,w,h,theta
+    num_regression = cfg.TRAIN.NUM_REGRESSION  # 7 = l,w,h,theta,x,y,z
     # Layer 1
     # [8,1024,3] [8,1024,64] [8,1024,32]
     # Note: the important tuning parameters  radius_l* = 1 m
@@ -102,26 +102,34 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     # all_anchors =  cfg.TRAIN.Anchor_bv.reshape(1, A, 4) + shifts.reshape(k,1,4)
     # all_anchors = all_anchors.reshape(K*A, 4)
     # calculating the overlap between anchors and ground truth
-    assert xyz.shape[1] == 3
+    assert xyz.shape[2] == 3
     NUM_BATCH = xyz.shape[0]
     A = cfg.TRAIN.NUM_ANCHORS
-    loss_classification_all = 0
-    loss_regression_all  = 0
+    loss_classification_all = 0.0
+    loss_regression_all  = 0.0
 
     for n in range(0,NUM_BATCH):
         # N is the points number of xyz
         # all_alpha is the [N A] A anchors, reshape to [N*A 1]
         # dif_alpha is the angle substract with label
         # calculate the angle gap to select one anchor
-        N =  xyz[n].shape[1]
+        N  =  xyz[n,:,:].shape[0]
+        CC =  xyz[n,:,:].shape[1]
 
-        # estimate the central points distance
-        distance = euclidean_distances(xyz[n], gt_box[n,:,0:3])
-        distance = np.tile(distance, (1,A))
-        distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
+        # estimate the central points distance, using broadcasting ops
+        #distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
+        temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
+        distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
 
-        labels = np.zeros(shape=(N*A,1))
-        labels.fill(-1)
+        #distance = np.tile(distance, (1,A))
+        distance = tf.tile(distance, (1,A))
+        #distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
+        distance = tf.reshape(distance, (-1, gt_box[n,:,:].shape(0)))
+
+        #labels = np.zeros(shape=(N*A,1))
+        labels =  tf.fill([N*A, 1], -1)
+
+        #labels.fill(-1)
 
         # decide positive and negative labels
         argmin_dist = distance.argmax(axis=1)
