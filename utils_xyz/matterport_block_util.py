@@ -189,6 +189,12 @@ def NormSortedSampledFlie(fn):
         sorted_h5f.file_normalization(True)
     return fn
 
+def GenPyramidSortedFlie(fn):
+    with h5py.File(fn,'r') as f:
+        sorted_h5f = Sorted_H5f(f,fn)
+        sorted_h5f.file_saveas_pyramid_feed(True)
+    return fn
+
 class Matterport3D_Prepare():
     '''
     Read each region as a h5f.
@@ -354,6 +360,33 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Sample failed. only %d files successed"%(len(success_fns))
             print("\n\n SampleFile:all %d files successed\n******************************\n"%(len(success_fns)))
 
+    def GenPyramid(self,base_stride,base_step,MultiProcess=0):
+      #  base_stride = [2,2,-1]
+      #  base_step = [4,4,-1]
+        base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
+        file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+
+        IsMultiProcess = MultiProcess>1
+        if IsMultiProcess:
+            pool = mp.Pool(MultiProcess)
+        for fn in file_list:
+            if not IsMultiProcess:
+                GenPyramidSortedFlie(fn)
+            else:
+                results = pool.apply_async(GenPyramidSortedFlie,(fn,))
+        if IsMultiProcess:
+            pool.close()
+            pool.join()
+
+            success_fns = []
+            success_N = len(file_list)
+            try:
+                for k in range(success_N):
+                    success_fns.append(results.get(timeout=0.1))
+            except:
+                assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
+            print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
+
     def Norm(self,base_stride,base_step,numpoint_block,MultiProcess=0):
       #  base_stride = [2,2,-1]
       #  base_step = [4,4,-1]
@@ -361,8 +394,6 @@ class Matterport3D_Prepare():
         base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(numpoint_block)
         file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        if TMPDEBUG: file_list=file_list[0]
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -424,10 +455,17 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
-    #matterport3d_prepare.Parse_house_regions(MultiProcess)
+    operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
+    operations  = ['GenPyramid']
+    if 'ParseRaw' in operations:
+        matterport3d_prepare.Parse_house_regions(MultiProcess)
 
     base_step_stride = [0.1,0.1,0.1]
-    matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
+    if 'SortRaw' in operations:
+        matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
+
+    if 'GenPyramid' in operations:
+        matterport3d_prepare.GenPyramid(base_step_stride,base_step_stride,MultiProcess)
 
     new_stride = [1,1,-1]
     new_step = [2,2,-1]
@@ -435,10 +473,10 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
     new_stride=new_step=base_step_stride
     numpoint_block = 8
+    if 'MergeSampleNorm' in operations:
+        matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
 
-    #matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
-
-    new_stride=new_step=base_step_stride
+    #new_stride=new_step=base_step_stride
     #matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
     #matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     #matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
@@ -460,7 +498,7 @@ def parse_house_ls():
 
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
-    matterport3d_prepare.ShowSummary()
+    #matterport3d_prepare.ShowSummary()
 
 if __name__ == '__main__':
     parse_house_ls()

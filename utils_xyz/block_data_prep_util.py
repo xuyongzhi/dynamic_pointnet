@@ -52,7 +52,7 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT']
 
 
-def get_stride_step__name(block_stride,block_step):
+def get_stride_step_name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
     assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
@@ -1591,11 +1591,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         save by global block
         '''
-        out_folder = os.path.dirname(self.file_name)+'_cascade'
+        out_folder = os.path.dirname(self.file_name)+'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
         if not os.path.exists(out_folder):
             os.makedirs(out_folder)
         file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
-        pyramid_filename = os.path.join(out_folder,file_name_base+'.prdh5')
+        pyramid_filename = os.path.join(out_folder,file_name_base+'.prh5')
 
         print('start gen pyramid file: ',pyramid_filename)
         with h5py.File(pyramid_filename,'w') as h5f:
@@ -1659,6 +1659,24 @@ class GlobalSubBaseBLOCK():
         self.root_s_h5f_fn = root_s_h5f_fn
         self.new_attrs = {}
         self.bm_output = {}
+    @staticmethod
+    def get_pyramid_flag():
+        flag_str = ''
+        flag_str += str(int(GlobalSubBaseBLOCK.global_stride[0]))+'_'+str(int(GlobalSubBaseBLOCK.global_step[0]))+'-'
+        for i,n in enumerate(GlobalSubBaseBLOCK.nsubblock_candis):
+            flag_str += str(n)
+            if i<len(GlobalSubBaseBLOCK.nsubblock_candis)-1:
+                flag_str += '_'
+            else:
+                flag_str +='-'
+        for i,s in enumerate(GlobalSubBaseBLOCK.sub_block_size_candis):
+            if s<1:
+                flag_str += '0d'+str(int(10*s))
+            else:
+                flag_str += str(int(10*s))+'_'
+            if i<len(GlobalSubBaseBLOCK.sub_block_size_candis)-1:
+                flag_str += '_'
+        return flag_str
 
     @staticmethod
     def get_block_sample_shape(cascade_id):
@@ -1694,12 +1712,12 @@ class GlobalSubBaseBLOCK():
     @staticmethod
     def get_group_name(cascade_id,root_h5fattrs=None):
         aim_stride,aim_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_h5fattrs)
-        aim_name = get_stride_step__name(aim_stride,aim_step)
+        aim_name = get_stride_step_name(aim_stride,aim_step)
         if cascade_id=='root':
             group_name = 'root-'+aim_name
         else:
             base_stride,base_step = GlobalSubBaseBLOCK.get_stride_step_(GlobalSubBaseBLOCK.base_cascade_ids[cascade_id],root_h5fattrs)
-            base_name = get_stride_step__name(base_stride,base_step)
+            base_name = get_stride_step_name(base_stride,base_step)
             group_name = 'BASE_'+base_name+'-AIM_'+aim_name
         return group_name
 
@@ -1853,7 +1871,7 @@ class GlobalSubBaseBLOCK():
             if new_block_id%max(1,int(max_new_block_id/5))==0:
                 rate = 1.0*new_block_id/max_new_block_id*100
                 print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
-                      get_stride_step__name(larger_stride,larger_step),get_stride_step__name(base_attrs['block_stride'],base_attrs['block_step'])))
+                      get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
         larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
         all_sorted_larger_blockids = np.sort(larger_blockids)
 
@@ -1867,7 +1885,7 @@ class GlobalSubBaseBLOCK():
             if (larger_stride == larger_step).all():
                 assert (all_base_blockids_indic == all_base_blockids).all()
             print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
-                      get_stride_step__name(larger_stride,larger_step),get_stride_step__name(base_attrs['block_stride'],base_attrs['block_step'])))
+                      get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
@@ -2298,21 +2316,20 @@ class Normed_H5f():
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
         # the data ele order store according to feed_elements
         if feed_elements==None:
-            datas = self.data_set[start_block:end_blcok,:,:]
+            datas = self.data_set[start_block:end_blcok,...]
         else:
             normed_data_ele_idx = np.sort(list(set([k for e in feed_elements for k in self.data_set.attrs[e] ])))
-            datas = self.data_set[start_block:end_blcok,:,normed_data_ele_idx]
+            datas = self.data_set[start_block:end_blcok,...,normed_data_ele_idx]
         return datas
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
         if feed_label_elements==None:
-            labels = self.labels_set[start_block:end_blcok,:,:]
+            labels = self.labels_set[start_block:end_blcok,...]
         else:
             labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
-            labels = self.labels_set[start_block:end_blcok,:,labels_ele_idx]
-            if labels.ndim == 2:
-                labels = np.expand_dims(labels,axis=-1)
+            labels = self.labels_set[start_block:end_blcok,...,labels_ele_idx]
+            assert labels.ndim == self.labels_set.ndim
         return labels
     @staticmethod
     def get_normeddata_ele_idxs(normed_data_elements):
@@ -2321,7 +2338,7 @@ class Normed_H5f():
         data_ele_idxs = {}
         k = 0
         for e in normed_data_elements:
-            assert e in Normed_H5f.normed_ele_idx_order
+            assert e in Normed_H5f.normed_ele_idx_order,"%s not in Normed_H5f.normed_ele_idx_order"%(e)
             idx = range(k,k+Normed_H5f.normed_data_ele_candi_len[e])
             k += Normed_H5f.normed_data_ele_candi_len[e]
             data_ele_idxs[e] = idx
