@@ -78,6 +78,14 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
 
 
 def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
+
+    gt_box = tf.convert_to_tensor(gt_box, tf.float32)
+    all_loss = tf.py_func(region_proposal_loss, [pred_class, pred_box, gt_box, smpw, xyz], tf.float32)
+    all_loss = tf.convert_to_tensor(all_loss, name = 'all_loss')
+    return all_loss
+
+
+def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
     """
     Input: pred_class: BxNx3xC
            pred_box: BxNx3x7
@@ -103,8 +111,6 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     # all_anchors = all_anchors.reshape(K*A, 4)
     # calculating the overlap between anchors and ground truth
 
-    gt_box = tf.convert_to_tensor(gt_box, tf.float32)
-
     assert xyz.shape[2] == 3
     NUM_BATCH = xyz.shape[0]
     A = cfg.TRAIN.NUM_ANCHORS
@@ -120,39 +126,39 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
         CC =  xyz[n,:,:].shape[1]
 
         # estimate the central points distance, using broadcasting ops
-        #distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
-        temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
-        distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
+        distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
+        #temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
+        #distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
 
-        #distance = np.tile(distance, (1,A))
-        distance = tf.tile(distance, (1,A))
-        #distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
-        distance = tf.reshape(distance, (-1, gt_box[n,:,:].shape(0)))
+        distance = np.tile(distance, (1,A))
+        #distance = tf.tile(distance, (1,A))
+        distance = distance.reshape(-1,  gt_box[n].shape(0)) # label[n].shape(0)	is the number of ground truth
+        #distance = tf.reshape(distance, (-1, gt_box[n,:,:].shape(0)))
 
-        #labels = np.zeros(shape=(N*A,1))
-        labels =  tf.fill([N*A, 1], -1)
+        labels = np.zeros(shape=(N*A,1))
+        #labels =  tf.fill([N*A, 1], -1)
 
-        #labels.fill(-1)
+        labels.fill(-1)
 
         # decide positive and negative labels
-        # argmin_dist = distance.argmax(axis=1)
-        argmin_dist = tf.argmin(distance, axis = 1)
-        # min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
-        min_dist    = tf.reduce_min(distance, axis = 1)
-        # gt_argmin_dist = distance.argmax(axis=0)
+        argmin_dist = distance.argmin(axis=1)
+        # argmin_dist = tf.argmin(distance, axis = 1)
+        min_dist    = distance[np.arange(distance.shape[0]), argmin_dist]
+        # min_dist    = tf.reduce_min(distance, axis = 1)
+        gt_argmin_dist = distance.argmin(axis=0)
         #gt_argmin_dist = tf.argmin(distance, axis = 0)
-        # gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
-        gt_min_dist = tf.reduce_mim(distance, axis = 0)
-        # gt_argmin_dist = np.where(distance == gt_min_dist)[0]
-        gt_argmin_dist = tf.where(tf.equal(distance, gt_min_dist))[:,0]
+        gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
+        #gt_min_dist = tf.reduce_mim(distance, axis = 0)
+        gt_argmin_dist = np.where(distance == gt_min_dist)[0]
+        # gt_argmin_dist = tf.where(tf.equal(distance, gt_min_dist))[:,0]
 
-        #all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-        all_alpha = tf.tile(cfg.TRAIN.Alpha, (N,1))
-        #all_alpha = all_alpha.reshape(-1,1)
-        all_alpha = tf.reshape(all_alpha, (-1,1))
-        # dif_alpha = all_alpha - gt_box[n, argmin_dist, 4]
+        all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
+        # all_alpha = tf.tile(cfg.TRAIN.Alpha, (N,1))
+        all_alpha = all_alpha.reshape(-1,1)
+        # all_alpha = tf.reshape(all_alpha, (-1,1))
+        dif_alpha = all_alpha - gt_box[n, argmin_dist, 4]
         # dif_alpha = tf.subtract(all_alpha, gt_box[n,argmin_dist, 4])  #
-        dif_alpha = tf.subtract(all_alpha, tf.gather(gt_box[n,:,4], argmin_dist))
+        # dif_alpha = tf.subtract(all_alpha, tf.gather(gt_box[n,:,4], argmin_dist))
 
         # Deleting hard coding
         # arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
@@ -165,9 +171,11 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
         #labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
 
         # changing into tensorflow version
-        # arg_alpha = np.where(np.absolute(dif_alpha[:,0] < cfg.TRAIN.POSITIVE_ALPHA))[0]
-        arg_alpha = tf.where(tf.abs(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)
+        arg_alpha = np.where(np.absolute(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)[0]
+        # arg_alpha = tf.where(tf.abs(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)
+        #arg_alpha = tf.reshape(arg_alpha[:,0], (-1,1))
         labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
+        # labels = tf.add(labels, tf)
         min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
         labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
         min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
@@ -195,8 +203,8 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
         anch_box[:,1] = cfg.TRAIN.Anchors[0,1]
         anch_box[:,2] = cfg.TRAIN.Anchors[0,2]
         anch_box[:,3] = all_alpha
-        all_xyz       = np.tile(xyz,(1,A))
-        all_xyz       = all_xyz.reshape(-1, 3)
+        all_xyz       = np.tile(xyz,(1, A))
+        all_xyz       = all_xyz.reshape(-1, CC)
         anch_box[:,4] = all_xyz[:,0]
         anch_box[:,5] = all_xyz[:,1]
         anch_box[:,6] = all_xyz[:,2]
@@ -241,16 +249,22 @@ def _smmoth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_wei
                        |x| - 0.5 / sigma^2, otherwise
     """
     sigma2 = sigma * sigma
-    inside_mul = tf.multiply(box_inside_weights, tf.substract(box_pred, box_targets))
+    # inside_mul = tf.multiply(box_inside_weights, tf.substract(box_pred, box_targets))
+    inside_mul = box_inside_weights*(box_pred - box_targets)
 
-    smooth_l1_sign    = tf.cast(tf.less(tf.abs(inside_mul), 1.0/sigma2), tf.float32)
-    smooth_l1_option1 = tf.multiply(tf.multiply(inside_mul,inside_mul), 0.5*sigma2)
-    smooth_l1_option2 = tf.substract(tf.abs(inside_mul), 0.5*sigma2)
+    # smooth_l1_sign    = tf.cast(tf.less(tf.abs(inside_mul), 1.0/sigma2), tf.float32)
+    smooth_l1_sign =  (np.absolute(inside_mul) < (1.0/sigma2))*1
+    # smooth_l1_option1 = tf.multiply(tf.multiply(inside_mul,inside_mul), 0.5*sigma2)
+    smooth_l1_option1 = (inside_mul)**2*sigma2*0.5
+    # smooth_l1_option2 = tf.substract(tf.abs(inside_mul), 0.5*sigma2)
+    smooth_l1_option2 = np.absolute(inside_mul) - 0.5/sigma2
 
-    smooth_l1_result  = tf.add(tf.multiply(smooth_l1_option1, smooth_l1_sign),
-                               tf.multiply(smooth_l1_option2, tf.abs(tf.substract(smooth_l1_sign, 1.0))))
+    #smooth_l1_result  = tf.add(tf.multiply(smooth_l1_option1, smooth_l1_sign),
+    #                           tf.multiply(smooth_l1_option2, tf.abs(tf.substract(smooth_l1_sign, 1.0))))
+    smooth_l1_result =  smooth_l1_option1*smooth_l1_sign + smooth_l2_option2*np.absolute(smooth_l1_sign - 1)
 
-    outside_mul   = tf.multiply(box_outside_weights, smooth_l1_result)
+    # outside_mul   = tf.multiply(box_outside_weights, smooth_l1_result)
+    outside_mul =  np.sum(box_outside_weights*smooth_l1_result)
 
     return outside_mul
 
