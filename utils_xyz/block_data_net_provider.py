@@ -353,10 +353,11 @@ class Net_Provider():
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         if self.InputType=='Pr_Normed_H5f':
-            bidmaps_dic = {}
+            bidmaps = []
             for cascade_id in range(1,self.cascade_num):
-                bidmaps_dic[cascade_id] = np.concatenate(bidmaps_ls_dic[cascade_id],0)
-                print(bidmaps_dic[cascade_id])
+                bidmaps.append( np.concatenate(bidmaps_ls_dic[cascade_id],0) )
+        else:
+            bidmaps = None
 
         center_mask = np.concatenate(center_mask,0)
 
@@ -389,7 +390,7 @@ class Net_Provider():
         #t_block = (time.time()-t0)/(g_end_idx-g_start_idx)
         #print('get_global_batch t_block:%f ms'%(1000.0*t_block))
 
-        return data_batches,label_batches,sample_weights
+        return data_batches,label_batches,sample_weights,bidmaps
 
     def get_center_mask(self,xyz_midnorm,edge_rate=0.12):
         # true for center, false for edge
@@ -404,15 +405,27 @@ class Net_Provider():
         data_batches = []
         label_batches = []
         sample_weights = []
+        bidmaps_dic_ls = {}
+        for cascade_id in range(1,self.cascade_num):
+            bidmaps_dic_ls[cascade_id] = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,bidmaps_i = self.get_global_batch(idx,idx+1)
+            if self.InputType=='Pr_Normed_H5f':
+                for cascade_id in range(1,self.cascade_num):
+                    bidmaps_dic_ls[cascade_id].append(bidmaps_i[cascade_id-1])
             data_batches.append(data_i)
             label_batches.append(label_i)
             sample_weights.append(smw_i)
         data_batches = np.concatenate(data_batches,axis=0)
         label_batches = np.concatenate(label_batches,axis=0)
         sample_weights = np.concatenate(sample_weights,axis=0)
-        return data_batches,label_batches,sample_weights
+        if self.InputType=='Pr_Normed_H5f':
+            bidmaps = []
+            for cascade_id in range(1,self.cascade_num):
+                bidmaps.append( np.concatenate(bidmaps_dic_ls[cascade_id],0) )
+        else:
+            bidmaps_dic = None
+        return data_batches,label_batches,sample_weights,bidmaps
 
     def update_train_eval_shuffled_idx(self):
         self.train_shuffled_idx = np.arange(self.train_num_blocks)
@@ -528,8 +541,8 @@ def main_NormedH5f():
     print(net_provider.data_summary_str)
     print('init time:',t1-t0)
 
-    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(0, min(128,net_provider.train_num_blocks) )
-    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(0,min(128,net_provider.eval_num_blocks) )
+    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(0, min(128,net_provider.train_num_blocks) )
+    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(0,min(128,net_provider.eval_num_blocks) )
     if InputType=='Normed_H5f':
         print(cur_data.shape)
         print(cur_data[0,0:3,:])

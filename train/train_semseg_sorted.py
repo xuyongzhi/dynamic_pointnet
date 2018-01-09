@@ -314,7 +314,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if train_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
@@ -389,7 +389,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
@@ -448,7 +448,7 @@ def add_train_feed_buf(train_feed_buf_q):
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights = net_provider.get_train_batch(start_idx,end_idx)
+                    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(start_idx,end_idx)
                     train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
@@ -477,7 +477,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+                    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(start_idx,end_idx)
                     eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))

@@ -1,7 +1,5 @@
 
-self.corres_cur_blockids_dic_dic is not used:
-	1419 in block_data_prep_util.py
-
+- [ ] In Qi's complementaion, 3 nearest balls are fused in back-propogated. I only use one. What is the right way.
 - [ ] Add GlobalSubBaseBLOCK configuration check in get_data_larger_block
 - [ ] get_blockids_of_dif_stride_step cost too much time
 - [ ] Check the correctness of norm in get_block_data_of_new_stride_step_byid

@@ -151,7 +151,7 @@ def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
 def random_choice(org_vector,sample_N,random_sampl_pro=None):
     org_N = org_vector.size
     if org_N == sample_N:
-        sampled_vector = np.arange(sample_N)
+        sampled_vector = org_vector
     elif org_N > sample_N:
         sampled_vector = np.random.choice(org_vector,sample_N,replace=False,p=random_sampl_pro)
     else:
@@ -1507,16 +1507,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     print('(%d) t=%f ms'%(ti,1000*(ts[ti]-ts[ti-1])))
         datas = np.concatenate(datas,axis=0)
         labels = np.concatenate(labels,axis=0)
+        valid_data_n = datas.shape[0]
 
         if npoint_cas0block != None:
             sample_choice_within_cas0block,reduced_num = get_sample_choice(datas.shape[0],npoint_cas0block)
             datas = datas[sample_choice_within_cas0block,:]
             labels = labels[sample_choice_within_cas0block,:]
+            sample_rate = 1.0 * npoint_cas0block / datas.shape[0]
+        else:
+            sample_rate = 1.0
        # print(datas.shape)
        # print(labels.shape)
        # print(datas[0:3,:])
        # print(labels[0:3,:])
-        return datas,labels
+        return datas,labels, sample_rate, valid_data_n
 
     def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
         '''
@@ -1555,6 +1559,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             cas0_bids_in_global_valid = cas0_bids_in_global
 
+
         if IsRecordTime: t1 = time.time()
         # (1.5) Check how many base block ids are misssed in sub block valid space.
 
@@ -1568,10 +1573,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # (2) GROUP: Collect all the base blocks for each sub-point.
         global_block_datas = []
         global_block_labels = []
-        for cas0_bid in cas0_bids_in_global_valid:
-            datas_k,labels_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
+        subblock_sample_rates = []
+        bidmap_inverse0 = []
+        for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
+            datas_k,labels_k,sample_rate_k,valid_data_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
             global_block_datas.append(np.expand_dims(datas_k,axis=0))
             global_block_labels.append(np.expand_dims(labels_k,axis=0))
+            subblock_sample_rates.append(sample_rate_k)
+            for point_index_in_root_block in range(valid_data_k):
+                valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
+                bidmap_inverse0.append(np.expand_dims(valid_point_index,axis=0) )
+        bidmap_inverse0 = np.concatenate(bidmap_inverse0,axis=0)
+
+        mean_subblock_sample_rate = np.mean(np.array(subblock_sample_rates))
+        sample_rate_cas0 = np.array( [ 1.0*nsubblock/num_candi_cas0bids, 1.0*npoint_subblock/mean_subblock_sample_rate ] )
 
         if num_candi_cas0bids <= nsubblock:
             new_cas0_bindex = np.random.choice(num_candi_cas0bids,nsubblock-num_candi_cas0bids)
@@ -1592,7 +1607,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
            print('grouping t=%f ms'%(1000*(t2-t1)))
            print('one global block read t=%f ms'%(1000*(t2-t0)))
 
-        return global_block_datas,global_block_labels, cas0_bids_in_global_valid
+        return global_block_datas,global_block_labels, cas0_bids_in_global_valid, sample_rate_cas0, bidmap_inverse0
 
     def get_batch_of_larger_block( self,global_blockid_start,global_blockid_end,feed_data_elements,feed_label_elements ):
         gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
@@ -1603,7 +1618,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         batch_datas = []
         batch_labels = []
         for global_block_id in all_sorted_global_bids:
-            block_datas,block_labels,_ = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
+            block_datas,block_labels,_,_,_ = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
             batch_datas.append(np.expand_dims(block_datas,axis=0))
             batch_labels.append(np.expand_dims(block_labels,axis=0))
         batch_datas = np.concatenate(batch_datas,axis=0)
@@ -1644,16 +1659,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             feed_label_elements = feed_norm_ele_info['label_eles']
 
             all_bidmaps = [None]*(GlobalSubBaseBLOCK.cascade_num-1)
-            sum_bidmap_sample_rates = [0]*(GlobalSubBaseBLOCK.cascade_num-1)
+            sum_bidmap_sample_rates = [0]*(GlobalSubBaseBLOCK.cascade_num)
             for global_block_id in all_sorted_global_bids:
-                block_datas,block_labels,cas0_bids_in_global_valid = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
-                bidmaps,bidmap_sample_rates = gsbb.get_all_bidmaps(cas0_bids_in_global_valid,Always_CreateNew=True)
+                block_datas,block_labels,cas0_bids_in_global_valid,sample_rate_cas0,bidmap_inverse0 = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
+                sum_bidmap_sample_rates[0] += sample_rate_cas0
+
+                bidmaps,bidmap_sample_rates,bidmaps_inverse = gsbb.get_all_bidmaps(cas0_bids_in_global_valid,bidmap_inverse0,Always_CreateNew=True)
                 for j in range(len(bidmaps)):
                     if all_bidmaps[j]==None:
                         all_bidmaps[j] = [ np.expand_dims(bidmaps[j],axis=0) ]
                     else:
                         all_bidmaps[j].append(np.expand_dims(bidmaps[j],axis=0))
-                    sum_bidmap_sample_rates[j] += bidmap_sample_rates[j]
+                    sum_bidmap_sample_rates[j+1] += bidmap_sample_rates[j]
 
                 file_datas.append(np.expand_dims(block_datas,axis=0))
                 file_labels.append(np.expand_dims(block_labels,axis=0))
@@ -1669,7 +1686,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidmaps'].attrs )
             for j in range(len(all_bidmaps)):
-                #pyramid_h5f.h5f['bidmaps/'+str(j+1)].attrs['sample_rate'] = mean_bidmap_sample_rates[j]
                 pyramid_h5f.append_to_dset('bidmaps/'+str(j+1),all_bidmaps[j])
 
             pyramid_h5f.create_done()
@@ -1691,16 +1707,17 @@ class GlobalSubBaseBLOCK():
     '''
     global_stride = np.array([1.0,1.0,-1]).astype(np.float)
     global_step = np.array([2.0,2.0,-1]).astype(np.float)
+    global_num_point = 8192
 
     sub_block_size_candis = np.array([0.2,0.4,0.8,1.6]).astype(np.float)
-    nsubblock_candis = np.array([512,128,64,16]).astype(np.int32)
-    npoint_subblock_candis = np.array([32,32,32,32]).astype(np.int32)
-    # store more points to enable different randomly choice in each epoch
-    prestore_nsubblock_candis = np.ceil(np.array(nsubblock_candis)*1.3).astype(np.int32)
-    prestore_npoint_subblock_candis = np.ceil(np.array(npoint_subblock_candis)*1.3).astype(np.int32)
+    nsubblock_candis = np.array([512,256,64,32]).astype(np.int32)
+    npoint_subblock_candis = np.array([6,8,8,8]).astype(np.int32)
+
+#    nsubblock_candis = (nsubblock_candis*0.6).astype(np.int32)
+#    npoint_subblock_candis = (npoint_subblock_candis*0.6).astype(np.int32)
 
     cascade_num = len(sub_block_size_candis)
-    mean_bidmap_sample_rates = np.zeros(shape=(cascade_num-1,2))
+    mean_bidmap_sample_rates = np.zeros(shape=(cascade_num,2))
 
     cascade_id_ls = ['root']+range(cascade_num)+['global']
     base_cascade_ids = {}
@@ -1715,7 +1732,11 @@ class GlobalSubBaseBLOCK():
         self.root_s_h5f_fn = root_s_h5f_fn
         self.new_attrs = {}
         self.bm_output = {}
-
+    def get_inverse_bidmap_shape(cascade_id):
+        if cascade_id=='root':
+            shape = (GlobalSubBaseBLOCK.global_num_point,2)
+        else:
+            shape = ()
     @staticmethod
     def write_paras_in_h5fattrs(attrs):
         ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis','mean_bidmap_sample_rates']
@@ -1829,12 +1850,15 @@ class GlobalSubBaseBLOCK():
             aim_bid_index is the index of aim_bid stored in valid_sorted_aimbids_sampled
         '''
         IsCheck = True
-        aim_nsubblock =  GlobalSubBaseBLOCK.prestore_nsubblock_candis[cascade_id]
-        aim_npoint_subblock = GlobalSubBaseBLOCK.prestore_npoint_subblock_candis[cascade_id]
+        bidmap_inverse = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
+
+        aim_nsubblock =  GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
+        aim_npoint_subblock = GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id]
 
         all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id,Always_CreateNew=Always_CreateNew)
         all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
         bidmap_dic={}
+        raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
             base_bids = all_base_blockids_indic[aim_bid]
             # use valid_sorted_basebids, instead of
@@ -1844,7 +1868,9 @@ class GlobalSubBaseBLOCK():
             base_bid_valid_indexs = index_in_sorted(valid_sorted_basebids,base_bids)
             if len(base_bid_valid_indexs)==0:
                 continue
+            raw_valid_base_bnum.append(len(base_bid_valid_indexs))
             bidmap_dic[aim_bid] = base_bid_valid_indexs
+        raw_valid_base_bnum = np.array(raw_valid_base_bnum)
         valid_sorted_aimbids = np.sort( bidmap_dic.keys() )
         valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidmap_dic,aim_nsubblock)
 
@@ -1856,13 +1882,17 @@ class GlobalSubBaseBLOCK():
             bidmap[aim_b_index,:] = random_choice( base_bid_valid_indexs,aim_npoint_subblock )
             if aim_b_index < valid_aimb_num:
                 bid_valid_num[aim_b_index] = base_bid_valid_indexs.size
+            for pointindex_within_subblock, basebid_index in enumerate(base_bid_valid_indexs):
+                bidmap_inverse[basebid_index,:] = [aim_b_index,pointindex_within_subblock]
 
-        sample_rate = np.array( [ 1.0*valid_aimb_num/aim_nsubblock, 1.0*bid_valid_num.mean()/aim_npoint_subblock ] )
+        assert np.sum(bidmap_inverse<0)==0
+
+        sample_rate = np.array( [ 1.0*aim_nsubblock/all_sorted_aimbids.size, 1.0*aim_npoint_subblock/raw_valid_base_bnum.mean() ] )
         #print('sample_rate:%s'%(np.array2string(sample_rate,precision=2)))
-        return bidmap, sample_rate, valid_sorted_aimbids
+        return bidmap, sample_rate, valid_sorted_aimbids, bidmap_inverse
 
 
-    def get_all_bidmaps(self,cas0_bids_in_global_valid,Always_CreateNew=False):
+    def get_all_bidmaps(self,cas0_bids_in_global_valid,bidmap_inverse0,Always_CreateNew=False):
         '''
          fuse bidmap from cascade_id 0 to end
          bidmaps: (cas0_block_n,self.cascade_num-1)
@@ -1870,12 +1900,26 @@ class GlobalSubBaseBLOCK():
         '''
         bidmaps = []
         bidmap_sample_rates = []
+        bidmaps_inverse = []
+
+        global_num = GlobalSubBaseBLOCK.global_num_point
+        sample_rate0 = 1.0 * global_num / bidmap_inverse0.shape[0]
+        bidmap_sample_rates.append(sample_rate0)
+        tile_num = global_num - bidmap_inverse0.shape[0]
+        if tile_num < 0:
+            bidmap_inverse0 = bidmap_inverse0[0:global_num,:]
+        elif tile_num >0:
+            bidmap_inverse0 = np.concatenate([bidmap_inverse0, bidmap_inverse0[0:tile_num,:]],axis=0)
+
         valid_sorted_basebids = cas0_bids_in_global_valid
         for cascade_id in range(1,self.cascade_num):
-            bidmap,sample_rate,valid_sorted_basebids = self.get_bidmap(cascade_id,valid_sorted_basebids,Always_CreateNew=Always_CreateNew)
+            bidmap,sample_rate,valid_sorted_basebids,bidmap_inverse = self.get_bidmap(cascade_id,valid_sorted_basebids,Always_CreateNew=Always_CreateNew)
             bidmaps.append( bidmap )
             bidmap_sample_rates.append( sample_rate )
-        return bidmaps,bidmap_sample_rates
+            bidmaps_inverse.append(bidmap_inverse)
+
+        bidmaps_inverse = [bidmap_inverse0] + bidmaps_inverse
+        return bidmaps,bidmap_sample_rates,bidmaps_inverse
 
     def load_one_bidmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None,Always_CreateNew=False):
         # load one block id map
@@ -1942,41 +1986,38 @@ class GlobalSubBaseBLOCK():
 
 
     @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,Always_CreateNew=False):
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
         base_fn = os.path.splitext(root_s_h5f_fn)[0]
         blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
-        if (not Always_CreateNew) and os.path.exists(blockid_maps_fn):
-            print('file exist: %s'%(blockid_maps_fn))
-        else:
-            with h5py.File(blockid_maps_fn,'w') as h5f:
-                all_sorted_blockids_dic={}
-                all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
+        with h5py.File(blockid_maps_fn,'w') as h5f:
+            all_sorted_blockids_dic={}
+            all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
 
-                cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
-                cascade_attrs = {}
-                cascade_attrs['root'] = root_s_h5f.attrs
-                for cascade_id in cascade_id_ls:
-                    if cascade_id == 'root':
-                        all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
-                    else:
-                        base_bid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
-                        all_sorted_base_blockids = all_sorted_blockids_dic[base_bid]
-                        base_attrs = cascade_attrs[base_bid]
-                        larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id)
-                        new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
-                                                                base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
-                        all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
-                        cascade_attrs[cascade_id] = new_attrs
-                    group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
+            cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
+            cascade_attrs = {}
+            cascade_attrs['root'] = root_s_h5f.attrs
+            for cascade_id in cascade_id_ls:
+                if cascade_id == 'root':
+                    all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
+                else:
+                    base_bid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
+                    all_sorted_base_blockids = all_sorted_blockids_dic[base_bid]
+                    base_attrs = cascade_attrs[base_bid]
+                    larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id)
+                    new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
+                                                            base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
+                    all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
+                    cascade_attrs[cascade_id] = new_attrs
+                group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
 
-                    grp = h5f.create_group(group_name)
-                    grp.attrs['all_sorted_aimbids'] = all_sorted_larger_blockids
-                    if not cascade_id == 'root':
-                        for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
-                            blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
-                            blockid_map_dset[...] = base_ids
-                h5f.flush()
-                print('write finish: %s'%(blockid_maps_fn))
+                grp = h5f.create_group(group_name)
+                grp.attrs['all_sorted_aimbids'] = all_sorted_larger_blockids
+                if not cascade_id == 'root':
+                    for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
+                        blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
+                        blockid_map_dset[...] = base_ids
+            h5f.flush()
+            print('write finish: %s'%(blockid_maps_fn))
 
     @staticmethod
     def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
@@ -2582,12 +2623,14 @@ class Normed_H5f():
         bidmap_grp = self.h5f.create_group('bidmaps')
         bidmaps_num = GlobalSubBaseBLOCK.cascade_num - 1
         bidmap_dsets =  []
-        for cascade_id in range(1,GlobalSubBaseBLOCK.cascade_num):
-            block_shape = ( GlobalSubBaseBLOCK.prestore_nsubblock_candis[cascade_id],
-                            GlobalSubBaseBLOCK.prestore_npoint_subblock_candis[cascade_id] )
-            bidmap_dset = bidmap_grp.create_dataset(str(cascade_id),shape=(total_block_N,)+block_shape )
-            bidmap_dsets.append(bidmap_dset)
-            bidmap_dset.attrs['valid_num'] = 0
+        for cascade_id in range(0,GlobalSubBaseBLOCK.cascade_num):
+            if cascade_id>0:
+                block_shape = ( GlobalSubBaseBLOCK.nsubblock_candis[cascade_id],
+                                GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id] )
+                bidmap_dset = bidmap_grp.create_dataset(str(cascade_id),shape=(total_block_N,)+block_shape )
+                bidmap_dsets.append(bidmap_dset)
+                bidmap_dset.attrs['valid_num'] = 0
+            #inverse_shape = (GlobalSubBaseBLOCK)
 
 
         # predicted label
