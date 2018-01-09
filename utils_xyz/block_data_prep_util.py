@@ -1647,7 +1647,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sum_bidmap_sample_rates = [0]*(GlobalSubBaseBLOCK.cascade_num-1)
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels,cas0_bids_in_global_valid = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
-                bidmaps,bidmap_sample_rates = gsbb.get_all_bidmaps(cas0_bids_in_global_valid)
+                bidmaps,bidmap_sample_rates = gsbb.get_all_bidmaps(cas0_bids_in_global_valid,Always_CreateNew=True)
                 for j in range(len(bidmaps)):
                     if all_bidmaps[j]==None:
                         all_bidmaps[j] = [ np.expand_dims(bidmaps[j],axis=0) ]
@@ -1662,7 +1662,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for j in range(len(all_bidmaps)):
                 all_bidmaps[j] = np.concatenate(all_bidmaps[j],axis=0)
             mean_bidmap_sample_rates = [sum_rate/len(all_sorted_global_bids) for sum_rate in sum_bidmap_sample_rates]
-            gsbb.mean_bidmap_sample_rates = mean_bidmap_sample_rates
+            GlobalSubBaseBLOCK.mean_bidmap_sample_rates = mean_bidmap_sample_rates
 
             pyramid_h5f.append_to_dset('data',file_datas)
             pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
@@ -1792,10 +1792,10 @@ class GlobalSubBaseBLOCK():
     def get_block_n_of_new_stride_step_(root_s_h5f,root_s_h5f_fn,cascade_id):
         return  GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num'])['block_num']
 
-    def get_all_sorted_aimbids(self,cascade_id):
+    def get_all_sorted_aimbids(self,cascade_id,Always_CreateNew=False):
         ele_name = 'all_sorted_aimbids_'+str(cascade_id)
         if ele_name not in self.bm_output:
-            self.bm_output[ele_name] = self.load_one_bidmap(cascade_id,['all_sorted_aimbids'])['all_sorted_aimbids']
+            self.bm_output[ele_name] = self.load_one_bidmap(cascade_id,['all_sorted_aimbids'],Always_CreateNew=Always_CreateNew)['all_sorted_aimbids']
         return self.bm_output[ele_name]
 
     def get_baseids_inanew(self,cascade_id,new_bid):
@@ -1820,7 +1820,7 @@ class GlobalSubBaseBLOCK():
         valid_aimb_num = min(sorted_aimbids.size,aim_nsubblock)
         return all_sorted_aimbids_sampled, valid_aimb_num
 
-    def get_bidmap(self,cascade_id,valid_sorted_basebids):
+    def get_bidmap(self,cascade_id,valid_sorted_basebids,Always_CreateNew=False):
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
         bidmap:(nsubblock,npoint_subblock)
@@ -1832,7 +1832,7 @@ class GlobalSubBaseBLOCK():
         aim_nsubblock =  GlobalSubBaseBLOCK.prestore_nsubblock_candis[cascade_id]
         aim_npoint_subblock = GlobalSubBaseBLOCK.prestore_npoint_subblock_candis[cascade_id]
 
-        all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
+        all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id,Always_CreateNew=Always_CreateNew)
         all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
         bidmap_dic={}
         for aim_bid in all_sorted_aimbids:
@@ -1862,7 +1862,7 @@ class GlobalSubBaseBLOCK():
         return bidmap, sample_rate, valid_sorted_aimbids
 
 
-    def get_all_bidmaps(self,cas0_bids_in_global_valid):
+    def get_all_bidmaps(self,cas0_bids_in_global_valid,Always_CreateNew=False):
         '''
          fuse bidmap from cascade_id 0 to end
          bidmaps: (cas0_block_n,self.cascade_num-1)
@@ -1872,24 +1872,24 @@ class GlobalSubBaseBLOCK():
         bidmap_sample_rates = []
         valid_sorted_basebids = cas0_bids_in_global_valid
         for cascade_id in range(1,self.cascade_num):
-            bidmap,sample_rate,valid_sorted_basebids = self.get_bidmap(cascade_id,valid_sorted_basebids)
+            bidmap,sample_rate,valid_sorted_basebids = self.get_bidmap(cascade_id,valid_sorted_basebids,Always_CreateNew=Always_CreateNew)
             bidmaps.append( bidmap )
             bidmap_sample_rates.append( sample_rate )
         return bidmaps,bidmap_sample_rates
 
-    def load_one_bidmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+    def load_one_bidmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None,Always_CreateNew=False):
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id
         root_s_h5f = self.root_s_h5f
         root_s_h5f_fn = self.root_s_h5f_fn
-        return GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid)
+        return GlobalSubBaseBLOCK.load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid,Always_CreateNew=Always_CreateNew)
 
     @staticmethod
-    def load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+    def load_one_bidmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None,Always_CreateNew=False):
         base_fn = os.path.splitext(root_s_h5f_fn)[0]
         blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
 
-        if not os.path.exists(blockid_maps_fn):
+        if Always_CreateNew or (not os.path.exists(blockid_maps_fn)):
             GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
         assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
         with h5py.File(blockid_maps_fn,'r') as h5f:
@@ -1942,10 +1942,10 @@ class GlobalSubBaseBLOCK():
 
 
     @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,CreatNewIfExist=False):
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,Always_CreateNew=False):
         base_fn = os.path.splitext(root_s_h5f_fn)[0]
         blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
-        if (not CreatNewIfExist) and os.path.exists(blockid_maps_fn):
+        if (not Always_CreateNew) and os.path.exists(blockid_maps_fn):
             print('file exist: %s'%(blockid_maps_fn))
         else:
             with h5py.File(blockid_maps_fn,'w') as h5f:
@@ -2456,6 +2456,14 @@ class Normed_H5f():
             datas = self.data_set[start_block:end_blcok,...,normed_data_ele_idx]
         return datas
 
+    def get_bidmap(self,start_block,end_block):
+        bidmap_grp = self.h5f['bidmaps']
+        cascade_num = bidmap_grp.attrs['sub_block_size_candis'].size
+        bidmaps_dic = {}
+        for cascade_id in range(1,cascade_num):
+            bidmaps_dic[cascade_id] = bidmap_grp[str(cascade_id)][start_block:end_block,...]
+        return bidmaps_dic
+
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
         if feed_label_elements==None:
@@ -2598,7 +2606,7 @@ class Normed_H5f():
         pred_logits_set.attrs['valid_num'] = 0
         self.data_set = data_set
         self.labels_set = labels_set
-        self.bidmap_dsets = bidmap_dsets
+        #self.bidmap_dsets = bidmap_dsets
         self.pred_logits_set = pred_logits_set
 
     def raw_xyz_set(self):
@@ -3045,7 +3053,7 @@ def Do_sample(file_list):
 
 def Test_get_block_data_of_new_stride_step():
     folder_base = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1'
-    base_h5f_name = os.path.join(folder_base,'region2.sh5')
+    base_h5f_name = os.path.join(folder_base,'region9.sh5')
 
     xyz1norm_k = [0.2,0.3,0.1]
     new_stride = np.array([0.1,0.1,0.1])*10
@@ -3055,7 +3063,7 @@ def Test_get_block_data_of_new_stride_step():
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
-        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name,CreatNewIfExist=True)
+        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name,Always_CreateNew=True)
         #GlobalSubBaseBLOCK.show_all(base_h5f,base_h5f_name)
 
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)

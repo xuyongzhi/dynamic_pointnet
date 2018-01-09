@@ -138,6 +138,7 @@ class Net_Provider():
         self.data_num_eles = len([idx for e in self.feed_data_ele_idxs for idx in self.feed_data_ele_idxs[e] ])
         self.label_num_eles = len([self.feed_label_ele_idxs[e] for e in self.feed_label_ele_idxs])
         if self.InputType=='Sorted_H5f' or self.InputType=='Pr_Normed_H5f':
+            self.cascade_num = GlobalSubBaseBLOCK.cascade_num
             self.whole_train_data_shape = np.array([ self.train_num_blocks,GlobalSubBaseBLOCK.nsubblock_candis[0],
                                                     GlobalSubBaseBLOCK.npoint_subblock_candis[0],self.data_num_eles])
             self.whole_eval_data_shape = np.copy(self.whole_train_data_shape)
@@ -154,6 +155,7 @@ class Net_Provider():
         elif block_sample.size==2:
             block_sample = (block_sample[0],block_sample[1])
         self.block_sample = block_sample
+
         print('\ntrain data shape',self.whole_train_data_shape)
         print('train label shape',self.whole_train_label_shape)
         print('eval data shape',self.whole_eval_data_shape)
@@ -300,6 +302,9 @@ class Net_Provider():
         data_ls = []
         label_ls = []
         center_mask = []
+        bidmaps_ls_dic = {}
+        for cascade_id in range(1,self.cascade_num):
+            bidmaps_ls_dic[cascade_id] = []
         for f_idx in range(start_file_idx,end_file_idx+1):
             if f_idx == start_file_idx:
                 start = local_start_idx
@@ -322,6 +327,8 @@ class Net_Provider():
                 label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
                 # data_i: [batch_size,npoint_block,data_nchannels]
                 # label_i: [batch_size,npoint_block,label_nchannels]
+                if self.InputType=='Pr_Normed_H5f':
+                    bidmaps_dic = self.norm_h5f_L[f_idx].get_bidmap(start,end)
             elif self.InputType == 'Sorted_H5f':
                 data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
                                 start,end,new_feed_data_elements,self.feed_label_elements )
@@ -334,6 +341,10 @@ class Net_Provider():
             data_ls.append(data_i)
             label_ls.append(label_i)
 
+            if self.InputType=='Pr_Normed_H5f':
+                for cascade_id in range(1,self.cascade_num):
+                    bidmaps_ls_dic[cascade_id].append( np.expand_dims(bidmaps_dic[cascade_id],axis=0) )
+
             xyz_midnorm_block_i = data_i[...,self.feed_data_ele_idxs['xyz_midnorm_block']]
 
             center_mask_i = self.get_center_mask(xyz_midnorm_block_i)
@@ -341,6 +352,11 @@ class Net_Provider():
 
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
+        if self.InputType=='Pr_Normed_H5f':
+            bidmaps_dic = {}
+            for cascade_id in range(1,self.cascade_num):
+                bidmaps_dic[cascade_id] = np.concatenate(bidmaps_ls_dic[cascade_id],0)
+                print(bidmaps_dic[cascade_id])
 
         center_mask = np.concatenate(center_mask,0)
 
@@ -492,7 +508,7 @@ def main_NormedH5f():
     #num_point_block = 8192
 
     InputType = 'Pr_Normed_H5f'
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-256_64_16-0d2_0d4_0d8']
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_128_64_16-0d2_0d4_0d8_16']
     num_point_block = None
 
     eval_fnglob_or_rate = 0.3
