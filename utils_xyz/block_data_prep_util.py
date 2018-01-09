@@ -1659,6 +1659,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             feed_label_elements = feed_norm_ele_info['label_eles']
 
             all_bidmaps = [None]*(GlobalSubBaseBLOCK.cascade_num-1)
+            all_bidmaps_inverse = [None]*(GlobalSubBaseBLOCK.cascade_num)
             sum_bidmap_sample_rates = [0]*(GlobalSubBaseBLOCK.cascade_num)
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels,cas0_bids_in_global_valid,sample_rate_cas0,bidmap_inverse0 = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
@@ -1671,6 +1672,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     else:
                         all_bidmaps[j].append(np.expand_dims(bidmaps[j],axis=0))
                     sum_bidmap_sample_rates[j+1] += bidmap_sample_rates[j]
+                for j in range(len(bidmaps_inverse)):
+                    if all_bidmaps_inverse[j]==None:
+                        all_bidmaps_inverse[j] = [ np.expand_dims(bidmaps_inverse[j],axis=0) ]
+                    else:
+                        all_bidmaps_inverse[j].append(np.expand_dims(bidmaps_inverse[j],axis=0))
 
                 file_datas.append(np.expand_dims(block_datas,axis=0))
                 file_labels.append(np.expand_dims(block_labels,axis=0))
@@ -1678,6 +1684,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             file_labels = np.concatenate(file_labels,axis=0)
             for j in range(len(all_bidmaps)):
                 all_bidmaps[j] = np.concatenate(all_bidmaps[j],axis=0)
+            for j in range(len(all_bidmaps_inverse)):
+                all_bidmaps_inverse[j] = np.concatenate(all_bidmaps_inverse[j],axis=0)
             mean_bidmap_sample_rates = [sum_rate/len(all_sorted_global_bids) for sum_rate in sum_bidmap_sample_rates]
             GlobalSubBaseBLOCK.mean_bidmap_sample_rates = mean_bidmap_sample_rates
 
@@ -1687,6 +1695,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidmaps'].attrs )
             for j in range(len(all_bidmaps)):
                 pyramid_h5f.append_to_dset('bidmaps/'+str(j+1),all_bidmaps[j])
+            for j in range(len(all_bidmaps_inverse)):
+                pyramid_h5f.append_to_dset('bidmaps/'+str(j+1)+'_inv',all_bidmaps_inverse[j])
 
             pyramid_h5f.create_done()
             if IsShowSummaryFinished:
@@ -1733,10 +1743,10 @@ class GlobalSubBaseBLOCK():
         self.new_attrs = {}
         self.bm_output = {}
     def get_inverse_bidmap_shape(cascade_id):
-        if cascade_id=='root':
+        if cascade_id==0:
             shape = (GlobalSubBaseBLOCK.global_num_point,2)
         else:
-            shape = ()
+            shape = (GlobalSubBaseBLOCK.nsubblock_candis[cascade_id-1],2)
     @staticmethod
     def write_paras_in_h5fattrs(attrs):
         ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis','mean_bidmap_sample_rates']
@@ -2501,9 +2511,12 @@ class Normed_H5f():
         bidmap_grp = self.h5f['bidmaps']
         cascade_num = bidmap_grp.attrs['sub_block_size_candis'].size
         bidmaps_dic = {}
-        for cascade_id in range(1,cascade_num):
-            bidmaps_dic[cascade_id] = bidmap_grp[str(cascade_id)][start_block:end_block,...]
-        return bidmaps_dic
+        bidmaps_inv_dic = {}
+        for cascade_id in range(0,cascade_num):
+            if cascade_id!=0:
+                bidmaps_dic[cascade_id] = bidmap_grp[str(cascade_id)][start_block:end_block,...]
+            bidmaps_inv_dic[cascade_id] = bidmap_grp[str(cascade_id)+'_inv'][start_block:end_blcok]
+        return bidmaps_dic,bidmaps_inv_dic
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
@@ -2622,15 +2635,17 @@ class Normed_H5f():
 
         bidmap_grp = self.h5f.create_group('bidmaps')
         bidmaps_num = GlobalSubBaseBLOCK.cascade_num - 1
-        bidmap_dsets =  []
+        #bidmap_dsets =  []
         for cascade_id in range(0,GlobalSubBaseBLOCK.cascade_num):
             if cascade_id>0:
                 block_shape = ( GlobalSubBaseBLOCK.nsubblock_candis[cascade_id],
                                 GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id] )
-                bidmap_dset = bidmap_grp.create_dataset(str(cascade_id),shape=(total_block_N,)+block_shape )
-                bidmap_dsets.append(bidmap_dset)
+                bidmap_dset = bidmap_grp.create_dataset(str(cascade_id),shape=(total_block_N,)+block_shape, dtype=np.int32 )
+                #bidmap_dsets.append(bidmap_dset)
                 bidmap_dset.attrs['valid_num'] = 0
-            #inverse_shape = (GlobalSubBaseBLOCK)
+            inverse_shape = GlobalSubBaseBLOCK.get_inverse_bidmap_shape(cascade_id)
+            bidmap_inverse_dset = bidmap_grp.create_dataset(str(cascade_id)+'_inv',shape=(total_block_N,)+inverse_shape,dtype=np.int32)
+            bidmap_inverse_dset.attrs['valid_num'] = 0
 
 
         # predicted label
