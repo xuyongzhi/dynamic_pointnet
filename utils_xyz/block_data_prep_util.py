@@ -58,7 +58,7 @@ def get_stride_step_name(block_stride,block_step):
     assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
 
     def get_str(v):
-        assert (v*10) % 1 == 0
+        assert (v*10) % 1 == 0, "v=%s"%(str(v))
         if v%1!=0: return '%dd%d'%(int(v),(v%1)*10)
         else: return str(int(v))
     if block_stride[2] == -1:
@@ -94,18 +94,17 @@ def get_attrs_str(attrs):
 
 def show_h5f_summary_info(h5f):
     root_attrs = [attr for attr in h5f.attrs]
-    print('*** The root_attr: ',root_attrs)
+    print('--------------------------------------------------------------------------')
+    print('The root_attr: ',root_attrs)
     print(get_attrs_str(h5f.attrs))
-  #  key_root_attrs = ['datasource_name','element_names','total_row_N','total_block_N','block_step',\
-  #                  'block_stride','block_dims_N','xyz_min','xyz_max','xyz_min_aligned','xyz_max_aligned',\
-  #                  'xyz_scope_aligned']
 
-  #  for attr in key_root_attrs:
-  #      if attr in h5f.attrs:
-  #          print(attr+':',h5f.attrs[attr] )
-
-    print('\n*** The datasets')
-    def show_dset(dset):
+    print('\n--------------------------------------------------------------------------')
+    print('The elements in h5f')
+    def show_dset(dset_name,id):
+        if id>10: return
+        dset = h5f[dset_name]
+        print('# dataset %d: '%(id),dset_name,'  shape=',dset.shape)
+        if id>6: return
         print(get_attrs_str(dset.attrs))
         if len(dset.shape)==3:
             print(dset[0:min(2,dset.shape[0]),:])
@@ -113,17 +112,22 @@ def show_h5f_summary_info(h5f):
             var = dset[0:min(1,dset.shape[0]),0,0:min(2,dset.shape[2]),:]
             print(np.array2string(var,formatter={'float_kind':lambda var:"%0.2f"%var}))
         print('\n')
+    def show_root_ele(ele_name,id):
+        ele = h5f[ele_name]
+        print('--------------------------------------------------------------------------')
+        if type(ele) == h5py._hl.group.Group:
+            print('The group: %s'%(ele_name))
+            print(get_attrs_str(ele.attrs))
+            for dset_name in ele:
+                show_dset(ele_name+'/'+dset_name,id)
+        else:
+            show_dset(ele_name,id)
     k = -1
-    for k, dset_n in enumerate(h5f):
-        if dset_n == 'xyz':
-            print('# dataset %d: '%(k),dset_n,'  shape=',dset.shape)
-            show_dset(h5f['xyz'])
+    for k, ele_name in enumerate(h5f):
+        if ele_name == 'xyz':
+            show_dset(ele_name,k)
             continue
-        dset = h5f[dset_n]
-        if k < 10:
-            print('# dataset %d: '%(k),dset_n,'  shape=',dset.shape)
-        if k < 5:
-            show_dset(dset)
+        show_root_ele(ele_name,k)
     print('%d datasets totally'%(k+1))
 
 def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
@@ -1533,7 +1537,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if IsRecordTime: t0 = time.time()
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
-        nsubblock = gsbb.nsubblock_candis[0]
+        nsubblock = int(gsbb.nsubblock_candis[0])
         sub_block_size = gsbb.sub_block_size_candis[0]
         npoint_subblock = gsbb.npoint_subblock_candis[0]
         cas0b_attrs = gsbb.get_new_attrs(0)
@@ -1658,14 +1662,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for j in range(len(all_bidmaps)):
                 all_bidmaps[j] = np.concatenate(all_bidmaps[j],axis=0)
             mean_bidmap_sample_rates = [sum_rate/len(all_sorted_global_bids) for sum_rate in sum_bidmap_sample_rates]
-
+            gsbb.mean_bidmap_sample_rates = mean_bidmap_sample_rates
 
             pyramid_h5f.append_to_dset('data',file_datas)
             pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
 
+            GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidmaps'].attrs )
             for j in range(len(all_bidmaps)):
-                pyramid_h5f.h5f['bidmap/'+str(j+1)].attrs['sample_rate'] = mean_bidmap_sample_rates[j]
-                pyramid_h5f.append_to_dset('bidmap/'+str(j+1),all_bidmaps[j])
+                #pyramid_h5f.h5f['bidmaps/'+str(j+1)].attrs['sample_rate'] = mean_bidmap_sample_rates[j]
+                pyramid_h5f.append_to_dset('bidmaps/'+str(j+1),all_bidmaps[j])
 
             pyramid_h5f.create_done()
             if IsShowSummaryFinished:
@@ -1678,22 +1683,25 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
         return feed_data_ele_ids,feed_label_ele_ids
 
+
 class GlobalSubBaseBLOCK():
     '''
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
     '''
-    global_stride = np.array([1.0,1.0,-1])
-    global_step = np.array([2.0,2.0,-1])
+    global_stride = np.array([1.0,1.0,-1]).astype(np.float)
+    global_step = np.array([2.0,2.0,-1]).astype(np.float)
 
-    sub_block_size_candis = [0.2,0.4,0.8,1.6]
-    nsubblock_candis = [512,128,64,16]
-    npoint_subblock_candis = [32,32,32,32]
+    sub_block_size_candis = np.array([0.2,0.4,0.8,1.6]).astype(np.float)
+    nsubblock_candis = np.array([512,128,64,16]).astype(np.int32)
+    npoint_subblock_candis = np.array([32,32,32,32]).astype(np.int32)
     # store more points to enable different randomly choice in each epoch
     prestore_nsubblock_candis = np.ceil(np.array(nsubblock_candis)*1.3).astype(np.int32)
     prestore_npoint_subblock_candis = np.ceil(np.array(npoint_subblock_candis)*1.3).astype(np.int32)
 
     cascade_num = len(sub_block_size_candis)
+    mean_bidmap_sample_rates = np.zeros(shape=(cascade_num-1,2))
+
     cascade_id_ls = ['root']+range(cascade_num)+['global']
     base_cascade_ids = {}
     base_cascade_ids['global'] = 0
@@ -1707,6 +1715,17 @@ class GlobalSubBaseBLOCK():
         self.root_s_h5f_fn = root_s_h5f_fn
         self.new_attrs = {}
         self.bm_output = {}
+
+    @staticmethod
+    def write_paras_in_h5fattrs(attrs):
+        ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis','mean_bidmap_sample_rates']
+        for ele_name in ele_names:
+            attrs[ele_name] = getattr( GlobalSubBaseBLOCK,ele_name )
+    def load_paras_from_h5fattrs(attrs):
+        ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis']
+        for ele_name in ele_names:
+            setattr( GlobalSubBaseBLOCK,ele_name, attrs[ele_name]  )
+
     @staticmethod
     def get_pyramid_flag():
         flag_str = ''
@@ -1721,7 +1740,7 @@ class GlobalSubBaseBLOCK():
             if s<1:
                 flag_str += '0d'+str(int(10*s))
             else:
-                flag_str += str(int(10*s))+'_'
+                flag_str += str(int(10*s))
             if i<len(GlobalSubBaseBLOCK.sub_block_size_candis)-1:
                 flag_str += '_'
         return flag_str
@@ -2533,8 +2552,6 @@ class Normed_H5f():
         dset = self.h5f['data']
         return dset.shape
 
-
-
     def create_3dsets(self):
         chunks_n = 1
         total_block_N = self.h5f.attrs['total_block_N']
@@ -2554,7 +2571,7 @@ class Normed_H5f():
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
                 chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
 
-        bidmap_grp = self.h5f.create_group('bidmap')
+        bidmap_grp = self.h5f.create_group('bidmaps')
         bidmaps_num = GlobalSubBaseBLOCK.cascade_num - 1
         bidmap_dsets =  []
         for cascade_id in range(1,GlobalSubBaseBLOCK.cascade_num):
@@ -3226,6 +3243,7 @@ def main(file_list):
 
 def show_h5f_file():
     fn = '/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1/region2.sh5'
+    fn = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_128_64_16-0d2_0d4_0d8_16/region2.prh5'
     with h5py.File(fn,'r') as h5f:
         show_h5f_summary_info(h5f)
 
@@ -3251,10 +3269,11 @@ if __name__ == '__main__':
 
     #Write_Area_accuracies()
     #Write_all_file_accuracies()
-    Test_get_block_data_of_new_stride_step()
-    #Test_sub_block_ks_()
+    #Test_get_block_data_of_new_stride_step()
     #Do_normalize_sorted_to_self()
     #Normed_H5f.show_all_colors()
     #Gen_raw_label_color_obj()
+
+    show_h5f_file()
     T = time.time() - START_T
     print('exit main, T = ',T)
