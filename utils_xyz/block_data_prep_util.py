@@ -99,7 +99,7 @@ class Raw_H5f():
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
     dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32,'label':np.int32,'bounding_box':np.float32}
-    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1,'label':1,'bounding_box':7} # 7 = lenght, width, height, alpha, x, y, z in the coordinate system of point cloud
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1,'label':1,'bounding_box':8} # 8 = category, lenght, width, height, alpha, x, y, z in the coordinate system of point cloud
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
         self.h5f = raw_h5_f
         if datasource_name == None:
