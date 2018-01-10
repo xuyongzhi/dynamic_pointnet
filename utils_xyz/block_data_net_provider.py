@@ -331,7 +331,7 @@ class Net_Provider():
                 # data_i: [batch_size,npoint_block,data_nchannels]
                 # label_i: [batch_size,npoint_block,label_nchannels]
                 if self.InputType=='Pr_Normed_H5f':
-                    bidmaps_dic,bidmaps_inv_dic = self.norm_h5f_L[f_idx].get_bidmap(start,end)
+                    bidmaps_dic,bidmaps_inv_dic = self.norm_h5f_L[f_idx].get_bidxmap(start,end)
             elif self.InputType == 'Sorted_H5f':
                 data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
                                 start,end,new_feed_data_elements,self.feed_label_elements )
@@ -539,7 +539,7 @@ def main_NormedH5f():
     #num_point_block = 8192
 
     InputType = 'Pr_Normed_H5f'
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_128_64_16-0d2_0d4_0d8_16']
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16']
     num_point_block = None
 
     eval_fnglob_or_rate = 0.3

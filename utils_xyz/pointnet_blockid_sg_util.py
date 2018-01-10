@@ -76,12 +76,12 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp, mlp2, is_training, 
         return new_xyz, new_points
 
 
-def pointnet_fp_model( points1, points2, bidmap_inverse, mlp, is_training, bn_decay, scope, bn=True ):
+def pointnet_fp_model( points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
     '''
-    mapped_points2 = tf.gather(points2,bidmap_inverse,axis=1)
+    mapped_points2 = tf.gather(points2,flatten_bidxmap,axis=1)
     if points1 is not None:
         new_points1 = tf.concat(values=[points1,mapped_points2],axis=-1)
     else:
