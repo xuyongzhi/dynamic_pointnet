@@ -32,7 +32,9 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
     flatten_bidxmaps_pl_0 = flatten_bidxmaps_pl[ :,start[0]:end[0],: ]
 
     labels_pl, smpws_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, flatten_bidxmaps_pl_0)
-    return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl
+    debug={}
+    debug['flatten_bidxmaps_pl_0'] = flatten_bidxmaps_pl_0
+    return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug
 
 def get_sa_module_config():
     mlps = []

@@ -22,7 +22,8 @@ from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 
-ISDEBUG = False
+ISDEBUG = True
+ISDEBUG_MEMORYTIME = False
 ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
@@ -175,7 +176,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
             elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
                 flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
-                grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+                grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -245,9 +246,13 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
             ops['grouped_pointclouds_pl'] = grouped_pointclouds_pl
             ops['grouped_labels_pl'] = grouped_labels_pl
+            ops['labels_pl'] = labels_pl
             ops['grouped_smpws_pl'] = grouped_smpws_pl
             ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
             ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+
+            if ISDEBUG:
+                ops['flatten_bidxmaps_pl_0'] = debug_pls['flatten_bidxmaps_pl_0']
 
         if FLAGS.finetune:
             saver.restore(sess,MODEL_PATH)
@@ -255,7 +260,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
         log_string(net_provider.data_summary_str)
 
-        if ISDEBUG:
+        if ISDEBUG_MEMORYTIME:
             builder = tf.profiler.ProfileOptionBuilder
             opts = builder(builder.time_and_memory()).order_by('micros').build()
             pctx =  tf.contrib.tfprof.ProfileContext('/tmp/train_dir',
@@ -362,13 +367,19 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
             feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        if ISDEBUG  and  epoch == 0 and batch_idx ==5:
+        if ISDEBUG_MEMORYTIME  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
                 summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
                                             feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
+            if ISDEBUG:
+                grouped_labels, flatten_bidxmaps_pl_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
+                                    feed_dict=feed_dict)
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                labels, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
             summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
                                         feed_dict=feed_dict)
 
