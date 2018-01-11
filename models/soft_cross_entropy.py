@@ -10,16 +10,16 @@ def softmax(x):
     exp_x = np.exp(x - np.max(x, axis=1, keepdims = True))
     return exp_x / np.sum(exp_x, axis = 1, keepdims = True)
 
-def softmaxloss(X,y):
+def softmaxloss(predictions,labels):
     """
-    X: num_sample * num_classes
-    y:  num_sample * 1
+    predictions: num_sample * num_classes
+    labels:  num_sample * 1
     """
-    assert X.shape[0]==y.shape[0]
-    m = X.shape[0]
-    p = softmax(X)
-    # p=X
-    log_likelihood = -np.log( p[range(m), y])
+    assert predictions.shape[0] == labels.shape[0]
+    labels = labels.astype(int)
+    m = predictions.shape[0]
+    p = softmax(predictions)
+    log_likelihood = -np.log( p[range(m), labels])
     loss = np.sum(log_likelihood) / m
 
     return loss

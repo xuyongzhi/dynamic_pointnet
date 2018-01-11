@@ -23,6 +23,7 @@ __C = edict()
 #   from fast_rcnn_config import cfg
 cfg = __C
 
+DEBUG = False
 #
 # Training options
 #

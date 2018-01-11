@@ -22,7 +22,7 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
-from pointnet2_obj_detection import  placeholder_inputs,get_model,get_loss
+from pointnet2_obj_detection_tf2 import  placeholder_inputs,get_model,get_loss
 #import provider
 import get_dataset
 from evaluation import EvaluationMetrics
@@ -41,7 +41,7 @@ parser.add_argument('--dataset_name', default='rawh5_kitti', help='rawh5_kitti')
 #                    help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_elements', default='xyz_raw', help='xyz_1norm,xyz_midnorm,color_1norm')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
-parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--eval_fnglob_or_rate',  default='train', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
 
