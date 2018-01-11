@@ -1967,7 +1967,6 @@ class GlobalSubBaseBLOCK():
 
         return sg_bidxmaps,sg_bidxmap_sample_rates,flatten_bidxmaps, flatten_bmap_sample_rates
 
-
     @staticmethod
     def extract_sg_bidxmaps(sg_bidxmaps,cascade_id):
         start = GlobalSubBaseBLOCK.sg_bidxmaps_extract_idx[cascade_id-1,:]
@@ -2583,7 +2582,7 @@ class Normed_H5f():
         flatten_bidxmaps = bidxmap_grp['flatten'][start_block:end_block,:]
         sg_bidxmaps = bidxmap_grp['sample_group'][start_block:end_block,:]
 
-        return flatten_bidxmaps, sg_bidxmaps
+        return  sg_bidxmaps, flatten_bidxmaps
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements

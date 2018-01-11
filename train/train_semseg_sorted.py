@@ -27,7 +27,7 @@ ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
-parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f')
+parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f or Pr_NormedH5f')
 parser.add_argument('--all_fn_globs', type=str,default='v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/',\
                     help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
@@ -54,16 +54,26 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 
 FLAGS = parser.parse_args()
 
+
+FLAGS.datafeed_type='Pr_Normed_H5f'
+FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16'
+FLAGS.num_point=None
+FLAGS.eval_fnglob_or_rate = 0.3
+FLAGS.feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
+FLAGS.feed_label_elements = 'label_category,label_instance'
+FLAGS.batch_size=2
+FLAGS.auto_break  = True
+#-------------------------------------------------------------------------------
+
 if FLAGS.datafeed_type == 'Normed_H5f':
     from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
-else:
+elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
     from pointnet2_sem_seg_pyramid_feed import  placeholder_inputs,get_model,get_loss
 
-
-
 BATCH_SIZE = FLAGS.batch_size
-if FLAGS.num_point < 0:
-    FLAGS.num_point = None
+if FLAGS.datafeed_type == 'Pr_Normed_H5f':
+    FLAGS.num_point = Net_Provider.global_num_point
+NUM_POINT = FLAGS.num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
 MOMENTUM = FLAGS.momentum
@@ -161,7 +171,13 @@ def get_bn_decay(batch):
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
+            if FLAGS.datafeed_type == 'Normed_H5f':
+                pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
+            elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
+                flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
+                grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+                                        NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
+            category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.
@@ -171,11 +187,16 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             tf.summary.scalar('bn_decay', bn_decay)
 
             # Get model and loss
-            pred,end_points = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss = get_loss(pred, labels_pl,smpws_pl)
+            if FLAGS.datafeed_type == 'Normed_H5f':
+                pred,end_points = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
+                loss = get_loss(pred, labels_pl,smpws_pl)
+            elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
+                sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
+                pred,end_points = get_model(grouped_pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx,  bn_decay=bn_decay)
+                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
             tf.summary.scalar('loss', loss)
 
-            correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
+            correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(category_labels_pl))
             accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
             tf.summary.scalar('accuracy', accuracy)
 
@@ -190,11 +211,6 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Add ops to save and restore all the variables.
             saver = tf.train.Saver(max_to_keep=50)
-
-            IsShowModel = True
-            if IsShowModel:
-                print('pointclouds_pl',pointclouds_pl)
-                print('labels_pl',labels_pl)
 
         # Create a session
         config = tf.ConfigProto()
@@ -216,15 +232,23 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl:True})
 
-        ops = {'pointclouds_pl': pointclouds_pl,
-               'labels_pl': labels_pl,
-               'is_training_pl': is_training_pl,
+        ops = {'is_training_pl': is_training_pl,
                'pred': pred,
                'loss': loss,
                'train_op': train_op,
                'merged': merged,
-               'step': batch,
-               'smpws_pl': smpws_pl}
+               'step': batch,}
+        if FLAGS.datafeed_type == 'Normed_H5f':
+            ops['pointclouds_pl'] = pointclouds_pl
+            ops['labels_pl'] = labels_pl
+            ops['smpws_pl'] = smpws_pl
+        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
+            ops['grouped_pointclouds_pl'] = grouped_pointclouds_pl
+            ops['grouped_labels_pl'] = grouped_labels_pl
+            ops['grouped_smpws_pl'] = grouped_smpws_pl
+            ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
+            ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+
         if FLAGS.finetune:
             saver.restore(sess,MODEL_PATH)
             log_string('finetune, restored model from: \n\t%s'%MODEL_PATH)
@@ -314,22 +338,29 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if train_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
                 break
-            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf = train_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         t1 = time.time()
         if type(cur_data) == type(None):
             break # all data reading finished
         label_category = cur_label[:,:,CATEGORY_LABEL_IDX]
-        feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: label_category,
-                     ops['is_training_pl']: is_training,
-                     ops['smpws_pl']: cur_smp_weights[:,:,CATEGORY_LABEL_IDX]}
+        feed_dict = { ops['is_training_pl']: is_training }
+        if FLAGS.datafeed_type == 'Normed_H5f':
+            feed_dict[ops['pointclouds_pl']] = cur_data
+            feed_dict[ops['labels_pl']] = cur_label
+            feed_dict[ops['smpws_pl']] = cur_smp_weights
+        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
+            feed_dict[ops['grouped_pointclouds_pl']] = cur_data
+            feed_dict[ops['grouped_labels_pl']] = cur_label
+            feed_dict[ops['grouped_smpws_pl']] = cur_smp_weights
+            feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
+            feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
@@ -389,22 +420,31 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
                 break
-            cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         t1 = time.time()
         if type(cur_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
-        feed_dict = {ops['pointclouds_pl']: cur_data,
-                     ops['labels_pl']: cur_label[:,:,CATEGORY_LABEL_IDX],
-                     ops['is_training_pl']: is_training,
-                     ops['smpws_pl']: cur_smp_weights[:,:,CATEGORY_LABEL_IDX]}
+
+        feed_dict = { ops['is_training_pl']: is_training }
+        if FLAGS.datafeed_type == 'Normed_H5f':
+            feed_dict[ops['pointclouds_pl']] = cur_data
+            feed_dict[ops['labels_pl']] = cur_label
+            feed_dict[ops['smpws_pl']] = cur_smp_weights
+        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
+            feed_dict[ops['grouped_pointclouds_pl']] = cur_data
+            feed_dict[ops['grouped_labels_pl']] = cur_label
+            feed_dict[ops['grouped_smpws_pl']] = cur_smp_weights
+            feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
+            feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
@@ -448,8 +488,8 @@ def add_train_feed_buf(train_feed_buf_q):
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(start_idx,end_idx)
-                    train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_train_batch(start_idx,end_idx)
+                    train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
                         break # all data reading finished
@@ -477,8 +517,8 @@ def add_eval_feed_buf(eval_feed_buf_q):
                     batch_idx += 1
                     start_idx = batch_idx * BATCH_SIZE
                     end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(start_idx,end_idx)
-                    eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, batch_idx,epoch] )
+                    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx)
+                    eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
                         break # all data reading finished

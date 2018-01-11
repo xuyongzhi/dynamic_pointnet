@@ -3,18 +3,36 @@ import sys
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, '../utils'))
+sys.path.append(os.path.join(BASE_DIR, '../utils_xyz'))
 import tensorflow as tf
 import numpy as np
 import tf_util
-from pointnet_util import pointnet_sa_module, pointnet_fp_module
+from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 
-def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape):
-    pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+ (data_num_ele,))
-    labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample+(label_num_ele,))
-    smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+(label_num_ele,))
-    sg_bidxmaps_pl = tf.placeholder( tf.int32,shape=sg_bidxmaps_shape )
-    flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape=flatten_bidxmaps_shape)
-    return pointclouds_pl, labels_pl, smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl
+def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0 ):
+    batch_size = grouped_labels.get_shape()[0].value
+    batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
+    flatten_bidxmap0_shape1 = flatten_bidxmap0.get_shape()[1].value
+    batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap0_shape1,1] )
+    flatten_bidxmap0_concat = tf.concat( [batch_idx,flatten_bidxmap0],axis=-1 )
+
+    label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat)
+    smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
+    return label, smpw
+
+def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape, flatten_bm_extract_idx):
+    grouped_pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+ (data_num_ele,))
+    grouped_labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample+(label_num_ele,))
+    grouped_smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+(label_num_ele,))
+    sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,)+sg_bidxmaps_shape )
+    flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape)
+
+    start = flatten_bm_extract_idx[0]
+    end = flatten_bm_extract_idx[1]
+    flatten_bidxmaps_pl_0 = flatten_bidxmaps_pl[ :,start[0]:end[0],: ]
+
+    labels_pl, smpws_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, flatten_bidxmaps_pl_0)
+    return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl
 
 def get_sa_module_config():
     mlps = []
@@ -59,7 +77,7 @@ def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extrac
         else:
             start = sg_bm_extract_idx[k-1]
             end = sg_bm_extract_idx[k]
-            sg_bidxmap_k = sg_bidxmaps[ start[0]:end[0],0:end[1] ]
+            sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
         new_xyz, new_points = pointnet_sa_module(k,l_xyz[k], l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training, bn_decay=bn_decay, scope='layer'+str(k))
         l_xyz.append(new_xyz)
         l_points.append(new_points)
@@ -72,7 +90,7 @@ def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extrac
         k = cascade_num-1 - i
         start = flatten_bm_extract_idx[k]
         end = flatten_bm_extract_idx[k+1]
-        flatten_bidxmaps_k = flatten_bidxmaps[ start[0]:end[0],: ]
+        flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],: ]
         l_points[k] = pointnet_fp_module(l_points[k], l_points[k+1], flatten_bidxmaps_k, mlps[k], is_training, bn_decay, scope='fa_layer'+str(i))
 
     # FC layers
@@ -84,13 +102,15 @@ def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extrac
     return net, end_points
 
 
-def get_loss(pred, grouped_label, grouped_smpw, flatten_bidxmap0):
+def get_loss(pred, label, smpw, label_eles_idx ):
     """ pred: BxNxC,
         label: BxN,
 	smpw: BxN """
-    label = tf.gather(grouped_label,flatten_bidxmap0)
-    #label_category = label[:,:,label_eles_idx['label_category'][0]]
-    classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
+    category_idx = label_eles_idx['label_category'][0]
+    label_category = label[...,category_idx]
+    smpw_category = smpw[...,category_idx]
+
+    classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)
     tf.summary.scalar('classify loss', classify_loss)
     return classify_loss
 

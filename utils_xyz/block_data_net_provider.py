@@ -42,6 +42,7 @@ class Net_Provider():
     # one batch would contain sevel(batch_size) blocks,this will be set out side
     # provider with train_start_idx and test_start_idx
 
+    global_num_point = GlobalSubBaseBLOCK.global_num_point
 
     def __init__(self,InputType, dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
@@ -155,6 +156,12 @@ class Net_Provider():
         elif block_sample.size==2:
             block_sample = (block_sample[0],block_sample[1])
         self.block_sample = block_sample
+
+        if self.InputType == 'Pr_Normed_H5f':
+            self.sg_bidxmaps_shape = GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()
+            self.flatten_bidxmaps_shape = GlobalSubBaseBLOCK.get_flatten_bidxmaps_shape()
+            self.sg_bidxmaps_extract_idx = GlobalSubBaseBLOCK.sg_bidxmaps_extract_idx
+            self.flatten_bidxmaps_extract_idx = GlobalSubBaseBLOCK.flatten_bidxmaps_extract_idx
 
         print('\ntrain data shape',self.whole_train_data_shape)
         print('train label shape',self.whole_train_label_shape)
@@ -302,12 +309,8 @@ class Net_Provider():
         data_ls = []
         label_ls = []
         center_mask = []
-        bidmaps_ls_dic = {}
-        bidmaps_inv_ls_dic = {}
-        for cascade_id in range(0,self.cascade_num):
-            if cascade_id!=0:
-                bidmaps_ls_dic[cascade_id] = []
-            bidmaps_inv_ls_dic[cascade_id] = []
+        sg_bidxmaps_ls = []
+        flatten_bidxmaps_ls = []
         for f_idx in range(start_file_idx,end_file_idx+1):
             if f_idx == start_file_idx:
                 start = local_start_idx
@@ -331,7 +334,7 @@ class Net_Provider():
                 # data_i: [batch_size,npoint_block,data_nchannels]
                 # label_i: [batch_size,npoint_block,label_nchannels]
                 if self.InputType=='Pr_Normed_H5f':
-                    bidmaps_dic,bidmaps_inv_dic = self.norm_h5f_L[f_idx].get_bidxmap(start,end)
+                    sg_bidxmaps, flatten_bidxmaps = self.norm_h5f_L[f_idx].get_bidxmap(start,end)
             elif self.InputType == 'Sorted_H5f':
                 data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
                                 start,end,new_feed_data_elements,self.feed_label_elements )
@@ -343,12 +346,9 @@ class Net_Provider():
 
             data_ls.append(data_i)
             label_ls.append(label_i)
-
             if self.InputType=='Pr_Normed_H5f':
-                for cascade_id in range(0,self.cascade_num):
-                    if cascade_id!=0:
-                        bidmaps_ls_dic[cascade_id].append( np.expand_dims(bidmaps_dic[cascade_id],axis=0) )
-                    bidmaps_inv_ls_dic[cascade_id].append( np.expand_dims(bidmaps_inv_dic[cascade_id],axis=0) )
+                sg_bidxmaps_ls.append(sg_bidxmaps)
+                flatten_bidxmaps_ls.append(flatten_bidxmaps)
 
             xyz_midnorm_block_i = data_i[...,self.feed_data_ele_idxs['xyz_midnorm_block']]
 
@@ -358,22 +358,18 @@ class Net_Provider():
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         if self.InputType=='Pr_Normed_H5f':
-            bidmaps = []
-            bidmaps_inv = []
-            for cascade_id in range(0,self.cascade_num):
-                if cascade_id==0:
-                    bidmaps.append( np.concatenate(bidmaps_ls_dic[cascade_id],0) )
-                bidmaps_inv.append( np.concatenate(bidmaps_inv_ls_dic[cascade_id],0) )
+            sg_bidxmaps = np.concatenate( sg_bidxmaps_ls,axis=0 )
+            flatten_bidxmaps = np.concatenate( flatten_bidxmaps_ls,axis=0 )
         else:
-            bidmaps = None
-            bidmaps_inv = None
+            sg_bidxmaps = None
+            flatten_bidxmaps = None
 
         center_mask = np.concatenate(center_mask,0)
 
-        if self.InputType=='Normed_H5f' or self.InputType=='Pr_Normed_H5f':
+        #if self.InputType=='Normed_H5f' or self.InputType=='Pr_Normed_H5f':
             # sampling again
-            if self.num_point_block!=None:
-                assert data_batches.shape[1] == self.num_point_block
+            #if self.num_point_block!=None:
+                #assert data_batches.shape[1] == self.num_point_block
                 #data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
 
         num_label_eles = len(self.feed_label_elements)
@@ -398,8 +394,10 @@ class Net_Provider():
      #   #print('data = \n',data_batches[0,:])
         #t_block = (time.time()-t0)/(g_end_idx-g_start_idx)
         #print('get_global_batch t_block:%f ms'%(1000.0*t_block))
+       # print(sg_bidxmaps.shape)
+       # print(flatten_bidxmaps.shape)
 
-        return data_batches,label_batches,sample_weights,bidmaps,bidmaps_inv
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps
 
     def get_center_mask(self,xyz_midnorm,edge_rate=0.12):
         # true for center, false for edge
@@ -414,19 +412,13 @@ class Net_Provider():
         data_batches = []
         label_batches = []
         sample_weights = []
-        bidmaps_dic_ls = {}
-        bidmaps_inv_dic_ls = {}
-        for cascade_id in range(0,self.cascade_num):
-            if cascade_id!=0:
-                bidmaps_dic_ls[cascade_id] = []
-            bidmaps_inv_dic_ls[cascade_id] = []
+        sg_bidxmaps_ls = []
+        flatten_bidxmaps_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,bidmaps_i,bidmaps_inv = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i = self.get_global_batch(idx,idx+1)
             if self.InputType=='Pr_Normed_H5f':
-                for cascade_id in range(1,self.cascade_num):
-                    if cascade_id!=0:
-                        bidmaps_dic_ls[cascade_id].append(bidmaps_i[cascade_id-1])
-                    bidmaps_inv_dic_ls[cascade_id].append(bidmaps_inv_i[cascade_id])
+                sg_bidxmaps_ls.append(sg_bidxmaps_i)
+                flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             data_batches.append(data_i)
             label_batches.append(label_i)
             sample_weights.append(smw_i)
@@ -434,16 +426,12 @@ class Net_Provider():
         label_batches = np.concatenate(label_batches,axis=0)
         sample_weights = np.concatenate(sample_weights,axis=0)
         if self.InputType=='Pr_Normed_H5f':
-            bidmaps = []
-            bidmaps_inv = []
-            for cascade_id in range(0,self.cascade_num):
-                if cascade_id!=0:
-                    bidmaps.append( np.concatenate(bidmaps_dic_ls[cascade_id],0) )
-                bidmaps_inv.append( np.concatenate(bidmaps_inv_dic_ls[cascade_id],0) )
+            sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
+            flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
         else:
-            bidmaps = None
-            bidmaps_inv = None
-        return data_batches,label_batches,sample_weights,bidmaps,bidmaps_inv
+            sg_bidxmaps = None
+            flatten_bidxmaps = None
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps
 
     def update_train_eval_shuffled_idx(self):
         self.train_shuffled_idx = np.arange(self.train_num_blocks)
@@ -559,8 +547,8 @@ def main_NormedH5f():
     print(net_provider.data_summary_str)
     print('init time:',t1-t0)
 
-    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_train_batch(0, min(128,net_provider.train_num_blocks) )
-    cur_data,cur_label,cur_smp_weights,cur_bidmaps = net_provider.get_eval_batch(0,min(128,net_provider.eval_num_blocks) )
+    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(0, min(128,net_provider.train_num_blocks) )
+    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_eval_batch(0,min(128,net_provider.eval_num_blocks) )
     if InputType=='Normed_H5f':
         print(cur_data.shape)
         print(cur_data[0,0:3,:])
