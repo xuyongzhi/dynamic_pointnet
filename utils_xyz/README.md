@@ -1,3 +1,6 @@
+**IMPORTANT**
+- [ ] Add calculate nearest aim_block index for missed base valid block index. in get_bidxmap() in block_data_prep_util.py
+      Or just do no feature back propogation for missed base blocks. Currently, I use random aim_block index to test program. But this is wrong.
 
 - [ ] In Qi's complementaion, 3 nearest balls are fused in back-propogated. I only use one. What is the right way.
 - [ ] Add GlobalSubBaseBLOCK configuration check in get_data_larger_block

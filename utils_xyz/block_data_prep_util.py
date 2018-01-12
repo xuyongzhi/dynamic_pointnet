@@ -1577,7 +1577,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             cas0_bids_in_global_valid = cas0_bids_in_global
 
-
         if IsRecordTime: t1 = time.time()
         # (1.5) Check how many base block ids are misssed in sub block valid space.
 
@@ -1730,8 +1729,8 @@ class GlobalSubBaseBLOCK():
     global_num_point = 10240
 
     sub_block_size_candis = np.array([0.1,0.2,0.4,0.8]).astype(np.float)
-    nsubblock_candis = np.array([512,256,64,32]).astype(np.int32)
-    npoint_subblock_candis = np.array([32,16,16,16]).astype(np.int32)
+    nsubblock_candis =       np.array([2000,600, 64, 32]).astype(np.int32)
+    npoint_subblock_candis = np.array([32,  16,  16, 16]).astype(np.int32)
 
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
@@ -1877,11 +1876,14 @@ class GlobalSubBaseBLOCK():
             aim_bid_index is the index of aim_bid stored in valid_sorted_aimbids_sampled
         '''
         IsCheck = True
+        # valid_sorted_basebids.size is the valid number of base blocks. Maximum value is nsubblock of last cascade.
+        # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
 
         aim_nsubblock =  GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
         aim_npoint_subblock = GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id]
 
+        # (1) Remove all the aim blocks contain no valid base blocks
         all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id,Always_CreateNew=Always_CreateNew)
         all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
         bidxmap_dic={}
@@ -1901,6 +1903,7 @@ class GlobalSubBaseBLOCK():
         valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
         valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidxmap_dic,aim_nsubblock)
 
+        # (2) Get all the maps of valid aim blocks
         sg_bidxmap = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         bid_valid_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
         for aim_b_index in range(aim_nsubblock):
@@ -1912,7 +1915,20 @@ class GlobalSubBaseBLOCK():
             for pointindex_within_subblock, basebid_index in enumerate(base_bid_valid_indexs):
                 flatten_bidxmap[basebid_index,:] = [aim_b_index,pointindex_within_subblock]
 
-        assert np.sum(flatten_bidxmap<0)==0
+        # (3) Tile flatten_bidxmap for all the missed blocks
+        #     Because of insufficient aim_nsubblock or small aim_sub_block_size,
+        #     some valid base blocks are missed. When a base point is missed, it
+        #     would be hard to back-propogate global features to this base
+        #     point. The correct way is to propogate from nearest 1/3 others aim_blocks.
+        #     Temoporaly, use large aim_nsubblock or aim_sub_block_size to
+        #     reduce missed_valid_base_bindex_num.
+        missed_valid_base_bindex = flatten_bidxmap[:,0]<0
+        missed_valid_base_bindex_num = np.sum( missed_valid_base_bindex )
+        if missed_valid_base_bindex_num > 0:
+            for basebid_index in range( valid_sorted_basebids.size ):
+                flatten_bidxmap[basebid_index,:] = []
+        assert np.sum(flatten_bidxmap[:,0]<0)==0,"%d of %d base blocks are not used"%(np.sum(flatten_bidxmap[:,0]<0), flatten_bidxmap.shape[0])
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         sg_sample_num = np.array( [ aim_nsubblock, all_sorted_aimbids.size, 1, aim_npoint_subblock, raw_valid_base_bnum.mean(),1 ] ).astype(np.uint64)
         return sg_bidxmap, sg_sample_num, valid_sorted_aimbids, flatten_bidxmap
