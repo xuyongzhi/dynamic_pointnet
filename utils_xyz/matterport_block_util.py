@@ -6,6 +6,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate
 import numpy as np
 import h5py
 import glob
@@ -192,7 +193,7 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        sorted_h5f.file_saveas_pyramid_feed(True)
+        sum_sg_bidxmap_sample_num, sum_flatten_bmap_sample_num = sorted_h5f.file_saveas_pyramid_feed(True)
     return fn
 
 class Matterport3D_Prepare():
@@ -360,6 +361,25 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Sample failed. only %d files successed"%(len(success_fns))
             print("\n\n SampleFile:all %d files successed\n******************************\n"%(len(success_fns)))
 
+    def get_mean_pr_sample_num(self,base_stride,base_step):
+        base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
+        py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+        file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
+        sum_sg_bidxmap_sample_num = np.zeros((GlobalSubBaseBLOCK.cascade_num,6)).astype(np.uint64)
+        sum_flatten_bmap_sample_num = np.zeros((GlobalSubBaseBLOCK.cascade_num,3)).astype(np.uint64)
+        for fn in file_list:
+            with h5py.File(fn,'r') as f:
+                #print('sum_sg_bidxmap_sample_num')
+                #print(f['bidxmaps'].attrs['sum_sg_bidxmap_sample_num'].astype(np.uint64))
+                sum_sg_bidxmap_sample_num += f['bidxmaps'].attrs['sum_sg_bidxmap_sample_num'].astype(np.uint64)
+                sum_flatten_bmap_sample_num += f['bidxmaps'].attrs['sum_flatten_bmap_sample_num'].astype(np.uint64)
+        mean_sg_sample_num = get_mean_sg_sample_rate(sum_sg_bidxmap_sample_num)
+        mean_flatten_sample_num = get_mean_flatten_sample_rate(sum_flatten_bmap_sample_num)
+        print('mean_sg_sample_num:')
+        print(mean_sg_sample_num)
+        print('\nmean_flatten_sample_num')
+        print(mean_flatten_sample_num)
+
     def GenPyramid(self,base_stride,base_step,MultiProcess=0):
       #  base_stride = [2,2,-1]
       #  base_step = [4,4,-1]
@@ -457,6 +477,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
     operations  = ['GenPyramid']
+    #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)
 
@@ -466,6 +487,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
     if 'GenPyramid' in operations:
         matterport3d_prepare.GenPyramid(base_step_stride,base_step_stride,MultiProcess)
+    if 'pr_sample_rate' in operations:
+        matterport3d_prepare.get_mean_pr_sample_num(base_step_stride,base_step_stride)
 
     new_stride = [1,1,-1]
     new_step = [2,2,-1]

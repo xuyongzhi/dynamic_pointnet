@@ -9,32 +9,40 @@ import numpy as np
 import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 
-def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0 ):
-    batch_size = grouped_labels.get_shape()[0].value
-    batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
-    flatten_bidxmap0_shape1 = flatten_bidxmap0.get_shape()[1].value
-    batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap0_shape1,1] )
-    flatten_bidxmap0_concat = tf.concat( [batch_idx,flatten_bidxmap0],axis=-1 )
 
-    label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat)
-    smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
-    return label, smpw
+
+def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0,base_sc ):
+    with tf.variable_scope(base_sc+'-fgl'):
+        batch_size = grouped_labels.get_shape()[0].value
+        batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
+        flatten_bidxmap0_shape1 = flatten_bidxmap0.get_shape()[1].value
+        batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap0_shape1,1] )
+        flatten_bidxmap0_concat = tf.concat( [batch_idx,flatten_bidxmap0],axis=-1,name="flatten_bidxmap0_concat" )
+    return flatten_bidxmap0_concat, flatten_bidxmap0_concat
+        # flatten_bidxmap0_concat:(2,10240,3)
+
+#        label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat,name="label")
+#        smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
+#    return label, smpw
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape, flatten_bm_extract_idx):
-    grouped_pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+ (data_num_ele,))
-    grouped_labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample+(label_num_ele,))
-    grouped_smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+(label_num_ele,))
-    sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,)+sg_bidxmaps_shape )
-    flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape)
+    with tf.variable_scope("pls") as pl_sc:
+        grouped_pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+ (data_num_ele,))
+        grouped_labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample+(label_num_ele,))
+        grouped_smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample+(label_num_ele,))
+        sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,)+sg_bidxmaps_shape )
+        flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape,name="flatten_bidxmaps_pl")
 
-    start = flatten_bm_extract_idx[0]
-    end = flatten_bm_extract_idx[1]
-    flatten_bidxmaps_pl_0 = flatten_bidxmaps_pl[ :,start[0]:end[0],: ]
+        start = flatten_bm_extract_idx[0]
+        end = flatten_bm_extract_idx[1]
+        flatten_bidxmaps_pl_0 = flatten_bidxmaps_pl[ :,start[0]:end[0],: ]
 
-    labels_pl, smpws_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, flatten_bidxmaps_pl_0)
-    debug={}
-    debug['flatten_bidxmaps_pl_0'] = flatten_bidxmaps_pl_0
-    return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug
+        # labels_pl:(2, 10240, 2)   grouped_labels_pl:(2, 512, 6, 2)
+        # flatten_bidxmaps_pl_0:(2, 10240, 2)
+        labels_pl, smpws_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, flatten_bidxmaps_pl_0,"pls")
+        debug={}
+        debug['flatten_bidxmaps_pl_0'] = flatten_bidxmaps_pl_0
+        return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug
 
 def get_sa_module_config():
     mlps = []

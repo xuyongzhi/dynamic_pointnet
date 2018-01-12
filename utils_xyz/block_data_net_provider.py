@@ -169,7 +169,7 @@ class Net_Provider():
 
     def get_data_label_shape_byread(self):
         t0 = time.time()
-        data_batches,label_batches,_ = self.get_train_batch(0,min(self.train_num_blocks,32))
+        data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
         #data_batches,label_batches,_ = self.get_train_batch(0,1)
         self.whole_train_data_shape = np.array(data_batches.shape)
         self.whole_train_data_shape[0] = self.train_num_blocks
@@ -183,6 +183,13 @@ class Net_Provider():
         print('train label shape',self.whole_train_label_shape)
         print('eval data shape',self.whole_eval_data_shape)
         print('read %d global block t: %f ms\n'%( data_batches.shape[0], 1000*(time.time()-t0)))
+
+    def check_bidxmap(self):
+        if self.InputType != 'Pr_Normed_H5f':
+            return True
+         datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
+
+
 
     def get_block_n(self,norm_h5f):
         if self.InputType == 'Normed_H5f' or self.InputType=='Pr_Normed_H5f':
@@ -463,6 +470,7 @@ class Net_Provider():
             eval_end_batch_idx  += self.eval_global_start_idx
             return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx)
 
+
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
         for k,norm_h5f in enumerate(self.norm_h5f_L):
             if norm_h5f.file_name.find(visu_fn_glob) > 0:
@@ -515,7 +523,6 @@ class Net_Provider():
 
     def write_file_accuracies(self,obj_dump_dir=None):
         Write_all_file_accuracies(self.normed_h5f_file_list,obj_dump_dir)
-
 
 
 def main_NormedH5f():

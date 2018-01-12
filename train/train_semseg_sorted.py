@@ -4,6 +4,7 @@ import math
 import h5py
 import numpy as np
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 import socket
 import time
 import os
@@ -22,7 +23,6 @@ from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 
-ISDEBUG = True
 ISDEBUG_MEMORYTIME = False
 ISSUMMARY = False
 
@@ -52,6 +52,7 @@ parser.add_argument('--finetune',action='store_true',help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
+parser.add_argument('--debug',action='store_true',help='tf debug')
 
 FLAGS = parser.parse_args()
 
@@ -65,6 +66,7 @@ FLAGS.feed_label_elements = 'label_category,label_instance'
 FLAGS.batch_size=2
 FLAGS.auto_break  = True
 #-------------------------------------------------------------------------------
+ISDEBUG = FLAGS.debug
 
 if FLAGS.datafeed_type == 'Normed_H5f':
     from pointnet2_sem_seg import  placeholder_inputs,get_model,get_loss
@@ -218,7 +220,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         config.gpu_options.allow_growth = True
         config.allow_soft_placement = True
         config.log_device_placement = False
-        sess = tf.Session(config=config)
+        sess = tf.InteractiveSession(config=config)
 
         # Add summary writers
         merged = tf.summary.merge_all()
@@ -232,6 +234,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         # Init variables
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl:True})
+        if ISDEBUG:
+            sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+            sess.add_tensor_filter("has_inf_or_nan",tf_debug.has_inf_or_nan)
 
         ops = {'is_training_pl': is_training_pl,
                'pred': pred,
@@ -375,7 +380,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
                 pctx.profiler.profile_operations(options=opts)
         else:
             if ISDEBUG:
-                grouped_labels, flatten_bidxmaps_pl_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
+                grouped_labels, flatten_bidxmaps_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
                                     feed_dict=feed_dict)
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 labels, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
