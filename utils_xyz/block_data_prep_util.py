@@ -84,8 +84,8 @@ def copy_h5f_attrs(h5f_attrs):
 def get_mean_sg_sample_rate(sum_sg_bidxmap_sample_num):
     mean_sg_bidxmap_sample_num = np.copy(sum_sg_bidxmap_sample_num)
     for i in range(sum_sg_bidxmap_sample_num.shape[0]):
-        mean_sg_bidxmap_sample_num[i,0:3] /= mean_sg_bidxmap_sample_num[i,2]
-        mean_sg_bidxmap_sample_num[i,3:6] /= mean_sg_bidxmap_sample_num[i,5]
+        mean_sg_bidxmap_sample_num[i,0:5] /= mean_sg_bidxmap_sample_num[i,4]
+        mean_sg_bidxmap_sample_num[i,5:8] /= mean_sg_bidxmap_sample_num[i,7]
     return mean_sg_bidxmap_sample_num
 def get_mean_flatten_sample_rate(sum_flatten_bmap_sample_num):
     mean_flatten_bmap_sample_num = np.copy(sum_flatten_bmap_sample_num)
@@ -96,17 +96,20 @@ def get_mean_flatten_sample_rate(sum_flatten_bmap_sample_num):
 def get_attrs_str(attrs):
     attrs_str = ''
     for a in attrs:
+        elenames = ''
         if type(attrs[a])==str:
             a_str = attrs[a]
         else:
             a_val = attrs[a]
             if a == "sum_sg_bidxmap_sample_num":
                 a_val = get_mean_sg_sample_rate(a_val)
+                elenames = str(GlobalSubBaseBLOCK.get_sg_bidxmap_sample_num_elename()) + '\n'
             if a == "sum_flatten_bmap_sample_num":
                 a_val = get_mean_flatten_sample_rate(a_val)
+                elenames = str(GlobalSubBaseBLOCK.get_flatten_bidxmaps_sample_num_elename()) +'\n'
 
             a_str = np.array2string(a_val,precision=2,separator=',',suppress_small=True)
-        attrs_str += ( a+':'+a_str+'\n' )
+        attrs_str += ( a+':\n'+elenames+a_str+'\n' )
     return attrs_str
 
 def show_h5f_summary_info(h5f):
@@ -1475,6 +1478,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
         return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements,sample_num)
 
+    def get_numpoint_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb):
+        root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        num_point_all = 0
+        for cur_block_id in root_bids_in_cas0:
+            num_point_all += self.h5f[str(cur_block_id)].shape[0]
+        return num_point_all
+
     def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb,
                                           feed_data_elements,feed_label_elements, npoint_cas0block=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
@@ -1531,14 +1541,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             datas = datas[sample_choice_within_cas0block,:]
             labels = labels[sample_choice_within_cas0block,:]
             sample_num = np.array( [ npoint_cas0block, valid_data_n ] ).astype(np.uint64)
-            valid_sample_n = min(valid_data_n,npoint_cas0block)
         else:
             sample_num = np.array( [ npoint_cas0block, npoint_cas0block ] ).astype(np.uint64)
        # print(datas.shape)
        # print(labels.shape)
        # print(datas[0:3,:])
        # print(labels[0:3,:])
-        return datas,labels, sample_num, valid_sample_n
+        return datas,labels, sample_num
 
     def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
         '''
@@ -1593,17 +1602,24 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         subblock_sample_num = np.zeros([2]).astype(np.uint64)
         flatten_bidxmap0 = []
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
-            datas_k,labels_k,sample_num_k,valid_sample_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
+            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
             global_block_datas.append(np.expand_dims(datas_k,axis=0))
             global_block_labels.append(np.expand_dims(labels_k,axis=0))
             subblock_sample_num += sample_num_k
 
+            valid_sample_k = sample_num_k.min()
             for point_index_in_root_block in range(valid_sample_k):
                 valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
                 flatten_bidxmap0.append(np.expand_dims(valid_point_index,axis=0) )
         flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
 
-        sg_sample_num_cas0 = np.array( [ nsubblock, num_candi_cas0bids,1, subblock_sample_num[0],subblock_sample_num[1],cas0_bids_in_global_valid.size ] ).reshape(1,6).astype(np.uint64)
+        # cal num of all points in the global block
+        num_point_all = 0
+        for cas0_bid in cas0_bids_in_global:
+            num_point_all +=  self.get_numpoint_of_new_stride_step_byid( cas0_bid,cas0b_attrs,gsbb )
+        missed_baseb_num_ca0 = num_point_all - subblock_sample_num[1]
+
+        sg_sample_num_cas0 = np.array( [ missed_baseb_num_ca0, num_point_all,  nsubblock, num_candi_cas0bids,1, subblock_sample_num[0],subblock_sample_num[1],cas0_bids_in_global_valid.size ] ).reshape(1,8).astype(np.uint64)
 
         if num_candi_cas0bids <= nsubblock:
             new_cas0_bindex = np.random.choice(num_candi_cas0bids,nsubblock-num_candi_cas0bids)
@@ -1677,7 +1693,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             sg_all_bidxmaps = []
             all_flatten_bidxmaps = []
-            sum_sg_bidxmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,6))
+            sum_sg_bidxmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,8))
             sum_flatten_bmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,3))
 
             for global_block_id in all_sorted_global_bids:
@@ -1729,7 +1745,7 @@ class GlobalSubBaseBLOCK():
     global_num_point = 10240
 
     sub_block_size_candis = np.array([0.1,0.2,0.4,0.8]).astype(np.float)
-    nsubblock_candis =       np.array([2000,600, 64, 32]).astype(np.int32)
+    nsubblock_candis =       np.array([1000,300, 64, 32]).astype(np.int32)
     npoint_subblock_candis = np.array([32,  16,  16, 16]).astype(np.int32)
 
     #---------------------------------------------------------------------------
@@ -1912,8 +1928,8 @@ class GlobalSubBaseBLOCK():
             sg_bidxmap[aim_b_index,:] = random_choice( base_bid_valid_indexs,aim_npoint_subblock )
             if aim_b_index < valid_aimb_num:
                 bid_valid_num[aim_b_index] = base_bid_valid_indexs.size
-            for pointindex_within_subblock, basebid_index in enumerate(base_bid_valid_indexs):
-                flatten_bidxmap[basebid_index,:] = [aim_b_index,pointindex_within_subblock]
+            for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
+                flatten_bidxmap[baseb_index,:] = [aim_b_index,pointindex_within_subblock]
 
         # (3) Tile flatten_bidxmap for all the missed blocks
         #     Because of insufficient aim_nsubblock or small aim_sub_block_size,
@@ -1921,18 +1937,31 @@ class GlobalSubBaseBLOCK():
         #     would be hard to back-propogate global features to this base
         #     point. The correct way is to propogate from nearest 1/3 others aim_blocks.
         #     Temoporaly, use large aim_nsubblock or aim_sub_block_size to
-        #     reduce missed_valid_base_bindex_num.
-        missed_valid_base_bindex = flatten_bidxmap[:,0]<0
-        missed_valid_base_bindex_num = np.sum( missed_valid_base_bindex )
-        if missed_valid_base_bindex_num > 0:
-            for basebid_index in range( valid_sorted_basebids.size ):
-                flatten_bidxmap[basebid_index,:] = []
+        #     reduce missed_baseb_num.
+        valid_baseb_is_missed = flatten_bidxmap[:,0]<0
+        missed_baseb_num = np.sum( valid_baseb_is_missed )
+        if missed_baseb_num > 0:
+            for baseb_index in range( valid_sorted_basebids.size ):
+                if not valid_baseb_is_missed[baseb_index]:
+                    last_valid_baseb_index = baseb_index
+                    break
+            for baseb_index in range( valid_sorted_basebids.size ):
+                if not valid_baseb_is_missed[baseb_index]:
+                    last_valid_baseb_index = baseb_index
+                else:
+                    flatten_bidxmap[baseb_index,:] = flatten_bidxmap[last_valid_baseb_index,:]
         assert np.sum(flatten_bidxmap[:,0]<0)==0,"%d of %d base blocks are not used"%(np.sum(flatten_bidxmap[:,0]<0), flatten_bidxmap.shape[0])
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-        sg_sample_num = np.array( [ aim_nsubblock, all_sorted_aimbids.size, 1, aim_npoint_subblock, raw_valid_base_bnum.mean(),1 ] ).astype(np.uint64)
+        sg_sample_num = np.array( [missed_baseb_num, valid_sorted_basebids.size, aim_nsubblock, all_sorted_aimbids.size, 1,
+                                   aim_npoint_subblock*raw_valid_base_bnum.size, raw_valid_base_bnum.sum(),raw_valid_base_bnum.size ] ).astype(np.uint64)
         return sg_bidxmap, sg_sample_num, valid_sorted_aimbids, flatten_bidxmap
 
+    @staticmethod
+    def get_sg_bidxmap_sample_num_elename():
+        return [ 'missed_baseb_num','all_baseb_num',  'nsubblock','valid_subblock_num', 'unit_block_num',  'npoint_subblock', 'valid_npoint_subblock','subblock_num' ]
+    @staticmethod
+    def get_flatten_bidxmaps_sample_num_elename():
+        return [ 'flatten_fixed_num', 'flatten_valid_num', 'block_num' ]
 
     def get_all_bidxmaps(self,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0,Always_CreateNew=False):
         '''
@@ -1949,14 +1978,24 @@ class GlobalSubBaseBLOCK():
             flatten_bidxmap0[cas0_b_index,:] = [cas1_b_index, cas1_subb_index]
             This is used to get raw unsampled points from grouped points by: point0 = tf.gather(grouped_points0,flatten_bidxmap0)
         (3) sg_bidxmap_sample_num:
-            [ nsubblock,real valid sub block num, block_num,  npoint_subblock, real valid point num in sub block, subblock_num ]
+            [ missed_baseb_num, all_baseb_num,  nsubblock,valid_subblock_num, unit_block_num,  npoint_subblock, valid_npoint_subblock, subblock_num ]
+
+            In an unit block, there a <subblock_num> subbloks. In a subblock, there are <npoint_subblock> points.
+            missed_baseb_num  is affected by both sub_block_size & nsubblock.
+            Eg. based on sg_bidxmap_sample_num of cascade 0:
+                missed_baseb_num_ca0 > 0 => (1) sub_block_size too small or (2) nsubblock_cas0 too small
+                nsubblock_cas0 < valid_subblock_num_cas0 => nsubblock_cas0 too small
+                npoint_subblock_cas0 < valid_npoint_subblock => npoint_subblock_cas0 too small
+
+            Note: missed_baseb_num != valid_npoint_subblock - npoint_subblock
+                  Because some base blocks may not in aim_block.
         (4) flatten_bmap_sample_num:
             [ flatten fixed num, flatten valid num, block_num ]
         '''
         sg_bidxmaps_ls = []
         sg_bidxmaps_fixed_ls =  []
         sg_bidxmaps_fixed_shape1 = GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()[1]
-        sg_bidxmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,6)).astype(np.uint64)
+        sg_bidxmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,8)).astype(np.uint64)
         flatten_bidxmaps_ls = []
         flatten_bmap_sample_num =  np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,3)).astype(np.uint64)
 
