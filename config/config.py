@@ -58,7 +58,7 @@ l=3.9
 w=1.6
 h=1.7
 __C.TRAIN.Anchors = np.array([l, w, h])
-__C.TRAIN.Alpha = np.array([0, np.pi/2])  ## if 2 anchor is not enought, change it to 4, [0, np.pi/4, np.pi/2, np.pi*3/4]
+__C.TRAIN.Alpha = np.array([[0], [np.pi/2]])  ## if 2 anchor is not enought, change it to 4, [0, np.pi/4, np.pi/2, np.pi*3/4]
 __C.TRAIN.Anchor_bv = np.array([[l/2,  w/2,  -l/2,  -w/2 ] , [w/2,  l/2,  -w/2,  -l/2]])   ## [frowart_left back_right]
 
 # Use horizontal flipper point cloud, a way of data augmentation

@@ -104,74 +104,100 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     # calculating the overlap between anchors and ground truth
 
     gt_box = tf.convert_to_tensor(gt_box, tf.float32)
-
+    Num_gt_box =  tf.shape(gt_box)[1]
     # assert xyz.shape[2] == 3\
-    tf.Assert(tf.equal(tf.shape(xyz),3), tf.shape(xyz))
+    tf.Assert(tf.equal(tf.shape(xyz)[2], 3), tf.shape(xyz))
     # NUM_BATCH = xyz.shape[0]
     A = cfg.TRAIN.NUM_ANCHORS
-    loss_classification_all = 0.0
-    loss_regression_all  = 0.0
+    # loss_classification_all = 0.0
+    # loss_regression_all  = 0.0
 
-    for n in range(0,NUM_BATCH):
-        # N is the points number of xyz
-        # all_alpha is the [N A] A anchors, reshape to [N*A 1]
-        # dif_alpha is the angle substract with label
-        # calculate the angle gap to select one anchor
-        N  =  xyz[n,:,:].shape[0]
-        CC =  xyz[n,:,:].shape[1]
+    # for n in range(0,NUM_BATCH):
+    # N is the points number of xyz
+    # all_alpha is the [N A] A anchors, reshape to [N*A 1]
+    # dif_alpha is the angle substract with label
+    # calculate the angle gap to select one anchor
+    Batch = xyz.get_shape()[0].value  #tf.shape(xyz)[0]
+    Num_point = xyz.get_shape()[1].value  #tf.shape(xyz)[1]
+    Channel = xyz.get_shape()[2].value # tf.shape(xyz)[2]
 
-        # estimate the central points distance, using broadcasting ops
-        #distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
-        temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
-        distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
+    # estimate the central points distance, using broadcasting ops
+    # distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
+    temp_xyz = tf.reshape(xyz, (Batch, Num_point, 1, Channel))
+    temp_gt_box = tf.reshape(gt_box[:,:,5:8], (Batch,1,Num_gt_box, Channel))
+    distance = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(temp_xyz, temp_gt_box)),3)) # shape = Batch x Num_point x Num_gt_box
 
-        #distance = np.tile(distance, (1,A))
-        distance = tf.tile(distance, (1,A))
-        #distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
-        distance = tf.reshape(distance, (-1, gt_box[n,:,:].shape(0)))
+    # distance = np.tile(distance, (1,A))
+    distance = tf.tile(distance, (1, 1, A))
+    # distance = distance.reshape(-1,  label[n].shape(0)) # label[n].shape(0)	is the number of ground truth
+    distance = tf.reshape(distance, (Batch, -1, Num_gt_box)) # Batch x (A*Num_point) x Num_gt_box
 
-        #labels = np.zeros(shape=(N*A,1))
-        labels =  tf.fill([N*A, 1], -1)
+    #labels = np.zeros(shape=(N*A,1))
+    labels =  tf.fill([Batch , Num_point*A, 1], -1)
 
-        #labels.fill(-1)
+    #labels.fill(-1)
 
-        # decide positive and negative labels
-        # argmin_dist = distance.argmax(axis=1)
-        argmin_dist = tf.argmin(distance, axis = 1)
-        # min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
-        min_dist    = tf.reduce_min(distance, axis = 1)
-        # gt_argmin_dist = distance.argmax(axis=0)
-        #gt_argmin_dist = tf.argmin(distance, axis = 0)
-        # gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
-        gt_min_dist = tf.reduce_mim(distance, axis = 0)
-        # gt_argmin_dist = np.where(distance == gt_min_dist)[0]
-        gt_argmin_dist = tf.where(tf.equal(distance, gt_min_dist))[:,0]
+    # decide positive and negative labels
+    # argmin_dist = distance.argmax(axis=1)
+    argmin_dist = tf.argmin(distance, axis = 2)  # shape: Batch x Num_all_point
+    # min_dist    = distance[np.arange(distance.shape[0]),argmin_dist]
+    min_dist    = tf.reduce_min(distance, axis = 2)
+    min_dist    = tf.expand_dims(min_dist, -1)   # shape: Batch x Num_all_point x 1
+    # gt_argmin_dist = tf.argmin(distance, axis = 0)
+    # gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
+    gt_min_dist = tf.reduce_min(distance, axis = 1)  # shape: Batch x Num_gt_box
+    # gt_argmin_dist = np.where(distance == gt_min_dist)[0]
+    gt_min_dist = tf.shape(gt_min_dist, (Batch, 1, Num_gt_box))
+    #gt_argmin_dist = tf.where(tf.equal(distance, gt_min_dist)) # shape is n x 3, is the index of every true point in Batch x Num_all_point x num_gt_Box
+    gt_argmin_dist = tf.equal(distance, gt_min_dist)
+    gt_argmin_dist = tf.to_int32(gt_argmin_dist) # shape: Batch x Num_all_point x num_gt_box, the ture is 1
+    gt_argmin_dist = tf.reduce_sum(gt_argmin_dist, axis=2) # shpae: Batch x Num_all_point
+    gt_argmin_dist = tf.greater_equal(gt_argmin_dist,1) # shape: Batch x Num_all_point
+    gt_argmin_dist = tf.to_int32(gt_argmin_dist)
+    gt_argmin_dist = tf.expand_dims(gt_argmin_dist, -1)  # shape: Batch x Num_all_point x 1, the same shape with labels
 
-        #all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-        all_alpha = tf.tile(cfg.TRAIN.Alpha, (N,1))
-        #all_alpha = all_alpha.reshape(-1,1)
-        all_alpha = tf.reshape(all_alpha, (-1,1))
-        # dif_alpha = all_alpha - gt_box[n, argmin_dist, 4]
-        # dif_alpha = tf.subtract(all_alpha, gt_box[n,argmin_dist, 4])  #
-        dif_alpha = tf.subtract(all_alpha, tf.gather(gt_box[n,:,4], argmin_dist))
+    # all_alpha = np.tile(cfg.TRAIN.Alpha, (,1))
+    all_alpha = tf.tile(cfg.TRAIN.Alpha, (Num_point, 1)) # shape (A*Num_point) x 1
+    # all_alpha = all_alpha.reshape(-1,1)
+    all_alpha = tf.expand_dims(all_alpha, 0)      # shape: 1 x (A*Num_poin)t x 1
+    all_alpha = tf.tile(all_alpha, (Batch, 1, 1))    # shape: Batch x (A*Num_point) x 1
+    # dif_alpha = all_alpha - gt_box[n, argmin_dist, 4]
+    # dif_alpha = tf.subtract(all_alpha, gt_box[n,argmin_dist, 4])  #
+    all_num_point = all_alpha.get_shape()[1].value
+    Batch_idx = tf.reshape(tf.range(Batch),[Batch,1,1])  # shape: Batch x 1
+    Batch_idx = tf.tile(Batch_idx, [1, all_num_point,1])  # shape: Batch x all_num_point x 1
+    argmin_dist = tf.expand_dims(argmin_dist, -1)     # Shape: Batch x all_num_point x 1
+    Batch_idx = tf.concat([Batch_idx, argmin_dist], axis = -1)
+    dif_alpha = tf.subtract(all_alpha, tf.gather_nd(gt_box[:,:,4], Batch_idx)) # shape: bach x all_num_point x 1
 
-        # Deleting hard coding
-        # arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
-        # arg_alpha90 = np.where(np.absolute(dif_alpha[:,1]) <= np.pi/4) # alpha is 90
-        # labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
-        # labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
-        # labels[np.intersect1d(arg_alpha0 ,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),0] = 1
-        # labels[np.intersect1d(arg_alpha90,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),1] = 1
-        #labels[np.intersect1d(arg_alpha90 ,(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),0] = 0
-        #labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
+    # Deleting hard coding
+    # arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
+    # arg_alpha90 = np.where(np.absolute(dif_alpha[:,1]) <= np.pi/4) # alpha is 90
+    # labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
+    # labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
+    # labels[np.intersect1d(arg_alpha0 ,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),0] = 1
+    # labels[np.intersect1d(arg_alpha90,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),1] = 1
+    #labels[np.intersect1d(arg_alpha90 ,(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),0] = 0
+    #labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
 
-        # changing into tensorflow version
-        # arg_alpha = np.where(np.absolute(dif_alpha[:,0] < cfg.TRAIN.POSITIVE_ALPHA))[0]
-        arg_alpha = tf.where(tf.abs(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)
+    # changing into tensorflow version
+    # arg_alpha = np.where(np.absolute(dif_alpha[:,0] < cfg.TRAIN.POSITIVE_ALPHA))[0]
+    arg_alpha = tf.less(tf.abs(dif_alpha), cfg.TRAIN.POSITIVE_ALPHA)  # shape: batch x all_num_point x 1
+    arg_alpha = tf.to_int32(arg_alpha) # shape: batch x all_num_point x 1
 
-        labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
-        min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
-        labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
+    intersect_alpha_gt_dist = tf.add(arg_alpha, gt_argmin_dist)
+    intersect_alpha_gt_dist = tf.greater_equal(intersect_alpha_gt_dist,2) # the summation of intersection should be over 2
+    intersect_alpha_gt_dist = tf.to_int32(intersect_alpha_gt_dist)
+    intersect_alpha_gt_dist = tf.multiply(intersect_alpha_gt_dist,2)
+    labels = tf.add(labels, intersect_alpha_gt_dist)   # the intesection is 1,
+
+    #labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
+    #min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
+    min_dist_positive_inds = tf.less(min_dist, cfg.TRAIN.POSITIVE_CEN_DIST)# shape: batch x num_all_point x 1
+    min_dist_positive_inds = tf.to_int32(min_dist_positive_inds)
+    min_dist_positive_inds = tf.multiply(min_dist_positive_inds,2 )
+    labels = tf.add(min_dist_positive_inds,labels) ## some are over 2
+    # labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
         min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
         labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
 
