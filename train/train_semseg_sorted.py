@@ -58,7 +58,7 @@ FLAGS = parser.parse_args()
 
 
 FLAGS.datafeed_type='Pr_Normed_H5f'
-FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16'
+FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16'
 FLAGS.num_point=None
 FLAGS.eval_fnglob_or_rate = 0.3
 FLAGS.feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
@@ -379,12 +379,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
                                             feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            if ISDEBUG:
-                grouped_labels, flatten_bidxmaps_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
-                                    feed_dict=feed_dict)
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                labels, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #if ISDEBUG:
+            #    grouped_labels, flatten_bidxmaps_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
+            #                        feed_dict=feed_dict)
+            if FLAGS.datafeed_type == 'Pr_Normed_H5f':
+                cur_flatten_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
+                cur_label = cur_flatten_label
             summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
                                         feed_dict=feed_dict)
 
@@ -394,7 +394,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             pred_val = np.argmax(pred_val, 2)
             loss_sum += loss_val
             total_seen += (BATCH_SIZE*NUM_POINT)
-            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label[...,CATEGORY_LABEL_IDX])
 
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 100:
@@ -461,6 +461,9 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
             feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
+        if FLAGS.datafeed_type == 'Pr_Normed_H5f':
+            cur_flatten_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
+            cur_label = cur_flatten_label
         summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
@@ -471,7 +474,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             pred_logits = np.argmax(pred_val, 2)
             total_seen += (BATCH_SIZE*NUM_POINT)
             loss_sum += loss_val
-            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
             #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 

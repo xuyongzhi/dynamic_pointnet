@@ -56,6 +56,7 @@ class EvaluationMetrics():
 
     @staticmethod
     def get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label):
+        assert pred_val.shape == cur_label.shape
         c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
         for i in range(pred_val.shape[0]):
             for j in range(pred_val.shape[1]):

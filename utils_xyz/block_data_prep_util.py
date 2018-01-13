@@ -1744,9 +1744,9 @@ class GlobalSubBaseBLOCK():
     global_step = np.array([2.0,2.0,-1]).astype(np.float)
     global_num_point = 10240
 
-    sub_block_size_candis = np.array([0.1,0.2,0.4,0.8]).astype(np.float)
-    nsubblock_candis =       np.array([1000,300, 64, 32]).astype(np.int32)
-    npoint_subblock_candis = np.array([32,  16,  16, 16]).astype(np.int32)
+    sub_block_size_candis = np.array([0.2,0.6,1.0,1.6]).astype(np.float)
+    nsubblock_candis =       np.array([512,256, 64, 32]).astype(np.int32)
+    npoint_subblock_candis = np.array([128,  16,  16, 16]).astype(np.int32)
 
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)

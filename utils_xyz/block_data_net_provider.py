@@ -187,7 +187,7 @@ class Net_Provider():
     def check_bidxmap(self):
         if self.InputType != 'Pr_Normed_H5f':
             return True
-         datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
+        datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
 
 
 
@@ -535,6 +535,7 @@ def main_NormedH5f():
 
     InputType = 'Pr_Normed_H5f'
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16']
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16']
     num_point_block = None
 
     eval_fnglob_or_rate = 0.3

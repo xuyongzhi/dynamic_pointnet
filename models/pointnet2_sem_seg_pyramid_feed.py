@@ -9,8 +9,6 @@ import numpy as np
 import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 
-
-
 def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0,base_sc ):
     with tf.variable_scope(base_sc+'-fgl'):
         batch_size = grouped_labels.get_shape()[0].value
@@ -18,12 +16,11 @@ def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0,base_
         flatten_bidxmap0_shape1 = flatten_bidxmap0.get_shape()[1].value
         batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap0_shape1,1] )
         flatten_bidxmap0_concat = tf.concat( [batch_idx,flatten_bidxmap0],axis=-1,name="flatten_bidxmap0_concat" )
-    return flatten_bidxmap0_concat, flatten_bidxmap0_concat
         # flatten_bidxmap0_concat:(2,10240,3)
 
-#        label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat,name="label")
-#        smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
-#    return label, smpw
+        label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat,name="label")
+        smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
+    return label, smpw
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape, flatten_bm_extract_idx):
     with tf.variable_scope("pls") as pl_sc:
