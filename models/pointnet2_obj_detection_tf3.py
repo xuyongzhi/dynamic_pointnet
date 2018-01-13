@@ -196,14 +196,18 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     min_dist_positive_inds = tf.less(min_dist, cfg.TRAIN.POSITIVE_CEN_DIST)# shape: batch x num_all_point x 1
     min_dist_positive_inds = tf.to_int32(min_dist_positive_inds)
     min_dist_positive_inds = tf.multiply(min_dist_positive_inds,2 )
-    labels = tf.add(min_dist_positive_inds,labels) ## some are over 2
+    labels = tf.add(min_dist_positive_inds,labels) ## some are over -1, 1, 3
     # labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
-        min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
-        labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
+    #min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
+    min_dist_negative_inds = tf.greater(min_dist, cfg.TRAIN.NEGATIVE_CEN_DIST)
+    min_dist_negative_inds = tf.to_int32(min_dist_negative_inds)
+    #labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
+    labels = tf.add(labels, min_dist)  # -1, 0, 1,3,4 , so -1 unused, 0 negative, >=1 is positive
 
-        num_positive_labels = int( cfg.TRAIN.RPN_FG_FRACTION*cfg.TRAIN.RPN_BATCHSIZE )
-        # labels = labels.reshape(-1,1)
-        positive_inds = np.where(labels == 1)[0]
+    num_positive_labels = int( cfg.TRAIN.RPN_FG_FRACTION*cfg.TRAIN.RPN_BATCHSIZE )
+    # labels = labels.reshape(-1,1)
+    #positive_inds = np.where(labels == 1)[0]
+    positive_inds =
         if len(positive_inds) > num_positive_labels:
             disable_inds = npr.choice(
                 positive_inds, size = (len(positive_inds) - num_positive_labels), replace = False )
