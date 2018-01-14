@@ -134,7 +134,6 @@ def show_h5f_summary_info(h5f):
         print('\n')
     def show_root_ele(ele_name,id):
         ele = h5f[ele_name]
-        print('--------------------------------------------------------------------------')
         if type(ele) == h5py._hl.group.Group:
             print('The group: %s'%(ele_name))
             print(get_attrs_str(ele.attrs))
@@ -187,6 +186,19 @@ def index_in_sorted(sorted_vector,values):
     values_valid = values[np.isin(values,sorted_vector)]
     indexs = np.searchsorted(sorted_vector,values_valid)
     return indexs
+
+def check_h5fs_intact(file_name):
+    if not os.path.exists(file_name):
+        return False,"file not exist: %s"%(file_name)
+    f_format = os.path.splitext(file_name)[-1]
+    if f_format == '.rh5':
+        return Raw_H5f.check_file_intact(file_name)
+    elif f_format == '.sh5' or f_format == '.rsh5':
+        return Sorted_H5f.check_file_intact(file_name)
+    elif f_format == '.nh5' or f_format == '.prh5':
+        return Normed_H5f.check_file_intact(file_name)
+    else:
+        return False, "file format not recognized %s"%(f_format)
 
 class Raw_H5f():
     '''
@@ -387,6 +399,19 @@ class Raw_H5f():
         print('max_str=%s\tmin_str=%s'%(max_str,min_str) )
         #print('T=',time.time()-begin)
 
+    @staticmethod
+    def check_file_intact( file_name ):
+        f_format = os.path.splitext(file_name)[-1]
+        assert f_format == '.rh5'
+        if not os.path.exists(file_name):
+            return False, "%s not exist"%(file_name)
+        with h5py.File(file_name,'r') as h5f:
+            attrs_to_check = ['xyz_max','xyz_min']
+            for attrs in attrs_to_check:
+                if attrs not in h5f.attrs:
+                    return False, "%s not in %s"%(attrs,file_name)
+        return True,""
+
 
 class Sorted_H5f():
     '''
@@ -551,17 +576,32 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         self.h5f.attrs['xyz_scope_aligned'] = xyz_scope_aligned
 
 
-    def add_total_row_block_N(self):
+    def add_total_row_block_N(self,raw_h5f_total_row_N=None):
         total_row_N = 0
         n = -1
         for n,dn in enumerate( self.h5f ):
             total_row_N += self.h5f[dn].shape[0]
 
+        if raw_h5f_total_row_N != None:
+            assert total_row_N == raw_h5f_total_row_N, 'ERROR: blocked total_row_N= %d, raw = %d'%(total_row_N,raw_h5f_total_row_N)
         self.h5f.attrs['total_row_N']=total_row_N
         self.h5f.attrs['total_block_N']=n+1
         print('add_total_row_block_N:  file: %s \n   total_row_N = %d,  total_block_N = %d'%(
             os.path.basename(self.file_name),total_row_N,n+1))
         return total_row_N, n+1
+
+    @staticmethod
+    def check_file_intact( file_name ):
+        f_format = os.path.splitext(file_name)[-1]
+        assert f_format == '.sh5' or f_format == '.rsh5'
+        if not os.path.exists(file_name):
+            return False,"%s not exist"%(file_name)
+        with h5py.File(file_name,'r') as h5f:
+            attrs_to_check = ['total_row_N','total_block_N','label_category_hist','label_category_hist1norm']
+            for attrs in attrs_to_check:
+                if attrs not in h5f.attrs:
+                    return False, "%s not in %s"%(attrs,f_format)
+        return True,""
 
     def add_label_histagram(self):
         label_name = 'label_category'
@@ -1672,12 +1712,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
         pyramid_filename = os.path.join(out_folder,file_name_base+'.prh5')
 
+        IsIntact,ck_str = check_h5fs_intact( pyramid_filename )
+        if IsIntact:
+            print('pyh5 intact: %s'%(pyramid_filename))
+            return
+
         print('start gen pyramid file: ',pyramid_filename)
         with h5py.File(pyramid_filename,'w') as h5f:
             gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
 
 
-            all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global')
+            all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global',Always_CreateNew=Always_CreateNew)
             global_block_sample_shape = GlobalSubBaseBLOCK.get_block_sample_shape('global')
             global_attrs = gsbb.get_new_attrs('global')
 
@@ -1699,7 +1744,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
 
-                sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = gsbb.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0,Always_CreateNew=False)
+                sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = gsbb.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0,Always_CreateNew=True)
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
                 all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
                 sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
@@ -2333,15 +2378,22 @@ class Sort_RawH5f():
         The whole scene is a group. Each block is one dataset in the group.
         The block attrs represents the field.
         '''
-        print('start sorting file to blocks: %s'%file_name)
         block_step = np.array( block_step_xyz )
-        print('block step = ',block_step)
         self.row_num_limit = None
 
         if not os.path.exists(self.out_folder):
             os.makedirs(self.out_folder)
         basefn = os.path.splitext(os.path.basename(file_name))[0]
         blocked_file_name = os.path.join(self.out_folder,basefn)+'.sh5'
+
+        IsIntact,_ = check_h5fs_intact(blocked_file_name)
+        if IsIntact:
+            print('sh5 file intact: %s'%(blocked_file_name))
+            return
+
+        print('start sorting file to blocks: %s'%file_name)
+        print('block step = ',block_step)
+
         with h5py.File(blocked_file_name,'w') as h5f_blocked:
             with h5py.File(file_name,'r') as h5_f:
                 self.raw_h5f = Raw_H5f(h5_f,file_name)
@@ -2352,7 +2404,7 @@ class Sort_RawH5f():
 
                 #self.row_num_limit = int(self.raw_h5f.total_row_N/1000)
 
-                row_step = GLOBAL_PARA.h5_num_row_1M*8
+                row_step = GLOBAL_PARA.h5_num_row_1M*3
                 sorted_buf_dic = {}
                 raw_row_N = self.raw_h5f.xyz_dset.shape[0]
 
@@ -2382,13 +2434,10 @@ class Sort_RawH5f():
                     #if k /row_step >3:
                         print('break read at k= ',end)
                         break
-
-                total_row_N,total_block_N = self.s_h5f.add_total_row_block_N()
-                self.s_h5f.add_label_histagram()
-
-                if total_row_N != self.raw_h5f.total_row_N:
-                    print('ERROR: blocked total_row_N= %d, raw = %d'%(total_row_N,self.raw_h5f.total_row_N))
+                assert end == self.raw_h5f.total_row_N
+                total_row_N,total_block_N = self.s_h5f.add_total_row_block_N(self.raw_h5f.total_row_N)
                 print('total_block_N = ',total_block_N)
+                self.s_h5f.add_label_histagram()
 
                 if self.s_h5f.IS_CHECK:
                     check = self.s_h5f.check_equal_to_raw(self.raw_h5f) & self.s_h5f.check_xyz_scope()
@@ -2871,6 +2920,23 @@ class Normed_H5f():
     def create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
+    @staticmethod
+    def check_file_intact( file_name ):
+        f_format = os.path.splitext(file_name)[-1]
+        assert f_format == '.nh5' or f_format == '.prh5'
+        if not os.path.exists(file_name):
+            return False, "%s not exist"%(file_name)
+        with h5py.File(file_name,'r') as h5f:
+            if 'total_block_N' not in h5f.attrs:
+                return False, "total_block_N not in %s"%(file_name)
+            total_block_N = h5f.attrs['total_block_N']
+            if not h5f['data'].shape[0] == total_block_N:
+                return False, "total_block_N = %d, data shape0 = %d \nfile:%s"%(total_block_N,h5f['data'].shape[0],file_name)
+            if not h5f['labels'].shape[0] == total_block_N:
+                return False, "total_block_N = %d, labels shape0 = %d \nfile: %s"%(total_block_N,h5f['labels'].shape[0],file_name)
+            if 'label_category_hist' not in h5f['labels'].attrs:
+                return False, "label_category_hist not in %s"%(file_name)
+            return True,""
 
     def rm_invalid_data(self):
         for dset_name_i in self.h5f:

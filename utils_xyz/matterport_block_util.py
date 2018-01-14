@@ -6,7 +6,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
-from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate
+from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
 import h5py
 import glob
@@ -110,7 +110,7 @@ def get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex):
     face_vertex_indices: the vertex indices in each face
     vertex_face_indices: the face indices in each vertex
     '''
-    vertex_face_indices = -np.ones(shape=[num_vertex,20])
+    vertex_face_indices = -np.ones(shape=[num_vertex,30])
     face_num_per_vertex = np.zeros(shape=[num_vertex]).astype(np.int8)
     vertex_semantic = np.zeros(shape=[num_vertex,3]) # only record the first one
     vertex_semantic_num = np.zeros(shape=[num_vertex])
@@ -153,19 +153,23 @@ def WriteRawH5f_Region_Ply(k_region,rs_zf,house_name,house_h5f_dir,house_dir_ext
 
     rawh5f_fn = house_h5f_dir+'/rawh5f/region'+str(k_region)+'.rh5'
     IsDelVexMultiSem = True
-    with open(region_ply_fn,'r') as ply_fo, h5py.File(rawh5f_fn,'w') as h5f:
-        vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic = parse_ply_file(ply_fo,IsDelVexMultiSem)
+    IsIntact,_  = check_h5fs_intact(rawh5f_fn)
+    if  IsIntact:
+        print('file intact: %s'%(file_name))
+    else:
+        with open(region_ply_fn,'r') as ply_fo, h5py.File(rawh5f_fn,'w') as h5f:
+            vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic = parse_ply_file(ply_fo,IsDelVexMultiSem)
 
-        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MATTERPORT')
-        raw_h5f.set_num_default_row(vertex_xyz.shape[0])
-        raw_h5f.append_to_dset('xyz',vertex_xyz)
-        raw_h5f.append_to_dset('nxnynz',vertex_nxnynz)
-        raw_h5f.append_to_dset('color',vertex_rgb)
-        raw_h5f.append_to_dset('label_category',vertex_semantic[:,0]) # category_id
-        raw_h5f.append_to_dset('label_instance',vertex_semantic[:,1]) # segment_id
-        raw_h5f.append_to_dset('label_material',vertex_semantic[:,0]) # material_id
-        raw_h5f.create_done()
-        raw_h5f.show_h5f_summary_info()
+            raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MATTERPORT')
+            raw_h5f.set_num_default_row(vertex_xyz.shape[0])
+            raw_h5f.append_to_dset('xyz',vertex_xyz)
+            raw_h5f.append_to_dset('nxnynz',vertex_nxnynz)
+            raw_h5f.append_to_dset('color',vertex_rgb)
+            raw_h5f.append_to_dset('label_category',vertex_semantic[:,0]) # category_id
+            raw_h5f.append_to_dset('label_instance',vertex_semantic[:,1]) # segment_id
+            raw_h5f.append_to_dset('label_material',vertex_semantic[:,0]) # material_id
+            raw_h5f.create_done()
+            raw_h5f.show_h5f_summary_info()
 
     return file_name
 
@@ -269,7 +273,7 @@ class Matterport3D_Prepare():
 
         IsMultiProcess = MultiProcess>1
         if not IsMultiProcess:
-            Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
         else:
             pool = mp.Pool(MultiProcess)
             for rawh5f_fn in rawh5_file_ls:
@@ -466,9 +470,15 @@ class Matterport3D_Prepare():
         file_name = self.house_rawh5f_dir+'/region1.rh5'
         step = stride = [0.1,0.1,0.1]
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
-        #file_name = self.matterport3D_h5f_allmerged_dir+'/v1_scans_17DRP5sb8fy_stride-1-step-2_8192_normed.nh5'
-        with h5py.File(file_name,'r') as h5f:
-            show_h5f_summary_info(h5f)
+        #file_name = self.house_rawh5f_dir + '/region2.rh5'
+        #file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region2.prh5'
+        file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16/region0.prh5'
+        IsIntact,check_str = check_h5fs_intact(file_name)
+        if IsIntact:
+            with h5py.File(file_name,'r') as h5f:
+                show_h5f_summary_info(h5f)
+        else:
+            print("file not intact: %s \n\t %s"%(file_name,check_str))
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
@@ -476,6 +486,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
+    operations  = ['ParseRaw']
+    operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
@@ -498,11 +510,13 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     numpoint_block = 8
     if 'MergeSampleNorm' in operations:
         matterport3d_prepare.MergeSampleNorm(base_step_stride,new_stride,new_step,numpoint_block,MultiProcess)
-
-    #new_stride=new_step=base_step_stride
-    #matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
-    #matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
-    #matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
+    if 'Sample' in operations:
+        new_stride=new_step=base_step_stride
+        matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
+    if 'Norm' in operations:
+        matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
+    if 'MergeNorm' in operations:
+        matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
 
     #matterport3d_prepare.ShowSummary()
     #matterport3d_prepare.GenObj_RawH5f()
@@ -510,18 +524,20 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
 def parse_house_ls():
     scans_name = '/v1/scans'
-    house_names = ['17DRP5sb8fy']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    #house_names = ['2azQ1b91cZZ','2t7WUuJeko7','5q7pvUzZiYa']
-    #house_names = ['759xd9YjKW5']
-    #house_names = ['8194nk5LbLH']
-    #house_names = ['759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    #house_names = ['17DRP5sb8fy']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names = ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+
+    scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
+    all_house_names = os.listdir(scans_name_abs)
+    #house_names = all_house_names
+
     for house_name in house_names:
         parse_house(house_name,scans_name)
 
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
-    #matterport3d_prepare.ShowSummary()
+    matterport3d_prepare.ShowSummary()
 
 if __name__ == '__main__':
     parse_house_ls()
