@@ -197,7 +197,7 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        sum_sg_bidxmap_sample_num, sum_flatten_bmap_sample_num = sorted_h5f.file_saveas_pyramid_feed(True)
+        sorted_h5f.file_saveas_pyramid_feed(True)
     return fn
 
 class Matterport3D_Prepare():
@@ -440,11 +440,16 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self,new_stride,new_step,numpoint_block):
-        base_sorted_sampled_normed_path = self.house_h5f_dir+'/'+get_stride_step_name(new_stride,new_step)+'_'+str(numpoint_block)+'_normed'
-        file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
+    def MergeNormed(self,stride,step,numpoint_block,format):
+        if format == '.nh5':
+            base_sorted_sampled_normed_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
+            file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
+        elif format == '.prh5':
+            base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)
+            py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+            file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
         scans_name_ = self.scans_name.replace('/','_')[1:]
-        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+scans_name_+'_'+self.house_name+'_'+get_stride_step_name(new_stride,new_step)+'_'+str(numpoint_block)+'_normed.nh5'
+        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+scans_name_+'_'+self.house_name+'_'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed.nh5'
         MergeNormed_H5f(file_list,merged_file_name)
 
 
@@ -489,13 +494,14 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 5
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
+    operations  = ['MergeNorm']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -523,7 +529,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     if 'Norm' in operations:
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     if 'MergeNorm' in operations:
-        matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block)
+        matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5')
 
     #matterport3d_prepare.ShowSummary()
     #matterport3d_prepare.GenObj_RawH5f()

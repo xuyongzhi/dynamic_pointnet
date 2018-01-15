@@ -28,6 +28,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
+import math
 import numpy as np
 import h5py
 import glob
@@ -35,7 +36,7 @@ import time
 import multiprocessing as mp
 import itertools
 #import argparse
-from global_para import GLOBAL_PARA
+#from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
@@ -44,7 +45,7 @@ DEBUGTMP=True
 
 START_T = time.time()
 
-g_h5_num_row_1M = 50*1000
+g_h5_num_row_1M = 5*1000
 ROOT_DIR = os.path.dirname(BASE_DIR)
 UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -599,11 +600,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
         with h5py.File(file_name,'r') as h5f:
-            attrs_to_check = ['total_row_N','total_block_N','label_category_hist','label_category_hist1norm']
-            for attrs in attrs_to_check:
-                if attrs not in h5f.attrs:
-                    return False, "%s not in %s"%(attrs,f_format)
-        return True,""
+            if 'is_intact' in h5f.attrs:
+                IsIntact = h5f.attrs['is_intact'] == 1
+                return IsIntact,""
+            else:
+                attrs_to_check = ['total_row_N','total_block_N','label_category_hist','label_category_hist1norm']
+                for attrs in attrs_to_check:
+                    if attrs not in h5f.attrs:
+                        return False, "%s not in %s"%(attrs,f_format)
+                return True,""
 
     def add_label_histagram(self):
         label_name = 'label_category'
@@ -628,6 +633,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for attr in attrs:
             if attr in h5f0.attrs:
                 self.h5f.attrs[attr] = h5f0.attrs[attr]
+        self.h5f.attrs['is_intact'] == 0
         Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
         self.update_data_index_by_elementnames()
 
@@ -636,6 +642,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for attr in attrs:
             if attr in h5f_raw.attrs:
                 self.h5f.attrs[attr] = h5f_raw.attrs[attr]
+        self.h5f.attrs['is_intact'] == 0
         self.update_data_index_by_elementnames()
 
 
@@ -1472,6 +1479,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 total_block_N += 1
                 new_sh5f.h5f.attrs['total_row_N']=total_row_N
                 new_sh5f.h5f.attrs['total_block_N']=total_block_N
+                new_sh5f.h5f.attrs['is_intact'] == 1
                 print('total_row_N = ',total_row_N)
                 print('total_block_N = ',total_block_N)
                 new_sh5f.h5f.flush()
@@ -1718,6 +1726,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if IsIntact:
             print('pyh5 intact: %s'%(pyramid_filename))
             return
+        # check bmh5 intact primarily
+        IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_file_intact(self.file_name)
+        if not IsIntact_bmh5:
+            GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(self.h5f,self.file_name)
 
         print('start gen pyramid file: ',pyramid_filename)
         with h5py.File(pyramid_filename,'w') as h5f:
@@ -1766,15 +1778,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             pyramid_h5f.append_to_dset('data',file_datas)
             pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
 
-            GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidxmaps'].attrs )
-            pyramid_h5f.append_to_dset('bidxmaps/sample_group',sg_all_bidxmaps)
-            pyramid_h5f.append_to_dset('bidxmaps/flatten',all_flatten_bidxmaps)
+            GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
+            pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+            pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
 
             pyramid_h5f.create_done()
             if IsShowSummaryFinished:
                 pyramid_h5f.show_summary_info()
             print('pyramid file save finished: data shape: %s'%(str(pyramid_h5f.data_set.shape)) )
-        return sum_sg_bidxmap_sample_num, sum_flatten_bmap_sample_num
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
         feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
@@ -2143,7 +2154,7 @@ class GlobalSubBaseBLOCK():
     @staticmethod
     def load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
         blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
+        #GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
         assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
         with h5py.File(blockid_maps_fn,'r') as h5f:
             larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_s_h5f.attrs)
@@ -2161,8 +2172,8 @@ class GlobalSubBaseBLOCK():
                 bm_output['baseids_inanew'] = grp[str(new_bid)][...]
             if 'allbaseids_in_new_dic' in out:
                 allbaseids_in_new_dic = {}
-                for new_bid_str in cascade_idstr_ls:
-                    if new_bid_str != 'root':
+                for new_bid_str in grp:
+                    if new_bid_str != 'all_sorted_aimbids':
                         allbaseids_in_new_dic[int(new_bid_str)] = grp[new_bid_str][...]
                 bm_output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
             return bm_output
@@ -2196,12 +2207,12 @@ class GlobalSubBaseBLOCK():
                 if out=='block_num':
                     print('block_num:',output[out])
                 #print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
-        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn) )
+        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( root_s_h5f_fn )
         print('IsIntact:',IsIntact)
 
 
     @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,Always_CreateNew=False):
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
         '''
         bmh5f format:
             cascade_id_ls = ['root', '0', '1', '2', '3', 'global']
@@ -2212,11 +2223,12 @@ class GlobalSubBaseBLOCK():
 
         '''
         blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( blockid_maps_fn )
-        if (not Always_CreateNew) and IsIntact:
-            print('bmh5 file intact: %s'%(blockid_maps_fn))
-            return
+        #IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( blockid_maps_fn )
+        #if (not Always_CreateNew) and IsIntact:
+        #    print('bmh5 file intact: %s'%(blockid_maps_fn))
+        #    return
         with h5py.File(blockid_maps_fn,'w') as h5f:
+            h5f.attrs['is_intact'] = 0
             all_sorted_blockids_dic={}
             all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
 
@@ -2239,28 +2251,36 @@ class GlobalSubBaseBLOCK():
 
                 grp = h5f.create_group(group_name)
                 all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_blockids.shape,dtype=np.int32  )
-                all_sorted_aimbids_dset = all_sorted_larger_blockids
+                all_sorted_aimbids_dset[...] = all_sorted_larger_blockids
                 if not cascade_id == 'root':
                     for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
                         blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
                         blockid_map_dset[...] = base_ids
             h5f.attrs['cascade_idstr_ls'] = np.array(cascade_id_ls)
-            h5f.attrs['group_num'] = len(cascade_id_ls) # finish flag
+            h5f.attrs['num_group'] = len(cascade_id_ls)
+            h5f.attrs['is_intact'] = 1
             h5f.flush()
             print('write finish: %s'%(blockid_maps_fn))
 
     @staticmethod
-    def check_file_intact(file_name):
+    def check_file_intact(root_s_h5f_fn):
+        file_name = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.bmh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
         with h5py.File(file_name,'r') as h5f:
-            attrs_to_check = ['group_num','cascade_idstr_ls']
-            for attrs in attrs_to_check:
-                if attrs not in h5f.attrs:
-                    return False, "%s not in %s"%(attrs,f_format)
-        return True,""
+            if 'is_intact' not in h5f.attrs:
+                return False,""
+            IsIntact = h5f.attrs['is_intact'] == 1
+            print('bmh5 file intact:',file_name)
+            return IsIntact,""
+
+      #      attrs_to_check = ['num_group','cascade_idstr_ls']
+      #      for attrs in attrs_to_check:
+      #          if attrs not in h5f.attrs:
+      #              return False, "%s not in %s"%(attrs,f_format)
+      #  return True,""
 
     @staticmethod
     def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
@@ -2333,7 +2353,7 @@ def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
 
             #Sort_RawH5f_Instance.row_num_limit = int(self.raw_h5f.total_row_N/1000)
 
-            row_step = GLOBAL_PARA.h5_num_row_1M*8
+            row_step = g_h5_num_row_1M*2
             sorted_buf_dic = {}
             raw_row_N = Sort_RawH5f_Instance.raw_h5f.xyz_dset.shape[0]
 
@@ -2439,7 +2459,7 @@ class Sort_RawH5f():
 
                 #self.row_num_limit = int(self.raw_h5f.total_row_N/1000)
 
-                row_step = GLOBAL_PARA.h5_num_row_1M*3
+                row_step = g_h5_num_row_1M*3
                 sorted_buf_dic = {}
                 raw_row_N = self.raw_h5f.xyz_dset.shape[0]
 
@@ -2481,6 +2501,7 @@ class Sort_RawH5f():
                         print('both passed')
                     else:
                         print('somewhere check failed')
+                self.s_h5f.h5f.attrs['is_intact'] == 1
                 if self.IsShowInfoFinished:
                     self.s_h5f.show_summary_info()
         print('sorted OK: %s'%(blocked_file_name))
@@ -2509,7 +2530,7 @@ class Sort_RawH5f():
         for key in sorted_buf_dic:
             sorted_buf_dic[key] = np.concatenate(sorted_buf_dic[key],axis=0)
         for block_k in sorted_buf_dic:
-            self.s_h5f.append_to_dset(block_k,sorted_buf_dic[block_k],vacant_size=GLOBAL_PARA.h5_num_row_1M)
+            self.s_h5f.append_to_dset(block_k,sorted_buf_dic[block_k],vacant_size=self.h5_num_row_1M)
         self.s_h5f.rm_invalid_data()
         self.s_h5f.h5f.flush()
 
@@ -2798,27 +2819,36 @@ class Normed_H5f():
         for attr in attrs:
             if attr in sortedh5f_attrs:
                 self.h5f.attrs[attr] = sortedh5f_attrs[attr]
-
+        self.h5f.attrs['is_intact'] = 0
         self.h5f.attrs['sample_num'] = block_sample_num
 
         # - org_row_index when sortedh5f IS_CHECK=True
-        self.create_3dsets()
+        self.create_dsets()
 
-    def copy_root_attrs_from_normed(self,h5f_normed):
-        attrs=['datasource_name','element_names','total_block_N',
-               'xyz_max','xyz_min','xyz_max_aligned','xyz_min_aligned','xyz_scope_aligned',
-               'block_step','block_stride','block_dims_N','total_row_N']
-        for attr in attrs:
-            if attr in h5f_normed.attrs:
-                self.h5f.attrs[attr] = h5f_normed.attrs[attr]
+    def copy_root_attrs_from_normed(self,h5f_normed,flag=None):
+       # attrs_candis=['datasource_name','element_names','total_block_N',
+       #        'xyz_max','xyz_min','xyz_max_aligned','xyz_min_aligned','xyz_scope_aligned',
+       #        'block_step','block_stride','block_dims_N','total_row_N']
+        for attr in h5f_normed.attrs:
+            self.h5f.attrs[attr] = h5f_normed.attrs[attr]
+        self.h5f.attrs['is_intact'] = 0
+        if flag=='MergeNormed_H5f':
+            if 'total_block_N' in self.h5f.attrs:
+                del self.h5f.attrs['total_block_N']
+            if 'total_row_N' in self.h5f.attrs:
+                del self.h5f.attrs['total_row_N']
 
         normed_data_shape = h5f_normed['data'].shape
-        if normed_data_shape.shape[0]==3:
+        if len(normed_data_shape)==3:
             sample_num = (normed_data_shape[1],)
-        elif normed_data_shape.shape[0]==4:
+        elif len(normed_data_shape)==4:
             sample_num = (normed_data_shape[1],normed_data_shape[2],)
         self.h5f.attrs['sample_num'] = sample_num
-        self.create_3dsets()
+        self.create_dsets()
+        for attr in h5f_normed['bidxmaps_sample_group'].attrs:
+            if attr != 'valid_num':
+                self.h5f['bidxmaps_sample_group'].attrs[attr] = h5f_normed['bidxmaps_sample_group'].attrs[attr]
+                #print(attr)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
@@ -2847,31 +2877,38 @@ class Normed_H5f():
         dset = self.h5f['data']
         return dset.shape
 
-    def create_3dsets(self):
+    def create_dsets(self):
+        if 'total_block_N' in self.h5f.attrs:
+            total_block_N = self.h5f.attrs['total_block_N']
+        else:
+            total_block_N = 1
         chunks_n = 1
-        total_block_N = self.h5f.attrs['total_block_N']
         sample_num = self.h5f.attrs['sample_num']
         if sample_num.size==1:
+            sample_num_size = sample_num[0]
             sample_num = (sample_num,)
         elif sample_num.size==2:
+            sample_num_size = sample_num[0] * sample_num[1]
             sample_num = (sample_num[0],sample_num[1],)
         self.update_norm_eles_by_attrs()
         norm_data_eles_num = self.norm_data_eles_num
         label_eles_num = self.label_eles_num
 
+        #chunks_n = math.ceil( 1024 / 1*sample_num_size*norm_data_eles_num*4 )
         data_set = self.h5f.create_dataset( 'data',shape=(total_block_N,)+sample_num+(norm_data_eles_num,),\
                 maxshape=(None,)+sample_num+(norm_data_eles_num,),dtype=np.float32,compression="gzip",\
-                chunks = (chunks_n,)+sample_num+(norm_data_eles_num,)  )
+                            chunks = (chunks_n,)+sample_num+(norm_data_eles_num,)  )
         labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
-                chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+                            chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
 
-        bidxmap_grp = self.h5f.create_group('bidxmaps')
         sg_block_shape = GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()
-        sg_bidxmap_dset = bidxmap_grp.create_dataset('sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32 )
+        sg_bidxmap_dset = self.h5f.create_dataset('bidxmaps_sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32,
+                            maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
         sg_bidxmap_dset.attrs['valid_num'] = 0
         flatten_bidxmap_shape = GlobalSubBaseBLOCK.get_flatten_bidxmaps_shape()
-        flatten_bidxmap_dset = bidxmap_grp.create_dataset('flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32)
+        flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
+                            maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
         flatten_bidxmap_dset.attrs['valid_num'] = 0
 
         # predicted label
@@ -2955,6 +2992,7 @@ class Normed_H5f():
     def create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
+        self.h5f.attrs['is_intact'] = 1
     @staticmethod
     def check_file_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
@@ -2962,16 +3000,21 @@ class Normed_H5f():
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
         with h5py.File(file_name,'r') as h5f:
-            if 'total_block_N' not in h5f.attrs:
-                return False, "total_block_N not in %s"%(file_name)
-            total_block_N = h5f.attrs['total_block_N']
-            if not h5f['data'].shape[0] == total_block_N:
-                return False, "total_block_N = %d, data shape0 = %d \nfile:%s"%(total_block_N,h5f['data'].shape[0],file_name)
-            if not h5f['labels'].shape[0] == total_block_N:
-                return False, "total_block_N = %d, labels shape0 = %d \nfile: %s"%(total_block_N,h5f['labels'].shape[0],file_name)
-            if 'label_category_hist' not in h5f['labels'].attrs:
-                return False, "label_category_hist not in %s"%(file_name)
-            return True,""
+            if 'is_intact' not in h5f.attrs:
+                return False,""
+            IsIntact = h5f.attrs['is_intact'] == 1
+            return IsIntact,""
+           #
+           # if 'total_block_N' not in h5f.attrs:
+           #     return False, "total_block_N not in %s"%(file_name)
+           # total_block_N = h5f.attrs['total_block_N']
+           # if not h5f['data'].shape[0] == total_block_N:
+           #     return False, "total_block_N = %d, data shape0 = %d \nfile:%s"%(total_block_N,h5f['data'].shape[0],file_name)
+           # if not h5f['labels'].shape[0] == total_block_N:
+           #     return False, "total_block_N = %d, labels shape0 = %d \nfile: %s"%(total_block_N,h5f['labels'].shape[0],file_name)
+           # if 'label_category_hist' not in h5f['labels'].attrs:
+           #     return False, "label_category_hist not in %s"%(file_name)
+           # return True,""
 
     def rm_invalid_data(self):
         for dset_name_i in self.h5f:
@@ -2980,12 +3023,11 @@ class Normed_H5f():
                 if dset.shape[0] > valid_n:
                     #print('resizing block %s from %d to %d'%(dset_name_i,dset.shape[0],valid_n))
                     dset.resize( (valid_n,)+dset.shape[1:] )
-            if dset_name_i != 'bidxmaps':
-                rm_invalid_dset( self.h5f[dset_name_i] )
-            else:
-                grp = self.h5f[dset_name_i]
-                for dset_name_ij in grp:
-                    rm_invalid_dset( grp[dset_name_ij] )
+            rm_invalid_dset( self.h5f[dset_name_i] )
+           # else:
+           #     grp = self.h5f[dset_name_i]
+           #     for dset_name_ij in grp:
+           #         rm_invalid_dset( grp[dset_name_ij] )
 
 
     def add_label_histagram(self):
@@ -3218,7 +3260,7 @@ class Normed_H5f():
 
 def MergeNormed_H5f(in_filename_ls,merged_filename):
     if len(in_filename_ls) == 0:
-        print('no .nh5 file in the list')
+        print('no .nh5/.prh5 file in the list')
         return
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
@@ -3227,11 +3269,13 @@ def MergeNormed_H5f(in_filename_ls,merged_filename):
             with h5py.File(fn,'r') as in_h5f:
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
-                    merged_normed_h5f.copy_root_attrs_from_normed(in_h5f)
+                    merged_normed_h5f.copy_root_attrs_from_normed(in_h5f,'MergeNormed_H5f')
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 merged_normed_h5f.append_to_dset('data',in_normed_h5f.data_set)
                 merged_normed_h5f.append_to_dset('labels',in_normed_h5f.labels_set)
+                merged_normed_h5f.append_to_dset('bidxmaps_sample_group',in_normed_h5f.h5f['bidxmaps_sample_group'])
+                merged_normed_h5f.append_to_dset('bidxmaps_flatten',in_normed_h5f.h5f['bidxmaps_flatten'])
         merged_normed_h5f.create_done()
         print('merged h5f OK: %s'%(merged_filename))
 
