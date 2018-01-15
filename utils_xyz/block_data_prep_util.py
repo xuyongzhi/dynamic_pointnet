@@ -193,13 +193,13 @@ def check_h5fs_intact(file_name):
         return False,"file not exist: %s"%(file_name)
     f_format = os.path.splitext(file_name)[-1]
     if f_format == '.rh5':
-        return Raw_H5f.check_file_intact(file_name)
+        return Raw_H5f.check_rh5_intact(file_name)
     elif f_format == '.sh5' or f_format == '.rsh5':
-        return Sorted_H5f.check_file_intact(file_name)
+        return Sorted_H5f.check_sh5_intact(file_name)
     elif f_format == '.nh5' or f_format == '.prh5':
-        return Normed_H5f.check_file_intact(file_name)
+        return Normed_H5f.check_nh5_intact(file_name)
     elif f_format == '.bmh5':
-        return GlobalSubBaseBLOCK.check_file_intact(file_name)
+        return GlobalSubBaseBLOCK.check_bmh5_intact(file_name)
     else:
         return False, "file format not recognized %s"%(f_format)
 
@@ -403,7 +403,7 @@ class Raw_H5f():
         #print('T=',time.time()-begin)
 
     @staticmethod
-    def check_file_intact( file_name ):
+    def check_rh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
@@ -594,7 +594,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return total_row_N, n+1
 
     @staticmethod
-    def check_file_intact( file_name ):
+    def check_sh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.sh5' or f_format == '.rsh5'
         if not os.path.exists(file_name):
@@ -1722,12 +1722,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
         pyramid_filename = os.path.join(out_folder,file_name_base+'.prh5')
 
-        IsIntact,ck_str = check_h5fs_intact( pyramid_filename )
+        IsIntact,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
         if IsIntact:
             print('pyh5 intact: %s'%(pyramid_filename))
             return
         # check bmh5 intact primarily
-        IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_file_intact(self.file_name)
+        IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_bmh5_intact(self.file_name)
         if not IsIntact_bmh5:
             GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(self.h5f,self.file_name)
 
@@ -2207,7 +2207,7 @@ class GlobalSubBaseBLOCK():
                 if out=='block_num':
                     print('block_num:',output[out])
                 #print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
-        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( root_s_h5f_fn )
+        IsIntact,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( root_s_h5f_fn )
         print('IsIntact:',IsIntact)
 
 
@@ -2223,7 +2223,7 @@ class GlobalSubBaseBLOCK():
 
         '''
         blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        #IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( blockid_maps_fn )
+        #IsIntact,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( blockid_maps_fn )
         #if (not Always_CreateNew) and IsIntact:
         #    print('bmh5 file intact: %s'%(blockid_maps_fn))
         #    return
@@ -2263,7 +2263,7 @@ class GlobalSubBaseBLOCK():
             print('write finish: %s'%(blockid_maps_fn))
 
     @staticmethod
-    def check_file_intact(root_s_h5f_fn):
+    def check_bmh5_intact(root_s_h5f_fn):
         file_name = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.bmh5'
@@ -2766,9 +2766,8 @@ class Normed_H5f():
         return datas
 
     def get_bidxmap(self,start_block,end_block):
-        bidxmap_grp = self.h5f['bidxmaps']
-        flatten_bidxmaps = bidxmap_grp['flatten'][start_block:end_block,:]
-        sg_bidxmaps = bidxmap_grp['sample_group'][start_block:end_block,:]
+        flatten_bidxmaps = self.h5f['bidxmaps_flatten'][start_block:end_block,:]
+        sg_bidxmaps = self.h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
         return  sg_bidxmaps, flatten_bidxmaps
 
@@ -2994,7 +2993,7 @@ class Normed_H5f():
         self.add_label_histagram()
         self.h5f.attrs['is_intact'] = 1
     @staticmethod
-    def check_file_intact( file_name ):
+    def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.nh5' or f_format == '.prh5'
         if not os.path.exists(file_name):
@@ -3261,6 +3260,10 @@ class Normed_H5f():
 def MergeNormed_H5f(in_filename_ls,merged_filename):
     if len(in_filename_ls) == 0:
         print('no .nh5/.prh5 file in the list')
+        return
+    IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
+    if IsIntact:
+        print('nh5/prh5 file intact: %s'%(merged_filename))
         return
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):

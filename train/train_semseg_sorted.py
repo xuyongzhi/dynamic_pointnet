@@ -59,8 +59,10 @@ FLAGS = parser.parse_args()
 
 FLAGS.datafeed_type='Pr_Normed_H5f'
 FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16'
+FLAGS.all_fn_globs = 'all_merged_nf5'
 FLAGS.num_point=None
 FLAGS.eval_fnglob_or_rate = 0.3
+FLAGS.eval_fnglob_or_rate = '17DRP5sb8fy'
 FLAGS.feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
 FLAGS.feed_label_elements = 'label_category,label_instance'
 FLAGS.batch_size=2

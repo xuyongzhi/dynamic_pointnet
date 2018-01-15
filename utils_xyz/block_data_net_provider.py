@@ -190,7 +190,6 @@ class Net_Provider():
         datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
 
 
-
     def get_block_n(self,norm_h5f):
         if self.InputType == 'Normed_H5f' or self.InputType=='Pr_Normed_H5f':
             file_block_N = norm_h5f.data_set.shape[0]
@@ -535,10 +534,12 @@ def main_NormedH5f():
     InputType = 'Pr_Normed_H5f'
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16']
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16']
+    eval_fnglob_or_rate = 0.3
+
     all_filename_glob = ['all_merged_nf5']
+    eval_fnglob_or_rate = '17DRP5sb8fy'
     num_point_block = None
 
-    eval_fnglob_or_rate = 0.3
     only_evaluate = False
     feed_data_elements = ['xyz_1norm_file','xyz_midnorm_block']
     feed_label_elements = ['label_category','label_instance']
