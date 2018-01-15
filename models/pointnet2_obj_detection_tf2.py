@@ -77,7 +77,7 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     return end_points, net_class, net_boxes, l4_xyz
 
 
-def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
+def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     '''
     pred_class: batch * num_point * num_anchor * 2
     pred_box  : batch * num_point * num_anchor * 7
@@ -91,15 +91,19 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     # all_loss = tf.convert_to_tensor(all_loss, name = 'all_loss')
     # classification_loss = tf.convert_to_tensor(classification_loss, name = 'classification_loss')
     # regression_loss = tf.convert_to_tensor(regression_loss, name = 'regression_loss')
-    output_pred_box_one_batch = tf.convert_to_tensor(output_pred_box_one_batch, name = 'output_pred_box_one_batch')
-    output_box_targets        = tf.convert_to_tensor(output_box_targets,        name = 'output_box_targets')
-    output_box_inside_weights = tf.convert_to_tensor(output_box_inside_weights, name = 'output_box_inside_weights')
-    output_box_outside_weights= tf.convert_to_tensor(output_box_outside_weights,name = 'output_box_outside_weights')
-    output_pred_class_one_batch=tf.convert_to_tensor(output_pred_class_one_batch,name= 'output_pred_class_one_batch')
-    output_labels              =tf.convert_to_tensor(output_labels,              name= 'output_labels')
+    # output_pred_box_one_batch = tf.convert_to_tensor(output_pred_box_one_batch, name = 'output_pred_box_one_batch')
+    # output_box_targets        = tf.convert_to_tensor(output_box_targets,        name = 'output_box_targets')
+    # output_box_inside_weights = tf.convert_to_tensor(output_box_inside_weights, name = 'output_box_inside_weights')
+    # output_box_outside_weights= tf.convert_to_tensor(output_box_outside_weights,name = 'output_box_outside_weights')
+    # output_pred_class_one_batch=tf.convert_to_tensor(output_pred_class_one_batch,name= 'output_pred_class_one_batch')
+    # output_labels              =tf.convert_to_tensor(output_labels,              name= 'output_labels')
+
 
     NUM_regression = cfg.TRAIN.NUM_REGRESSION
     NUM_class      = cfg.TRAIN.NUM_CLASSES
+
+    #output_pred_box_one_batch.set_shape([batch_size, ])
+
     output_pred_box_one_batch  = tf.reshape(output_pred_box_one_batch,  [-1, NUM_regression])
     output_box_targets         = tf.reshape(output_box_targets ,        [-1, NUM_regression])
     output_box_inside_weights  = tf.reshape(output_box_inside_weights,  [-1, NUM_regression])

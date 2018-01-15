@@ -133,7 +133,7 @@ def get_loss(pred_class, pred_box, gt_box, smpw, xyz):
     distance = tf.reshape(distance, (Batch, -1, Num_gt_box)) # Batch x (A*Num_point) x Num_gt_box
 
     #labels = np.zeros(shape=(N*A,1))
-    labels =  tf.fill([Batch , Num_point*A, 1], -1)
+    labels =  tf.fill([Batch , Num_point*A, 1], -1)  # shape: Batch x Num_all_point
 
     #labels.fill(-1)
 

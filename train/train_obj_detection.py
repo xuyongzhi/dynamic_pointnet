@@ -168,7 +168,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Get model and loss
             end_points, pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss = get_loss(pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
+            loss = get_loss(BATCH_SIZE,pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
             tf.summary.scalar('loss', loss)
 
             #correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
