@@ -223,9 +223,8 @@ class Net_Provider():
             fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'/*'+file_format)
             all_file_list  += glob.glob( fn_glob )
             fn_globs.append(fn_glob)
-        if len(all_file_list)== 0:
-            print('no file in:')
-            print(fn_globs)
+        assert len(all_file_list)!=0,"no file in"%(fn_globs)
+        assert len(all_file_list)!=1,"only one file, should > 1 to seperate as train and test"
         return all_file_list
 
     def split_train_eval_file_list(self,all_file_list,eval_fnglob_or_rate=None):
@@ -536,6 +535,7 @@ def main_NormedH5f():
     InputType = 'Pr_Normed_H5f'
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d4_0d8_16']
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16']
+    all_filename_glob = ['all_merged_nf5']
     num_point_block = None
 
     eval_fnglob_or_rate = 0.3

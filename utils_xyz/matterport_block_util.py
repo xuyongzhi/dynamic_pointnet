@@ -449,7 +449,7 @@ class Matterport3D_Prepare():
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
             file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
         scans_name_ = self.scans_name.replace('/','_')[1:]
-        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+scans_name_+'_'+self.house_name+'_'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed.nh5'
+        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+scans_name_+'_'+self.house_name+'_'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'+format
         MergeNormed_H5f(file_list,merged_file_name)
 
 
