@@ -472,7 +472,7 @@ class Matterport3D_Prepare():
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
         #file_name = self.house_rawh5f_dir + '/region2.rh5'
         #file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region2.prh5'
-        file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16/region0.prh5'
+        #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16/region0.prh5'
         IsIntact,check_str = check_h5fs_intact(file_name)
         if IsIntact:
             with h5py.File(file_name,'r') as h5f:
@@ -480,9 +480,16 @@ class Matterport3D_Prepare():
         else:
             print("file not intact: %s \n\t %s"%(file_name,check_str))
 
+    def ShowBidxmap(self):
+        file_name = self.house_rawh5f_dir+'/region1.rh5'
+        step = stride = [0.1,0.1,0.1]
+        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
+        with h5py.File(file_name,'r') as h5f:
+            GlobalSubBaseBLOCK.show_all(h5f,file_name)
+
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 5
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
@@ -524,8 +531,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
 def parse_house_ls():
     scans_name = '/v1/scans'
-    #house_names = ['17DRP5sb8fy']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    house_names = ['17DRP5sb8fy']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names = ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
@@ -538,10 +545,14 @@ def parse_house_ls():
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
     matterport3d_prepare.ShowSummary()
+def show_bidxmap():
+    matterport3d_prepare = Matterport3D_Prepare()
+    matterport3d_prepare.ShowBidxmap()
 
 if __name__ == '__main__':
     parse_house_ls()
     #show_summary()
+    #show_bidxmap()
 
 
 

@@ -197,6 +197,8 @@ def check_h5fs_intact(file_name):
         return Sorted_H5f.check_file_intact(file_name)
     elif f_format == '.nh5' or f_format == '.prh5':
         return Normed_H5f.check_file_intact(file_name)
+    elif f_format == '.bmh5':
+        return GlobalSubBaseBLOCK.check_file_intact(file_name)
     else:
         return False, "file format not recognized %s"%(f_format)
 
@@ -1722,7 +1724,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
 
 
-            all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global',Always_CreateNew=Always_CreateNew)
+            all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global')
             global_block_sample_shape = GlobalSubBaseBLOCK.get_block_sample_shape('global')
             global_attrs = gsbb.get_new_attrs('global')
 
@@ -1744,7 +1746,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
 
-                sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = gsbb.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0,Always_CreateNew=True)
+                sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = gsbb.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
                 all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
                 sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
@@ -1825,6 +1827,14 @@ class GlobalSubBaseBLOCK():
         self.new_attrs = {}
         self.bm_output = {}
     @staticmethod
+    def get_bmapfn(root_s_h5f_fn):
+        out_folder = os.path.dirname(root_s_h5f_fn)+'-bidxmap-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+        if not os.path.exists(out_folder):
+            os.mkdir(out_folder)
+        base_name = os.path.splitext( os.path.basename(root_s_h5f_fn) )[0]
+        blockid_maps_fn = out_folder + '/' + base_name + '.bmh5'
+        return blockid_maps_fn
+    @staticmethod
     def write_paras_in_h5fattrs(attrs):
         ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis','sum_sg_bidxmap_sample_num','sum_flatten_bmap_sample_num']
         for ele_name in ele_names:
@@ -1900,10 +1910,10 @@ class GlobalSubBaseBLOCK():
     def get_block_n_of_new_stride_step_(root_s_h5f,root_s_h5f_fn,cascade_id):
         return  GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num'])['block_num']
 
-    def get_all_sorted_aimbids(self,cascade_id,Always_CreateNew=False):
+    def get_all_sorted_aimbids(self,cascade_id):
         ele_name = 'all_sorted_aimbids_'+str(cascade_id)
         if ele_name not in self.bm_output:
-            self.bm_output[ele_name] = self.load_one_bidxmap(cascade_id,['all_sorted_aimbids'],Always_CreateNew=Always_CreateNew)['all_sorted_aimbids']
+            self.bm_output[ele_name] = self.load_one_bidxmap(cascade_id,['all_sorted_aimbids'])['all_sorted_aimbids']
         return self.bm_output[ele_name]
 
     def get_baseids_inanew(self,cascade_id,new_bid):
@@ -1928,7 +1938,7 @@ class GlobalSubBaseBLOCK():
         valid_aimb_num = min(sorted_aimbids.size,aim_nsubblock)
         return all_sorted_aimbids_sampled, valid_aimb_num
 
-    def get_bidxmap(self,cascade_id,valid_sorted_basebids,Always_CreateNew=False):
+    def get_bidxmap(self,cascade_id,valid_sorted_basebids):
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
         bidxmap:(nsubblock,npoint_subblock)
@@ -1945,7 +1955,7 @@ class GlobalSubBaseBLOCK():
         aim_npoint_subblock = GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id]
 
         # (1) Remove all the aim blocks contain no valid base blocks
-        all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id,Always_CreateNew=Always_CreateNew)
+        all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
         all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
         bidxmap_dic={}
         raw_valid_base_bnum = []
@@ -2008,7 +2018,7 @@ class GlobalSubBaseBLOCK():
     def get_flatten_bidxmaps_sample_num_elename():
         return [ 'flatten_fixed_num', 'flatten_valid_num', 'block_num' ]
 
-    def get_all_bidxmaps(self,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0,Always_CreateNew=False):
+    def get_all_bidxmaps(self,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0):
         '''
         fuse bidxmap from cascade_id 0 to end
         (1)sg_bidxmaps_ls: list, len= self.cascade_num-1, start from cascade_id=1
@@ -2069,7 +2079,7 @@ class GlobalSubBaseBLOCK():
 
         valid_sorted_basebids = cas0_bids_in_global_valid
         for cascade_id in range(1,self.cascade_num):
-            bidxmap,sg_sample_num,valid_sorted_basebids,flatten_bidxmap = self.get_bidxmap(cascade_id,valid_sorted_basebids,Always_CreateNew=Always_CreateNew)
+            bidxmap,sg_sample_num,valid_sorted_basebids,flatten_bidxmap = self.get_bidxmap(cascade_id,valid_sorted_basebids)
             sg_bidxmaps_ls.append( bidxmap )
             sg_bidxmaps_fixed_ls.append( fix_var_shape(bidxmap,sg_bidxmaps_fixed_shape1,1)[0] )
 
@@ -2113,12 +2123,12 @@ class GlobalSubBaseBLOCK():
         shape0 = np.sum(GlobalSubBaseBLOCK.nsubblock_candis[1:GlobalSubBaseBLOCK.cascade_num])
         shape1 = max(GlobalSubBaseBLOCK.npoint_subblock_candis[1:GlobalSubBaseBLOCK.cascade_num])
         return (shape0,shape1)
-    def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None,Always_CreateNew=False):
+    def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id
         root_s_h5f = self.root_s_h5f
         root_s_h5f_fn = self.root_s_h5f_fn
-        return GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid,Always_CreateNew=Always_CreateNew)
+        return GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid)
     @staticmethod
     def flatten_bmap_shape0(cascade_id):
         if cascade_id==0:
@@ -2131,24 +2141,18 @@ class GlobalSubBaseBLOCK():
         return (shape0,2)
 
     @staticmethod
-    def load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None,Always_CreateNew=False):
-        out_folder = os.path.dirname(root_s_h5f_fn)+'-bidxmap-'+GlobalSubBaseBLOCK.get_pyramid_flag()
-        if not os.path.exists(out_folder):
-            os.mkdir(out_folder)
-        base_name = os.path.splitext( os.path.basename(root_s_h5f_fn) )[0]
-        blockid_maps_fn = out_folder + '/' + base_name + '.bmh5'
-
-        if Always_CreateNew or (not os.path.exists(blockid_maps_fn)):
-            GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
+    def load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
+        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
         assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
         with h5py.File(blockid_maps_fn,'r') as h5f:
             larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_s_h5f.attrs)
             group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
             grp = h5f[group_name]
-
+            cascade_idstr_ls = h5f.attrs['cascade_idstr_ls']
             bm_output = {}
             if 'block_num' in out or 'all_sorted_aimbids' in out:
-                all_sorted_aimbids = grp.attrs['all_sorted_aimbids']
+                all_sorted_aimbids = grp['all_sorted_aimbids'][...]
                 if 'block_num' in out:
                     bm_output['block_num'] = all_sorted_aimbids.shape[0]
                 if 'all_sorted_aimbids' in out:
@@ -2157,15 +2161,15 @@ class GlobalSubBaseBLOCK():
                 bm_output['baseids_inanew'] = grp[str(new_bid)][...]
             if 'allbaseids_in_new_dic' in out:
                 allbaseids_in_new_dic = {}
-                for new_bid_str in grp:
-                    allbaseids_in_new_dic[int(new_bid_str)] = grp[new_bid_str][...]
+                for new_bid_str in cascade_idstr_ls:
+                    if new_bid_str != 'root':
+                        allbaseids_in_new_dic[int(new_bid_str)] = grp[new_bid_str][...]
                 bm_output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
             return bm_output
 
     @staticmethod
     def show_all_groupnames(root_s_h5f_fn):
-        base_fn = os.path.splitext(root_s_h5f_fn)[0]
-        blockid_maps_fn = base_fn + '-blockid_maps-base_in_larger.bmh5'
+        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
         group_names = []
         with h5py.File(blockid_maps_fn,'r') as h5f:
             print('\nall group names')
@@ -2185,18 +2189,33 @@ class GlobalSubBaseBLOCK():
                     continue
                 output = GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,[out],new_bid)
 
-                print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
+                if out=='all_sorted_aimbids':
+                    n = output[out].shape[0]
+                    print('all_sorted_aimbids: shape=',output[out].shape)
+                    print('\t',output[out][0:min(20,n)])
                 if out=='block_num':
-                    print(output[out])
+                    print('block_num:',output[out])
+                #print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
+        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn) )
+        print('IsIntact:',IsIntact)
 
 
     @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
-        out_folder = os.path.dirname(root_s_h5f_fn)+'-bidxmap-'+GlobalSubBaseBLOCK.get_pyramid_flag()
-        if not os.path.exists(out_folder):
-            os.mkdir(out_folder)
-        base_name = os.path.splitext( os.path.basename(root_s_h5f_fn) )[0]
-        blockid_maps_fn = out_folder + '/' + base_name + '.bmh5'
+    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn,Always_CreateNew=False):
+        '''
+        bmh5f format:
+            cascade_id_ls = ['root', '0', '1', '2', '3', 'global']
+            h5f.attrs['cascade_idstr_ls'] = cascade_id_ls
+            h5f.attrs['group_num'] = len(cascade_id_ls) # finish flag
+            for each cascde_id, create a group. eg cascade_id='root' grp_name='root-stride_0d1_step_0d1'
+            In each grp, fro each new_bid, create a blockid_map_dset, shape=(len(base_ids),) blockid_map_dset[...] = base_ids
+
+        '''
+        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
+        IsIntact,ck_str = GlobalSubBaseBLOCK.check_file_intact( blockid_maps_fn )
+        if (not Always_CreateNew) and IsIntact:
+            print('bmh5 file intact: %s'%(blockid_maps_fn))
+            return
         with h5py.File(blockid_maps_fn,'w') as h5f:
             all_sorted_blockids_dic={}
             all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
@@ -2219,13 +2238,29 @@ class GlobalSubBaseBLOCK():
                 group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
 
                 grp = h5f.create_group(group_name)
-                grp.attrs['all_sorted_aimbids'] = all_sorted_larger_blockids
+                all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_blockids.shape,dtype=np.int32  )
+                all_sorted_aimbids_dset = all_sorted_larger_blockids
                 if not cascade_id == 'root':
                     for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
                         blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
                         blockid_map_dset[...] = base_ids
+            h5f.attrs['cascade_idstr_ls'] = np.array(cascade_id_ls)
+            h5f.attrs['group_num'] = len(cascade_id_ls) # finish flag
             h5f.flush()
             print('write finish: %s'%(blockid_maps_fn))
+
+    @staticmethod
+    def check_file_intact(file_name):
+        f_format = os.path.splitext(file_name)[-1]
+        assert f_format == '.bmh5'
+        if not os.path.exists(file_name):
+            return False,"%s not exist"%(file_name)
+        with h5py.File(file_name,'r') as h5f:
+            attrs_to_check = ['group_num','cascade_idstr_ls']
+            for attrs in attrs_to_check:
+                if attrs not in h5f.attrs:
+                    return False, "%s not in %s"%(attrs,f_format)
+        return True,""
 
     @staticmethod
     def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
@@ -3329,7 +3364,7 @@ def Test_get_block_data_of_new_stride_step():
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
-        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name,Always_CreateNew=True)
+        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name)
         #GlobalSubBaseBLOCK.show_all(base_h5f,base_h5f_name)
 
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
