@@ -531,7 +531,6 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     if 'MergeNorm' in operations:
         matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5')
 
-    #matterport3d_prepare.ShowSummary()
     #matterport3d_prepare.GenObj_RawH5f()
     #matterport3d_prepare.GenObj_SortedH5f()
 

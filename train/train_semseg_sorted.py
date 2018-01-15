@@ -53,10 +53,12 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--debug',action='store_true',help='tf debug')
+parser.add_argument('--multip_feed',action='store_true',help='IsFeedData_MultiProcessing = True')
 
 FLAGS = parser.parse_args()
 
 
+#-------------------------------------------------------------------------------
 FLAGS.datafeed_type='Pr_Normed_H5f'
 FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16'
 FLAGS.all_fn_globs = 'all_merged_nf5'
@@ -65,8 +67,9 @@ FLAGS.eval_fnglob_or_rate = 0.3
 FLAGS.eval_fnglob_or_rate = '17DRP5sb8fy'
 FLAGS.feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
 FLAGS.feed_label_elements = 'label_category,label_instance'
-FLAGS.batch_size=2
-FLAGS.auto_break  = True
+FLAGS.batch_size=8
+FLAGS.auto_break  = False
+FLAGS.multip_feed = True
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 
@@ -550,7 +553,7 @@ def add_eval_feed_buf(eval_feed_buf_q):
 
 def main():
 
-    IsFeedData_MultiProcessing = True and (not FLAGS.auto_break)
+    IsFeedData_MultiProcessing = FLAGS.multip_feed and (not FLAGS.auto_break)
 
 
     if IsFeedData_MultiProcessing:

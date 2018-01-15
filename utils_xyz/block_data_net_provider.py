@@ -13,6 +13,7 @@ import time
 import multiprocessing as mp
 import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
+from ply_util import create_ply
 
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -541,7 +542,7 @@ def main_NormedH5f():
     num_point_block = None
 
     only_evaluate = False
-    feed_data_elements = ['xyz_1norm_file','xyz_midnorm_block']
+    feed_data_elements = ['xyz','xyz_1norm_file','xyz_midnorm_block']
     feed_label_elements = ['label_category','label_instance']
     #feed_label_elements = ['label_category','label_instance']
     net_provider=Net_Provider(InputType=InputType,
@@ -556,8 +557,24 @@ def main_NormedH5f():
     print(net_provider.data_summary_str)
     print('init time:',t1-t0)
 
-    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(0, min(128,net_provider.train_num_blocks) )
-    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_eval_batch(0,min(128,net_provider.eval_num_blocks) )
+    s = 10
+    for bk in  range(0,net_provider.train_num_blocks,s):
+        end = min(bk+s,net_provider.train_num_blocks)
+        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(bk, end )
+        ply_fn = DATASET_DIR[dataset_name] + '/PlyFile/train-' + str(bk)+'-'+str(end)+'.ply'
+        xyz = cur_data[...,net_provider.feed_data_ele_idxs['xyz']]
+        create_ply( xyz,ply_fn )
+        break
+
+   # for bk in  range(0,net_provider.eval_num_blocks,s):
+   #     end = min(bk+s,net_provider.eval_num_blocks)
+   #     cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_eval_batch(0,min(1,net_provider.eval_num_blocks) )
+   #     ply_fn = DATASET_DIR[dataset_name] + '/PlyFile/eval-' + str(bk)+'-'+str(end)+'.ply'
+   #     xyz = cur_data[...,net_provider.feed_data_ele_idxs['xyz']]
+   #     create_ply( xyz,ply_fn )
+   #     break
+
+
     if InputType=='Normed_H5f':
         print(cur_data.shape)
         print(cur_data[0,0:3,:])
