@@ -23,10 +23,15 @@ def create_ply( xyz, ply_fn, label=None,label2color=None ):
     folder = os.path.dirname(ply_fn)
     if not os.path.exists(folder):
         os.mkdir(folder)
-    xyz = np.reshape( xyz,(-1,3) )
-    vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f4'), ('y', 'f4'),('z', 'f4')])
-    for i in range(xyz.shape[0]):
-        vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2] )
+    xyz = np.reshape( xyz,(-1,xyz.shape[-1]) )
+    if xyz.shape[-1] == 3:
+        vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f4'), ('y', 'f4'),('z', 'f4')])
+        for i in range(xyz.shape[0]):
+            vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2] )
+    if xyz.shape[-1] == 6:
+        vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f4'), ('y', 'f4'),('z', 'f4'),('red','u1'),('green','u1'),('blue','u1')])
+        for i in range(xyz.shape[0]):
+            vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2],xyz[i,3],xyz[i,4],xyz[i,5] )
     el = PlyElement.describe(vertex,'vertex')
     PlyData([el],text=True).write(ply_fn)
     print('save ply file: %s'%(ply_fn))

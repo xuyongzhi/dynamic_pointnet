@@ -306,6 +306,7 @@ class Raw_H5f():
             base_fn = os.path.splitext(base_fn)[0]
             folder_path = os.path.dirname(self.file_name)
             obj_folder = os.path.join(folder_path,base_fn)
+            print('obj_folder:',obj_folder)
             obj_file_name = os.path.join(obj_folder,base_fn+'.obj')
             if not os.path.exists(obj_folder):
                 os.makedirs(obj_folder)
@@ -1158,6 +1159,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         base_fn = os.path.splitext(base_fn)[0]
         folder_path = os.path.dirname(self.file_name)
         obj_folder = os.path.join(folder_path,base_fn)
+        print('obj path:',obj_folder)
         if not os.path.exists(obj_folder):
             os.makedirs(obj_folder)
 
@@ -1277,7 +1279,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # xyz_midnorm
         if norm_list==None or 'xyz_midnorm_block' in norm_list:
-            xyz_midnorm_block = raw_xyz+0 # as a new variable, not a reference
+            xyz_midnorm_block = np.copy( raw_xyz ) # as a new variable, not a reference
             # only norm x,y. Keep z be the raw value
             #xyz_min_real = np.min(raw_xyz,axis=0)
             #xyz_midnorm_block[:,0:2] -= (xyz_min_real[0:2] + self.block_step[0:2]/2)  # used by QI
@@ -1712,7 +1714,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return batch_datas, batch_labels
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False):
+    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_pyh5=False,Always_CreateNew_bmh5=False):
         '''
         save by global block
         '''
@@ -1723,12 +1725,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         pyramid_filename = os.path.join(out_folder,file_name_base+'.prh5')
 
         IsIntact,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
-        if IsIntact:
+
+        if (not Always_CreateNew_pyh5) and IsIntact:
             print('pyh5 intact: %s'%(pyramid_filename))
             return
         # check bmh5 intact primarily
         IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_bmh5_intact(self.file_name)
-        if not IsIntact_bmh5:
+        if Always_CreateNew_bmh5 or ( not IsIntact_bmh5 ):
             GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(self.h5f,self.file_name)
 
         print('start gen pyramid file: ',pyramid_filename)
@@ -1866,10 +1869,10 @@ class GlobalSubBaseBLOCK():
             else:
                 flag_str +='-'
         for i,s in enumerate(GlobalSubBaseBLOCK.sub_block_size_candis):
-            if s<1:
-                flag_str += '0d'+str(int(10*s))
+            if s%1!=0:
+                flag_str += '%dd'%(int(s))+str(int(10*(s%1)))
             else:
-                flag_str += str(int(10*s))
+                flag_str += str(int(s))
             if i<len(GlobalSubBaseBLOCK.sub_block_size_candis)-1:
                 flag_str += '_'
         return flag_str
@@ -2713,6 +2716,7 @@ class Normed_H5f():
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
             if dn in h5f:
+                print(dn)
                 setattr(self,dn+'_set', h5f[dn])
         self.update_norm_eles_by_attrs()
 
@@ -2782,25 +2786,26 @@ class Normed_H5f():
         return labels
     @staticmethod
     def get_normeddata_ele_idxs(normed_data_elements):
-        # order according to normed_data_elements
+        # order according to Normed_H5f.normed_ele_idx_order
         # len of each ele according to  normed_data_ele_candi_len
         data_ele_idxs = {}
         k = 0
-        for e in normed_data_elements:
-            assert e in Normed_H5f.normed_ele_idx_order,"%s not in Normed_H5f.normed_ele_idx_order"%(e)
-            idx = range(k,k+Normed_H5f.normed_data_ele_candi_len[e])
-            k += Normed_H5f.normed_data_ele_candi_len[e]
-            data_ele_idxs[e] = idx
+        for e in Normed_H5f.normed_ele_idx_order:
+            if e in normed_data_elements:
+                #assert e in Normed_H5f.normed_ele_idx_order,"%s not in Normed_H5f.normed_ele_idx_order"%(e)
+                idx = range(k,k+Normed_H5f.normed_data_ele_candi_len[e])
+                k += Normed_H5f.normed_data_ele_candi_len[e]
+                data_ele_idxs[e] = idx
         return data_ele_idxs
     @staticmethod
     def get_label_ele_ids(label_elements):
-        # order according to label_elements
+        # order according to  Normed_H5f.labels_order
         label_ele_idxs = {}
         k = 0
-        for e in label_elements:
-            assert e in Normed_H5f.labels_order
-            label_ele_idxs[e] = range(k,k+Normed_H5f.label_candi_eles_len[e])
-            k += Normed_H5f.label_candi_eles_len[e]
+        for e in Normed_H5f.labels_order:
+            if e in label_elements:
+                label_ele_idxs[e] = range(k,k+Normed_H5f.label_candi_eles_len[e])
+                k += Normed_H5f.label_candi_eles_len[e]
         return label_ele_idxs
 
     def raw_category_idx_2_mpcat40(self,labels_with_rawcategory):
@@ -2930,7 +2935,7 @@ class Normed_H5f():
         self.pred_logits_set = pred_logits_set
 
     def raw_xyz_set(self):
-        return self.data_set[:,:,self.data_set.attrs['xyz']]
+        return self.data_set[...,self.data_set.attrs['xyz']]
 
     def create_areano_dset(self,total_block_N,sample_num):
         chunks_n = 4
@@ -3039,7 +3044,7 @@ class Normed_H5f():
 
     def Get_file_accuracies(self,IsWrite=False,out_path=None):
         # get the accuracy of each file by the pred data in hdf5
-        if self.pred_logit_set.shape[0] != self.labels_set.shape[0]:
+        if self.pred_logits_set.shape[0] != self.labels_set.shape[0]:
             return ''
         class_num = len(self.g_class2label)
         class_TP = np.zeros(shape=(class_num))
@@ -3050,7 +3055,7 @@ class Normed_H5f():
         for j in range(0,self.raw_xyz_set.shape[0]):
             xyz_block = self.raw_xyz_set[j,:]
             label_gt = self.labels_set[j,:]
-            label_pred = self.pred_logit_set[j,:]
+            label_pred = self.pred_logits_set[j,:]
             for i in range(xyz_block.shape[0]):
                 # calculate accuracy
                 if (label_gt[i]==label_pred[i]):
@@ -3097,8 +3102,8 @@ class Normed_H5f():
     def gen_gt_pred_obj_examples(self,config_flag = ['None'],out_path=None):
         #all_catigories = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
         all_catigories = [key for key in self.g_class2label]
-        config_flag = ['Z','building_6_no_ceiling']
-        config_flag = ['all_single','Y']
+        #config_flag = ['Z','building_6_no_ceiling']
+        #config_flag = ['all_single','Y']
         #config_flag = ['ALL','Y']
         #config_flag = ['Y']
         def get_config(config_flag):
@@ -3153,9 +3158,9 @@ class Normed_H5f():
         '''
         if show_categaries != None:
             show_categaries = [self.g_class2label[c] for c in show_categaries]
-        if self.pred_logit_set.shape[0] ==0:
-            print('File: %s \n   has no pred data'%(self.file_name))
-            return
+        #if self.pred_logits_set.shape[0] ==0:
+        #    print('File: %s \n   has no pred data'%(self.file_name))
+        #    return
         base_fn = os.path.basename(self.file_name)
         base_fn = os.path.splitext(base_fn)[0]
         folder_path = os.path.dirname(self.file_name)
@@ -3178,13 +3183,16 @@ class Normed_H5f():
         correct_obj_fn = os.path.join(obj_folder,'correct_'+pre_fn+'.obj')
         correct_num = 0
         pred_num = 0
-        file_size = self.raw_xyz_set.shape[0] * self.raw_xyz_set.shape[1]
+        raw_xyz_set = self.raw_xyz_set()
+        if raw_xyz_set.ndim == 4:
+            raw_xyz_set = np.reshape(raw_xyz_set,(raw_xyz_set.shape[0],-1,raw_xyz_set.shape[-1]))
+        file_size = raw_xyz_set.shape[0] * raw_xyz_set.shape[1]
 
         if xyz_cut_rate != None:
             # when rate < 0.5: cut small
             # when rate >0.5: cut big
-            xyz_max = np.array([np.max(self.raw_xyz_set[:,:,i]) for i in range(3)])
-            xyz_min = np.array([np.min(self.raw_xyz_set[:,:,i]) for i in range(3)])
+            xyz_max = np.array([np.max(raw_xyz_set[:,:,i]) for i in range(3)])
+            xyz_min = np.array([np.min(raw_xyz_set[:,:,i]) for i in range(3)])
             xyz_scope = xyz_max - xyz_min
             xyz_thres = xyz_scope * xyz_cut_rate + xyz_min
             print('xyz_thres = ',str(xyz_thres))
@@ -3193,12 +3201,13 @@ class Normed_H5f():
         with open(gt_obj_fn,'w') as gt_f, open(raw_obj_fn,'w') as raw_f, open(raw_colored_obj_fn,'w') as raw_colored_f:
           with open(pred_obj_fn,'w') as pred_f,open(dif_FN_obj_fn,'w') as dif_FN_f,open(dif_FP_obj_fn,'w') as dif_FP_f:
             with open(correct_obj_fn,'w') as correct_f:
-                for j in range(0,self.raw_xyz_set.shape[0]):
-                    xyz_block = self.raw_xyz_set[j,:]
-                    label_gt = self.label_set[j,:]
-                    if j < self.pred_logit_set.shape[0]:
+                for j in range(0,raw_xyz_set.shape[0]):
+                    xyz_block = raw_xyz_set[j,:]
+                    label_gt = np.reshape( self.labels_set[j,:],(-1,3)  )[:,self.label_ele_idxs['label_category'][0]]
+                    color_block = (np.reshape( self.data_set[...,self.data_set.attrs['color_1norm']],(-1,3) )*255).astype(np.uint8)
+                    if self.pred_logits_set.shape[0] !=0 and  j < self.pred_logits_set.shape[0]:
                         IsGenPred = True
-                        label_pred = self.pred_logit_set[j,:]
+                        label_pred = np.reshape( self.pred_logits_set[j,:], (-1,3) )[:,self.label_ele_idxs['label_category'][0]]
                     else:
                         IsGenPred = False
                     for i in range(xyz_block.shape[0]):
@@ -3222,7 +3231,7 @@ class Normed_H5f():
                         color_gt = self.label2color( label_gt[i] )
                         str_xyz = 'v ' + ' '.join( ['%0.3f'%(d) for d in  xyz_block[i,:] ])
                         str_xyz = str_xyz + ' \t'
-                        str_raw_color = ' '.join( ['%d'%(d) for d in  256*self.data_set[j,i,self.elements_idxs['color_1norm']]]) + '\n'
+                        str_raw_color = ' '.join( ['%d'%(d) for d in  color_block[i,:]]) + '\n'
                         str_color_gt = ' '.join( ['%d'%(d) for d in  color_gt]) + '\n'
                         str_gt = str_xyz + str_color_gt
 
@@ -3246,7 +3255,7 @@ class Normed_H5f():
                                 correct_f.write(str_pred)
                                 correct_num += 1
                             pred_num += 1
-                    if j%20 ==0: print('batch %d / %d'%(j,self.raw_xyz_set.shape[0]))
+                    if j%20 ==0: print('batch %d / %d'%(j,raw_xyz_set.shape[0]))
 
 
                 print('gen gt obj file (%d): \n%s'%(file_size,gt_obj_fn) )

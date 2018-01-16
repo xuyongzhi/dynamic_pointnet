@@ -197,7 +197,7 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        sorted_h5f.file_saveas_pyramid_feed(True)
+        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = True )
     return fn
 
 class Matterport3D_Prepare():
@@ -388,7 +388,7 @@ class Matterport3D_Prepare():
       #  base_stride = [2,2,-1]
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+        file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -454,22 +454,29 @@ class Matterport3D_Prepare():
 
 
     def GenObj_RawH5f(self):
-        file_name = self.house_rawh5f_dir+'/region5.rh5'
+        file_name = self.house_rawh5f_dir+'/region1.rh5'
         xyz_cut_rate= [0,0,0.9]
         with h5py.File(file_name,'r') as h5f:
             rawh5f = Raw_H5f(h5f,file_name)
-            rawh5f.generate_objfile(IsLabelColor=True,xyz_cut_rate=xyz_cut_rate)
+            rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
     def GenObj_SortedH5f(self):
         stride = [2,2,-1]
         step = [4,4,-1]
 
-        stride = step = [0.2,0.2,0.2]
+        stride = step = [0.1,0.1,0.1]
         sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)
         file_name = sorted_path + '/region0.sh5'
         with h5py.File(file_name,'r') as h5f:
             sortedh5f = Sorted_H5f(h5f,file_name)
             sortedh5f.gen_file_obj(IsLabelColor=False)
+
+    def GenObj_NormedH5f(self):
+        stride = step = [0.1,0.1,0.1]
+        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region0.prh5'
+        with h5py.File(file_name,'r') as h5f:
+            normedh5f = Normed_H5f(h5f,file_name)
+            normedh5f.gen_gt_pred_obj_examples(['Y'])
 
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
@@ -499,9 +506,12 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
     operations  = ['ParseRaw']
-    operations  = ['SortRaw']
-    operations  = ['SortRaw','GenPyramid']
-    operations  = ['MergeNorm']
+    #operations  = ['SortRaw']
+    operations  = ['GenPyramid']
+    #operations  = ['MergeNorm']
+    #operations  = ['GenObj_SortedH5f']
+    operations  = ['GenObj_RawH5f']
+    operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -530,14 +540,17 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     if 'MergeNorm' in operations:
         matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5')
-
-    #matterport3d_prepare.GenObj_RawH5f()
-    #matterport3d_prepare.GenObj_SortedH5f()
+    if 'GenObj_RawH5f' in operations:
+        matterport3d_prepare.GenObj_RawH5f()
+    if 'GenObj_SortedH5f' in operations:
+        matterport3d_prepare.GenObj_SortedH5f()
+    if 'GenObj_NormedH5f' in operations:
+        matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
     scans_name = '/v1/scans'
-    #house_names = ['17DRP5sb8fy']
-    house_names = ['1pXnuDYAj8r']
+    house_names = ['17DRP5sb8fy']
+    #house_names = ['1pXnuDYAj8r']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
