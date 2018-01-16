@@ -22,7 +22,7 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
-from pointnet2_obj_detection_tf2 import  placeholder_inputs,get_model,get_loss
+from pointnet2_obj_detection_tf4 import  placeholder_inputs,get_model,get_loss
 #import provider
 import get_dataset
 from evaluation import EvaluationMetrics
@@ -40,7 +40,7 @@ parser.add_argument('--dataset_name', default='rawh5_kitti', help='rawh5_kitti')
 #parser.add_argument('--all_fn_globs', type=str,default='stride_1_step_2_8192_normed/',\
 #                    help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_elements', default='xyz_raw', help='xyz_1norm,xyz_midnorm,color_1norm')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default= 32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='train', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
@@ -210,7 +210,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,
                'is_training_pl': is_training_pl,
-               'pred': pred,
+                'pred': pred_class,
                'loss': loss,
                'train_op': train_op,
                'merged': merged,
@@ -313,7 +313,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
                 break
             #cur_data,cur_label,cur_smp_weights, batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             point_cloud_data, label_data = train_feed_buf_q.get()
-
+        cur_smp_weights = np.ones((point_cloud_data.shape[0], point_cloud_data.shape[1]))
         t1 = time.time()
         if type(point_cloud_data) == type(None):
             break # all data reading finished
@@ -387,7 +387,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                 break
             point_cloud_data, label_data ,epoch_buf = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
-
+        cur_smp_weigths = 1.0
         t1 = time.time()
         if type(cur_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))

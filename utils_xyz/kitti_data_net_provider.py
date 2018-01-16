@@ -81,6 +81,7 @@ class kitti_data_net_provider():
         point_cloud_data = []
         label_data = []
         _index_ = 0
+        max_label = 0
         for ii in ind:
             rawh5_file_name = self.rawh5_file_list[ii]
             with h5py.File(rawh5_file_name,'r') as h5f:
@@ -96,9 +97,17 @@ class kitti_data_net_provider():
                 ## adding the flipping function later
                 #label_data.append(h5f['bounding_box'][:,:])
                 label_data.append(temp_bounding_box)
+                temp_num_label = temp_bounding_box.shape[0]
+                if temp_num_label>max_label:
+                    max_label = temp_num_label
             _index_ = _index_ + 1
+        ## padding the label_data
+        label_data_resize = np.empty(shape = [len(label_data), max_label, label_data[0].shape[1]])
+        for ii in range(len(label_data)):
+            label_data_resize[ii,:,:] = np.resize(label_data[ii], [max_label, label_data[0].shape[1]])
 
-        return point_cloud_data, label_data
+        # label_data = np.resize(label_data, [len(label_data), max_label, label_data[0].shape[1]])
+        return np.asarray(point_cloud_data), np.asarray(label_data_resize)
 
     def _get_evaluation_minibatch(self, start_idx, end_idx):
         ind = np.arange(start_idx,end_idx)
@@ -114,7 +123,7 @@ class kitti_data_net_provider():
                 label_data.append(temp_bounding_box)
             _index_ = _index_ + 1
 
-        return point_cloud_data, label_data
+        return np.asarray(point_cloud_data), np.asarray(label_data)
 
 
 

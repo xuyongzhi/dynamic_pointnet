@@ -85,8 +85,8 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     xyz       : batch * num_point * 3
     '''
     gt_box = tf.convert_to_tensor(gt_box, tf.float32)
-    output_pred_box_one_batch, output_box_targets, output_box_inside_weights, output_box_outside_weights,\
-        output_pred_class_one_batch, output_labels = tf.py_func(region_proposal_loss, [pred_class, pred_box, gt_box, smpw, xyz], [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.int32])
+    output_box_targets, output_box_inside_weights, output_box_outside_weights, output_gt_class, output_labels = \
+             tf.py_func(region_proposal_loss, [pred_class, pred_box, gt_box, smpw, xyz], [tf.float32, tf.float32, tf.float32, tf.int32, tf.int32])
 
     # all_loss = tf.convert_to_tensor(all_loss, name = 'all_loss')
     # classification_loss = tf.convert_to_tensor(classification_loss, name = 'classification_loss')
@@ -103,14 +103,27 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     NUM_class      = cfg.TRAIN.NUM_CLASSES
     RPN_BATCHSIZE  = cfg.TRAIN.RPN_BATCHSIZE
 
+    pred_class = tf.reshape(pred_class, [batch_size, -1, NUM_class])
+    pred_box   = tf.reshape(pred_box,   [batch_size, -1, NUM_regression])
+
+    NUM_all_point = pred_class.get_shape()[1].value  ## all_point x num_anchor
+
     # output_pred_box_one_batch.set_shape([batch_size, ])
 
-    output_pred_box_one_batch.set_shape([batch_size, RPN_BATCHSIZE, NUM_regression])
+    # output_pred_box_one_batch.set_shape([batch_size, RPN_BATCHSIZE, NUM_regression])
     output_box_targets.set_shape([batch_size, RPN_BATCHSIZE, NUM_regression])
     output_box_inside_weights.set_shape([batch_size, RPN_BATCHSIZE, NUM_regression])
     output_box_outside_weights.set_shape([batch_size, RPN_BATCHSIZE, NUM_regression])
-    output_pred_class_one_batch.set_shape([batch_size, RPN_BATCHSIZE, NUM_class ])
-    output_labels.set_shape([batch_size, RPN_BATCHSIZE])
+    # output_pred_class_one_batch.set_shape([batch_size, RPN_BATCHSIZE, NUM_class ])
+    output_gt_class.set_shape([batch_size, RPN_BATCHSIZE])
+    output_labels.set_shape([batch_size, NUM_all_point])
+
+    indices_labels = tf.where(tf.greater_equal(output_labels,0))
+    pred_class = tf.gather_nd(pred_class, indices_labels)
+    pred_class = tf.reshape(pred_class, [batch_size,-1, NUM_class]) # batch: batch_size x num x num_class
+
+    pred_box   = tf.gather_nd(pred_box, indices_labels)
+    pred_box   = tf.reshape(pred_box, [batch_size, -1, NUM_regression])   # batch: batch_size x num x num_regression
     # output_pred_box_one_batch  = tf.reshape(output_pred_box_one_batch,  [-1, NUM_regression])
     # output_box_targets         = tf.reshape(output_box_targets ,        [-1, NUM_regression])
     # output_box_inside_weights  = tf.reshape(output_box_inside_weights,  [-1, NUM_regression])
@@ -118,16 +131,16 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     # output_pred_class_one_batch= tf.reshape(output_pred_class_one_batch,[-1, NUM_class])
     # output_labels              = tf.reshape(output_labels,              [-1, 1] )
 
-    classification_loss = tf.losses.sparse_softmax_cross_entropy(labels=output_labels, logits= output_pred_class_one_batch, weights=1.0)
+    classification_loss = tf.losses.sparse_softmax_cross_entropy(labels = output_gt_class, logits= pred_class, weights=1.0)
     # classification_loss = tf.losses.sparse_softmax_cross_entropy(labels=tf.to_int32(pred_class[:,:,0:1]), logits= pred_class, weights=1.0) # just for test
-    regression_loss = _smooth_l1(cfg.TRAIN.SIGMA, output_pred_box_one_batch, output_box_targets, output_box_inside_weights, output_box_outside_weights )
+    regression_loss = _smooth_l1(cfg.TRAIN.SIGMA, pred_box, output_box_targets, output_box_inside_weights, output_box_outside_weights )
     all_loss = tf.add(classification_loss, tf.multiply(cfg.TRAIN.LAMBDA, regression_loss))
 
 
     tf.summary.scalar('classification loss', classification_loss)
     tf.summary.scalar('regression loss', regression_loss)
 
-    return classification_loss # all_loss
+    return all_loss
 
 
 def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
@@ -166,17 +179,16 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
     NUM_regression = cfg.TRAIN.NUM_REGRESSION
     pred_class = pred_class.reshape(NUM_BATCH, -1, A, CLASS)
     pred_box  = pred_box.reshape(NUM_BATCH, -1, A, NUM_regression)
-    #loss_classification_all = 0.0
-    #loss_regression_all  = 0.0
+
     rpn_batchsize = cfg.TRAIN.RPN_BATCHSIZE
     ## creating the output array
-    output_pred_box_one_batch   = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
+    # output_pred_box_one_batch   = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
     output_box_targets          = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
     output_box_inside_weights   = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
     output_box_outside_weights  = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
-    output_pred_class_one_batch = np.zeros((NUM_BATCH, rpn_batchsize, CLASS), dtype = np.float32)
-    output_labels               = np.zeros((NUM_BATCH, rpn_batchsize), dtype = np.float32)
-
+    # output_pred_class_one_batch = np.zeros((NUM_BATCH, rpn_batchsize, CLASS), dtype = np.float32)
+    output_gt_class             = np.zeros((NUM_BATCH, rpn_batchsize), dtype = np.int32)
+    output_labels               = np.zeros((NUM_BATCH, N*A),dtype = np.int32)
 
     for n in range(0,NUM_BATCH):
         # N is the points number of xyz
@@ -185,12 +197,15 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # calculate the angle gap to select one anchor
         #N  =  xyz[n,:,:].shape[0]
         #CC =  xyz[n,:,:].shape[1]
-        pred_class_one_batch = pred_class[n,:,:,:]
-        pred_box_one_batch = pred_box[n,:,:,:]
-        #gt_box_one_batch = gt_box[n,:,:]
 
+        # pred_class_one_batch = pred_class[n,:,:,:]
+        # pred_box_one_batch = pred_box[n,:,:,:]
+
+        #gt_box_one_batch = gt_box[n,:,:]
         # estimate the central points distance, using broadcasting ops
+
         distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
+
         #temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
         #distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
 
@@ -290,8 +305,8 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # assert gt_box.shape[1] == cfg.TRAIN.NUM_REGRESSION
         box_targets   = bbox_transform(anch_boxes, gt_box[n, argmin_dist, 1:8])
 
-        # box_pred = tf.reshape(box_pred, [-1, cfg.TRAIN.NUM_REGRESSION])
-        pred_box_one_batch = pred_box_one_batch.reshape(-1, NUM_regression)
+        # pred_box_one_batch = pred_box_one_batch.reshape(-1, NUM_regression)
+
         # regression_smooth = _smooth_l1(cfg.TRAIN.SIGMA, pred_box_one_batch, box_targets, box_inside_weights, box_outside_weights)
         # loss_regression  = tf.reduce_mean(tf.reduce_sum(regression_smooth, axis = 1))
         # loss_regression = np.mean(np.sum(regression_smooth, axis = 1))   # whether there should be a mean and box_outside_weigh
@@ -304,25 +319,30 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
 
         # classification loss
         # pred_class = tf.reshape(pred_class, [-1,2])
-        pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
+
+        # pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
+
         # labels = tf.reshape(labels, [-1])
         labels = labels.reshape(-1)
 
-        output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]
+        # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]
         output_box_targets[n,:,:]         = box_targets[labels>=0,:]
         output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
         output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
 
-        # pred_class = tf.reshape(tf.gather(pred_class, tf.where(tf.not_equal(labels,-1))),[-1, 2])
-        pred_class_one_batch = pred_class_one_batch[labels >= 0]
-        pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
+
+        # pred_class_one_batch = pred_class_one_batch[labels >= 0]
+        # pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
+
         #labels = tf.reshape(tf.gather(labels, tf.where(tf.not_equal(labels, -1))), [-1])
-        labels = labels[ labels>=0 ]
-        lables = labels.reshape(-1)
+        # labels = labels[ labels>=0 ]
+        # lables = labels.reshape(-1)
         #loss_classification = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw))
         # loss_classification = softmaxloss( pred_class_one_batch, lables)
-        output_pred_class_one_batch[n,:,:] = pred_class_one_batch
-        output_labels[n,:] = labels
+
+        # output_pred_class_one_batch[n,:,:] = pred_class_one_batch
+        output_labels[n,:]   = labels  # shape: batch x all_points
+        output_gt_class[n,:] = labels[ labels>=0 ]
 
         # loss_classification_all = loss_classification_all +  loss_classification
         # loss_regression_all     = loss_regression_all + loss_regression
@@ -331,9 +351,8 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
 
     #loss_all = (loss_classification_all + cfg.TRAIN.LAMBDA*loss_regression_all)/NUM_BATCH
     # tf.summary.scalar('classification loss', loss_classification_all/NUM_BATCH)
-    # tf.summary.scalar('regression loss', loss_regression_all/NUM_BATCH)
-    #return loss_all, loss_classification_all/NUM_BATCH, loss_regression_all/NUM_BATCH
-    return  output_pred_box_one_batch, output_box_targets, output_box_inside_weights, output_box_outside_weights, output_pred_class_one_batch, output_labels
+
+    return output_box_targets, output_box_inside_weights, output_box_outside_weights, output_gt_class, output_labels
 
 
 def _smooth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_weights):
