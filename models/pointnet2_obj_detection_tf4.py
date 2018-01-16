@@ -56,10 +56,10 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     radius_l2 = cfg.TRAIN.Radius_2
     radius_l3 = cfg.TRAIN.Radius_3
     radius_l4 = cfg.TRAIN.Radius_4
-    l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=8192, radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
-    l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=2048, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
-    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=1024, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
-    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 512, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
+    l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=8192*2, radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
+    l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=2048*2, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
+    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=1024*2, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
+    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 512*2, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
 
     # Feature Propagation layers
     #l3_points = pointnet_fp_module(l3_xyz, l4_xyz, l3_points, l4_points, [256,256], is_training, bn_decay, scope='fa_layer1')
@@ -181,7 +181,6 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
     pred_box  = pred_box.reshape(NUM_BATCH, -1, A, NUM_regression)
 
     rpn_batchsize = cfg.TRAIN.RPN_BATCHSIZE
-    ## creating the output array
     # output_pred_box_one_batch   = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
     output_box_targets          = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
     output_box_inside_weights   = np.zeros((NUM_BATCH, rpn_batchsize, NUM_regression), dtype = np.float32)
@@ -198,88 +197,51 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         #N  =  xyz[n,:,:].shape[0]
         #CC =  xyz[n,:,:].shape[1]
 
-        # pred_class_one_batch = pred_class[n,:,:,:]
-        # pred_box_one_batch = pred_box[n,:,:,:]
-
-        #gt_box_one_batch = gt_box[n,:,:]
         # estimate the central points distance, using broadcasting ops
-
         distance = euclidean_distances(xyz[n,:,:], gt_box[n,:,5:8])
 
-        #temp_xyz = tf.reshape(xyz[n,:,:], (N,1,CC))
-        #distance = tf.sqrt(tf.reduce_sum(tf.square(tf.sbutract(temp_xyz, gt_box[n,:,5:8])),2))
-
         distance = np.tile(distance, (1,A))
-        #distance = tf.tile(distance, (1,A))
         distance = distance.reshape(-1,  gt_box[n,:,:].shape[0]) # label[n].shape(0)	is the number of ground truth
-        #distance = tf.reshape(distance, (-1, gt_box[n,:,:].shape(0)))
 
         labels = np.zeros(shape=(N*A,1))
-        #labels =  tf.fill([N*A, 1], -1)
-
         labels.fill(-1)
 
         # decide positive and negative labels
         argmin_dist = distance.argmin(axis=1)
-        # argmin_dist = tf.argmin(distance, axis = 1)
         min_dist    = distance[np.arange(distance.shape[0]), argmin_dist]
-        # min_dist    = tf.reduce_min(distance, axis = 1)
         gt_argmin_dist = distance.argmin(axis=0)
-        #gt_argmin_dist = tf.argmin(distance, axis = 0)
         gt_min_dist  = distance[gt_argmin_dist, np.arange(distance.shape[1])]
-        #gt_min_dist = tf.reduce_mim(distance, axis = 0)
         gt_argmin_dist = np.where(distance == gt_min_dist)[0]
-        # gt_argmin_dist = tf.where(tf.equal(distance, gt_min_dist))[:,0]
 
         all_alpha = np.tile(cfg.TRAIN.Alpha, (N,1))
-        # all_alpha = tf.tile(cfg.TRAIN.Alpha, (N,1))
         all_alpha = all_alpha.reshape(-1,1)
-        # all_alpha = tf.reshape(all_alpha, (-1,1))
         dif_alpha = all_alpha - gt_box[n, argmin_dist, 4].reshape(-1,1)
-        # dif_alpha = tf.subtract(all_alpha, gt_box[n,argmin_dist, 4])  #
-        # dif_alpha = tf.subtract(all_alpha, tf.gather(gt_box[n,:,4], argmin_dist))
 
-        # Deleting hard coding
-        # arg_alpha0  = np.where(np.absolute(dif_alpha[:,0]) <  np.pi/4)  # alpha is 0
-        # arg_alpha90 = np.where(np.absolute(dif_alpha[:,1]) <= np.pi/4) # alpha is 90
-        # labels[np.intersect1d(arg_alpha0,gt_argmin_dist),0]  = 1 # alpha 0
-        # labels[np.intersect1d(arg_alpha90,gt_argmin_dist),1] = 1 # alpha 90
-        # labels[np.intersect1d(arg_alpha0 ,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),0] = 1
-        # labels[np.intersect1d(arg_alpha90,(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)),1] = 1
-        #labels[np.intersect1d(arg_alpha90 ,(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),0] = 0
-        #labels[np.intersect1d(arg_alpha0, (min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)),1] = 0
-
-        # changing into tensorflow version
-        arg_alpha = np.where(np.absolute(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)[0]
+        arg_alpha = np.where(np.absolute(dif_alpha[:,0]) <= cfg.TRAIN.POSITIVE_ALPHA)[0]
         min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
         labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
 
 
-        # arg_alpha = tf.where(tf.abs(dif_alpha[:,0]) < cfg.TRAIN.POSITIVE_ALPHA)
-        #arg_alpha = tf.reshape(arg_alpha[:,0], (-1,1))
         labels[np.intersect1d(arg_alpha, gt_argmin_dist)] = 1
-        # labels = tf.add(labels, tf)
         min_dist_positive_inds = np.where(min_dist < cfg.TRAIN.POSITIVE_CEN_DIST)[0]
         labels[np.intersect1d(arg_alpha, min_dist_positive_inds)] = 1
 
-
+        # randomly sampling cfg.TRAIN.RPN_BATCHSIZE
         num_positive_labels = int( cfg.TRAIN.RPN_FG_FRACTION*cfg.TRAIN.RPN_BATCHSIZE )
-        # labels = labels.reshape(-1,1)
         positive_inds = np.where(labels == 1)[0]
         if len(positive_inds) > num_positive_labels:
             disable_inds = npr.choice(\
-                 positive_inds, size = (len(positive_inds) - num_positive_labels), replace = False )
+                                      positive_inds, size = (len(positive_inds) - num_positive_labels), replace = False )
             labels[disable_inds] = -1
 
         num_negative_labels = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
         negative_inds = np.where(labels == 0)[0]
         if len(negative_inds) > num_negative_labels:
-            disable_inds = npr.choice(
-			negative_inds, size = (len(negative_inds) - num_negative_labels), replace = False )
+            disable_inds = npr.choice(\
+                                      negative_inds, size = (len(negative_inds) - num_negative_labels), replace = False )
             labels[disable_inds] = -1
-            # labels = labels.reshape(-1,A)
 
-
+        # caculat the box regression
         box_targets = np.zeros((N*A, NUM_regression), dtype = np.float32 )
         anch_boxes = np.zeros((N*A, NUM_regression), dtype = np.float32 )
         box_inside_weights = np.zeros((N*A, NUM_regression), dtype = np.float32 )
@@ -305,52 +267,19 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # assert gt_box.shape[1] == cfg.TRAIN.NUM_REGRESSION
         box_targets   = bbox_transform(anch_boxes, gt_box[n, argmin_dist, 1:8])
 
-        # pred_box_one_batch = pred_box_one_batch.reshape(-1, NUM_regression)
-
-        # regression_smooth = _smooth_l1(cfg.TRAIN.SIGMA, pred_box_one_batch, box_targets, box_inside_weights, box_outside_weights)
-        # loss_regression  = tf.reduce_mean(tf.reduce_sum(regression_smooth, axis = 1))
-        # loss_regression = np.mean(np.sum(regression_smooth, axis = 1))   # whether there should be a mean and box_outside_weigh
-        # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch
-        # output_box_targets[n,:,:]         = box_targets
-        # output_box_inside_weights[n,:,:]  = box_inside_weights
-        # output_box_outside_weights[n,:,:] = box_outside_weights
-
-
-
         # classification loss
         # pred_class = tf.reshape(pred_class, [-1,2])
-
-        # pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
-
-        # labels = tf.reshape(labels, [-1])
         labels = labels.reshape(-1)
 
+        print('batch_num:{}'.format(labels[labels>=0].shape[0]))
         # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]
         output_box_targets[n,:,:]         = box_targets[labels>=0,:]
         output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
         output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
 
 
-        # pred_class_one_batch = pred_class_one_batch[labels >= 0]
-        # pred_class_one_batch = pred_class_one_batch.reshape(-1, CLASS)
-
-        #labels = tf.reshape(tf.gather(labels, tf.where(tf.not_equal(labels, -1))), [-1])
-        # labels = labels[ labels>=0 ]
-        # lables = labels.reshape(-1)
-        #loss_classification = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw))
-        # loss_classification = softmaxloss( pred_class_one_batch, lables)
-
-        # output_pred_class_one_batch[n,:,:] = pred_class_one_batch
         output_labels[n,:]   = labels  # shape: batch x all_points
         output_gt_class[n,:] = labels[ labels>=0 ]
-
-        # loss_classification_all = loss_classification_all +  loss_classification
-        # loss_regression_all     = loss_regression_all + loss_regression
-
-        # regression loss
-
-    #loss_all = (loss_classification_all + cfg.TRAIN.LAMBDA*loss_regression_all)/NUM_BATCH
-    # tf.summary.scalar('classification loss', loss_classification_all/NUM_BATCH)
 
     return output_box_targets, output_box_inside_weights, output_box_outside_weights, output_gt_class, output_labels
 

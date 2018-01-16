@@ -334,7 +334,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
-        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0:
+        print('batch_idx:',batch_idx)
+        if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) :
             pred_val = np.argmax(pred_val, 2)
             loss_sum += loss_val
             total_seen += (BATCH_SIZE*NUM_POINT)

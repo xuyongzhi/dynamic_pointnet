@@ -82,9 +82,9 @@ __C.TRAIN.LAMBDA = 1.0
 __C.TRAIN.POSITIVE_ALPHA = np.pi/4
 
 # Distance between central points
-__C.TRAIN.NEGATIVE_CEN_DIST = 0.88
+__C.TRAIN.NEGATIVE_CEN_DIST = 0.5
 
-__C.TRAIN.POSITIVE_CEN_DIST = 0.22
+__C.TRAIN.POSITIVE_CEN_DIST = 0.2
 
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5
