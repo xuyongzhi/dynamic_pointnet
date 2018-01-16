@@ -538,6 +538,7 @@ def main_NormedH5f():
 
     InputType = 'Pr_Normed_H5f'
     all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-2_2-512_256_64_32-0d2_0d6_1_1d6']
     #eval_fnglob_or_rate = 0.3
     eval_fnglob_or_rate = 'region1'
 
@@ -586,7 +587,7 @@ def main_NormedH5f():
         ply_flag = 'sub_block'
         ply_flag = 'global_block'
         if ply_flag == 'global_block':
-            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/global_blocks/eval-' + str(bk)+'-'+str(end)+'.ply'
+            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/region1_global_blocks/eval-' + str(bk)+'-'+str(end)+'.ply'
             create_ply( xyz_color,ply_fn )
         if ply_flag == 'sub_block':
             for sub_k in range(0,xyz_color.shape[1]):

@@ -197,7 +197,7 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = True )
+        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = True, Always_CreateNew_bmh5 = True )
     return fn
 
 class Matterport3D_Prepare():
@@ -510,8 +510,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['GenPyramid']
     #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
-    operations  = ['GenObj_RawH5f']
-    operations  = ['GenObj_NormedH5f']
+    #operations  = ['GenObj_RawH5f']
+    #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)

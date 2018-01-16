@@ -1802,6 +1802,7 @@ class GlobalSubBaseBLOCK():
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
     '''
     global_stride = np.array([1.0,1.0,-1]).astype(np.float)
+    global_stride = np.array([2.0,2.0,-1]).astype(np.float)
     global_step = np.array([2.0,2.0,-1]).astype(np.float)
     global_num_point = 10240
 
@@ -2304,6 +2305,11 @@ class GlobalSubBaseBLOCK():
             block_k_cur_list,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                     new_block_id,new_sorted_h5f_attrs,base_attrs)
             cur_bids = np.array(block_k_cur_list).astype(np.uint32)
+
+
+            if larger_stride[0]==2:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                print('')
             mask = np.in1d( cur_bids,all_base_blockids )
             valid_cur_bids = cur_bids[mask]
             if valid_cur_bids.shape[0] > 0:
