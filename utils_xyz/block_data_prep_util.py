@@ -713,6 +713,21 @@ class GlobalSubBaseBLOCK():
       #              return False, "%s not in %s"%(attrs,f_format)
       #  return True,""
 
+
+    @staticmethod
+    def get_scope_of_bids(bids,attrs):
+        xyz_min = np.array([1.0,1.0,1.0])*(10000)
+        xyz_max = np.array([1.0,1.0,1.0])*(-10000)
+        for i in range(bids.size):
+            block_min, block_max, i_xyz = Sorted_H5f.get_block_scope_from_k_(bids[i],attrs)
+            for j in range(3):
+                if block_min[j] < xyz_min[j]:
+                    xyz_min[j] = block_min[j]
+                if block_max[j] > xyz_max[j]:
+                    xyz_max[j] = block_max[j]
+        assert (xyz_max > xyz_min).all()
+        xyz_scope = xyz_max - xyz_min
+        return xyz_scope
     @staticmethod
     def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
         '''
@@ -730,17 +745,22 @@ class GlobalSubBaseBLOCK():
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
 
-
-            block_k_cur_list,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
+            base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                     new_block_id,new_sorted_h5f_attrs,base_attrs)
-            cur_bids = np.array(block_k_cur_list).astype(np.uint32)
+            base_bids = np.array(base_bid_ls).astype(np.uint32)
 
+            mask = np.in1d( base_bids,all_base_blockids )
+            valid_base_bids = base_bids[mask]
+            # check the scope of valid_cur_bids
 
-            mask = np.in1d( cur_bids,all_base_blockids )
-            valid_cur_bids = cur_bids[mask]
-            if valid_cur_bids.shape[0] > 0:
-                new_total_block_N += 1
-                basebids_in_each_largerbid_dic[new_block_id] = valid_cur_bids
+            if valid_base_bids.shape[0] > 0:
+                valid_scope = GlobalSubBaseBLOCK.get_scope_of_bids( valid_base_bids, base_attrs )
+                scope_rate = valid_scope / new_sorted_h5f_attrs['block_step']
+                valid_scope_rate = np.min(scope_rate)
+                if valid_scope_rate > 0.2:
+                    new_total_block_N += 1
+                    basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
+
             if new_block_id%max(1,int(max_new_block_id/5))==0:
                 rate = 1.0*new_block_id/max_new_block_id*100
                 print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,

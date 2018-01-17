@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG=False
+TMPDEBUG = True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -517,10 +517,10 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     #operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNorm']
+    #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
-    #operations  = ['GenObj_NormedH5f']
+    operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -578,8 +578,8 @@ def show_bidxmap():
     matterport3d_prepare.ShowBidxmap()
 
 if __name__ == '__main__':
-    #parse_house_ls()
-    show_summary()
+    parse_house_ls()
+    #show_summary()
     #show_bidxmap()
 
 
