@@ -41,7 +41,7 @@ from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
 from gsbb_config import get_gsbb_config
 
-DEBUGTMP=True
+#DEBUGTMP=True
 
 START_T = time.time()
 
@@ -221,9 +221,10 @@ class GlobalSubBaseBLOCK():
     #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
     #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
 
-    gsbb_config_flag = '3A'
+    gsbb_config = '3B'
+    #gsbb_config = '3C'
     global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis = \
-        get_gsbb_config('3A')
+        get_gsbb_config(gsbb_config)
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
     sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
@@ -275,8 +276,15 @@ class GlobalSubBaseBLOCK():
 
     @staticmethod
     def get_pyramid_flag():
+        def my_str(s):
+            if s%1!=0:
+                str_ = '%dd'%(int(s))+str(int((10*s)%10))
+            else:
+                str_ = str(int(s))
+            return str_
+
         flag_str = ''
-        flag_str += str(int(GlobalSubBaseBLOCK.global_stride[0]))+'_'+str(int(GlobalSubBaseBLOCK.global_step[0]))+'-'
+        flag_str += my_str(GlobalSubBaseBLOCK.global_stride[0])+'_'+my_str(GlobalSubBaseBLOCK.global_step[0])+'-'
         for i,n in enumerate(GlobalSubBaseBLOCK.nsubblock_candis):
             flag_str += str(n)
             if i<len(GlobalSubBaseBLOCK.nsubblock_candis)-1:
@@ -290,10 +298,7 @@ class GlobalSubBaseBLOCK():
             else:
                 flag_str +='-'
         for i,s in enumerate(GlobalSubBaseBLOCK.sub_block_size_candis):
-            if s%1!=0:
-                flag_str += '%dd'%(int(s))+str(int(10*(s%1)))
-            else:
-                flag_str += str(int(s))
+            flag_str += my_str(s)
             if i<len(GlobalSubBaseBLOCK.sub_block_size_candis)-1:
                 flag_str += '_'
         return flag_str
@@ -3354,7 +3359,7 @@ class Normed_H5f():
                 print('cut roof ponit num = %d, xyz_cut_rate = %s'%(cut_num,str(xyz_cut_rate)) )
 
 
-def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = True, IsShowSummaryFinished=False):
+def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, IsShowSummaryFinished=False):
     if len(in_filename_ls) == 0:
         print('no .nh5/.prh5 file in the list')
         return
@@ -3363,6 +3368,8 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = True, IsS
         if IsIntact:
             print('nh5/prh5 file intact: %s'%(merged_filename))
             return
+    if not os.path.exists( os.path.dirname(merged_filename) ):
+        os.makedirs( os.path.dirname(merged_filename) )
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
 

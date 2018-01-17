@@ -5,13 +5,28 @@ from __future__ import print_function
 import numpy as np
 
 
-config_flag = '3A'
 
 def get_gsbb_config( config_flag ):
     if config_flag == '3A':
         global_stride = np.array([1.0,1.0,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
-        global_num_point = 20480
+        global_num_point = 25600
+
+        sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+        nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
+        npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
+    elif config_flag == '3B':
+        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
+        global_step = np.array([2.0,2.0,-1]).astype(np.float)
+        global_num_point = 25600
+
+        sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+        nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
+        npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
+    elif config_flag == '3C':
+        global_stride = np.array([1.2,1.2,-1]).astype(np.float)
+        global_step = np.array([2.0,2.0,-1]).astype(np.float)
+        global_num_point = 25600
 
         sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
@@ -21,3 +36,33 @@ def get_gsbb_config( config_flag ):
     return global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis
 
 
+
+#-------------------------------------------------------------------------------
+'''
+config_flag = '3C'
+bidxmaps_sample_group   shape= (56, 320, 12)
+global_stride:
+[ 1.2, 1.2,-1. ]
+global_step:
+[ 2., 2.,-1.]
+sub_block_size_candis:
+[0.2,0.6,1.2]
+nsubblock_candis:
+[512,256, 64]
+npoint_subblock_candis:
+[128, 12,  6]
+sum_flatten_bmap_sample_num:
+['flatten_fixed_num', 'flatten_valid_num', 'block_num']
+global_block_num: 56
+[[25600.  ,24361.5 ,    1.  ],
+ [  512.  ,  315.18,    1.  ],
+ [  256.  ,   36.41,    1.  ]]
+valid_num:
+56
+sum_sg_bidxmap_sample_num:
+['missed_baseb_num', 'all_baseb_num', 'nsubblock', 'valid_subblock_num', 'unit_block_num', 'npoint_subblock', 'valid_npoint_subblock', 'subblock_num']
+global_block_num: 56	subblock_num: [17650.  2039.   435.]
+[[   84.91,31006.8 ,  512.  ,  316.52,    1.  ,  128.  ,   98.11,    1.  ],
+ [    0.  ,  315.18,  256.  ,  155.79,    1.  ,   12.  ,    8.66,    1.  ],
+ [    0.  ,   36.41,   64.  ,   32.84,    1.  ,    6.  ,    4.69,    1.  ]]
+'''

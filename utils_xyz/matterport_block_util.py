@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = True
+TMPDEBUG = False
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -456,7 +456,7 @@ class Matterport3D_Prepare():
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
             file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
             tmp = os.path.basename( py_normed_path )
-        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+self.house_name+'_'+tmp+format
+        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+tmp+'/' +self.house_name+format
         MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
 
 
@@ -509,7 +509,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 5
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
@@ -517,10 +517,10 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     #operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNorm']
+    operations  = ['GenPyramid','MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
-    operations  = ['GenObj_NormedH5f']
+    #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)
@@ -559,7 +559,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
-    #house_names = ['1pXnuDYAj8r']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
