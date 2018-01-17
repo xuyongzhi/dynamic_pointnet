@@ -82,7 +82,7 @@ __C.TRAIN.LAMBDA = 1.0
 __C.TRAIN.POSITIVE_ALPHA = np.pi/4
 
 # Distance between central points
-__C.TRAIN.NEGATIVE_CEN_DIST = 0.5
+__C.TRAIN.NEGATIVE_CEN_DIST = 0.8
 
 __C.TRAIN.POSITIVE_CEN_DIST = 0.2
 

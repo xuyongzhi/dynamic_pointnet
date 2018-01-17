@@ -26,6 +26,11 @@ from pointnet_util import pointnet_sa_module, pointnet_fp_module
 from sklearn.metrics.pairwise import euclidean_distances
 from soft_cross_entropy import softmaxloss
 
+
+
+ISDEBUG = True
+
+
 def placeholder_inputs(batch_size, num_point,num_channel=3, num_regression=7):
     pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size, num_point, num_channel))
     gt_box_pl = tf.placeholder(tf.float32, shape=(batch_size, None, num_regression+1))   # label = category, l, w ,h, alpha, x, y, z
@@ -241,6 +246,7 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
                                       negative_inds, size = (len(negative_inds) - num_negative_labels), replace = False )
             labels[disable_inds] = -1
 
+
         # caculat the box regression
         box_targets = np.zeros((N*A, NUM_regression), dtype = np.float32 )
         anch_boxes = np.zeros((N*A, NUM_regression), dtype = np.float32 )
@@ -256,8 +262,8 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         anch_boxes[:,5] = all_xyz[:,1]
         anch_boxes[:,6] = all_xyz[:,2]
 
-        # outside weights and inside_weigths
 
+        # outside weights and inside_weigths
         box_inside_weights[ labels[:,0] ==1,:] = np.array(cfg.TRAIN.BBOX_INSIDE_WEIGHTS)
         box_outside_weights[labels[:,0] ==1,:] = np.ones((1, NUM_regression))*1.0/ cfg.TRAIN.NUM_REGRESSION # cfg.TRAIN.RPN_BATCHSIZE # modify this parameters
         box_outside_weights[labels[:,0] ==0,:] = np.ones((1, NUM_regression))*1.0/ cfg.TRAIN.RPN_BATCHSIZE
@@ -270,16 +276,28 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # classification loss
         # pred_class = tf.reshape(pred_class, [-1,2])
         labels = labels.reshape(-1)
+        if ISDEBUG:
+            print('batch_num:{}'.format(labels[labels>=0].shape[0]))
+            print('arg_alpha:{}'.format(arg_alpha.shape))
+            # print('')
 
-        print('batch_num:{}'.format(labels[labels>=0].shape[0]))
         # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]
-        output_box_targets[n,:,:]         = box_targets[labels>=0,:]
-        output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
-        output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
+        if (labels[labels>=0].shape[0]) == rpn_batchsize:
+            output_box_targets[n,:,:]         = box_targets[labels>=0,:]
+            output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
+            output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
+            output_labels[n,:]   = labels  # shape: batch x all_points
+            output_gt_class[n,:] = labels[ labels>=0 ]
+        else:
+            output_box_targets[n,:,:]         = np.resize( box_targets[labels>=0,:], [rpn_batchsize, NUM_regression] )
+            output_box_inside_weights[n,:,:]  = np.resize( box_inside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
+            output_box_outside_weights[n,:,:] = np.resize( box_outside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
+            output_labels[n,:]   = labels  # shape: batch x all_points
+            output_gt_class[n,:] = np.resize(labels[labels>=0], [rpn_batchsize])
+            if ISDEBUG:
+                print('padding the laels:{}'.format(output_box_targets[n,:,:].shape))
 
 
-        output_labels[n,:]   = labels  # shape: batch x all_points
-        output_gt_class[n,:] = labels[ labels>=0 ]
 
     return output_box_targets, output_box_inside_weights, output_box_outside_weights, output_gt_class, output_labels
 
