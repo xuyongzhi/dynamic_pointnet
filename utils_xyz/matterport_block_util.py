@@ -16,14 +16,12 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG=True
+TMPDEBUG=False
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'scannet_data'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
-
-
 
 def zip_extract(groupe_name,house_name,file_name,file_format,zipf,house_dir_extracted):
     '''
@@ -395,10 +393,7 @@ class Matterport3D_Prepare():
       #  base_stride = [2,2,-1]
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        if TMPDEBUG:
-            file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
-        else:
-            file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+        file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -451,16 +446,18 @@ class Matterport3D_Prepare():
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
     def MergeNormed(self,stride,step,numpoint_block,format):
+        scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
             base_sorted_sampled_normed_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
             file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
+            tmp = os.path.basename( base_sorted_sampled_normed_path )
         elif format == '.prh5':
             base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
             file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
-        scans_name_ = self.scans_name.replace('/','_')[1:]
-        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+scans_name_+'_'+self.house_name+'_'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'+format
-        MergeNormed_H5f(file_list,merged_file_name)
+            tmp = os.path.basename( py_normed_path )
+        merged_file_name = self.matterport3D_h5f_allmerged_dir+'/'+self.house_name+'_'+tmp+format
+        MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
 
 
     def GenObj_RawH5f(self):
@@ -494,7 +491,8 @@ class Matterport3D_Prepare():
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
         #file_name = self.house_rawh5f_dir + '/region2.rh5'
         #file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region2.prh5'
-        #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16/region0.prh5'
+        file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1/region1.prh5'
+        #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5/17DRP5sb8fy_stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1.prh5'
         IsIntact,check_str = check_h5fs_intact(file_name)
         if IsIntact:
             with h5py.File(file_name,'r') as h5f:
@@ -518,8 +516,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['ParseRaw']
     #operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNorm']
+    #operations  = ['GenPyramid','GenObj_NormedH5f']
+    operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -580,8 +578,8 @@ def show_bidxmap():
     matterport3d_prepare.ShowBidxmap()
 
 if __name__ == '__main__':
-    parse_house_ls()
-    #show_summary()
+    #parse_house_ls()
+    show_summary()
     #show_bidxmap()
 
 

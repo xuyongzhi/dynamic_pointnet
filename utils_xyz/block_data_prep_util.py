@@ -35,11 +35,11 @@ import glob
 import time
 import multiprocessing as mp
 import itertools
-#import argparse
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
+from gsbb_config import get_gsbb_config
 
 DEBUGTMP=True
 
@@ -83,16 +83,19 @@ def copy_h5f_attrs(h5f_attrs):
         attrs[e] = h5f_attrs[e]
     return attrs
 def get_mean_sg_sample_rate(sum_sg_bidxmap_sample_num):
+    global_block_num = sum_sg_bidxmap_sample_num[0,4]
+    subblock_num = sum_sg_bidxmap_sample_num[:,-1]
     mean_sg_bidxmap_sample_num = np.copy(sum_sg_bidxmap_sample_num)
     for i in range(sum_sg_bidxmap_sample_num.shape[0]):
         mean_sg_bidxmap_sample_num[i,0:5] /= mean_sg_bidxmap_sample_num[i,4]
         mean_sg_bidxmap_sample_num[i,5:8] /= mean_sg_bidxmap_sample_num[i,7]
-    return mean_sg_bidxmap_sample_num
+    return mean_sg_bidxmap_sample_num,global_block_num,subblock_num
 def get_mean_flatten_sample_rate(sum_flatten_bmap_sample_num):
+    global_block_num = sum_flatten_bmap_sample_num[0,2]
     mean_flatten_bmap_sample_num = np.copy(sum_flatten_bmap_sample_num)
     for i in range(sum_flatten_bmap_sample_num.shape[0]):
         mean_flatten_bmap_sample_num[i,0:3] /= mean_flatten_bmap_sample_num[i,2]
-    return mean_flatten_bmap_sample_num
+    return mean_flatten_bmap_sample_num,global_block_num
 
 def get_attrs_str(attrs):
     attrs_str = ''
@@ -103,11 +106,11 @@ def get_attrs_str(attrs):
         else:
             a_val = attrs[a]
             if a == "sum_sg_bidxmap_sample_num":
-                a_val = get_mean_sg_sample_rate(a_val)
-                elenames = str(GlobalSubBaseBLOCK.get_sg_bidxmap_sample_num_elename()) + '\n'
+                a_val,global_block_num,subblock_num = get_mean_sg_sample_rate(a_val)
+                elenames = str(GlobalSubBaseBLOCK.get_sg_bidxmap_sample_num_elename()) + '\n' + 'global_block_num: %d'%(global_block_num) + '\tsubblock_num: %s'%(subblock_num)  + '\n'
             if a == "sum_flatten_bmap_sample_num":
-                a_val = get_mean_flatten_sample_rate(a_val)
-                elenames = str(GlobalSubBaseBLOCK.get_flatten_bidxmaps_sample_num_elename()) +'\n'
+                a_val,global_block_num = get_mean_flatten_sample_rate(a_val)
+                elenames = str(GlobalSubBaseBLOCK.get_flatten_bidxmaps_sample_num_elename()) +'\n' + 'global_block_num: %d'%(global_block_num) + '\n'
 
             a_str = np.array2string(a_val,precision=2,separator=',',suppress_small=True)
         attrs_str += ( a+':\n'+elenames+a_str+'\n' )
@@ -210,14 +213,17 @@ class GlobalSubBaseBLOCK():
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
     '''
-    global_stride = np.array([1.0,1.0,-1]).astype(np.float)
-    global_step = np.array([2.0,2.0,-1]).astype(np.float)
-    global_num_point = 10240
+    #global_stride = np.array([1.0,1.0,-1]).astype(np.float)
+    #global_step = np.array([2.0,2.0,-1]).astype(np.float)
+    #global_num_point = 10240
 
-    sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-    nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
-    npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
+    #sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+    #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
+    #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
 
+    gsbb_config_flag = '3A'
+    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis = \
+        get_gsbb_config('3A')
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
     sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
@@ -274,6 +280,12 @@ class GlobalSubBaseBLOCK():
         for i,n in enumerate(GlobalSubBaseBLOCK.nsubblock_candis):
             flag_str += str(n)
             if i<len(GlobalSubBaseBLOCK.nsubblock_candis)-1:
+                flag_str += '_'
+            else:
+                flag_str +='-'
+        for i,n in enumerate(GlobalSubBaseBLOCK.npoint_subblock_candis):
+            flag_str += str(n)
+            if i<len(GlobalSubBaseBLOCK.npoint_subblock_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
@@ -512,13 +524,20 @@ class GlobalSubBaseBLOCK():
             flatten_bmap_sample_num[cascade_id,:] = sample_num_flatten
         sg_bidxmaps = np.concatenate(sg_bidxmaps_fixed_ls,axis=0)
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,axis=0)
-        if DEBUGTMP:
+
+        IsCheck_bidxmaps = True
+        if IsCheck_bidxmaps:
             assert sg_bidxmaps.shape == GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  GlobalSubBaseBLOCK.get_flatten_bidxmaps_shape()
             for cascade_id in range(0,self.cascade_num):
                 if cascade_id!=0:
                     assert np.sum(sg_bidxmaps_ls[cascade_id-1] != GlobalSubBaseBLOCK.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
-                assert np.sum(flatten_bidxmaps_ls[cascade_id] != GlobalSubBaseBLOCK.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
+                try:
+                    assert np.sum(flatten_bidxmaps_ls[cascade_id] != GlobalSubBaseBLOCK.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
+                except:
+                    print()
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
 
         return sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps, flatten_bmap_sample_num
 
@@ -1297,16 +1316,29 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         def my_fix(orgvar):
             # why do not use np.fix() directly: np.fix(2.999999) = 2.0
+            assert orgvar.ndim == 1
             rint_var = np.rint(orgvar)
             zero_gap = rint_var - orgvar
-            fixvar = np.copy(orgvar)
+            fix_var = np.copy(orgvar).astype(np.uint64)
             for i in range(orgvar.size):
                 if np.isclose(zero_gap[i],0):
-                    fixvar[i] = rint_var[i].astype(np.int32)
+                    fix_var[i] = rint_var[i].astype(np.uint64)
                 else:
-                    fixvar[i] = np.fix(orgvar[i])
-            return fixvar
+                    fix_var[i] = np.fix(orgvar[i]).astype(np.uint64)
+            return fix_var
 
+        def my_ceil(orgvar):
+            # why do not use np.ceil: np.ceil(12.0000000000000001)=13
+            assert orgvar.ndim == 1
+            rint_var = np.rint(orgvar)
+            zero_gap = rint_var - orgvar
+            ceil_var = np.copy(orgvar).astype(np.uint64)
+            for i in range(orgvar.size):
+                if np.isclose(zero_gap[i],0):
+                    ceil_var[i] = rint_var[i].astype(np.uint64)
+                else:
+                    ceil_var[i] = np.ceil(orgvar[i]).astype(np.uint64)
+            return ceil_var
 
         i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
         i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
@@ -1318,9 +1350,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         i_xyz_new_start = i_xyz_new_start_fixed
 
         max_padding = aim_attrs['block_step'] # max abs padding at both start and end
-        #if not (start_padding < max_padding).all():
-        #    print('start_padding:',start_padding)
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
         assert (start_padding < max_padding).all()
         #print( self.xyz_min_aligned )
         #print( new_sorted_h5f.xyz_min_aligned )
@@ -1344,7 +1373,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #check2 = base_attrs['block_step'] / aim_attrs['block_step']
             #assert np.isclose( check2, np.rint(check2) ).all(),"check2:%s"%(check2)
 
-            search = np.ceil( base_attrs['block_step'] / aim_attrs['block_step']).astype(np.int64)
+            search = my_ceil( base_attrs['block_step'] / aim_attrs['block_step']).astype(np.int64)
             for i_x in range(0,search[0]):
                 for i_y in range(0,search[1]):
                     for i_z in range(0,search[2]):
@@ -1361,7 +1390,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                             min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
                             min_check = ( (min_k - min_k_new) < max_padding ).all()
                             max_check = ( (max_k_new - max_k) < max_padding ).all()
-                            if not (min_check & max_check & ixyz_check):
+                            if not (min_check and max_check and ixyz_check):
                                 print('base step:', base_attrs['block_step'])
                                 print('base stride:', base_attrs['block_stride'])
                                 print('base xyz_min_aligned:', base_attrs['xyz_min_aligned'])
@@ -1378,14 +1407,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                                     print('new max = ',max_k_new,'\norg max = ',max_k)
                                 if not ixyz_check:
                                     print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
+                                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                             assert ixyz_check and min_check and max_check
 
                         i_xyz_new_list.append(i_xyz_new)
                         block_k_new_list.append(block_k_new)
 
-            #if DEBUGTMP and base_attrs['block_stride'][0]==2 and base_block_id==1:
-            #    print('debug1')
-            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         else:
             '''
@@ -3307,14 +3334,15 @@ class Normed_H5f():
                 print('cut roof ponit num = %d, xyz_cut_rate = %s'%(cut_num,str(xyz_cut_rate)) )
 
 
-def MergeNormed_H5f(in_filename_ls,merged_filename):
+def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = True, IsShowSummaryFinished=False):
     if len(in_filename_ls) == 0:
         print('no .nh5/.prh5 file in the list')
         return
-    IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
-    if IsIntact:
-        print('nh5/prh5 file intact: %s'%(merged_filename))
-        return
+    if not Always_CreateNew:
+        IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
+        if IsIntact:
+            print('nh5/prh5 file intact: %s'%(merged_filename))
+            return
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
 
@@ -3323,6 +3351,9 @@ def MergeNormed_H5f(in_filename_ls,merged_filename):
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
                     merged_normed_h5f.copy_root_attrs_from_normed(in_h5f,'MergeNormed_H5f')
+                else:
+                    merged_normed_h5f.h5f['bidxmaps_sample_group'].attrs['sum_sg_bidxmap_sample_num'] += in_h5f['bidxmaps_sample_group'].attrs['sum_sg_bidxmap_sample_num']
+                    merged_normed_h5f.h5f['bidxmaps_sample_group'].attrs['sum_flatten_bmap_sample_num'] += in_h5f['bidxmaps_sample_group'].attrs['sum_flatten_bmap_sample_num']
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 merged_normed_h5f.append_to_dset('data',in_normed_h5f.data_set)
@@ -3330,6 +3361,8 @@ def MergeNormed_H5f(in_filename_ls,merged_filename):
                 merged_normed_h5f.append_to_dset('bidxmaps_sample_group',in_normed_h5f.h5f['bidxmaps_sample_group'])
                 merged_normed_h5f.append_to_dset('bidxmaps_flatten',in_normed_h5f.h5f['bidxmaps_flatten'])
         merged_normed_h5f.create_done()
+        if IsShowSummaryFinished:
+            merged_normed_h5f.show_summary_info()
         print('merged h5f OK: %s'%(merged_filename))
 
 def Write_all_file_accuracies(normed_h5f_file_list=None,out_path=None,pre_out_fn=''):
