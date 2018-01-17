@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG=False
+TMPDEBUG=True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -197,7 +197,14 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = True, Always_CreateNew_bmh5 = True )
+        if TMPDEBUG:
+            Always_CreateNew_pyh5 = True
+            Always_CreateNew_bmh5 = True
+        else:
+            Always_CreateNew_pyh5 = False
+            Always_CreateNew_bmh5 = False
+
+        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
 
 class Matterport3D_Prepare():
@@ -388,7 +395,10 @@ class Matterport3D_Prepare():
       #  base_stride = [2,2,-1]
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
+        if TMPDEBUG:
+            file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
+        else:
+            file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -473,10 +483,10 @@ class Matterport3D_Prepare():
 
     def GenObj_NormedH5f(self):
         stride = step = [0.1,0.1,0.1]
-        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region0.prh5'
+        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region1.prh5'
         with h5py.File(file_name,'r') as h5f:
             normedh5f = Normed_H5f(h5f,file_name)
-            normedh5f.gen_gt_pred_obj_examples(['Y'])
+            normedh5f.gen_gt_pred_obj_examples(['ALL'])
 
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
@@ -508,6 +518,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['ParseRaw']
     #operations  = ['SortRaw']
     operations  = ['GenPyramid']
+    operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
