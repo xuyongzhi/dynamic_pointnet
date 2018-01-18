@@ -41,15 +41,20 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
         debug['flatten_bidxmaps_pl_0'] = flatten_bidxmaps_pl_0
         return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug
 
-def get_sa_module_config():
+def get_sa_module_config(cascade_num):
     mlps = []
-    mlps.append( [32,32,64] )
-    mlps.append( [64,64,128] )
-    mlps.append( [128,128,256] )
-    mlps.append( [256,256,512] )
+    if cascade_num==3:
+        mlps.append( [32,32,64] )
+        mlps.append( [64,128,256] )
+        mlps.append( [256,256,512] )
+    if cascade_num==4:
+        mlps.append( [32,32,64] )
+        mlps.append( [64,64,128] )
+        mlps.append( [128,128,256] )
+        mlps.append( [256,256,512] )
 
     mlp2s = []
-    for k in mlps:
+    for k in range(cascade_num):
         mlp2s.append(None )
     return mlps,mlp2s
 def get_fp_module_config():
@@ -71,8 +76,8 @@ def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extrac
     block_sample1 = grouped_rawdata.get_shape()[2].value
     end_points = {}
 
-    mlps,mlp2s = get_sa_module_config()
-    cascade_num = len(mlps)
+    cascade_num = sg_bm_extract_idx.shape[0]
+    mlps,mlp2s = get_sa_module_config(cascade_num)
     l_xyz = []
     l_points = []
     l_xyz.append( grouped_rawdata )

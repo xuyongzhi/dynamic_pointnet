@@ -337,9 +337,9 @@ class Net_Provider():
             feed_data_elements = self.feed_data_elements
             if not IsInclude_xyz_midnorm_block:
                 new_feed_data_elements = feed_data_elements + ['xyz_midnorm_block']
-                new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements,self.feed_label_elements)
             else:
                 new_feed_data_elements = feed_data_elements
+            new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements,self.feed_label_elements)
             if self.InputType == 'Normed_H5f' or self.InputType=='Pr_Normed_H5f':
                 data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end,new_feed_data_elements)
                 label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end,self.feed_label_elements)
@@ -545,9 +545,9 @@ def main_NormedH5f():
 
     InputType = 'Pr_Normed_H5f'
    # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
-   # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
    # #eval_fnglob_or_rate = 0.3
-   # eval_fnglob_or_rate = 'region7'
+    eval_fnglob_or_rate = 'region7'
 
     #all_filename_glob = ['all_merged_nf5']
     #eval_fnglob_or_rate = '17DRP5sb8fy'
@@ -573,8 +573,8 @@ def main_NormedH5f():
 
     ply_flag = 'region'
     ply_flag = 'global_block'
-    #ply_flag = 'sub_block'
-    ply_flag = 'none'
+    ply_flag = 'sub_block'
+    #ply_flag = 'none'
     steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
 
     for bk in  range(0,net_provider.eval_num_blocks,steps[ply_flag]):

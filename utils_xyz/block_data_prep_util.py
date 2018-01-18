@@ -41,7 +41,7 @@ from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
 from gsbb_config import get_gsbb_config
 
-DEBUGTMP=True
+#DEBUGTMP=True
 
 START_T = time.time()
 
@@ -2364,8 +2364,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         IsIntact_sh5,ck_str = Sorted_H5f.check_sh5_intact( self.file_name )
         if not IsIntact_sh5:
             print( "\n\nsh5 not intact:  %s \nAbandon generating nh5"%(self.file_name) )
-            if not DEBUGTMP:
-                return
+            return
         IsIntact_nh5,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
 
         if (not Always_CreateNew_pyh5) and IsIntact_nh5:
@@ -2542,6 +2541,10 @@ class Sort_RawH5f():
         The whole scene is a group. Each block is one dataset in the group.
         The block attrs represents the field.
         '''
+        IsIntact,_ = Raw_H5f.check_rh5_intact(file_name)
+        if not IsIntact:
+            print('Abandon sorting, rh5 not intact:'%(file_name))
+
         block_step = np.array( block_step_xyz )
         self.row_num_limit = None
 
@@ -2550,7 +2553,7 @@ class Sort_RawH5f():
         basefn = os.path.splitext(os.path.basename(file_name))[0]
         blocked_file_name = os.path.join(self.out_folder,basefn)+'.sh5'
 
-        IsIntact,_ = check_h5fs_intact(blocked_file_name)
+        IsIntact,_ = Sorted_H5f.check_sh5_intact(blocked_file_name)
         if IsIntact:
             print('sh5 file intact: %s'%(blocked_file_name))
             return
