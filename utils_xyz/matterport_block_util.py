@@ -487,8 +487,8 @@ class Matterport3D_Prepare():
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region7.prh5'
         with h5py.File(file_name,'r') as h5f:
             normedh5f = Normed_H5f(h5f,file_name)
-            #normedh5f.gen_gt_pred_obj_examples(['ALL'])
-            normedh5f.gen_gt_pred_obj_examples(['void'])
+            normedh5f.gen_gt_pred_obj_examples(['Z'])
+            #normedh5f.gen_gt_pred_obj_examples(['void'])
 
     def ShowSummary(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
@@ -525,7 +525,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     #operations  = ['GenPyramid','MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
-    #operations  = ['GenObj_NormedH5f']
+    operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_house_regions(MultiProcess)

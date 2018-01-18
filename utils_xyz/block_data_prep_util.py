@@ -3229,8 +3229,8 @@ class Normed_H5f():
                 elif config_flag =='Y':
                     xyz_cut_rate=[0,0.92,1]
                     show_categaries=None
-                elif config_flag =='yZ':
-                    xyz_cut_rate=[0,0.06,0.93]
+                elif config_flag =='Z':
+                    xyz_cut_rate=[0,0,0.93]
                     show_categaries=None
                 elif config_flag =='XZ':
                     xyz_cut_rate=[0.95,0,0.93]

@@ -86,6 +86,7 @@ class Net_Provider():
         t_start_global_blockid = time.time()
         for i,fn in enumerate(normed_h5f_file_list):
             assert(os.path.exists(fn))
+
             h5f = h5py.File(fn,open_type)
             if self.InputType=='Normed_H5f' or self.InputType=='Pr_Normed_H5f':
                 norm_h5f = Normed_H5f(h5f,fn)
@@ -221,7 +222,12 @@ class Net_Provider():
 
         for all_filename_glob in all_filename_globs:
             fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'/*'+file_format)
-            all_file_list  += glob.glob( fn_glob )
+            fn_candis  = glob.glob( fn_glob )
+            for fn in fn_candis:
+                IsIntact,_ = Normed_H5f.check_nh5_intact( fn )
+                if IsIntact:
+                    all_file_list.append(fn)
+
             fn_globs.append(fn_glob)
         assert len(all_file_list)!=0,"no file in"%(fn_globs)
         assert len(all_file_list)!=1,"only one file, should > 1 to seperate as train and test"
@@ -533,14 +539,15 @@ def main_NormedH5f():
     dataset_name = 'matterport3d'
 
     InputType = 'Normed_H5f'
-    all_filename_glob = ['all_merged_nf5/v1_scans']
+    all_filename_glob = ['all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+    eval_fnglob_or_rate = 0.3
     #num_point_block = 8192
 
     InputType = 'Pr_Normed_H5f'
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d2_2-512_256_64-128_12_6-0d2_0d6_1d2']
-    #eval_fnglob_or_rate = 0.3
-    eval_fnglob_or_rate = 'region1'
+   # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
+   # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+   # #eval_fnglob_or_rate = 0.3
+   # eval_fnglob_or_rate = 'region7'
 
     #all_filename_glob = ['all_merged_nf5']
     #eval_fnglob_or_rate = '17DRP5sb8fy'
@@ -566,13 +573,14 @@ def main_NormedH5f():
 
     ply_flag = 'region'
     ply_flag = 'global_block'
-    ply_flag = 'sub_block'
-    steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1 }
+    #ply_flag = 'sub_block'
+    ply_flag = 'none'
+    steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
 
     for bk in  range(0,net_provider.eval_num_blocks,steps[ply_flag]):
         #end = min(bk+s,net_provider.eval_num_blocks)
         #end = net_provider.eval_num_blocks
-        end = bk+steps[ply_flag]
+        end = min( bk+steps[ply_flag], net_provider.eval_num_blocks )
         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_eval_batch(bk,end )
         xyz_idxs = net_provider.feed_data_ele_idxs['xyz']
         color_idxs = net_provider.feed_data_ele_idxs['color_1norm']
@@ -582,34 +590,31 @@ def main_NormedH5f():
         xyz_color = np.concatenate( [xyz,color],axis=-1 )
 
         if ply_flag == 'region':
-            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/region1.ply'
+            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/' + eval_fnglob_or_rate+ '.ply'
             create_ply( xyz_color,ply_fn )
             break
         if ply_flag == 'global_block':
-            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/globalblocks/global_b' + str(bk) + '.ply'
+            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/globalblocks/'+eval_fnglob_or_rate+'/global_b' + str(bk) + '.ply'
             create_ply(xyz_color,ply_fn)
             if bk>30:
                 break
         if ply_flag == 'sub_block':
             assert xyz_color.ndim == 4
             for sub_k in range(0,xyz_color.shape[1]):
-                ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/global0_subblocks/sub' + str(sub_k) + '.ply'
+                ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/'+eval_fnglob_or_rate+'/global0_subblocks/sub' + str(sub_k) + '.ply'
                 create_ply(xyz_color[0,sub_k,...],ply_fn)
             break
 
+    print(cur_label.shape)
+    print(cur_smp_weights.shape)
+    print(cur_data.shape)
     if InputType=='Normed_H5f':
-        print(cur_data.shape)
         print(cur_data[0,0:3,:])
-        print(cur_label.shape)
         print(cur_label[0,0:3,:])
-        print(cur_smp_weights.shape)
         print(cur_smp_weights[0,0:3,:])
     else:
-        print(cur_data.shape)
         print(cur_data[0,0,0:3,:])
-        print(cur_label.shape)
         print(cur_label[0,0,0:3,:])
-        print(cur_smp_weights.shape)
         print(cur_smp_weights[0,0,0:3,:])
 
 
