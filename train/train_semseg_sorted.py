@@ -23,7 +23,6 @@ from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 
-ISDEBUG_MEMORYTIME = False
 ISSUMMARY = False
 
 parser = argparse.ArgumentParser()
@@ -257,15 +256,6 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
         log_string(net_provider.data_summary_str)
 
-        if ISDEBUG_MEMORYTIME:
-            builder = tf.profiler.ProfileOptionBuilder
-            opts = builder(builder.time_and_memory()).order_by('micros').build()
-            pctx =  tf.contrib.tfprof.ProfileContext('/tmp/train_dir',
-                                    trace_steps=[],
-                                    dump_steps=[])
-        else:
-            opts = None
-            pctx = None
 
         epoch_start = 0
         if FLAGS.finetune:
@@ -276,7 +266,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             if train_feed_buf_q == None:
                 net_provider.update_train_eval_shuffled_idx()
             if not FLAGS.only_evaluate:
-                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts)
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q)
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
@@ -313,7 +303,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,Simp
     log_string(log_str)
     return log_str
 
-def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
+def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
@@ -364,21 +354,14 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
             feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        if ISDEBUG_MEMORYTIME  and  epoch == 0 and batch_idx ==5:
-                pctx.trace_next_step()
-                pctx.dump_next_step()
-                summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
-                                            feed_dict=feed_dict)
-                pctx.profiler.profile_operations(options=opts)
-        else:
-            #if ISDEBUG:
-            #    grouped_labels, flatten_bidxmaps_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
-            #                        feed_dict=feed_dict)
-            if FLAGS.datafeed_type == 'Pr_Normed_H5f':
-                cur_flatten_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
-                cur_label = cur_flatten_label
-            summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
-                                        feed_dict=feed_dict)
+        #if ISDEBUG:
+        #    grouped_labels, flatten_bidxmaps_0 =  sess.run( [ops['grouped_labels_pl'], ops['flatten_bidxmaps_pl_0']] ,
+        #                        feed_dict=feed_dict)
+        if FLAGS.datafeed_type == 'Pr_Normed_H5f':
+            cur_flatten_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
+            cur_label = cur_flatten_label
+        summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
+                                    feed_dict=feed_dict)
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
