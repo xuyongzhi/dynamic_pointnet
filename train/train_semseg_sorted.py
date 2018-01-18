@@ -29,7 +29,7 @@ ISSUMMARY = False
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f or Pr_NormedH5f')
-parser.add_argument('--all_fn_globs', type=str,default='v1/scans/17DRP5sb8fy/stride-2-step-4_8192_normed/',\
+parser.add_argument('--all_fn_globs', type=str,default='all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2',\
                     help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category,label_instance')
@@ -57,19 +57,6 @@ parser.add_argument('--multip_feed',action='store_true',help='IsFeedData_MultiPr
 
 FLAGS = parser.parse_args()
 
-
-#-------------------------------------------------------------------------------
-FLAGS.datafeed_type='Pr_Normed_H5f'
-#FLAGS.all_fn_globs = 'v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_10_16'
-FLAGS.all_fn_globs = 'all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
-FLAGS.num_point=None
-#FLAGS.eval_fnglob_or_rate = 0.3
-FLAGS.eval_fnglob_or_rate = '17DRP5sb8fy'
-FLAGS.feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
-FLAGS.feed_label_elements = 'label_category,label_instance'
-FLAGS.batch_size=8
-FLAGS.auto_break  = False
-FLAGS.multip_feed = False
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 
