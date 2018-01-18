@@ -41,7 +41,7 @@ from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
 from gsbb_config import get_gsbb_config
 
-#DEBUGTMP=True
+DEBUGTMP=True
 
 START_T = time.time()
 
@@ -221,10 +221,8 @@ class GlobalSubBaseBLOCK():
     #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
     #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
 
-    gsbb_config = '3B'
-    #gsbb_config = '3C'
     global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis = \
-        get_gsbb_config(gsbb_config)
+        get_gsbb_config()
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
     sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
@@ -1220,7 +1218,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for attr in attrs:
             if attr in h5f0.attrs:
                 self.h5f.attrs[attr] = h5f0.attrs[attr]
-        self.h5f.attrs['is_intact'] == 0
+        self.h5f.attrs['is_intact'] = 0
         Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
         self.update_data_index_by_elementnames()
 
@@ -1229,7 +1227,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for attr in attrs:
             if attr in h5f_raw.attrs:
                 self.h5f.attrs[attr] = h5f_raw.attrs[attr]
-        self.h5f.attrs['is_intact'] == 0
+        self.h5f.attrs['is_intact'] = 0
         self.update_data_index_by_elementnames()
 
 
@@ -2102,7 +2100,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 total_block_N += 1
                 new_sh5f.h5f.attrs['total_row_N']=total_row_N
                 new_sh5f.h5f.attrs['total_block_N']=total_block_N
-                new_sh5f.h5f.attrs['is_intact'] == 1
+                new_sh5f.h5f.attrs['is_intact'] = 1
                 print('total_row_N = ',total_row_N)
                 print('total_block_N = ',total_block_N)
                 new_sh5f.h5f.flush()
@@ -2158,6 +2156,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             num_point_all += self.h5f[str(cur_block_id)].shape[0]
         return num_point_all
 
+
+    def remove_void(self,feed_data,feed_label):
+        if self.h5f.attrs['datasource_name'] == 'MATTERPORT':
+            NoneVoidIndices, = np.nonzero( feed_label[ :,self.label_ele_idxs['label_category'][0] ] )
+            void_num = feed_data.shape[0] - NoneVoidIndices.size
+            feed_data = feed_data[ NoneVoidIndices,: ]
+            feed_label = feed_label[ NoneVoidIndices,: ]
+            #if void_num>0:
+            #    print('void num = %d'%void_num)
+        return feed_data, feed_label
+
     def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb,
                                           feed_data_elements,feed_label_elements, npoint_cas0block=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
@@ -2196,6 +2205,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=-1 )
 
+            feed_data, feed_label = self.remove_void( feed_data, feed_label )
+
             datas.append(feed_data)
             labels.append(feed_label)
            # print(feed_data.shape)
@@ -2209,13 +2220,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         labels = np.concatenate(labels,axis=0)
         valid_data_n = datas.shape[0]
 
-        if npoint_cas0block != None:
+        if npoint_cas0block != None and datas.shape[0] != 0:
             sample_choice_within_cas0block,reduced_num = get_sample_choice(datas.shape[0],npoint_cas0block)
             datas = datas[sample_choice_within_cas0block,:]
             labels = labels[sample_choice_within_cas0block,:]
             sample_num = np.array( [ npoint_cas0block, valid_data_n ] ).astype(np.uint64)
         else:
             sample_num = np.array( [ npoint_cas0block, npoint_cas0block ] ).astype(np.uint64)
+
        # print(datas.shape)
        # print(labels.shape)
        # print(datas[0:3,:])
@@ -2249,6 +2261,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         num_candi_cas0bids = cas0_bids_in_global.shape[0]
 
         if num_candi_cas0bids > nsubblock:
+            # only read nsubblock cas0 blocks
             if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
                 cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
                 cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
@@ -2276,15 +2289,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         flatten_bidxmap0 = []
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
             datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
-            global_block_datas.append(np.expand_dims(datas_k,axis=0))
-            global_block_labels.append(np.expand_dims(labels_k,axis=0))
-            subblock_sample_num += sample_num_k
+            if datas_k.shape[0] !=0:
+                global_block_datas.append(np.expand_dims(datas_k,axis=0))
+                global_block_labels.append(np.expand_dims(labels_k,axis=0))
+                subblock_sample_num += sample_num_k
 
-            valid_sample_k = sample_num_k.min()
-            for point_index_in_root_block in range(valid_sample_k):
-                valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
-                flatten_bidxmap0.append(np.expand_dims(valid_point_index,axis=0) )
+                valid_sample_k = sample_num_k.min()
+                for point_index_in_root_block in range(valid_sample_k):
+                    valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
+                    flatten_bidxmap0.append(np.expand_dims(valid_point_index,axis=0) )
         flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
+        num_candi_cas0bids = len(global_block_datas)  # the length may reduce because of removing void
 
         # cal num of all points in the global block
         num_point_all = 0
@@ -2295,6 +2310,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         sg_sample_num_cas0 = np.array( [ missed_baseb_num_ca0, num_point_all,  nsubblock, num_candi_cas0bids,1, subblock_sample_num[0],subblock_sample_num[1],cas0_bids_in_global_valid.size ] ).reshape(1,8).astype(np.uint64)
 
         if num_candi_cas0bids <= nsubblock:
+            # till at the end to nsubblock shape
             new_cas0_bindex = np.random.choice(num_candi_cas0bids,nsubblock-num_candi_cas0bids)
 
             for cas0_bindex in new_cas0_bindex:
@@ -2345,9 +2361,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
         pyramid_filename = os.path.join(out_folder,file_name_base+'.prh5')
 
-        IsIntact,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
+        IsIntact_sh5,ck_str = Sorted_H5f.check_sh5_intact( self.file_name )
+        if not IsIntact_sh5:
+            print( "\n\nsh5 not intact:  %s \nAbandon generating nh5"%(self.file_name) )
+            if not DEBUGTMP:
+                return
+        IsIntact_nh5,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
 
-        if (not Always_CreateNew_pyh5) and IsIntact:
+        if (not Always_CreateNew_pyh5) and IsIntact_nh5:
             print('pyh5 intact: %s'%(pyramid_filename))
             return
         # check bmh5 intact primarily
@@ -2589,7 +2610,7 @@ class Sort_RawH5f():
                         print('both passed')
                     else:
                         print('somewhere check failed')
-                self.s_h5f.h5f.attrs['is_intact'] == 1
+                self.s_h5f.h5f.attrs['is_intact'] = 1
                 if self.IsShowInfoFinished:
                     self.s_h5f.show_summary_info()
         print('sorted OK: %s'%(blocked_file_name))
@@ -2618,7 +2639,7 @@ class Sort_RawH5f():
         for key in sorted_buf_dic:
             sorted_buf_dic[key] = np.concatenate(sorted_buf_dic[key],axis=0)
         for block_k in sorted_buf_dic:
-            self.s_h5f.append_to_dset(block_k,sorted_buf_dic[block_k],vacant_size=self.h5_num_row_1M)
+            self.s_h5f.append_to_dset(block_k,sorted_buf_dic[block_k],vacant_size=g_h5_num_row_1M)
         self.s_h5f.rm_invalid_data()
         self.s_h5f.h5f.flush()
 
@@ -2944,18 +2965,23 @@ class Normed_H5f():
         show_h5f_summary_info(self.h5f)
 
     @staticmethod
-    def show_all_colors():
+    def show_all_colors( datasource_name ):
         from PIL import Image
-        for label,color in Normed_H5f.g_label2color.iteritems():
-            if label < len(Normed_H5f.g_label2class):
-                cls = Normed_H5f.g_label2class[label]
+        label2color = Normed_H5f.g_label2color_dic[datasource_name]
+        label2class = Normed_H5f.g_label2class_dic[datasource_name]
+        path = os.path.join( BASE_DIR,'label_colors' )
+        if not os.path.exists(path):
+            os.makedirs(path)
+        for label,color in label2color.iteritems():
+            if label < len( label2class ):
+                cls = label2class[label]
             else:
                 cls = 'empty'
             data = np.zeros((512,512,3),dtype=np.uint8)
             color_ = np.array(color,dtype=np.uint8)
             data += color_
             img = Image.fromarray(data,'RGB')
-            img.save('colors/'+str(label)+'_'+cls+'.png')
+            img.save(path+'/'+str(label)+'_'+cls+'.png')
             img.show()
 
     def label2color(self,label):
@@ -3221,6 +3247,9 @@ class Normed_H5f():
                 elif config_flag =='building_6_no_ceiling':
                     xyz_cut_rate=None
                     show_categaries=['floor','wall','beam','column','window','door']
+                elif config_flag =='void':
+                    xyz_cut_rate=None
+                    show_categaries=['void']
                 else:
                     return None, None
                 return [xyz_cut_rate],[show_categaries],[config_flag]
@@ -3307,8 +3336,8 @@ class Normed_H5f():
 
                         # cut parts by xyz or label
                         is_cut_this_point = False
-                        if show_categaries!=None and label_gt[i] not in show_categaries and \
-                                label_pred[i] not in show_categaries:
+                        if show_categaries!=None and label_gt[i] not in show_categaries:
+                                #label_pred[i] not in show_categaries:
                             # cut by category
                             is_cut_this_point = True
                         elif xyz_cut_rate!=None:
