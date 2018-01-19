@@ -28,7 +28,7 @@ from soft_cross_entropy import softmaxloss
 
 
 
-ISDEBUG = True
+ISDEBUG = cfg.TRAIN.DEBUG
 
 
 def placeholder_inputs(batch_size, num_point,num_channel=3, num_regression=7):
@@ -63,8 +63,8 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     radius_l4 = cfg.TRAIN.Radius_4
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=8192*2, radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
     l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=2048*2, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
-    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=1024*2, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
-    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 512*2, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
+    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=1024, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
+    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 512, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
 
     # Feature Propagation layers
     #l3_points = pointnet_fp_module(l3_xyz, l4_xyz, l3_points, l4_points, [256,256], is_training, bn_decay, scope='fa_layer1')
@@ -223,6 +223,7 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         dif_alpha = all_alpha - gt_box[n, argmin_dist, 4].reshape(-1,1)
 
         arg_alpha = np.where(np.absolute(dif_alpha[:,0]) <= cfg.TRAIN.POSITIVE_ALPHA)[0]
+        assert arg_alpha.shape[0] == (dif_alpha.shape[0]/2)
         min_dist_negative_inds = np.where(min_dist > cfg.TRAIN.NEGATIVE_CEN_DIST)[0]
         labels[np.intersect1d(arg_alpha, min_dist_negative_inds)] = 0
 
@@ -276,9 +277,10 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
         # classification loss
         # pred_class = tf.reshape(pred_class, [-1,2])
         labels = labels.reshape(-1)
+
         if ISDEBUG:
-            print('batch_num:{}'.format(labels[labels>=0].shape[0]))
-            print('arg_alpha:{}'.format(arg_alpha.shape))
+            print('batch_num:{}, arg_alpha:{}, dif_alpha:{}'.format(labels[labels>=0].shape[0], arg_alpha.shape, dif_alpha.shape ))
+            # print('arg_alpha:{}'.format(arg_alpha.shape))
             # print('')
 
         # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]

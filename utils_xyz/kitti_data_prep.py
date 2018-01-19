@@ -150,8 +150,8 @@ if __name__ == '__main__':
     dataset_names  = ['velodnye']
     file_name = '/000059.sh5'
 
-    #kitti_prepare.generate_kitti_to_rawh5f()
-    kitti_prepare.read_rawh5f()
+    kitti_prepare.generate_kitti_to_rawh5f()
+    # kitti_prepare.read_rawh5f()
     #kitti_prepare.sort_raw()
     #kitti_prepare.showfilesummary(file_name)
 

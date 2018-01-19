@@ -23,7 +23,7 @@ __C = edict()
 #   from fast_rcnn_config import cfg
 cfg = __C
 
-DEBUG = False
+# DEBUG = False
 #
 # Training options
 #
@@ -66,6 +66,9 @@ __C.TRAIN.USE_FLIPPED = True
 
 # Deprecated (inside weights)
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = np.ones((1,__C.TRAIN.NUM_REGRESSION))*1.0 # (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+
+
+__C.TRAIN.DEBUG = True
 
 
 __C.TRAIN.SIGMA = 2.0

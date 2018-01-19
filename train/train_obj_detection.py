@@ -207,10 +207,12 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl:True})
 
+        # define operations
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,
                'is_training_pl': is_training_pl,
-                'pred': pred_class,
+                'pred_class': pred_class,
+               'pred_box': pred_box
                'loss': loss,
                'train_op': train_op,
                'merged': merged,
@@ -325,21 +327,21 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
-                summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
+                summary, step, _, loss_val, pred_class_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class']],
                                             feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
+            summary, step, _, loss_val, pred_class_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class']],
                                         feed_dict=feed_dict)
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         print('batch_idx:',batch_idx)
-        if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) :
-            pred_val = np.argmax(pred_val, 2)
+        if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
+            pred_class_val = np.argmax(pred_class_val, 2)
             loss_sum += loss_val
             total_seen += (BATCH_SIZE*NUM_POINT)
-            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_class_val,cur_label)
 
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 100:
@@ -360,7 +362,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     log_string('----')
 
-    num_blocks = data_provider.evaluation_num
+    num_blocks = data_provider.evaluation_num  # evaluation some of data
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
         num_batches = limit_eval_num_batches(epoch,num_batches)
@@ -372,8 +374,11 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     eval_logstr = ''
     t_batch_ls = []
+    all_gt_box = []
+    all_pred_class_val = []
+    all_pred_box_val = []
     batch_idx = -1
-
+    label
     while (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
@@ -381,35 +386,48 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            point_cloud_data, label_data = data_provider._get_evaluation_minibatch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+            point_cloud_data, label_data, gt_box = data_provider._get_evaluation_minibatch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
                 break
-            point_cloud_data, label_data ,epoch_buf = eval_feed_buf_q.get()
+            point_cloud_data, label_data, epoch_buf = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
-        cur_smp_weigths = 1.0
+        cur_smp_weigths = np.ones((point_cloud_data.shape[0], point_cloud_data.shape[1]))
         t1 = time.time()
-        if type(cur_data) == type(None):
+        if type(point_cloud_data) == type(None):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
                      ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights }
-        summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
+        summary, step, loss_val, pred_class_val, pred_box_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_box']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
-        if batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0):
-            pred_logits = np.argmax(pred_val, 2)
+        all_gt_box.append(gt_box)  # all_gt_box is a list, num_batches x BATCH_SIZE x ( k*8 ), all_gt_box[n][m] is the ground truth box of one label image.
+        all_pred_class_val.append(pred_class_val)  # the all_pred_class_val is the list, num_batches x BATCH_SIZE x point_num x 4, all_pred_val[n] is the narray of BATCH_SIZE x point_num
+        all_pred_box_val.append(pred_box_val)  # the all_pred_box_val is also list, num_batches x BATCH_SIZE x point_num x 14, all_pred_box_val[n] is the narray of BATCH_SIZE x point_num
+
+        if False and (batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0)):
+            pred_logits = np.argmax(pred_class_val, 2)
             total_seen += (BATCH_SIZE*NUM_POINT)
             loss_sum += loss_val
             c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
-            #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
+            #net_provider.set_pred_label_batch(pred_class_val,start_idx,end_idx)
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+
+    ## estimate the all detection results
+    # use 3D nms to filter out detection results from all_pred_class_val and
+    # all_pred_box_val
+
+    # caculate the average precision with the detection results
+
+    # delete the all_gt_box, all_pred_class_val and all_pred_box_val to save
+    # memory
 
     #if FLAGS.only_evaluate:
     #    obj_dump_dir = os.path.join(FLAGS.log_dir,'obj_dump')

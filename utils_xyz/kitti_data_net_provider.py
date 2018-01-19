@@ -24,6 +24,7 @@ Channels_xyz  =  cfg.TRAIN.NUM_CHANNELS
 Channels_label = cfg.TRAIN.NUM_REGRESSION
 evaluation_num = cfg.TRAIN.EVALUATION_NUM
 
+ISDEBUG =False # cfg.TRAIN.DEBUG
 
 class kitti_data_net_provider():
     '''
@@ -84,14 +85,21 @@ class kitti_data_net_provider():
         max_label = 0
         for ii in ind:
             rawh5_file_name = self.rawh5_file_list[ii]
+            if ISDEBUG:
+                print(rawh5_file_name)
             with h5py.File(rawh5_file_name,'r') as h5f:
                 temp_xyz = h5f['xyz'][:,:]
                 temp_bounding_box = h5f['bounding_box'][:,:]
                 if cfg.TRAIN.USE_FLIPPED and random.choice([True, False]):
                     temp_xyz[:,1] = -temp_xyz[:,1]
-                    temp_bounding_box[:,4] = np.pi - temp_bounding_box[:,4] # 0:category, 1:l, 2:w, 3:h, 4:alpha, 5:x, 6:y, 7:z
+                    num_bounding_box = temp_bounding_box.shape[0]
+                    for n_bbox in range(num_bounding_box):
+                        if temp_bounding_box[n_bbox,4] >= np.pi/4:
+                            temp_bounding_box[n_bbox,4] = np.pi - temp_bounding_box[n_bbox,4] # 0:category, 1:l, 2:w, 3:h, 4:alpha, 5:x, 6:y, 7:z
+                        else:
+                            temp_bounding_box[n_bbox,4] = - temp_bounding_box[n_bbox,4]
                     temp_bounding_box[:,6] = - temp_bounding_box[:,6]
-
+                assert (temp_bounding_box[:,4] < 3*np.pi/4).all()
                 #point_cloud_data.append(h5f['xyz'][:,:])
                 point_cloud_data.append(temp_xyz)
                 ## adding the flipping function later
@@ -113,7 +121,9 @@ class kitti_data_net_provider():
         ind = np.arange(start_idx,end_idx)
         point_cloud_data = []
         label_data = []
+        real_label_data = []
         _index_ = 0
+        max_label = 0
         for ii in ind:
             evaluation_file_name = self.evaluation_file_list[ii]
             with h5py.File(evaluation_file_name,'r') as h5f:
@@ -121,9 +131,16 @@ class kitti_data_net_provider():
                 temp_bounding_box = h5f['bounding_box'][:,:]
                 point_cloud_data.append(temp_xyz)
                 label_data.append(temp_bounding_box)
+                temp_num_label = temp_bounding_box.shape[0]
+                if temp_num_label>max_label:
+                    max_label = temp_num_label
             _index_ = _index_ + 1
 
-        return np.asarray(point_cloud_data), np.asarray(label_data)
+        label_data_resize = np.empty(shape = [len(label_data), max_label, label_data[0].shape[1]])
+        for ii in range(len(label_data)):
+            label_data_resize[ii,:,:] = np.resize(label_data[ii], [max_label, label_data[0].shape[1]])
+
+        return np.asarray(point_cloud_data), np.asarray(label_data_resize), label_data
 
 
 
@@ -138,11 +155,11 @@ if __name__ == '__main__':
     batch_size = 20
     data_provider = kitti_data_net_provider(rawh5_name, batch_size)
 
-    point_cloud_data, label_data = data_provider._get_next_minibatch() ## both of them are list type
+    # point_cloud_data, label_data = data_provider._get_next_minibatch() ## both of them are list type
 
     start_ind = 0
     end_ind = 20
-    point_cloud_data, label_data = data_provider._get_evaluation_minibatch(start_ind ,end_ind)
+    point_cloud_data, label_data, gt_box = data_provider._get_evaluation_minibatch(start_ind ,end_ind)
     print(len(point_cloud_data))
     END_T = time.time()
     print('the time is %d' %(END_T - START_T))
