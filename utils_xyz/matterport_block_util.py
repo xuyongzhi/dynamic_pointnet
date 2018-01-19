@@ -23,15 +23,14 @@ DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'scannet_data'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
-def zip_extract(groupe_name,house_name,file_name,file_format,zipf,house_dir_extracted):
+def zip_extract(zipitem_name, zipf, house_dir_extracted):
     '''
     extract file if not already
     '''
-    zipfile_name = '%s/%s/%s.%s'%(house_name,groupe_name,file_name,file_format)
-    file_path = house_dir_extracted + '/' + zipfile_name
+    file_path = house_dir_extracted + '/' + zipitem_name
     if not os.path.exists(file_path):
-        print('extracting %s...'%(file_name))
-        file_path_extracted  = zipf.extract(zipfile_name,house_dir_extracted)
+        print('extracting %s...'%(file_path))
+        file_path_extracted  = zipf.extract(zipitem_name,house_dir_extracted)
         print('file extracting finished: %s'%(file_path_extracted) )
         assert file_path == file_path_extracted
     else:
@@ -145,17 +144,20 @@ def get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex):
 
     return vertex_semantic,vertex_indices_multi_semantic,face_indices_multi_semantic
 
-def WriteRawH5f_Region_Ply(k_region,rs_zf,house_name,house_h5f_dir,house_dir_extracted):
-    file_name = 'region'+str(k_region)
-    region_ply_fn = zip_extract('region_segmentations',house_name,file_name,'ply',rs_zf,house_dir_extracted)
+def WriteRawH5f_Region_Ply(ply_item_name, rs_zf, house_h5f_dir,house_dir_extracted):
+    region_ply_fn = zip_extract(ply_item_name, rs_zf, house_dir_extracted)
 
+    s = ply_item_name.index('region_segmentations/region')+len('region_segmentations/region')
+    e = ply_item_name.index('.ply')
+    k_region = int(ply_item_name[s:e])
     rawh5f_fn = house_h5f_dir+'/rawh5f/region'+str(k_region)+'.rh5'
     IsDelVexMultiSem = True
     IsIntact,_  = check_h5fs_intact(rawh5f_fn)
     if  IsIntact:
-        print('file intact: %s'%(file_name))
+        print('file intact: %s'%(rawh5f_fn))
     else:
         with open(region_ply_fn,'r') as ply_fo, h5py.File(rawh5f_fn,'w') as h5f:
+            print(region_ply_fn)
             vertex_xyz,vertex_nxnynz,vertex_rgb,vertex_semantic,face_vertex_indices,face_semantic = parse_ply_file(ply_fo,IsDelVexMultiSem)
 
             raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MATTERPORT')
@@ -169,7 +171,7 @@ def WriteRawH5f_Region_Ply(k_region,rs_zf,house_name,house_h5f_dir,house_dir_ext
             raw_h5f.create_done()
             raw_h5f.show_h5f_summary_info()
 
-    return file_name
+    return ply_item_name
 
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
@@ -239,17 +241,20 @@ class Matterport3D_Prepare():
     def Parse_house_regions(self,MultiProcess=0):
         t0 = time.time()
         rs_zf = zipfile.ZipFile(self.region_segmentations_zip_fn,'r')
-        num_region = len(rs_zf.namelist())/4
+        #num_region = len(rs_zf.namelist())/4
+        name_list = rs_zf.namelist()
+        region_ply_name_ls = [name for name in name_list if '.ply' in name]
+        num_region = len(region_ply_name_ls)
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
             pool = mp.Pool(MultiProcess)
-        for k in range(num_region):
+        for item_name in region_ply_name_ls:
             if not IsMultiProcess:
-                WriteRawH5f_Region_Ply(k,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted)
+                WriteRawH5f_Region_Ply(item_name,rs_zf,self.house_h5f_dir,self.house_dir_extracted)
             else:
-                results = pool.apply_async(WriteRawH5f_Region_Ply,(k,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted))
-                print('apply_async %d'%(k))
+                results = pool.apply_async(WriteRawH5f_Region_Ply,(item_name,rs_zf,self.house_h5f_dir,self.house_dir_extracted))
+                print('apply_async %s'%(item_name))
         if IsMultiProcess:
             pool.close()
             pool.join()
@@ -503,15 +508,15 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 3
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
     operations  = ['ParseRaw']
-    operations  = ['SortRaw']
-    operations  = ['GenPyramid']
+    #operations  = ['SortRaw']
+    operations  = ['ParseRaw','SortRaw','GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNorm']
+    #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -559,7 +564,7 @@ def parse_house_ls():
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
-    #house_names = all_house_names
+    house_names = all_house_names
 
     for house_name in house_names:
         parse_house(house_name,scans_name)

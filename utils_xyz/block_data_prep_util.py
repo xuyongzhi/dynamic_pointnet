@@ -993,11 +993,14 @@ class Raw_H5f():
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
-        with h5py.File(file_name,'r') as h5f:
-            attrs_to_check = ['xyz_max','xyz_min']
-            for attrs in attrs_to_check:
-                if attrs not in h5f.attrs:
-                    return False, "%s not in %s"%(attrs,file_name)
+        try:
+            with h5py.File(file_name,'r') as h5f:
+                attrs_to_check = ['xyz_max','xyz_min']
+                for attrs in attrs_to_check:
+                    if attrs not in h5f.attrs:
+                        return False, "%s not in %s"%(attrs,file_name)
+        except:
+            return False,"Unable to open file"
         return True,""
 
 
