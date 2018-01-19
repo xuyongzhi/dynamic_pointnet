@@ -452,22 +452,20 @@ class Net_Provider():
         self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
         np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx):
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx=True):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
-        IsShuffleIdx = False
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
         else:
             return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
 
-    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
+    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=True):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks)
 
-        IsShuffleIdx = True
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
@@ -545,9 +543,9 @@ def main_NormedH5f():
 
     InputType = 'Pr_Normed_H5f'
    # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+    all_filename_glob = ['v1/scans/2t7WUuJeko7/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
    # #eval_fnglob_or_rate = 0.3
-    eval_fnglob_or_rate = 'region7'
+    eval_fnglob_or_rate = 'region0'
 
     #all_filename_glob = ['all_merged_nf5']
     #eval_fnglob_or_rate = '17DRP5sb8fy'
@@ -572,8 +570,8 @@ def main_NormedH5f():
 
 
     ply_flag = 'region'
-    ply_flag = 'global_block'
-    ply_flag = 'sub_block'
+    #ply_flag = 'global_block'
+    #ply_flag = 'sub_block'
     #ply_flag = 'none'
     steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
 

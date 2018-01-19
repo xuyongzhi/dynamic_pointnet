@@ -2828,7 +2828,6 @@ class Normed_H5f():
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
             if dn in h5f:
-                print(dn)
                 setattr(self,dn+'_set', h5f[dn])
         self.update_norm_eles_by_attrs()
 
@@ -2964,7 +2963,6 @@ class Normed_H5f():
         for attr in h5f_normed['bidxmaps_sample_group'].attrs:
             if attr != 'valid_num':
                 self.h5f['bidxmaps_sample_group'].attrs[attr] = h5f_normed['bidxmaps_sample_group'].attrs[attr]
-                #print(attr)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)

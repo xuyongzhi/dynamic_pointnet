@@ -395,6 +395,9 @@ class Matterport3D_Prepare():
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
         file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+        if TMPDEBUG:
+            file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
+
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -490,8 +493,9 @@ class Matterport3D_Prepare():
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
         #file_name = self.house_rawh5f_dir + '/region2.rh5'
         #file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region2.prh5'
-        file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1/region1.prh5'
+        #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1/region1.prh5'
         #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5/17DRP5sb8fy_stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1.prh5'
+        file_name = '/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/2t7WUuJeko7/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2/region0.prh5'
         IsIntact,check_str = check_h5fs_intact(file_name)
         if IsIntact:
             with h5py.File(file_name,'r') as h5f:
@@ -503,6 +507,7 @@ class Matterport3D_Prepare():
         file_name = self.house_rawh5f_dir+'/region1.rh5'
         step = stride = [0.1,0.1,0.1]
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
+        file_name = '/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/2t7WUuJeko7/stride_0d1_step_0d1/region1.sh5'
         with h5py.File(file_name,'r') as h5f:
             GlobalSubBaseBLOCK.show_all(h5f,file_name)
 
@@ -515,7 +520,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['ParseRaw']
     #operations  = ['SortRaw']
     operations  = ['ParseRaw','SortRaw','GenPyramid']
-    #operations  = ['GenPyramid','GenObj_NormedH5f']
+    operations  = ['GenPyramid']
     #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
@@ -561,10 +566,11 @@ def parse_house_ls():
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names = ['2t7WUuJeko7']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
-    house_names = all_house_names
+    #house_names = all_house_names
 
     for house_name in house_names:
         parse_house(house_name,scans_name)
@@ -580,8 +586,8 @@ def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    parse_house_ls()
-    #show_summary()
+    #parse_house_ls()
+    show_summary()
     #show_bidxmap()
     #show_all_label_colors()
 

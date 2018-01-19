@@ -22,8 +22,15 @@ import get_dataset
 from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
+from ply_util import create_ply_matterport
 
 ISSUMMARY = False
+TMP_DEBUG = True
+IS_GEN_PLY = True
+if IS_GEN_PLY:
+    IsShuffleIdx = False
+else:
+    IsShuffleIdx = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
@@ -129,6 +136,7 @@ NUM_DATA_ELES = net_provider.data_num_eles
 NUM_CLASSES = net_provider.num_classes
 NUM_LABEL_ELES = net_provider.label_num_eles
 LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
+DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 
 BLOCK_SAMPLE = net_provider.block_sample
@@ -171,6 +179,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
                 grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
+                flat_pointclouds_pl = debug_pls['flat_pointclouds']
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
@@ -246,6 +255,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             ops['grouped_smpws_pl'] = grouped_smpws_pl
             ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
             ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+            ops['flat_pointclouds_pl'] = flat_pointclouds_pl
 
             if ISDEBUG:
                 ops['flatten_bidxmaps_pl_0'] = debug_pls['flatten_bidxmaps_pl_0']
@@ -330,7 +340,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if train_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
@@ -360,6 +370,22 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
         if FLAGS.datafeed_type == 'Pr_Normed_H5f':
             cur_flatten_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
             cur_label = cur_flatten_label
+            if IS_GEN_PLY:
+                cur_flatten_pointcloud, = sess.run( [ops['flat_pointclouds_pl']], feed_dict=feed_dict )
+                color_flag = 'raw_color'
+                if color_flag == 'gt_color':
+                    cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS['xyz']]
+                    create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_flatten_label[...,CATEGORY_LABEL_IDX] )
+                if color_flag == 'raw_color':
+                    cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS['xyz']+DATA_ELE_IDXS['color_1norm']]
+                    cur_xyz_color[...,[3,4,5]] *= 255
+                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
+                    cur_xyz_color = cur_data[...,DATA_ELE_IDXS['xyz']+DATA_ELE_IDXS['color_1norm']]
+                    cur_xyz_color[...,[3,4,5]] *= 255
+                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+
         summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
                                     feed_dict=feed_dict)
 
@@ -411,7 +437,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')

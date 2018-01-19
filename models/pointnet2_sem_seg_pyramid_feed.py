@@ -9,7 +9,7 @@ import numpy as np
 import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 
-def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0,base_sc ):
+def flatten_grouped_labels(grouped_labels, grouped_smpws, grouped_pointclouds_pl, flatten_bidxmap0,base_sc ):
     with tf.variable_scope(base_sc+'-fgl'):
         batch_size = grouped_labels.get_shape()[0].value
         batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
@@ -20,7 +20,8 @@ def flatten_grouped_labels(grouped_labels, grouped_smpws, flatten_bidxmap0,base_
 
         label = tf.gather_nd(grouped_labels,flatten_bidxmap0_concat,name="label")
         smpw = tf.gather_nd(grouped_smpws,flatten_bidxmap0_concat)
-    return label, smpw
+        pointclouds = tf.gather_nd(grouped_pointclouds_pl,flatten_bidxmap0_concat,name="pointclouds")
+    return label, smpw, pointclouds
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape, flatten_bm_extract_idx):
     with tf.variable_scope("pls") as pl_sc:
@@ -36,10 +37,11 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
 
         # labels_pl:(2, 10240, 2)   grouped_labels_pl:(2, 512, 6, 2)
         # flatten_bidxmaps_pl_0:(2, 10240, 2)
-        labels_pl, smpws_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, flatten_bidxmaps_pl_0,"pls")
+        flat_labels_pl, flat_smpws_pl, flat_pointclouds = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, grouped_pointclouds_pl, flatten_bidxmaps_pl_0,"pls")
         debug={}
         debug['flatten_bidxmaps_pl_0'] = flatten_bidxmaps_pl_0
-        return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, labels_pl, smpws_pl, debug
+        debug['flat_pointclouds'] = flat_pointclouds
+        return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, flat_labels_pl, flat_smpws_pl, debug
 
 def get_sa_module_config(cascade_num):
     mlps = []
