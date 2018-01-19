@@ -320,7 +320,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
     num_blocks = net_provider.train_num_blocks
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
-        if num_batches ==0: return ''
+        assert num_batches >0, "num_batches = 0, num_blocks = %d, BATCH_SIZE = %d"%(num_blocks,BATCH_SIZE)
     else:
         num_batches = None
 

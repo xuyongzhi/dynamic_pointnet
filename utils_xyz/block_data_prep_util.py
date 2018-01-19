@@ -189,6 +189,7 @@ def index_in_sorted(sorted_vector,values):
     assert values.ndim<=1 and sorted_vector.ndim==1
     values_valid = values[np.isin(values,sorted_vector)]
     indexs = np.searchsorted(sorted_vector,values_valid)
+    assert indexs.size==0 or np.max(indexs) < sorted_vector.size, 'err in index_in_sorted'
     return indexs
 
 def check_h5fs_intact(file_name):
@@ -387,6 +388,7 @@ class GlobalSubBaseBLOCK():
         IsCheck = True
         # valid_sorted_basebids.size is the valid number of base blocks. Maximum value is nsubblock of last cascade.
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
+        valid_sorted_basebids = np.sort(valid_sorted_basebids)
         flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
 
         aim_nsubblock =  GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
@@ -785,6 +787,31 @@ class GlobalSubBaseBLOCK():
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
+    @staticmethod
+    def fix_bmap( all_sorted_aimbids,all_base_bids_in_aim_dic, nsubblock, npoint_subblock, aim_attrs ):
+        org_aim_b_num = len(all_sorted_aimbids)
+        assert org_aim_b_num > nsubblock
+        base_b_num = np.zeros(shape=(org_aim_b_num)).astype(np.uint32)
+        for i in range(org_aim_b_num):
+            base_b_num[i] = len(all_base_bids_in_aim_dic[all_sorted_aimbids[i]])
+        sort_aim_indices = np.argsort(base_b_num)
+        cut_aim_indices = sort_aim_indices[0:org_aim_b_num-nsubblock]
+        cut_aim_bids = all_sorted_aimbids[cut_aim_indices]
+        keep_aim_indices = sort_aim_indices[org_aim_b_num-nsubblock:sort_aim_indices.size]
+        keep_aim_bids = np.sort(all_sorted_aimbids[keep_aim_indices])
+        # append all base_bids of each cutted aim_bids to nearest aim_bid
+        import copy
+        all_base_bids_in_aim_dic_valid = copy.deepcopy(all_base_bids_in_aim_dic)
+        for cut_aim_bid in cut_aim_bids:
+            dis = np.zeros(shape=(nsubblock))+1000.0
+            for j,aim_bid_search in enumerate(keep_aim_bids):
+                dis[j] = Sorted_H5f.get_block_dis_( aim_bid_search,cut_aim_bid,aim_attrs )
+            mindis_indice = np.argmin(dis)
+            mindis_aimbid = keep_aim_bids[mindis_indice]
+
+            all_base_bids_in_aim_dic_valid[mindis_aimbid] = np.concatenate([ all_base_bids_in_aim_dic[mindis_aimbid], all_base_bids_in_aim_dic[cut_aim_bid] ] )
+            del all_base_bids_in_aim_dic_valid[cut_aim_bid]
+        return keep_aim_bids, all_base_bids_in_aim_dic_valid
 
 
 class Raw_H5f():
@@ -1247,6 +1274,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k = int( k / block_dims_N[1] )
         i_xyz[0] = k % block_dims_N[0]
         return i_xyz
+    @staticmethod
+    def get_block_dis_(bid0,bid1,attrs):
+        ixyz0 = Sorted_H5f.block_index_to_ixyz_(bid0,attrs)
+        ixyz1 = Sorted_H5f.block_index_to_ixyz_(bid1,attrs)
+        xyz0 = ixyz0 * attrs['block_stride'] + attrs['xyz_min_aligned']
+        xyz1 = ixyz1 * attrs['block_stride'] + attrs['xyz_min_aligned']
+        dis = np.linalg.norm(xyz1-xyz0)
+        return dis
 
     def ixyz_to_block_index(self,i_xyz):
         i_xyz = i_xyz.astype(np.uint64)
@@ -2170,14 +2205,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #    print('void num = %d'%void_num)
         return feed_data, feed_label
 
-    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb,
+    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,root_bids_in_cas0,
                                           feed_data_elements,feed_label_elements, npoint_cas0block=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         IsRecordTime = False
 
         datas = []
         labels = []
-        root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        #root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
         for cur_block_id in root_bids_in_cas0:
             if IsRecordTime:
                 ts = []
@@ -2237,6 +2272,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels[0:3,:])
         return datas,labels, sample_num
 
+
     def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
@@ -2263,17 +2299,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
         num_candi_cas0bids = cas0_bids_in_global.shape[0]
 
+        cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
         if num_candi_cas0bids > nsubblock:
             # only read nsubblock cas0 blocks
-            if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
-                cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
-                cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
-                random_sampl_pro = 1.0*cas0_num_bid / np.sum(cas0_num_bid)
-            else: random_sampl_pro = None
-            cas0_bids_in_global_valid = random_choice( cas0_bids_in_global,nsubblock,random_sampl_pro )
-            cas0_bids_in_global_valid = np.sort(cas0_bids_in_global_valid)
+            cas0_bids_in_global_valid, cas0_all_base_blockids_indic_valid = GlobalSubBaseBLOCK.fix_bmap( cas0_bids_in_global,cas0_all_base_blockids_indic, nsubblock, npoint_subblock, cas0b_attrs )
+
+           # if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
+           #     cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
+           #     cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
+           #     random_sampl_pro = 1.0*cas0_num_bid / np.sum(cas0_num_bid)
+           # else: random_sampl_pro = None
+           # cas0_bids_in_global_valid = random_choice( cas0_bids_in_global,nsubblock,random_sampl_pro )
+           # cas0_bids_in_global_valid = np.sort(cas0_bids_in_global_valid)
         else:
             cas0_bids_in_global_valid = cas0_bids_in_global
+            cas0_all_base_blockids_indic_valid = cas0_all_base_blockids_indic
 
         if IsRecordTime: t1 = time.time()
         # (1.5) Check how many base block ids are misssed in sub block valid space.
@@ -2291,7 +2331,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         subblock_sample_num = np.zeros([2]).astype(np.uint64)
         flatten_bidxmap0 = []
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
-            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
+            root_bids_in_cas0 = cas0_all_base_blockids_indic_valid[cas0_bid]
+            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements,npoint_subblock)
             if datas_k.shape[0] !=0:
                 global_block_datas.append(np.expand_dims(datas_k,axis=0))
                 global_block_labels.append(np.expand_dims(labels_k,axis=0))

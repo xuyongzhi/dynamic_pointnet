@@ -199,6 +199,8 @@ def GenPyramidSortedFlie(fn):
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_pyh5 = False
         Always_CreateNew_bmh5 = False
+        if TMPDEBUG:
+            Always_CreateNew_pyh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
@@ -395,8 +397,6 @@ class Matterport3D_Prepare():
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
         file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
-        if TMPDEBUG:
-            file_list = glob.glob( os.path.join(base_sorted_path,'*1.sh5') )
 
 
         IsMultiProcess = MultiProcess>1
@@ -513,7 +513,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 3
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
@@ -586,8 +586,8 @@ def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    #parse_house_ls()
-    show_summary()
+    parse_house_ls()
+    #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
 
