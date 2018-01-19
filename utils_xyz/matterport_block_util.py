@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = True
+TMPDEBUG = False
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -201,6 +201,7 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_bmh5 = False
         if TMPDEBUG:
             Always_CreateNew_pyh5 = True
+            #Always_CreateNew_bmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn

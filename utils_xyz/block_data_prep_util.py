@@ -412,15 +412,29 @@ class GlobalSubBaseBLOCK():
             bidxmap_dic[aim_bid] = base_bid_valid_indexs
         raw_valid_base_bnum = np.array(raw_valid_base_bnum)
         valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
-        valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidxmap_dic,aim_nsubblock)
+
+        #valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidxmap_dic,aim_nsubblock)
+
+        if aim_nsubblock < valid_sorted_aimbids.size:
+            aim_attrs = self.get_new_attrs(cascade_id)
+            valid_sorted_aimbids_sampled, bidxmap_dic_sampled  = GlobalSubBaseBLOCK.fix_bmap( valid_sorted_aimbids, bidxmap_dic, aim_nsubblock, aim_npoint_subblock, aim_attrs )
+            valid_aimb_num = aim_nsubblock
+        else:
+            valid_aimb_num = valid_sorted_aimbids.size
+            valid_sorted_aimbids_sampled = np.sort( random_choice(valid_sorted_aimbids, aim_nsubblock) )
 
         # (2) Get all the maps of valid aim blocks
         sg_bidxmap = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         bid_valid_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
+
+
+
         for aim_b_index in range(aim_nsubblock):
             aim_bid = valid_sorted_aimbids_sampled[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic[aim_bid]
+
             sg_bidxmap[aim_b_index,:] = random_choice( base_bid_valid_indexs,aim_npoint_subblock )
+
             if aim_b_index < valid_aimb_num:
                 bid_valid_num[aim_b_index] = base_bid_valid_indexs.size
             for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
@@ -500,7 +514,8 @@ class GlobalSubBaseBLOCK():
             if tile_num == 0:
                 new_var = org_var
             elif tile_num < 0:
-                new_var = np.take( org_var,range(0,aim_shape),axis=axis )
+                fix_indices = random_choice( np.arange(0,org_var.shape[axis]), aim_shape )
+                new_var = np.take( org_var,fix_indices,axis=axis )
             elif tile_num >0:
                 if axis==0:
                     tiled = np.tile(org_var[0:1,:],[tile_num,1])
