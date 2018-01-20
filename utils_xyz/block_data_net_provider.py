@@ -44,6 +44,7 @@ class Net_Provider():
     # provider with train_start_idx and test_start_idx
 
     global_num_point = GlobalSubBaseBLOCK.global_num_point
+    gsbb_config = GlobalSubBaseBLOCK.gsbb_config
 
     def __init__(self,InputType, dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
@@ -134,6 +135,7 @@ class Net_Provider():
         t_get_data_laebl_shape = time.time()
         print('get_data_label_shape t: %f ms'%(1000*(t_get_data_laebl_shape - t_end_update_loss_weight)))
         self.update_data_summary()
+
         print('Net_Provider init t: %f ms\n\n'%(1000*(time.time()-t_init0)))
 
     def get_data_label_shape_info(self):
@@ -452,22 +454,20 @@ class Net_Provider():
         self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
         np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx):
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx=True):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
-        IsShuffleIdx = False
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
         else:
             return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
 
-    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx):
+    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=True):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks)
 
-        IsShuffleIdx = True
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
@@ -545,9 +545,9 @@ def main_NormedH5f():
 
     InputType = 'Pr_Normed_H5f'
    # all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64_32-0d2_0d6_1_1d6']
-    all_filename_glob = ['v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+    all_filename_glob = ['v1/scans/2t7WUuJeko7/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
    # #eval_fnglob_or_rate = 0.3
-    eval_fnglob_or_rate = 'region7'
+    eval_fnglob_or_rate = 'region0'
 
     #all_filename_glob = ['all_merged_nf5']
     #eval_fnglob_or_rate = '17DRP5sb8fy'
@@ -562,6 +562,7 @@ def main_NormedH5f():
                               dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
                               eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              gsbb_config = '3B',
                               only_evaluate=only_evaluate,
                               num_point_block=num_point_block,
                               feed_data_elements=feed_data_elements,
@@ -572,8 +573,8 @@ def main_NormedH5f():
 
 
     ply_flag = 'region'
-    ply_flag = 'global_block'
-    ply_flag = 'sub_block'
+    #ply_flag = 'global_block'
+    #ply_flag = 'sub_block'
     #ply_flag = 'none'
     steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
 
@@ -634,6 +635,7 @@ def main_SortedH5f():
                               dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
                               eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              gsbb_config = '3B',
                               only_evaluate=only_evaluate,
                               num_point_block=num_point_block,
                               feed_data_elements=feed_data_elements,

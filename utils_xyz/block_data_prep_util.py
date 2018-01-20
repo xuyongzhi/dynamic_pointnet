@@ -189,6 +189,7 @@ def index_in_sorted(sorted_vector,values):
     assert values.ndim<=1 and sorted_vector.ndim==1
     values_valid = values[np.isin(values,sorted_vector)]
     indexs = np.searchsorted(sorted_vector,values_valid)
+    assert indexs.size==0 or np.max(indexs) < sorted_vector.size, 'err in index_in_sorted'
     return indexs
 
 def check_h5fs_intact(file_name):
@@ -220,8 +221,7 @@ class GlobalSubBaseBLOCK():
     #sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
     #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
     #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
-
-    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis = \
+    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
         get_gsbb_config()
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
@@ -387,6 +387,7 @@ class GlobalSubBaseBLOCK():
         IsCheck = True
         # valid_sorted_basebids.size is the valid number of base blocks. Maximum value is nsubblock of last cascade.
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
+        valid_sorted_basebids = np.sort(valid_sorted_basebids)
         flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
 
         aim_nsubblock =  GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
@@ -410,15 +411,29 @@ class GlobalSubBaseBLOCK():
             bidxmap_dic[aim_bid] = base_bid_valid_indexs
         raw_valid_base_bnum = np.array(raw_valid_base_bnum)
         valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
-        valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidxmap_dic,aim_nsubblock)
+
+        #valid_sorted_aimbids_sampled, valid_aimb_num = GlobalSubBaseBLOCK.weighted_sample_bids(valid_sorted_aimbids,bidxmap_dic,aim_nsubblock)
+
+        if aim_nsubblock < valid_sorted_aimbids.size:
+            aim_attrs = self.get_new_attrs(cascade_id)
+            valid_sorted_aimbids_sampled, bidxmap_dic_sampled  = GlobalSubBaseBLOCK.fix_bmap( valid_sorted_aimbids, bidxmap_dic, aim_nsubblock, aim_npoint_subblock, aim_attrs )
+            valid_aimb_num = aim_nsubblock
+        else:
+            valid_aimb_num = valid_sorted_aimbids.size
+            valid_sorted_aimbids_sampled = np.sort( random_choice(valid_sorted_aimbids, aim_nsubblock) )
 
         # (2) Get all the maps of valid aim blocks
         sg_bidxmap = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         bid_valid_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
+
+
+
         for aim_b_index in range(aim_nsubblock):
             aim_bid = valid_sorted_aimbids_sampled[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic[aim_bid]
+
             sg_bidxmap[aim_b_index,:] = random_choice( base_bid_valid_indexs,aim_npoint_subblock )
+
             if aim_b_index < valid_aimb_num:
                 bid_valid_num[aim_b_index] = base_bid_valid_indexs.size
             for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
@@ -498,7 +513,8 @@ class GlobalSubBaseBLOCK():
             if tile_num == 0:
                 new_var = org_var
             elif tile_num < 0:
-                new_var = np.take( org_var,range(0,aim_shape),axis=axis )
+                fix_indices = random_choice( np.arange(0,org_var.shape[axis]), aim_shape )
+                new_var = np.take( org_var,fix_indices,axis=axis )
             elif tile_num >0:
                 if axis==0:
                     tiled = np.tile(org_var[0:1,:],[tile_num,1])
@@ -785,6 +801,31 @@ class GlobalSubBaseBLOCK():
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
+    @staticmethod
+    def fix_bmap( all_sorted_aimbids,all_base_bids_in_aim_dic, nsubblock, npoint_subblock, aim_attrs ):
+        org_aim_b_num = len(all_sorted_aimbids)
+        assert org_aim_b_num > nsubblock
+        base_b_num = np.zeros(shape=(org_aim_b_num)).astype(np.uint32)
+        for i in range(org_aim_b_num):
+            base_b_num[i] = len(all_base_bids_in_aim_dic[all_sorted_aimbids[i]])
+        sort_aim_indices = np.argsort(base_b_num)
+        cut_aim_indices = sort_aim_indices[0:org_aim_b_num-nsubblock]
+        cut_aim_bids = all_sorted_aimbids[cut_aim_indices]
+        keep_aim_indices = sort_aim_indices[org_aim_b_num-nsubblock:sort_aim_indices.size]
+        keep_aim_bids = np.sort(all_sorted_aimbids[keep_aim_indices])
+        # append all base_bids of each cutted aim_bids to nearest aim_bid
+        import copy
+        all_base_bids_in_aim_dic_valid = copy.deepcopy(all_base_bids_in_aim_dic)
+        for cut_aim_bid in cut_aim_bids:
+            dis = np.zeros(shape=(nsubblock))+1000.0
+            for j,aim_bid_search in enumerate(keep_aim_bids):
+                dis[j] = Sorted_H5f.get_block_dis_( aim_bid_search,cut_aim_bid,aim_attrs )
+            mindis_indice = np.argmin(dis)
+            mindis_aimbid = keep_aim_bids[mindis_indice]
+
+            all_base_bids_in_aim_dic_valid[mindis_aimbid] = np.concatenate([ all_base_bids_in_aim_dic[mindis_aimbid], all_base_bids_in_aim_dic[cut_aim_bid] ] )
+            del all_base_bids_in_aim_dic_valid[cut_aim_bid]
+        return keep_aim_bids, all_base_bids_in_aim_dic_valid
 
 
 class Raw_H5f():
@@ -993,11 +1034,14 @@ class Raw_H5f():
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
-        with h5py.File(file_name,'r') as h5f:
-            attrs_to_check = ['xyz_max','xyz_min']
-            for attrs in attrs_to_check:
-                if attrs not in h5f.attrs:
-                    return False, "%s not in %s"%(attrs,file_name)
+        try:
+            with h5py.File(file_name,'r') as h5f:
+                attrs_to_check = ['xyz_max','xyz_min']
+                for attrs in attrs_to_check:
+                    if attrs not in h5f.attrs:
+                        return False, "%s not in %s"%(attrs,file_name)
+        except:
+            return False,"Unable to open file"
         return True,""
 
 
@@ -1244,6 +1288,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k = int( k / block_dims_N[1] )
         i_xyz[0] = k % block_dims_N[0]
         return i_xyz
+    @staticmethod
+    def get_block_dis_(bid0,bid1,attrs):
+        ixyz0 = Sorted_H5f.block_index_to_ixyz_(bid0,attrs)
+        ixyz1 = Sorted_H5f.block_index_to_ixyz_(bid1,attrs)
+        xyz0 = ixyz0 * attrs['block_stride'] + attrs['xyz_min_aligned']
+        xyz1 = ixyz1 * attrs['block_stride'] + attrs['xyz_min_aligned']
+        dis = np.linalg.norm(xyz1-xyz0)
+        return dis
 
     def ixyz_to_block_index(self,i_xyz):
         i_xyz = i_xyz.astype(np.uint64)
@@ -2167,14 +2219,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #    print('void num = %d'%void_num)
         return feed_data, feed_label
 
-    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb,
+    def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,root_bids_in_cas0,
                                           feed_data_elements,feed_label_elements, npoint_cas0block=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         IsRecordTime = False
 
         datas = []
         labels = []
-        root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        #root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
         for cur_block_id in root_bids_in_cas0:
             if IsRecordTime:
                 ts = []
@@ -2234,6 +2286,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # print(labels[0:3,:])
         return datas,labels, sample_num
 
+
     def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
@@ -2260,17 +2313,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
         num_candi_cas0bids = cas0_bids_in_global.shape[0]
 
+        cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
         if num_candi_cas0bids > nsubblock:
             # only read nsubblock cas0 blocks
-            if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
-                cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
-                cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
-                random_sampl_pro = 1.0*cas0_num_bid / np.sum(cas0_num_bid)
-            else: random_sampl_pro = None
-            cas0_bids_in_global_valid = random_choice( cas0_bids_in_global,nsubblock,random_sampl_pro )
-            cas0_bids_in_global_valid = np.sort(cas0_bids_in_global_valid)
+            cas0_bids_in_global_valid, cas0_all_base_blockids_indic_valid = GlobalSubBaseBLOCK.fix_bmap( cas0_bids_in_global,cas0_all_base_blockids_indic, nsubblock, npoint_subblock, cas0b_attrs )
+
+           # if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
+           #     cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
+           #     cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
+           #     random_sampl_pro = 1.0*cas0_num_bid / np.sum(cas0_num_bid)
+           # else: random_sampl_pro = None
+           # cas0_bids_in_global_valid = random_choice( cas0_bids_in_global,nsubblock,random_sampl_pro )
+           # cas0_bids_in_global_valid = np.sort(cas0_bids_in_global_valid)
         else:
             cas0_bids_in_global_valid = cas0_bids_in_global
+            cas0_all_base_blockids_indic_valid = cas0_all_base_blockids_indic
 
         if IsRecordTime: t1 = time.time()
         # (1.5) Check how many base block ids are misssed in sub block valid space.
@@ -2288,7 +2345,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         subblock_sample_num = np.zeros([2]).astype(np.uint64)
         flatten_bidxmap0 = []
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
-            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,gsbb,feed_data_elements,feed_label_elements,npoint_subblock)
+            root_bids_in_cas0 = cas0_all_base_blockids_indic_valid[cas0_bid]
+            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements,npoint_subblock)
             if datas_k.shape[0] !=0:
                 global_block_datas.append(np.expand_dims(datas_k,axis=0))
                 global_block_labels.append(np.expand_dims(labels_k,axis=0))
@@ -2825,7 +2883,6 @@ class Normed_H5f():
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
             if dn in h5f:
-                print(dn)
                 setattr(self,dn+'_set', h5f[dn])
         self.update_norm_eles_by_attrs()
 
@@ -2932,7 +2989,7 @@ class Normed_H5f():
         for attr in attrs:
             if attr in sortedh5f_attrs:
                 self.h5f.attrs[attr] = sortedh5f_attrs[attr]
-        self.h5f.attrs['is_intact'] = 0
+        self.h5f.attrs['is_intact_nh5'] = 0
         self.h5f.attrs['sample_num'] = block_sample_num
 
         # - org_row_index when sortedh5f IS_CHECK=True
@@ -2944,7 +3001,7 @@ class Normed_H5f():
        #        'block_step','block_stride','block_dims_N','total_row_N']
         for attr in h5f_normed.attrs:
             self.h5f.attrs[attr] = h5f_normed.attrs[attr]
-        self.h5f.attrs['is_intact'] = 0
+        self.h5f.attrs['is_intact_nh5'] = 0
         if flag=='MergeNormed_H5f':
             if 'total_block_N' in self.h5f.attrs:
                 del self.h5f.attrs['total_block_N']
@@ -2961,7 +3018,6 @@ class Normed_H5f():
         for attr in h5f_normed['bidxmaps_sample_group'].attrs:
             if attr != 'valid_num':
                 self.h5f['bidxmaps_sample_group'].attrs[attr] = h5f_normed['bidxmaps_sample_group'].attrs[attr]
-                #print(attr)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
@@ -3110,7 +3166,7 @@ class Normed_H5f():
     def create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
-        self.h5f.attrs['is_intact'] = 1
+        self.h5f.attrs['is_intact_nh5'] = 1
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
@@ -3118,9 +3174,9 @@ class Normed_H5f():
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
         with h5py.File(file_name,'r') as h5f:
-            if 'is_intact' not in h5f.attrs:
+            if 'is_intact_nh5' not in h5f.attrs:
                 return False,""
-            IsIntact = h5f.attrs['is_intact'] == 1
+            IsIntact = h5f.attrs['is_intact_nh5'] == 1
             return IsIntact,""
            #
            # if 'total_block_N' not in h5f.attrs:
