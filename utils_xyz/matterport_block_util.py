@@ -253,7 +253,10 @@ class Matterport3D_Prepare():
                 WriteRawH5f_Region_Ply(ply_item_name,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted)
             else:
                 results = pool.apply_async(WriteRawH5f_Region_Ply,(ply_item_name,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted))
-                print('apply_async %d'%(k))
+                s = ply_item_name.index('region_segmentations/region')+len('region_segmentations/region')
+                e = ply_item_name.index('.ply')
+                k_region = int( ply_item_name[ s:e ] )
+                print('apply_async %d'%(k_region))
         if IsMultiProcess:
             pool.close()
             pool.join()
@@ -507,7 +510,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 5
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
