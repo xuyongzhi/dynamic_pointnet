@@ -25,7 +25,7 @@ import multiprocessing as mp
 from ply_util import create_ply_matterport
 
 ISSUMMARY = False
-TMP_DEBUG = True
+TMP_DEBUG = False
 IS_GEN_PLY = False
 if IS_GEN_PLY:
     IsShuffleIdx = False
