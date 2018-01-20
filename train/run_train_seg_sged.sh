@@ -14,14 +14,14 @@ datafeed_type='Pr_Normed_H5f'
 feed_data_elements='xyz_1norm_file,xyz_midnorm_block,color_1norm'
 feed_data_elements='xyz,color_1norm'
 
-#batchsize=16
-#eval_fnglob_or_rate='17DRP5sb8fy'
-#all_fn_globs='all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
+batchsize=16
+eval_fnglob_or_rate='17DRP5sb8fy'
+all_fn_globs='all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
 
 
-all_fn_globs='/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/2t7WUuJeko7/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
-eval_fnglob_or_rate='region0.prh5'
-batchsize=6
+#all_fn_globs='/home/y/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/2t7WUuJeko7/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
+#eval_fnglob_or_rate='region0.prh5'
+#batchsize=6
 
 
 run_train_multifeed="python $train_script --multip_feed  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"

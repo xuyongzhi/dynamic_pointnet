@@ -44,6 +44,7 @@ class Net_Provider():
     # provider with train_start_idx and test_start_idx
 
     global_num_point = GlobalSubBaseBLOCK.global_num_point
+    gsbb_config = GlobalSubBaseBLOCK.gsbb_config
 
     def __init__(self,InputType, dataset_name,all_filename_glob,eval_fnglob_or_rate,\
                  only_evaluate,num_point_block=None,feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'],\
@@ -134,6 +135,7 @@ class Net_Provider():
         t_get_data_laebl_shape = time.time()
         print('get_data_label_shape t: %f ms'%(1000*(t_get_data_laebl_shape - t_end_update_loss_weight)))
         self.update_data_summary()
+
         print('Net_Provider init t: %f ms\n\n'%(1000*(time.time()-t_init0)))
 
     def get_data_label_shape_info(self):
@@ -560,6 +562,7 @@ def main_NormedH5f():
                               dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
                               eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              gsbb_config = '3B',
                               only_evaluate=only_evaluate,
                               num_point_block=num_point_block,
                               feed_data_elements=feed_data_elements,
@@ -632,6 +635,7 @@ def main_SortedH5f():
                               dataset_name=dataset_name,
                               all_filename_glob=all_filename_glob,
                               eval_fnglob_or_rate=eval_fnglob_or_rate,
+                              gsbb_config = '3B',
                               only_evaluate=only_evaluate,
                               num_point_block=num_point_block,
                               feed_data_elements=feed_data_elements,

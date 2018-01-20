@@ -221,8 +221,7 @@ class GlobalSubBaseBLOCK():
     #sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
     #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
     #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
-
-    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis = \
+    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
         get_gsbb_config()
     #---------------------------------------------------------------------------
     cascade_num = len(sub_block_size_candis)
@@ -2990,7 +2989,7 @@ class Normed_H5f():
         for attr in attrs:
             if attr in sortedh5f_attrs:
                 self.h5f.attrs[attr] = sortedh5f_attrs[attr]
-        self.h5f.attrs['is_intact'] = 0
+        self.h5f.attrs['is_intact_nh5'] = 0
         self.h5f.attrs['sample_num'] = block_sample_num
 
         # - org_row_index when sortedh5f IS_CHECK=True
@@ -3002,7 +3001,7 @@ class Normed_H5f():
        #        'block_step','block_stride','block_dims_N','total_row_N']
         for attr in h5f_normed.attrs:
             self.h5f.attrs[attr] = h5f_normed.attrs[attr]
-        self.h5f.attrs['is_intact'] = 0
+        self.h5f.attrs['is_intact_nh5'] = 0
         if flag=='MergeNormed_H5f':
             if 'total_block_N' in self.h5f.attrs:
                 del self.h5f.attrs['total_block_N']
@@ -3167,7 +3166,7 @@ class Normed_H5f():
     def create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
-        self.h5f.attrs['is_intact'] = 1
+        self.h5f.attrs['is_intact_nh5'] = 1
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
@@ -3175,9 +3174,9 @@ class Normed_H5f():
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
         with h5py.File(file_name,'r') as h5f:
-            if 'is_intact' not in h5f.attrs:
+            if 'is_intact_nh5' not in h5f.attrs:
                 return False,""
-            IsIntact = h5f.attrs['is_intact'] == 1
+            IsIntact = h5f.attrs['is_intact_nh5'] == 1
             return IsIntact,""
            #
            # if 'total_block_N' not in h5f.attrs:

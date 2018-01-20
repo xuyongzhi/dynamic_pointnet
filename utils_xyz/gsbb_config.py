@@ -36,7 +36,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(config_flag)
-    return global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis
+    return global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis,config_flag
 
 
 
