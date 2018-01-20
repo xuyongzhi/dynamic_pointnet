@@ -34,6 +34,7 @@ else:
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--model_flag', default='3A', help='model flag')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f or Pr_NormedH5f')
 parser.add_argument('--all_fn_globs', type=str,default='all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2',\
@@ -193,11 +194,11 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Get model and loss
             if FLAGS.datafeed_type == 'Normed_H5f':
-                pred,end_points = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
+                pred,end_points = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred,end_points = get_model(grouped_pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx,  bn_decay=bn_decay)
+                pred,end_points = get_model( FLAGS.model_flag, grouped_pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx,  bn_decay=bn_decay)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
             tf.summary.scalar('loss', loss)
 
@@ -484,7 +485,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             test_writer.add_summary(summary, step)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
-        accuracy_sum == accuracy_batch
+        accuracy_sum += accuracy_batch
         loss_sum += loss_val
         if batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0):
             if LOG_TYPE == 'complex':

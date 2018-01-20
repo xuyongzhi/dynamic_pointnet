@@ -43,17 +43,22 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
         debug['flat_pointclouds'] = flat_pointclouds
         return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, flat_labels_pl, flat_smpws_pl, debug
 
-def get_sa_module_config(cascade_num):
+def get_sa_module_config(model_flag):
+    cascade_num = int(model_flag[0])
     mlps = []
-    if cascade_num==3:
+    if model_flag=='1A':
+        mlps.append( [32,32,64] )
+    elif model_flag=='3A':
         mlps.append( [32,32,64] )
         mlps.append( [64,128,256] )
         mlps.append( [256,256,512] )
-    if cascade_num==4:
+    elif model_flag=='4A':
         mlps.append( [32,32,64] )
         mlps.append( [64,64,128] )
         mlps.append( [128,128,256] )
         mlps.append( [256,256,512] )
+    else:
+        assert False,"model_flag not recognized: %s"%(model_flag)
 
     mlp2s = []
     for k in range(cascade_num):
@@ -68,7 +73,7 @@ def get_fp_module_config():
 
     return mlps
 
-def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None):
+def get_model(model_flag, grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None):
     """
         grouped_rawdata: (B,n1,n2,c)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
@@ -78,8 +83,9 @@ def get_model(grouped_rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extrac
     block_sample1 = grouped_rawdata.get_shape()[2].value
     end_points = {}
 
-    cascade_num = sg_bm_extract_idx.shape[0]
-    mlps,mlp2s = get_sa_module_config(cascade_num)
+    cascade_num = int(model_flag[0])
+    assert cascade_num <= sg_bm_extract_idx.shape[0]
+    mlps,mlp2s = get_sa_module_config(model_flag)
     l_xyz = []
     l_points = []
     l_xyz.append( grouped_rawdata )
