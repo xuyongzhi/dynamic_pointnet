@@ -421,6 +421,13 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
     ## estimate the all detection results
+    # format of all_pred_boxes: index, l, w, h, theta, x, y, z, score
+    # format of gt_boxes: type, l, w, h, theta, x, y, z
+    # put assemble all_pred_class_val and all_pred_box_val together accroding to
+    # the format of all_pred_boxes
+    # using 0.05 to select the all prediction, getting all_3D_box
+    all_pred_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val)
+
     # use 3D nms to filter out detection results from all_pred_class_val and
     # all_pred_box_val
 
@@ -437,6 +444,28 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     return eval_logstr
 
+def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, thresh = 0.05):
+    all_pred_boxes = np.zeros([1,9])  # index, l, w, h, theta, x, y, z, score
+    num_batch = len(all_pred_class_val)
+    batch_size = all_pred_class_val[0].shape[0]
+    num_class   = cfg.TRAIN.NUM_CLASSES
+    num_regression = cfg.TRAIN.NUM_REGRESSION
+    num_anchors = cfg.TRAIN.NUM_ANCHORS
+    # generate, (num_samples x num_point) x 9
+    for i in range(num_batch):
+        for j in range(batch_size):
+            index = i*batch_size + j
+            temp_pred_class = np.array([all_pred_class_val[i][j,:,(x*num_class+1):((x+1)*num_class)] for x in range(num_anchors)]) ##shape: n x 1
+            temp_pred_class = temp_pred_class.reshape(-1, 1)  # shape: n x 1
+            temp_pred_box   = np.array([all_pred_box_val[i][j,:,(x*num_regression):((x+1)*num_regression)] for x in range(num_anchors)])
+            temp_pred_box   = temp_pred_box.reshape(-1, num_regression) # shape: n x 7
+            temp_index      = np.full((temp_pred_box.shape[0],1), index) # shape: n x 1
+            temp_all_       = np.concatenate((temp_index, temp_pred_box, temp_pred_class),axis=1) # shape: n x 9
+            all_pred_boxes  = np.append(all_pred_boxes, temp_all_, axis=0)
+    all_pred_boxes = np.delete(all_pred_boxes, 0, 0)
+    all_pred_boxes = all_pred_boxes[ np.where( all_pred_boxes[:,8] >= thresh)[0], :]
+
+    return all_pred_boxes
 
 def add_train_feed_buf(train_feed_buf_q):
     with tf.device('/cpu:0'):
