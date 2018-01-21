@@ -29,7 +29,8 @@ from evaluation import EvaluationMetrics
 from kitti_data_net_provider import kitti_data_net_provider #Normed_H5f,Net_Provider
 from config import cfg
 import multiprocessing as mp
-
+from bbox_transform import bbox_transform_inv
+from nms_3d import nms_3d
 
 
 ISDEBUG = False
@@ -213,6 +214,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'is_training_pl': is_training_pl,
                 'pred_class': pred_class,
                'pred_box': pred_box
+               'xyz_pl': xyz_pl
                'loss': loss,
                'train_op': train_op,
                'merged': merged,
@@ -377,6 +379,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     all_gt_box = []
     all_pred_class_val = []
     all_pred_box_val = []
+    all_xyz   = []
     batch_idx = -1
     label
     while (batch_idx < num_batches-1) or (num_batches==None):
@@ -402,7 +405,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                      ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights }
-        summary, step, loss_val, pred_class_val, pred_box_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_box']],
+        summary, step, loss_val, pred_class_val, pred_box_val, xyz_pl = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_box']], ops['xyz_pl']
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
@@ -411,6 +414,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         all_gt_box.append(gt_box)  # all_gt_box is a list, num_batches x BATCH_SIZE x ( k*8 ), all_gt_box[n][m] is the ground truth box of one label image.
         all_pred_class_val.append(pred_class_val)  # the all_pred_class_val is the list, num_batches x BATCH_SIZE x point_num x 4, all_pred_val[n] is the narray of BATCH_SIZE x point_num
         all_pred_box_val.append(pred_box_val)  # the all_pred_box_val is also list, num_batches x BATCH_SIZE x point_num x 14, all_pred_box_val[n] is the narray of BATCH_SIZE x point_num
+        all_xyz.append(xyz_pl)    # the all_xyz shape: num_batches x (BATCHSIZE X point_num x3)
 
         if False and (batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0)):
             pred_logits = np.argmax(pred_class_val, 2)
@@ -426,11 +430,11 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     # put assemble all_pred_class_val and all_pred_box_val together accroding to
     # the format of all_pred_boxes
     # using 0.05 to select the all prediction, getting all_3D_box
-    all_pred_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val)
+    all_pred_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz)
 
     # use 3D nms to filter out detection results from all_pred_class_val and
     # all_pred_box_val
-
+    all_nms_boxes =  nms_3d(all_pred_boxes, cfg.TEST.NMS)
     # caculate the average precision with the detection results
 
     # delete the all_gt_box, all_pred_class_val and all_pred_box_val to save
@@ -444,30 +448,61 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     return eval_logstr
 
-def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, thresh = 0.05):
-    all_pred_boxes = np.zeros([1,9])  # index, l, w, h, theta, x, y, z, score
+def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, thresh = 0.05):
+    #all_pred_boxes = np.zeros([1,9])  #index, l, w, h, theta, x, y, z, score
+    all_pred_boxes = []  # saved in list
     num_batch = len(all_pred_class_val)
     batch_size = all_pred_class_val[0].shape[0]
-    num_class   = cfg.TRAIN.NUM_CLASSES
-    num_regression = cfg.TRAIN.NUM_REGRESSION
-    num_anchors = cfg.TRAIN.NUM_ANCHORS
-    # generate, (num_samples x num_point) x 9
+    # num_class   = cfg.TRAIN.NUM_CLASSES
+    # num_regression = cfg.TRAIN.NUM_REGRESSION
+    # num_anchors = cfg.TRAIN.NUM_ANCHORS
+    # anchor_length = cfg.TRAIN.Anchors[0]
+    # anchor_width  = cfg.TRAIN.Anchors[1]
+    # anchor_height = cfg.TRAIN.Anchors[2]
+    # anchor_alpha  = cfg.TRAIN.Alpha
+
+    # generate, (num_samples x num_point) x 8
     for i in range(num_batch):
         for j in range(batch_size):
             index = i*batch_size + j
             temp_pred_class = np.array([all_pred_class_val[i][j,:,(x*num_class+1):((x+1)*num_class)] for x in range(num_anchors)]) ##shape: n x 1
             temp_pred_class = temp_pred_class.reshape(-1, 1)  # shape: n x 1
-            temp_pred_box   = np.array([all_pred_box_val[i][j,:,(x*num_regression):((x+1)*num_regression)] for x in range(num_anchors)])
-            temp_pred_box   = temp_pred_box.reshape(-1, num_regression) # shape: n x 7
-            temp_index      = np.full((temp_pred_box.shape[0],1), index) # shape: n x 1
-            temp_all_       = np.concatenate((temp_index, temp_pred_box, temp_pred_class),axis=1) # shape: n x 9
-            all_pred_boxes  = np.append(all_pred_boxes, temp_all_, axis=0)
-    all_pred_boxes = np.delete(all_pred_boxes, 0, 0)
-    all_pred_boxes = all_pred_boxes[ np.where( all_pred_boxes[:,8] >= thresh)[0], :]
+            '''
+            # l, w, h, alpha, x, y ,z
+            temp_pred_box_l   = np.array([ np.exp(all_pred_box_val[i][j,:,(x*num_regression)])*anchor_length  for x in range(num_anchors)])
+            temp_pred_box_l   = temp_pred_box_l.reshape(-1,1)
+            temp_pred_box_w   = np.array([ np.  exp(all_pred_box_val[i][j,:,(x*num_regression+1)])*anchor_width  for x in range(num_anchors)])
+            temp_pred_box_w   = temp_pred_box_w.reshape(-1,1)
+            temp_pred_box_h   = np.array([ np.exp(all_pred_box_val[i][j,:,(x*num_regression+2)])*anchor_height  for x in range(num_anchors)])
+            temp_pred_box_h   = temp_pred_box_h.reshape(-1,1)
+            temp_pred_box_alpha = np.array([ all_pred_box_val[i][j,:,(x*num_regression+3)]*np.pi/4+anchor_alpha[x,0]  for x in range(num_anchors)])
+            temp_pred_box_alpha = temp_pred_box_alpha.reshape(-1,1)
+            temp_pred_box_x   = np.array([ all_pred_box_val[i][j,:,(x*num_regression+4)]*anchor_length + all_xyz[i][j,:,0]  for x in range(num_anchors) ])
+            temp_pred_box_x   = temp_pred_box_x.reshape(-1,1)
+            temp_pred_box_y   = np.array([ all_pred_box_val[i][j,:,(x*num_regression+5)]*anchor_width + all_xyz[i][j,:,1]  for x in range(num_anchors) ])
+            temp_pred_box_y   = temp_pred_box_y.reshape(-1,1)
+            temp_pred_box_z   = np.array([ all_pred_box_val[i][j,:,(x*num_regression+6)]*anchor_height + all_xyz[i][j,:,3]  for x in range(num_anchors) ])
+            temp_pred_box_z   = temp_pred_box_z.reshape(-1,1)
+
+            #temp_pred_box   = np.array([all_pred_box_val[i][j,:,(x*num_regression):((x+1)*num_regression)] for x in range(num_anchors)])
+            #temp_pred_box   = temp_pred_box.reshape(-1, num_regression) # shape: n x 7
+            '''
+            temp_all_box = bbox_transform_inv(all_pred_box_val[i][j,:,:], all_xyz[i][j,:,:])
+
+            #temp_index      = np.full((temp_pred_class.shape[0],1), index) # shape: n x 1
+            # temp_all_       = np.concatenate((temp_index, temp_pred_box_l, temp_pred_box_w, temp_pred_box_h, temp_pred_box_alpha, temp_pred_box_x, temp_pred_box_y, temp_pred_box_z,  temp_pred_class),axis=1) # shape: n x 9
+            temp_all_       =  np.concatenate(( temp_all_box,temp_pred_class), axis=1)
+            ## getting box whose confidence is over thresh
+            temp_all_       = temp_all_[ np.where( temp_all_[:,7] >= thresh)[0], :]  ## temp_all_ shape: n x 8
+            ## useing nms
+            temp_all_       = nms_3d(temp_all_, cfg.TEST.NMS)
+            all_pred_boxes  = all_pred_boxes.append(temp_all_)
+    # all_pred_boxes = np.delete(all_pred_boxes, 0, 0)
+    # all_pred_boxes = all_pred_boxes[ np.where( all_pred_boxes[:,8] >= thresh)[0], :]
 
     return all_pred_boxes
 
-def add_train_feed_buf(train_feed_buf_q):
+def add_train_feed_buf(train_feed_buf_q):temp_pred_box_x   = temp_pred_box_x.reshape(-1,1)
     with tf.device('/cpu:0'):
         max_buf_size = 20
         num_blocks = data_provider.num_train_data  #num_blocks = net_provider.train_num_blocks
