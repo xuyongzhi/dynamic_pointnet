@@ -56,12 +56,12 @@ def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
 
     num_ind = sorted_ind.shape[0]
     tp  = np.zeros(num_ind)
-    fp  = np.zeros(num_Ind)
+    fp  = np.zeros(num_ind)
 
     for d in range(num_ind):   # index in sorted_ind
         np_index_cur = sorted_ind[d]  # index in np_all_boxes
-        gt_index_cur = np_all_boxes[ np_index_cur ,0]  # index in gt_boxes
-        coordinate_cur = convert_to_list_points(np_all_boxes[ np_index_cur, 1:8])
+        gt_index_cur = int( np_all_boxes[ np_index_cur ,0] ) # index in gt_boxes
+        coordinate_cur = convert_to_list_points(np_all_boxes[ np_index_cur, 1:8].reshape(1, -1))[0]
         # coordinate_cur_gt = all_gt_boxes_coordinate[ gt_index_cur ]
 
         ratio_overlap = caculate_3d_overlap( np_all_boxes[np_index_cur,1:8], coordinate_cur, all_gt_boxes[gt_index_cur], all_gt_boxes_coordinate[ gt_index_cur ])
@@ -85,6 +85,12 @@ def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
 
 
 
-
-
-
+if __name__ == '__main__':
+    # generating the data
+    num_box = 400
+    all_pred_boxes  = []
+    all_gt_boxes = []
+    for i in range(num_box):
+        all_pred_boxes.append( np.random.rand( np.random.randint(2,50) ,8))
+        all_gt_boxes.append( np.random.rand( np.random.randint(2,50) ,7))
+    evaluation_3d(all_pred_boxes,all_gt_boxes)
