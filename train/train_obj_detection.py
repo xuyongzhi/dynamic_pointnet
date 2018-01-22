@@ -31,6 +31,7 @@ from config import cfg
 import multiprocessing as mp
 from bbox_transform import bbox_transform_inv
 from nms_3d import nms_3d
+from evaluation_3d import evaluation_3d
 
 
 ISDEBUG = False
@@ -425,42 +426,33 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
 
     ## estimate the all detection results
-    # format of all_pred_boxes: index, l, w, h, theta, x, y, z, score
+    # format of all_pred_boxes: l, w, h, theta, x, y, z, score
     # format of gt_boxes: type, l, w, h, theta, x, y, z
     # put assemble all_pred_class_val and all_pred_box_val together accroding to
     # the format of all_pred_boxes
     # using 0.05 to select the all prediction, getting all_3D_box
-    all_pred_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz)
+    # using nms_3d to filter out the all bounding box
+    all_pred_boxes, all_gt_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, all_gt_box, 0.05)
 
-    # use 3D nms to filter out detection results from all_pred_class_val and
-    # all_pred_box_val
-    all_nms_boxes =  nms_3d(all_pred_boxes, cfg.TEST.NMS)
     # caculate the average precision with the detection results
-
+    aveg_precision = evaluation_3d(all_pred_boxes, all_gt_boxes, cfg.TEST.RPN_NMS_THRESH )
     # delete the all_gt_box, all_pred_class_val and all_pred_box_val to save
     # memory
-
+    print('The average precision is {}'.format(aveg_precision))
     #if FLAGS.only_evaluate:
     #    obj_dump_dir = os.path.join(FLAGS.log_dir,'obj_dump')
     #    net_provider.gen_gt_pred_objs(FLAGS.visu,obj_dump_dir)
     #    net_provider.write_file_accuracies(FLAGS.log_dir)
     #    print('\nobj out path:'+obj_dump_dir)
 
-    return eval_logstr
+    return aveg_precision
 
-def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, thresh = 0.05):
-    #all_pred_boxes = np.zeros([1,9])  #index, l, w, h, theta, x, y, z, score
+def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, all_gt_box , thresh = 0.05):
+    #all_pred_boxes = np.zeros([1,8])  #l, w, h, theta, x, y, z, score
     all_pred_boxes = []  # saved in list
     num_batch = len(all_pred_class_val)
     batch_size = all_pred_class_val[0].shape[0]
-    # num_class   = cfg.TRAIN.NUM_CLASSES
-    # num_regression = cfg.TRAIN.NUM_REGRESSION
-    # num_anchors = cfg.TRAIN.NUM_ANCHORS
-    # anchor_length = cfg.TRAIN.Anchors[0]
-    # anchor_width  = cfg.TRAIN.Anchors[1]
-    # anchor_height = cfg.TRAIN.Anchors[2]
-    # anchor_alpha  = cfg.TRAIN.Alpha
-
+    gt_box_ = []
     # generate, (num_samples x num_point) x 8
     for i in range(num_batch):
         for j in range(batch_size):
@@ -496,11 +488,13 @@ def boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, thresh 
             temp_all_       = temp_all_[ np.where( temp_all_[:,7] >= thresh)[0], :]  ## temp_all_ shape: n x 8
             ## useing nms
             temp_all_       = nms_3d(temp_all_, cfg.TEST.NMS)
-            all_pred_boxes  = all_pred_boxes.append(temp_all_)
+
+            all_pred_boxes.append(temp_all_)
+            gt_box_.append(all_gt_box[i][j])
     # all_pred_boxes = np.delete(all_pred_boxes, 0, 0)
     # all_pred_boxes = all_pred_boxes[ np.where( all_pred_boxes[:,8] >= thresh)[0], :]
 
-    return all_pred_boxes
+    return all_pred_boxes, gt_box_
 
 def add_train_feed_buf(train_feed_buf_q):temp_pred_box_x   = temp_pred_box_x.reshape(-1,1)
     with tf.device('/cpu:0'):
