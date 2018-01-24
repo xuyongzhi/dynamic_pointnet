@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(__file__)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, '../config'))
 import numpy as np
-
+from config import cfg
 
 
 def bbox_transform(anch_boxes, gt_boxes):
@@ -66,7 +66,7 @@ def bbox_transform_inv(pred_box, xyz):
     temp_pred_box_x   = temp_pred_box_x.reshape(-1,1)
     temp_pred_box_y   = np.array([ pred_box[:,(x*num_regression+5)]*anchor_width + xyz[:,1]  for x in range(num_anchors) ])
     temp_pred_box_y   = temp_pred_box_y.reshape(-1,1)
-    temp_pred_box_z   = np.array([ pred_box[i][j,:,(x*num_regression+6)]*anchor_height + xyz[:,2]  for x in range(num_anchors) ])
+    temp_pred_box_z   = np.array([ pred_box[:,(x*num_regression+6)]*anchor_height + xyz[:,2]  for x in range(num_anchors) ])
     temp_pred_box_z   = temp_pred_box_z.reshape(-1,1)
 
     all_box = np.hstack((temp_pred_box_l, temp_pred_box_w, temp_pred_box_h, temp_pred_box_alpha, temp_pred_box_x, temp_pred_box_y, temp_pred_box_z))

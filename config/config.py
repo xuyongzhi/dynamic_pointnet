@@ -40,7 +40,7 @@ __C.TRAIN.NUM_CLASSES = 2  ## background and vehicle, start training from simple
 __C.TRAIN.NUM_CHANNELS = 3 ## xyz
 
 # number of evaluation
-__C.TRAIN.EVALUATION_NUM = 1000
+__C.TRAIN.EVALUATION_NUM = 40 # 1000
 
 # number of regression parameters,  7 = x,y,z,l,w,h,theta
 __C.TRAIN.NUM_REGRESSION = 7
@@ -68,7 +68,7 @@ __C.TRAIN.USE_FLIPPED = True
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = np.ones((1,__C.TRAIN.NUM_REGRESSION))*1.0 # (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 
 
-__C.TRAIN.DEBUG = True
+__C.TRAIN.DEBUG = False #True
 
 
 __C.TRAIN.SIGMA = 2.0

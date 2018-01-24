@@ -20,7 +20,7 @@ def average_precsion(recall, precesion):
             p = np.sum(precesion[recall>=t])
         aveg_precision = aveg_precision + p/11.
 
-    return average_precsion
+    return aveg_precision
 
 
 def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
@@ -81,8 +81,8 @@ def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
     # ground truth
     precesion = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
 
-    avg_percesion = average_precsion(recall, precesion)
-
+    aveg_precision = average_precsion(recall, precesion)
+    return aveg_precision
 
 
 if __name__ == '__main__':
