@@ -9,12 +9,12 @@
 
 ## Object detection training plan
 
-### architecture of detection
-#### points sampling
-#### points grouping
-#### pointNet
-#### classification with fully connected network
-#### regression with fully connected network
+### 1. architecture of detection
+#### 2. points sampling
+#### 3. points grouping
+#### 4. pointNet
+#### 5. classification with fully connected network
+#### 6. regression with fully connected network
 
 
 ### parameters to tune
