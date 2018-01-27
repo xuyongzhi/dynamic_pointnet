@@ -104,15 +104,15 @@ def caculate_3d_overlap(cur_box, cur_coordinate, rest_box, rest_coordinate):
     value_1  = ( cur_box[2] + rest_box[:,2])/2. - np.abs( cur_box[6] - rest_box[:,6])
     value_1  = value_1.reshape(-1,1)
     height_overlap[cond_1] = value_1[cond_1]
-    cond_2   = np.where( np.abs( cur_box[2] - rest_box[:,2] )/2 > np.abs( cur_box[6] - rest_box[:,6]))[0]
-    value_2  = ( cur_box[2] + rest_box[:, 2] )/2 - np.abs( cur_box[2] - rest_box[:, 2])/2
+    cond_2   = np.where( np.abs( cur_box[2] - rest_box[:,2] )/2. > np.abs( cur_box[6] - rest_box[:,6]))[0]
+    value_2  = ( cur_box[2] + rest_box[:, 2] )/2. - np.abs( cur_box[2] - rest_box[:, 2])/2.
     value_2  = value_2.reshape(-1,1)
     height_overlap[cond_2] = value_2[cond_2]
     # 3D bounding box overlap area is birdview_overlap x height_overlap
     area_overlap = birdview_overlap*height_overlap
     cur_box_area = cur_polygon.area * cur_box[2]
     rest_box_area = np.array([[ rest_polygon[n].area * rest_box[n,2] ] for n in range( num_rest )])
-    ratio_overlap = area_overlap / ( cur_box_area + rest_box_area - area_overlap ) ## np.arry
+    ratio_overlap = area_overlap /np.maximum( cur_box_area + rest_box_area - area_overlap, np.finfo(np.float64).eps) ## np.arry
 
     return ratio_overlap
 
