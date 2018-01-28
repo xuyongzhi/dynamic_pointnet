@@ -215,9 +215,9 @@ class Matterport3D_Prepare():
     The semantic labels of each point are achieved from faces.
     '''
 
-    matterport3D_root_dir = '/home/z/DS/Matterport3D/Matterport3D_Whole'
-    matterport3D_extracted_dir = '/home/z/DS/Matterport3D/Matterport3D_Whole_extracted'
-    matterport3D_h5f_dir = '/home/z/DS/Matterport3D/Matterport3D_H5F'
+    matterport3D_root_dir = '/DS/Matterport3D/Matterport3D_Whole'
+    matterport3D_extracted_dir = '/DS/Matterport3D/Matterport3D_Whole_extracted'
+    matterport3D_h5f_dir = '/DS/Matterport3D/Matterport3D_H5F'
 
     def __init__(self,house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
         self.house_name = house_name
@@ -501,7 +501,7 @@ class Matterport3D_Prepare():
 
     def GenObj_RawH5f(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
-        file_name = '/home/z/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
+        file_name = '/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
         xyz_cut_rate= [0,0,0.9]
         with h5py.File(file_name,'r') as h5f:
             rawh5f = Raw_H5f(h5f,file_name)
@@ -529,8 +529,8 @@ class Matterport3D_Prepare():
         file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
         #file_name = self.house_rawh5f_dir + '/region2.rh5'
         #file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region2.prh5'
-        file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1/region1.prh5'
-        #file_name = '/home/y/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5/17DRP5sb8fy_stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1.prh5'
+        file_name = '/DS/Matterport3D/Matterport3D_H5F/v1/scans/17DRP5sb8fy/stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1/region1.prh5'
+        #file_name = '/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5/17DRP5sb8fy_stride_0d1_step_0d1_pyramid-1_2-512_256_64-128_12_6-0d2_0d6_1d1.prh5'
         IsIntact,check_str = check_h5fs_intact(file_name)
         if IsIntact:
             with h5py.File(file_name,'r') as h5f:
@@ -547,7 +547,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
+    MultiProcess = 4
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -556,7 +556,7 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed-region']
-    operations  = ['MergeNormed-house']
+    #operations  = ['MergeNormed-house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -608,7 +608,6 @@ def parse_house_ls():
     all_house_names = os.listdir(scans_name_abs)
 
     house_names = all_house_names
-    house_names = house_names_test
 
     for house_name in house_names:
         parse_house(house_name,scans_name)

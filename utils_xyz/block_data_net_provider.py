@@ -69,6 +69,8 @@ class Net_Provider():
         eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.normed_h5f_file_list =  normed_h5f_file_list = train_file_list + eval_file_list
+        if len(normed_h5f_file_list) > 5:
+            print('WARNING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(normed_h5f_file_list)))
         #-----------------------------------------------------------------------
         # open each file as a Normed_H5f class instance
         self.norm_h5f_L = []
@@ -466,7 +468,7 @@ class Net_Provider():
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=True):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
-        assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks)
+        assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks),"eval_end_batch_idx = %d,  eval_num_blocks=%d"%(eval_end_batch_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
