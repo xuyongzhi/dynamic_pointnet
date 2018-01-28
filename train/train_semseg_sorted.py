@@ -31,13 +31,14 @@ if IS_GEN_PLY:
     IsShuffleIdx = False
 else:
     IsShuffleIdx = True
+#IsShuffleIdx = False
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='3A', help='model flag')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--datafeed_type', default='SortedH5f', help='SortedH5f or Normed_H5f or Pr_NormedH5f')
-parser.add_argument('--all_fn_globs', type=str,default='all_merged_nf5/stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2',\
+parser.add_argument('--all_fn_globs', type=str,default='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2',\
                     help='The file name glob for both training and evaluation')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm', help='xyz_1norm,xyz_midnorm,color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category,label_instance')
@@ -124,6 +125,8 @@ BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
+
+print('BATCH_SIZE = %d'%(BATCH_SIZE))
 
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')

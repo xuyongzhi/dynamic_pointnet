@@ -3473,6 +3473,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
             return
     if not os.path.exists( os.path.dirname(merged_filename) ):
         os.makedirs( os.path.dirname(merged_filename) )
+    print('start generating merged file: %s'%(merged_filename))
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
 
