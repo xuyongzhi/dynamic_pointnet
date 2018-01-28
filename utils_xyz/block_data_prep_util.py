@@ -719,12 +719,19 @@ class GlobalSubBaseBLOCK():
         assert f_format == '.bmh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
-        with h5py.File(file_name,'r') as h5f:
-            if 'is_intact' not in h5f.attrs:
-                return False,""
-            IsIntact = h5f.attrs['is_intact'] == 1
-            print('bmh5 file intact:',file_name)
-            return IsIntact,""
+        if os.path.getsize( file_name ) / 1000.0 < 20:
+            return False,"file too small < 20 K"
+        try:
+            print('checking bmh5 file:',file_name)
+            with h5py.File(file_name,'r') as h5f:
+                if 'is_intact' not in h5f.attrs:
+                    return False,""
+                IsIntact = h5f.attrs['is_intact'] == 1
+                print('bmh5 file intact:',file_name)
+                return IsIntact,""
+        except RuntimeError as err:
+            print('please delete %s'%(root_s_h5f_fn))
+            return False, err
 
       #      attrs_to_check = ['num_group','cascade_idstr_ls']
       #      for attrs in attrs_to_check:
@@ -780,7 +787,7 @@ class GlobalSubBaseBLOCK():
                     new_total_block_N += 1
                     basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
 
-            if new_block_id%max(1,int(max_new_block_id/5))==0:
+            if new_block_id >0 and new_block_id % 10000==0:
                 rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
                 print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
@@ -1034,14 +1041,13 @@ class Raw_H5f():
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
-        try:
-            with h5py.File(file_name,'r') as h5f:
-                attrs_to_check = ['xyz_max','xyz_min']
-                for attrs in attrs_to_check:
-                    if attrs not in h5f.attrs:
-                        return False, "%s not in %s"%(attrs,file_name)
-        except:
-            return False,"Unable to open file"
+        if os.path.getsize( file_name ) / 1000.0 < 20:
+            return False,"file too small < 20 K"
+        with h5py.File(file_name,'r') as h5f:
+            attrs_to_check = ['xyz_max','xyz_min']
+            for attrs in attrs_to_check:
+                if attrs not in h5f.attrs:
+                    return False, "%s not in %s"%(attrs,file_name)
         return True,""
 
 
@@ -1228,6 +1234,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         assert f_format == '.sh5' or f_format == '.rsh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
+        if os.path.getsize( file_name ) / 1000.0 < 20:
+            return False,"file too small < 20 K"
         with h5py.File(file_name,'r') as h5f:
             if 'is_intact' in h5f.attrs:
                 IsIntact = h5f.attrs['is_intact'] == 1

@@ -200,7 +200,6 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_pyh5 = False
         Always_CreateNew_bmh5 = False
 
-        print(fn)
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
 
@@ -395,6 +394,8 @@ class Matterport3D_Prepare():
       #  base_step = [4,4,-1]
         base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
         file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+        #file_list.sort()
+        #file_list = ['/DS/Matterport3D/Matterport3D_H5F/v1/scans/gxdoqLR6rwA/stride_0d1_step_0d1/region2.sh5']
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -423,7 +424,7 @@ class Matterport3D_Prepare():
       #  numpoint_block = 8192
         base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(numpoint_block)
         file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
-
+        #file_list.sort()
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -609,7 +610,10 @@ def parse_house_ls():
 
     house_names = all_house_names
 
-    for house_name in house_names:
+    house_names.sort()
+
+    for i,house_name in enumerate(house_names):
+        print('\nstart parsing house %s  %d/%d\n'%(house_name,i,len(house_names)))
         parse_house(house_name,scans_name)
 
 def show_summary():

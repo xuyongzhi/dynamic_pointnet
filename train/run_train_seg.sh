@@ -9,7 +9,7 @@ train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
 maxepoch=1
-batchsize=24
+batchsize=2
 feed_label_elements="label_category,label_instance"
 datafeed_type='Pr_Normed_H5f'
 all_fn_globs='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
@@ -22,5 +22,5 @@ run_train="python $train_script  --feed_data_elements $feed_data_elements --feed
 
 run_train_multifeed="python $train_script  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
 
-$run_train
-#$run_train_multifeed
+#$run_train
+$run_train_multifeed
