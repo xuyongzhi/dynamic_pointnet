@@ -200,6 +200,7 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_pyh5 = False
         Always_CreateNew_bmh5 = False
 
+        print(fn)
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
 
@@ -214,10 +215,10 @@ class Matterport3D_Prepare():
     The semantic labels of each point are achieved from faces.
     '''
 
-    matterport3D_root_dir = '/home/y/DS/Matterport3D/Matterport3D_Whole'
-    matterport3D_extracted_dir = '/home/y/DS/Matterport3D/Matterport3D_Whole_extracted'
-    matterport3D_h5f_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F'
-    matterport3D_h5f_allmerged_dir = '/home/y/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5'
+    matterport3D_root_dir = '/home/z/DS/Matterport3D/Matterport3D_Whole'
+    matterport3D_extracted_dir = '/home/z/DS/Matterport3D/Matterport3D_Whole_extracted'
+    matterport3D_h5f_dir = '/home/z/DS/Matterport3D/Matterport3D_H5F'
+    matterport3D_h5f_allmerged_dir = '/home/z/DS/Matterport3D/Matterport3D_H5F/all_merged_nf5'
     if not os.path.exists(matterport3D_h5f_allmerged_dir):
         os.makedirs(matterport3D_h5f_allmerged_dir)
 
@@ -465,6 +466,7 @@ class Matterport3D_Prepare():
 
     def GenObj_RawH5f(self):
         file_name = self.house_rawh5f_dir+'/region1.rh5'
+        file_name = '/home/z/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
         xyz_cut_rate= [0,0,0.9]
         with h5py.File(file_name,'r') as h5f:
             rawh5f = Raw_H5f(h5f,file_name)
@@ -510,13 +512,13 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 5
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNorm']
     operations  = ['ParseRaw']
-    #operations  = ['SortRaw']
-    #operations  = ['GenPyramid']
+    operations  = ['SortRaw']
+    operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNorm']
     #operations  = ['GenObj_SortedH5f']
@@ -586,6 +588,5 @@ if __name__ == '__main__':
     #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
-
 
 

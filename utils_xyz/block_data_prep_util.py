@@ -781,7 +781,7 @@ class GlobalSubBaseBLOCK():
                     basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
 
             if new_block_id%max(1,int(max_new_block_id/5))==0:
-                rate = 1.0*new_block_id/max_new_block_id*100
+                rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
                 print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
         larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
@@ -2339,6 +2339,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
  #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
  #               for k_new in block_k_new_list:
 
+
         # (2) GROUP: Collect all the base blocks for each sub-point.
         global_block_datas = []
         global_block_labels = []
@@ -2356,6 +2357,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for point_index_in_root_block in range(valid_sample_k):
                     valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
                     flatten_bidxmap0.append(np.expand_dims(valid_point_index,axis=0) )
+
+        if len(flatten_bidxmap0)==0:
+            # all void points
+            return np.array([]),None,None,None,None
+
         flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
         num_candi_cas0bids = len(global_block_datas)  # the length may reduce because of removing void
 
@@ -2458,6 +2464,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             for global_block_id in all_sorted_global_bids:
                 block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
+                if block_datas.size == 0:
+                    continue
 
                 sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = gsbb.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
@@ -2467,6 +2475,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 file_datas.append(np.expand_dims(block_datas,axis=0))
                 file_labels.append(np.expand_dims(block_labels,axis=0))
+            if len(file_datas) == 0:
+                print('all point in this file are void')
+                return
             file_datas = np.concatenate(file_datas,axis=0)
             file_labels = np.concatenate(file_labels,axis=0)
 
@@ -3173,6 +3184,10 @@ class Normed_H5f():
         assert f_format == '.nh5' or f_format == '.prh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
+
+        if os.path.getsize( file_name ) / 1000.0 < 20:
+            return False,"file too small < 20 K"
+
         with h5py.File(file_name,'r') as h5f:
             if 'is_intact_nh5' not in h5f.attrs:
                 return False,""

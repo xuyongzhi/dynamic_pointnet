@@ -231,7 +231,7 @@ class Net_Provider():
                     all_file_list.append(fn)
 
             fn_globs.append(fn_glob)
-        assert len(all_file_list)!=0,"no file in"%(fn_globs)
+        assert len(all_file_list)!=0,"no file in %s"%(fn_globs)
         assert len(all_file_list)!=1,"only one file, should > 1 to seperate as train and test"
         return all_file_list
 
