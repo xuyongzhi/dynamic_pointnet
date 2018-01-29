@@ -9,11 +9,11 @@ train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
 maxepoch=5
-batchsize=24
+batchsize=2
 feed_label_elements="label_category,label_instance"
 datafeed_type='Pr_Normed_H5f'
-all_fn_globs='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
-eval_fnglob_or_rate='17D-1pX'
+all_fn_globs='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2/house_groups'
+eval_fnglob_or_rate='WYY-X7H-XcA-YFu-YVU-YmJ-Z6M-ZMo-aay-ac2-b8c-cV4-dhj-e9z-fzy'
 #feed_data_elements='xyz_1norm_file,xyz_midnorm_block'
 feed_data_elements='xyz_1norm_file,color_1norm'
 

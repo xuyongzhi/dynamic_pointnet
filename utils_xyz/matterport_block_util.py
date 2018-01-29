@@ -470,33 +470,53 @@ class Matterport3D_Prepare():
             elif flag == 'house':
                 all_file_list = glob.glob( os.path.join(merged_houses_path,'*.prh5') )
                 all_housenames_ls = [ os.path.splitext( os.path.basename(fn) )[0]  for fn in all_file_list]
-                house_names_test = ['17DRP5sb8fy','1pXnuDYAj8r']
-                train_basefn_ls = [ fn for fn in all_housenames_ls if not fn in house_names_test ]
-                test_basefn_ls = [ fn for fn in all_housenames_ls if  fn in house_names_test ]
-                train_basefn_ls.sort()
-                test_basefn_ls.sort()
-                train_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in train_basefn_ls ]
-                test_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in test_basefn_ls ]
+                all_housenames_ls.sort()
+                group_n = 15
+                for k in range( 0,len(all_housenames_ls),group_n ):
+                    house_names_k = all_housenames_ls[k:min(k+group_n,len(all_housenames_ls))]
+                    print('merging: ',house_names_k)
+                    filename_ls_k = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in house_names_k ]
 
-                train_merged_basefn = ''
-                for i in range(len(train_basefn_ls)):
-                    train_merged_basefn += train_basefn_ls[i][0:3]
-                    if i < len(train_basefn_ls)-1:
-                        train_merged_basefn += '-'
-                test_merged_basefn = ''
-                for i in range(len(test_basefn_ls)):
-                    test_merged_basefn += test_basefn_ls[i][0:3]
-                    if i < len(test_basefn_ls)-1:
-                        test_merged_basefn += '-'
+                    merged_basefn = ''
+                    for i in range(len(house_names_k)):
+                        merged_basefn += house_names_k[i][0:3]
+                        if i < len(house_names_k)-1:
+                            merged_basefn += '-'
 
-                merged_path = merged_base_path
-                if not os.path.exists(merged_path):
-                    os.makedirs(merged_path)
-                train_merged_fn = os.path.join( merged_path, train_merged_basefn+'.prh5' )
-                test_merged_fn = os.path.join( merged_path, test_merged_basefn+'.prh5' )
+                    merged_path = merged_base_path + '/house_groups/'
+                    if not os.path.exists(merged_path):
+                        os.makedirs(merged_path)
+                    merged_fn = os.path.join( merged_path, merged_basefn+'.prh5' )
 
-                MergeNormed_H5f(train_file_ls,train_merged_fn,IsShowSummaryFinished=True)
-                MergeNormed_H5f(test_file_ls,test_merged_fn,IsShowSummaryFinished=True)
+                    MergeNormed_H5f(filename_ls_k,merged_fn,IsShowSummaryFinished=True)
+
+                #house_names_test = ['17DRP5sb8fy','1pXnuDYAj8r']
+                #train_basefn_ls = [ fn for fn in all_housenames_ls if not fn in house_names_test ]
+                #test_basefn_ls = [ fn for fn in all_housenames_ls if  fn in house_names_test ]
+                #train_basefn_ls.sort()
+                #test_basefn_ls.sort()
+                #train_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in train_basefn_ls ]
+                #test_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in test_basefn_ls ]
+
+                #train_merged_basefn = ''
+                #for i in range(len(train_basefn_ls)):
+                #    train_merged_basefn += train_basefn_ls[i][0:3]
+                #    if i < len(train_basefn_ls)-1:
+                #        train_merged_basefn += '-'
+                #test_merged_basefn = ''
+                #for i in range(len(test_basefn_ls)):
+                #    test_merged_basefn += test_basefn_ls[i][0:3]
+                #    if i < len(test_basefn_ls)-1:
+                #        test_merged_basefn += '-'
+
+                #merged_path = merged_base_path
+                #if not os.path.exists(merged_path):
+                #    os.makedirs(merged_path)
+                #train_merged_fn = os.path.join( merged_path, train_merged_basefn+'.prh5' )
+                #test_merged_fn = os.path.join( merged_path, test_merged_basefn+'.prh5' )
+
+                #MergeNormed_H5f(train_file_ls,train_merged_fn,IsShowSummaryFinished=True)
+                #MergeNormed_H5f(test_file_ls,test_merged_fn,IsShowSummaryFinished=True)
 
 
 
@@ -556,8 +576,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNormed_region']
-    #operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']

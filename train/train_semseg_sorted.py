@@ -28,7 +28,7 @@ ISSUMMARY = False
 TMP_DEBUG = False
 if TMP_DEBUG:
     DEBUG_MULTIFEED=True
-    DEBUG_SMALLDATA=True
+    DEBUG_SMALLDATA=False
 else:
     DEBUG_MULTIFEED=False
     DEBUG_SMALLDATA=False
@@ -152,7 +152,7 @@ DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
-MAX_MULTIFEED_NUM = 3
+MAX_MULTIFEED_NUM = 5
 
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
