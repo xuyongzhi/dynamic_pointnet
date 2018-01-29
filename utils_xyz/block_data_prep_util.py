@@ -719,7 +719,7 @@ class GlobalSubBaseBLOCK():
         assert f_format == '.bmh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 20:
+        if os.path.getsize( file_name ) / 1000.0 < 100:
             return False,"file too small < 20 K"
         try:
             print('checking bmh5 file:',file_name)
@@ -1041,7 +1041,7 @@ class Raw_H5f():
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 20:
+        if os.path.getsize( file_name ) / 1000.0 < 100:
             return False,"file too small < 20 K"
         with h5py.File(file_name,'r') as h5f:
             attrs_to_check = ['xyz_max','xyz_min']
@@ -1234,7 +1234,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         assert f_format == '.sh5' or f_format == '.rsh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 20:
+        if os.path.getsize( file_name ) / 1000.0 < 100:
             return False,"file too small < 20 K"
         with h5py.File(file_name,'r') as h5f:
             if 'is_intact' in h5f.attrs:
@@ -3193,9 +3193,8 @@ class Normed_H5f():
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
 
-        if os.path.getsize( file_name ) / 1000.0 < 20:
-            return False,"file too small < 20 K"
-
+        if os.path.getsize( file_name ) / 1000.0 < 100:
+            return False,"file too small < 100 K"
         with h5py.File(file_name,'r') as h5f:
             if 'is_intact_nh5' not in h5f.attrs:
                 return False,""

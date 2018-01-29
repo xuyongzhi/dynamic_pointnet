@@ -66,7 +66,7 @@ class Net_Provider():
         else:
             open_type = 'r'
         self.train_file_N = train_file_N = len(train_file_list)
-        eval_file_N = len(eval_file_list)
+        self.eval_file_N = eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.normed_h5f_file_list =  normed_h5f_file_list = train_file_list + eval_file_list
         if len(normed_h5f_file_list) > 5:
@@ -451,10 +451,27 @@ class Net_Provider():
         return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps
 
     def update_train_eval_shuffled_idx(self):
-        self.train_shuffled_idx = np.arange(self.train_num_blocks)
-        np.random.shuffle(self.train_shuffled_idx)
-        self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
-        np.random.shuffle(self.eval_shuffled_idx)
+        flag = 'shuffle_within_each_file'
+        if flag == 'shuffle_within_each_file':
+            train_shuffled_idxs = []
+            for k in range(self.train_file_N):
+                train_shuffled_idx_k = np.arange( self.g_block_idxs[k,0], self.g_block_idxs[k,1] )
+                np.random.shuffle(train_shuffled_idx_k)
+                train_shuffled_idxs.append( train_shuffled_idx_k )
+            self.train_shuffled_idx = np.concatenate( train_shuffled_idxs )
+
+            eval_shuffled_idxs = []
+            for k in range(self.eval_file_N):
+                eval_shuffled_idx_k = np.arange( self.g_block_idxs[k+self.train_file_N,0], self.g_block_idxs[k+self.train_file_N,1] ) - self.train_num_blocks
+                np.random.shuffle(eval_shuffled_idx_k)
+                eval_shuffled_idxs.append( eval_shuffled_idx_k )
+            self.eval_shuffled_idx = np.concatenate( eval_shuffled_idxs )
+
+        if flag == 'shuffle_within_all':
+            self.train_shuffled_idx = np.arange(self.train_num_blocks)
+            np.random.shuffle(self.train_shuffled_idx)
+            self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
+            np.random.shuffle(self.eval_shuffled_idx)
 
     def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx=True):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
@@ -467,7 +484,7 @@ class Net_Provider():
             return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=True):
-        assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks)
+        assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks),"eval_start_batch_idx = %d,  eval_num_blocks=%d"%(eval_start_batch_idx,self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks),"eval_end_batch_idx = %d,  eval_num_blocks=%d"%(eval_end_batch_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:

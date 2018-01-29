@@ -25,13 +25,19 @@ import multiprocessing as mp
 from ply_util import create_ply_matterport
 
 ISSUMMARY = False
-TMP_DEBUG = True
+TMP_DEBUG = False
+if TMP_DEBUG:
+    DEBUG_MULTIFEED=True
+    DEBUG_SMALLDATA=True
+else:
+    DEBUG_MULTIFEED=False
+    DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
 if IS_GEN_PLY:
     IsShuffleIdx = False
 else:
     IsShuffleIdx = True
-IsShuffleIdx = False
+#IsShuffleIdx = False
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
@@ -144,11 +150,15 @@ NUM_LABEL_ELES = net_provider.label_num_eles
 LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
 DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
+TRAIN_FILE_N = net_provider.train_file_N
+EVAL_FILE_N = net_provider.eval_file_N
+MAX_MULTIFEED_NUM = 3
 
 BLOCK_SAMPLE = net_provider.block_sample
-if  TMP_DEBUG:
-    MAX_eval_num_batches = 5
-    MAX_train_num_batches = 5
+if  DEBUG_SMALLDATA:
+    LIMIT_MAX_NUM_BATCHES = {}
+    LIMIT_MAX_NUM_BATCHES['train'] = 10
+    LIMIT_MAX_NUM_BATCHES['test'] = 10
 
 START_TIME = time.time()
 
@@ -177,7 +187,7 @@ def get_bn_decay(batch):
     bn_decay = tf.minimum(BN_DECAY_CLIP, 1 - bn_momentum)
     return bn_decay
 
-def train_eval(train_feed_buf_q,eval_feed_buf_q):
+def train_eval(train_feed_buf_q, train_feed_thread_finish_num, eval_feed_buf_q, eval_feed_thread_finish_num, lock):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
             if FLAGS.datafeed_type == 'Normed_H5f':
@@ -284,12 +294,12 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             if train_feed_buf_q == None:
                 net_provider.update_train_eval_shuffled_idx()
             if not FLAGS.only_evaluate:
-                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q)
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_feed_thread_finish_num, lock)
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
-            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
+            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_feed_thread_finish_num, lock )
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
@@ -326,14 +336,14 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
     log_string(log_str)
     return log_str
 
-def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
+def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_feed_thread_finish_num, lock):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
     num_blocks = net_provider.train_num_blocks
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
-        if TMP_DEBUG: num_batches = min(num_batches,MAX_train_num_batches)
+        #if DEBUG_SMALLDATA: num_batches = min(num_batches,LIMIT_MAX_NUM_BATCHES['train'])
         assert num_batches >0, "num_batches = 0, num_blocks = %d, BATCH_SIZE = %d"%(num_blocks,BATCH_SIZE)
     else:
         num_batches = None
@@ -348,7 +358,9 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
 
     t_batch_ls=[]
     train_logstr = ''
-    while (batch_idx < num_batches-1) or (num_batches==None):
+    while ( train_feed_buf_q!=None ) or  ( batch_idx < num_batches-1) or (num_batches==None):
+        # When use multi feed, stop with train_feed_thread_finish_num.value
+        # When use normal feed, stop with batch_idx
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
@@ -357,17 +369,23 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
         if train_feed_buf_q == None:
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
+            if train_feed_thread_finish_num.value ==  min(TRAIN_FILE_N,MAX_MULTIFEED_NUM) and train_feed_buf_q.qsize() == 0:
+                with lock:
+                    train_feed_thread_finish_num.value = 0
+                #if DEBUG_MULTIFEED: print('all %d train reading threads finished, epoch=%d  batch_idx=%d  set train_feed_thread_finish_num=%d'%(min(TRAIN_FILE_N,MAX_MULTIFEED_NUM),epoch,batch_idx,train_feed_thread_finish_num.value))
+                break
+
             bufread_t0 = time.time()
             while train_feed_buf_q.qsize() == 0:
-                #if TMP_DEBUG: print('[%d - %d] train_feed_buf_q.qsize == 0, waiting for data'%(epoch,batch_idx))
-                if time.time() - bufread_t0 > 1:
-                    print('\n\n\nERROR! no data in train_feed_buf_q for long time\n\n\n')
+                if time.time() - bufread_t0 > 2:
+                    print('\nWARING!!! no data in train_feed_buf_q for long time\n')
                     bufread_t0 = time.time()
                 time.sleep(0.2)
-            #print('train_feed_buf_q size= %d'%(train_feed_buf_q.qsize()))
+            #if DEBUG_MULTIFEED: print('get train_feed_buf_q size= %d,  batch_idx=%d'%(train_feed_buf_q.qsize(),batch_idx))
 
             cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
+        #if DEBUG_MULTIFEED: continue
 
         t1 = time.time()
         if type(cur_data) == type(None):
@@ -406,7 +424,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q):
                     create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-
         summary, step, _, loss_val, pred_val, accuracy_batch = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
                                     feed_dict=feed_dict)
 
@@ -432,7 +449,7 @@ def limit_eval_num_batches(epoch,num_batches):
         num_batches = min(num_batches,31)
     return num_batches
 
-def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
+def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_feed_thread_finish_num, lock):
     """ ops: dict mapping from string to tf ops """
     is_training = False
     total_seen = 0.00001
@@ -446,7 +463,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
         #num_batches = limit_eval_num_batches(epoch,num_batches)
-        if TMP_DEBUG: num_batches = min(num_batches,MAX_eval_num_batches)
+        #if DEBUG_SMALLDATA: num_batches = min(num_batches,LIMIT_MAX_NUM_BATCHES['test'])
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
             return ''
@@ -457,7 +474,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     t_batch_ls = []
     batch_idx = -1
 
-    while (batch_idx < num_batches-1) or (num_batches==None):
+    while (eval_feed_buf_q!=None) or (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
@@ -466,17 +483,23 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         if eval_feed_buf_q == None:
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx,IsShuffleIdx)
         else:
+            if eval_feed_thread_finish_num.value ==  min(EVAL_FILE_N,MAX_MULTIFEED_NUM) and eval_feed_buf_q.qsize() == 0:
+                with lock:
+                    eval_feed_thread_finish_num.value = 0
+                #if DEBUG_MULTIFEED: print('all %d eval reading threads finished, epoch=%d  batch_idx=%d  set feed_thread_finish_num=%d'%(min(EVAL_FILE_N,MAX_MULTIFEED_NUM),epoch,batch_idx,eval_feed_thread_finish_num.value))
+                break
             bufread_t0 = time.time()
             while eval_feed_buf_q.qsize() == 0:
-                #if TMP_DEBUG: print('[%d - %d]eval_feed_buf_q.qsize == 0, waiting for data'%(epoch,batch_idx))
-                if time.time() - bufread_t0 > 1:
-                    print('\n\n\nERROR! no data in eval_feed_buf_q for long time\n\n\n')
+                if time.time() - bufread_t0 > 2:
+                    print('\nWARING!!! no data in eval_feed_buf_q for long time\n')
                     bufread_t0 = time.time()
                 time.sleep(0.2)
             #print('eval_feed_buf_q size= %d'%(eval_feed_buf_q.qsize()))
 
             cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
+
+        #if DEBUG_MULTIFEED: continue
 
         t1 = time.time()
         if type(cur_data) == type(None):
@@ -525,98 +548,90 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     return eval_logstr
 
 
-def add_train_feed_buf(train_feed_buf_q, cpu_id, file_id_start, file_id_end):
+def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, feed_thread_finish_num, lock, limit_max_train_num_batches=None):
     with tf.device('/cpu:%d'%(cpu_id)):
         max_buf_size = 10
-        num_blocks = net_provider.train_num_blocks
-        if num_blocks!=None:
-            #num_batches = num_blocks // BATCH_SIZE
-            batch_idx_start = int(math.ceil( 1.0 * net_provider.g_block_idxs[file_id_start,0] / BATCH_SIZE ))
-            batch_idx_end = net_provider.g_block_idxs[file_id_end,1] // BATCH_SIZE
-            num_batches = batch_idx_end - batch_idx_start
-            if TMP_DEBUG: num_batches = min(num_batches,MAX_train_num_batches)
-            print('\n\ns e n',batch_idx_start,batch_idx_end,num_batches)
-        else:
-            batch_idx_start = 0
-            num_batches = None
+        block_idx_start = net_provider.g_block_idxs[file_id_start,0]
+        block_idx_end = net_provider.g_block_idxs[file_id_end,1]
+        if train_or_test=='test':
+            block_idx_start -= net_provider.eval_global_start_idx
+            block_idx_end -= net_provider.eval_global_start_idx
+        batch_idx_start = int(math.ceil( 1.0 * block_idx_start / BATCH_SIZE ))
+        batch_idx_end = block_idx_end // BATCH_SIZE
+        num_batches = batch_idx_end - batch_idx_start
+        #if DEBUG_SMALLDATA and limit_max_train_num_batches!=None: num_batches = min(num_batches,limit_max_train_num_batches)
+        #if DEBUG_MULTIFEED: print('%s cpuid=%d  batch_idx: %d - %d'%(train_or_test,cpu_id,batch_idx_start,batch_idx_end))
 
         epoch_start = 0
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+            while feed_thread_finish_num.value != 0:
+                #print('%s, %d, waiting for computation and reading in other threads of last epoch (%d) finished'%(train_or_test, cpu_id, epoch-1))
+                time.sleep(3)
             net_provider.update_train_eval_shuffled_idx()
 
             batch_idx = -1 + batch_idx_start
             while (batch_idx < num_batches-1 + batch_idx_start) or (num_batches==None):
-                if train_feed_buf_q.qsize() < max_buf_size:
+                if feed_buf_q.qsize() < max_buf_size:
                     batch_idx += 1
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
-                    train_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
+                    if train_or_test == 'train':
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                    elif train_or_test == 'test':
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                    feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
                         break # all data reading finished
-                    #print('put train_feed_buf_q, size=%d, cpu_id=%d'%(train_feed_buf_q.qsize(),cpu_id))
+                    #if DEBUG_MULTIFEED: print('put feed_buf_q, size=%d, cpu_id=%d, batch_idx=%d'%( feed_buf_q.qsize(),cpu_id,batch_idx))
                 else:
                     time.sleep(0.1)
-            print('add_train_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
-
-def add_eval_feed_buf(eval_feed_buf_q,cpu_id):
-    with tf.device('/cpu:%d'%(cpu_id)):
-        max_buf_size = 10
-        num_blocks = net_provider.eval_num_blocks
-        if num_blocks!=None:
-            num_batches = num_blocks // BATCH_SIZE
-            if TMP_DEBUG: num_batches = min(num_batches,MAX_eval_num_batches)
-        else:
-            num_batches = None
-
-        epoch_start = 0
-        if FLAGS.finetune:
-            epoch_start+=(FLAGS.model_epoch+1)
-        for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
-            batch_idx = -1
-            #num_batches = limit_eval_num_batches(epoch,num_batches)
-            while (batch_idx < num_batches-1) or (num_batches==None):
-                if eval_feed_buf_q.qsize() < max_buf_size:
-                    batch_idx += 1
-                    start_idx = batch_idx * BATCH_SIZE
-                    end_idx = (batch_idx+1) * BATCH_SIZE
-                    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx,IsShuffleIdx)
-                    eval_feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
-                    if type(cur_data) == type(None):
-                        print('add_eval_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
-                        break # all data reading finished
-                    #    print('\neval A  batch_idx=%d   start_idx=%d  end_idx=%d   eval_feed_buf_q size=%d'%(batch_idx,start_idx,end_idx,eval_feed_buf_q.qsize()))
-                else:
-                    time.sleep(0.1)
-            print('add_eval_feed_buf: data reading finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
-
+            with lock:
+                feed_thread_finish_num.value += 1
+            print('add_feed_buf: %s data reading finished. epoch= %d, batch_idx= %d, num_batches=%d cpu_id=%d, feed_thread_finish_num=%d'%(train_or_test,epoch,batch_idx,num_batches,cpu_id,feed_thread_finish_num.value))
 
 def main():
-
     IsFeedData_MultiProcessing = FLAGS.multip_feed and (not FLAGS.auto_break)
 
-    train_file_n = net_provider.train_file_N
-
     if IsFeedData_MultiProcessing:
-        train_feed_buf_q = mp.Queue()
-        eval_feed_buf_q = mp.Queue()
+        feed_buf_qs = {}
+        feed_buf_qs['train'] = mp.Queue()
+        feed_buf_qs['test'] = mp.Queue()
 
         processes = {}
-        processes[ 'add_train_buf_0'] = mp.Process(target=add_train_feed_buf,args=(train_feed_buf_q,2,0,0))
-        if train_file_n > 1:
-            processes[ 'add_train_buf_1'] = mp.Process(target=add_train_feed_buf,args=(train_feed_buf_q,2,1,train_file_n))
-        processes[ 'add_eval_buf'] = mp.Process(target=add_eval_feed_buf,args=(eval_feed_buf_q,3))
-        processes[ 'train_eval'] = mp.Process(target=train_eval,args=(train_feed_buf_q,eval_feed_buf_q,))
+        lock = mp.Lock()
+        feed_thread_finish_nums = {}
+        feed_thread_finish_nums['train'] = mp.Value('i',0)
+        feed_thread_finish_nums['test'] = mp.Value('i',0)
+        file_nums = {}
+        file_nums['train'] = net_provider.train_file_N
+        file_nums['test'] = net_provider.eval_file_N
+
+        for tot in ['train','test']:
+            for k in range( min(MAX_MULTIFEED_NUM,file_nums[tot]) ):
+                if DEBUG_SMALLDATA: limit_max_train_num_batches = int(LIMIT_MAX_NUM_BATCHES[tot]/file_nums[tot])
+                else: limit_max_train_num_batches = None
+                cpu_id = k
+                file_id_start = k
+                file_id_end = k
+                if k == MAX_MULTIFEED_NUM-1:
+                    file_id_end = TRAIN_FILE_N-1
+                if tot == 'test':
+                    file_id_start += file_nums['train']
+                    file_id_end += file_nums['train']
+
+                processes[tot+'_feed_'+str(k)] = mp.Process(target=add_feed_buf,args=(tot, feed_buf_qs[tot], k, file_id_start, file_id_end, feed_thread_finish_nums[tot], lock, limit_max_train_num_batches))
+
+        processes[ 'train_eval'] = mp.Process(target=train_eval,args=(feed_buf_qs['train'], feed_thread_finish_nums['train'], feed_buf_qs['test'], feed_thread_finish_nums['test'], lock))
 
         for p in processes:
             processes[p].start()
         for p in processes:
             processes[p].join()
     else:
-        train_eval(None,None)
+        train_eval(None,None,None,None,None)
 
 if __name__ == "__main__":
     if FLAGS.auto_break:

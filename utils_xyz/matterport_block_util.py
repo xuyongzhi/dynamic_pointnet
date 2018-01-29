@@ -548,7 +548,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 4
+    MultiProcess = 5
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -613,6 +613,7 @@ def parse_house_ls():
     house_names.sort()
 
     for i,house_name in enumerate(house_names):
+        if i<33: continue
         print('\nstart parsing house %s  %d/%d\n'%(house_name,i,len(house_names)))
         parse_house(house_name,scans_name)
 
