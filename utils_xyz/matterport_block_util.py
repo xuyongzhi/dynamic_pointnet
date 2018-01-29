@@ -218,26 +218,30 @@ class Matterport3D_Prepare():
     matterport3D_extracted_dir = '/DS/Matterport3D/Matterport3D_Whole_extracted'
     matterport3D_h5f_dir = '/DS/Matterport3D/Matterport3D_H5F'
 
-    def __init__(self,house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-        self.house_name = house_name
-        self.scans_name = scans_name
-
+    def __init__(self):
+        self.scans_name = scans_name = '/v1/scans'
         self.scans_dir = self.matterport3D_root_dir+scans_name
-        self.house_dir = self.scans_dir+'/%s'%(house_name)
-        self.region_segmentations_zip_fn = self.house_dir+'/region_segmentations.zip'
-
         self.scans_h5f_dir = self.matterport3D_h5f_dir+scans_name
-        self.house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-        self.house_rawh5f_dir = self.house_h5f_dir+'/rawh5f'
-        if not os.path.exists(self.house_rawh5f_dir):
-            os.makedirs(self.house_rawh5f_dir)
-        self.house_dir_extracted = self.matterport3D_extracted_dir+scans_name+'/%s'%(house_name)
-        if not os.path.exists(self.house_dir_extracted):
-            os.makedirs(self.house_dir_extracted)
 
-    def Parse_house_regions(self,MultiProcess=0):
+        #self.house_dir = self.scans_dir+'/%s'%(house_name)
+        #self.region_segmentations_zip_fn = self.house_dir+'/region_segmentations.zip'
+
+        #self.house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
+        #self.house_rawh5f_dir = self.house_h5f_dir+'/rawh5f'
+        #if not os.path.exists(self.house_rawh5f_dir):
+        #    os.makedirs(self.house_rawh5f_dir)
+        #self.house_dir_extracted = self.matterport3D_extracted_dir+scans_name+'/%s'%(house_name)
+        #if not os.path.exists(self.house_dir_extracted):
+        #    os.makedirs(self.house_dir_extracted)
+
+    def Parse_houses_regions(self,house_names_ls,MultiProcess=0):
+        for house_name in house_names_ls:
+            self.Parse_house_regions(house_name,MultiProcess)
+    def Parse_house_regions(self,house_name,MultiProcess=0):
         t0 = time.time()
-        rs_zf = zipfile.ZipFile(self.region_segmentations_zip_fn,'r')
+        house_dir = self.scans_dir+'/%s'%(house_name)
+        region_segmentations_zip_fn = house_dir+'/region_segmentations.zip'
+        rs_zf = zipfile.ZipFile(region_segmentations_zip_fn,'r')
 
         namelist_ply = [ name for name in rs_zf.namelist()  if 'ply' in name]
         num_region = len(namelist_ply)
@@ -269,9 +273,15 @@ class Matterport3D_Prepare():
 
         print('Parse house time: %f'%(time.time()-t0))
 
-    def SortRaw(self,block_step_xyz,MultiProcess=0):
+    def SortRaw(self,house_names_ls,block_step_xyz,MultiProcess=0):
         t0 = time.time()
-        rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
+        rawh5_file_ls = []
+        house_names_ls.sort()
+        for house_name in house_names_ls:
+            house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
+            base_raw_path = house_h5f_dir+'/rawh5f'
+            rawh5_file_ls += glob.glob( os.path.join(base_raw_path,'*.rh5') )
+        #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
         sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(block_step_xyz,block_step_xyz)
         IsShowInfoFinished = True
@@ -389,14 +399,14 @@ class Matterport3D_Prepare():
         print('\nmean_flatten_sample_num')
         print(mean_flatten_sample_num)
 
-    def GenPyramid(self,base_stride,base_step,MultiProcess=0):
-      #  base_stride = [2,2,-1]
-      #  base_step = [4,4,-1]
-        base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        file_list = glob.glob( os.path.join(base_sorted_path,'*.sh5') )
-        #file_list.sort()
+    def GenPyramid(self,house_names_ls, base_stride, base_step, MultiProcess=0):
+        file_list = []
+        #house_names_ls.sort()
+        for house_name in house_names_ls:
+            house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
+            base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
+            file_list += glob.glob( os.path.join(base_sorted_path,'*.sh5') )
         #file_list = ['/DS/Matterport3D/Matterport3D_H5F/v1/scans/gxdoqLR6rwA/stride_0d1_step_0d1/region2.sh5']
-
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
             pool = mp.Pool(MultiProcess)
@@ -447,14 +457,15 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self,stride,step,numpoint_block,format, flag = 'region'):
+    def MergeNormed(self,house_name,stride,step,numpoint_block,format, flag = 'region'):
+        house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
-            base_sorted_sampled_normed_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
+            base_sorted_sampled_normed_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
             file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
             config_flag = os.path.basename( base_sorted_sampled_normed_path )
         elif format == '.prh5':
-            base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(stride,step)
+            base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
             config_flag = os.path.basename( py_normed_path )
             merged_base_path = self.matterport3D_h5f_dir+'/'+config_flag
@@ -489,35 +500,6 @@ class Matterport3D_Prepare():
                     merged_fn = os.path.join( merged_path, merged_basefn+'.prh5' )
 
                     MergeNormed_H5f(filename_ls_k,merged_fn,IsShowSummaryFinished=True)
-
-                #house_names_test = ['17DRP5sb8fy','1pXnuDYAj8r']
-                #train_basefn_ls = [ fn for fn in all_housenames_ls if not fn in house_names_test ]
-                #test_basefn_ls = [ fn for fn in all_housenames_ls if  fn in house_names_test ]
-                #train_basefn_ls.sort()
-                #test_basefn_ls.sort()
-                #train_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in train_basefn_ls ]
-                #test_file_ls = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in test_basefn_ls ]
-
-                #train_merged_basefn = ''
-                #for i in range(len(train_basefn_ls)):
-                #    train_merged_basefn += train_basefn_ls[i][0:3]
-                #    if i < len(train_basefn_ls)-1:
-                #        train_merged_basefn += '-'
-                #test_merged_basefn = ''
-                #for i in range(len(test_basefn_ls)):
-                #    test_merged_basefn += test_basefn_ls[i][0:3]
-                #    if i < len(test_basefn_ls)-1:
-                #        test_merged_basefn += '-'
-
-                #merged_path = merged_base_path
-                #if not os.path.exists(merged_path):
-                #    os.makedirs(merged_path)
-                #train_merged_fn = os.path.join( merged_path, train_merged_basefn+'.prh5' )
-                #test_merged_fn = os.path.join( merged_path, test_merged_basefn+'.prh5' )
-
-                #MergeNormed_H5f(train_file_ls,train_merged_fn,IsShowSummaryFinished=True)
-                #MergeNormed_H5f(test_file_ls,test_merged_fn,IsShowSummaryFinished=True)
-
 
 
     def GenObj_RawH5f(self):
@@ -567,9 +549,9 @@ class Matterport3D_Prepare():
             GlobalSubBaseBLOCK.show_all(h5f,file_name)
 
 
-def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 0
-    matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
+def parse_house(house_names_ls):
+    MultiProcess = 5
+    matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     operations  = ['ParseRaw']
@@ -577,20 +559,20 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
-        matterport3d_prepare.Parse_house_regions(MultiProcess)
+        matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
     base_step_stride = [0.1,0.1,0.1]
     if 'SortRaw' in operations:
-        matterport3d_prepare.SortRaw(base_step_stride,MultiProcess)
+        matterport3d_prepare.SortRaw(house_names_ls, base_step_stride, MultiProcess)
 
     if 'GenPyramid' in operations:
-        matterport3d_prepare.GenPyramid(base_step_stride,base_step_stride,MultiProcess)
+        matterport3d_prepare.GenPyramid(house_names_ls, base_step_stride, base_step_stride, MultiProcess)
     if 'pr_sample_rate' in operations:
         matterport3d_prepare.get_mean_pr_sample_num(base_step_stride,base_step_stride)
 
@@ -608,9 +590,10 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     if 'Norm' in operations:
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     if 'MergeNormed_region' in operations:
-        matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5','region')
+        for house_name in house_names_ls:
+            matterport3d_prepare.MergeNormed(house_name,new_stride,new_step,numpoint_block,'.prh5','region')
     if 'MergeNormed_house' in operations:
-        matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5','house')
+        matterport3d_prepare.MergeNormed(house_names_ls[0],new_stride,new_step,numpoint_block,'.prh5','house')
     if 'GenObj_RawH5f' in operations:
         matterport3d_prepare.GenObj_RawH5f()
     if 'GenObj_SortedH5f' in operations:
@@ -632,10 +615,12 @@ def parse_house_ls():
 
     house_names.sort()
 
-    for i,house_name in enumerate(house_names):
-        if i>60: continue
-        print('\nstart parsing house %s  %d/%d\n'%(house_name,i,len(house_names)))
-        parse_house(house_name,scans_name)
+    group_n = 10
+    for i in range(0,len(house_names),group_n):
+        #if i>50: continue
+        house_names_i = house_names[i:min(i+group_n,len(house_names))]
+        print('\nstart parsing houses %s  %d-%d/%d\n'%(house_names_i,i,i+len(house_names_i),len(house_names)))
+        parse_house(house_names_i)
 
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
