@@ -159,7 +159,7 @@ def get_bn_decay(batch):
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS, NUM_REGRESSION)
+            pointclouds_pl, labels_pl, smpws_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS, NUM_REGRESSION)
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.
@@ -340,7 +340,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         if batch_idx%80 == 0:
-            print('batch_idx:',batch_idx)
+            print('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_val = np.argmax(pred_class_val, 2)
             loss_sum += loss_val
@@ -426,7 +426,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             #net_provider.set_pred_label_batch(pred_class_val,start_idx,end_idx)
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx%40 == 0:
-            print('the test batch is {}'.format(batch_idx))
+            print('the test batch is {}, the loss value is {}'.format(batch_idx, loss_val))
     ## estimate the all detection results
     # format of all_pred_boxes: l, w, h, theta, x, y, z, score
     # format of gt_boxes: type, l, w, h, theta, x, y, z
