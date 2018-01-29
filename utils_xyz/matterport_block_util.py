@@ -548,7 +548,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
-    MultiProcess = 5
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare(house_name,scans_name)
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -556,8 +556,8 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed-region']
-    #operations  = ['MergeNormed-house']
+    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -587,9 +587,9 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
         matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
     if 'Norm' in operations:
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
-    if 'MergeNormed-region' in operations:
+    if 'MergeNormed_region' in operations:
         matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5','region')
-    if 'MergeNormed-house' in operations:
+    if 'MergeNormed_house' in operations:
         matterport3d_prepare.MergeNormed(new_stride,new_step,numpoint_block,'.prh5','house')
     if 'GenObj_RawH5f' in operations:
         matterport3d_prepare.GenObj_RawH5f()
@@ -601,9 +601,9 @@ def parse_house(house_name = '17DRP5sb8fy',scans_name = '/v1/scans'):
 def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
-    house_names_test = ['17DRP5sb8fy','1pXnuDYAj8r']
-    house_names_train = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    house_names_train += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
@@ -613,7 +613,7 @@ def parse_house_ls():
     house_names.sort()
 
     for i,house_name in enumerate(house_names):
-        if i<33: continue
+        if i>60: continue
         print('\nstart parsing house %s  %d/%d\n'%(house_name,i,len(house_names)))
         parse_house(house_name,scans_name)
 

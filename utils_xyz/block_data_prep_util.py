@@ -719,8 +719,8 @@ class GlobalSubBaseBLOCK():
         assert f_format == '.bmh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 100:
-            return False,"file too small < 20 K"
+        #if os.path.getsize( file_name ) / 1000.0 < 10:
+        #    return False,"file too small < 20 K"
         try:
             print('checking bmh5 file:',file_name)
             with h5py.File(file_name,'r') as h5f:
@@ -2483,29 +2483,32 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 file_datas.append(np.expand_dims(block_datas,axis=0))
                 file_labels.append(np.expand_dims(block_labels,axis=0))
+
             if len(file_datas) == 0:
-                print('all point in this file are void')
-                return
-            file_datas = np.concatenate(file_datas,axis=0)
-            file_labels = np.concatenate(file_labels,axis=0)
+                h5f.attrs['intact_void_file'] = 1
+                print('all point in this file are void : %s\n'%(pyramid_filename))
+            else:
+                file_datas = np.concatenate(file_datas,axis=0)
+                file_labels = np.concatenate(file_labels,axis=0)
 
-            sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
-            all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
+                sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
+                all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
 
-            GlobalSubBaseBLOCK.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
-            GlobalSubBaseBLOCK.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
+                GlobalSubBaseBLOCK.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
+                GlobalSubBaseBLOCK.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
 
-            pyramid_h5f.append_to_dset('data',file_datas)
-            pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                pyramid_h5f.append_to_dset('data',file_datas)
+                pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
 
-            GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
-            pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-            pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+                GlobalSubBaseBLOCK.write_paras_in_h5fattrs( pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
+                pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+                pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
 
-            pyramid_h5f.create_done()
-            if IsShowSummaryFinished:
-                pyramid_h5f.show_summary_info()
-            print('pyramid file save finished: data shape: %s'%(str(pyramid_h5f.data_set.shape)) )
+                pyramid_h5f.create_done()
+                if IsShowSummaryFinished:
+                    pyramid_h5f.show_summary_info()
+                print('pyramid file save finished: data shape: %s'%(str(pyramid_h5f.data_set.shape)) )
+
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
         feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
@@ -3193,24 +3196,16 @@ class Normed_H5f():
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
 
-        if os.path.getsize( file_name ) / 1000.0 < 100:
-            return False,"file too small < 100 K"
+       # if os.path.getsize( file_name ) / 1000.0 < 100:
+       #     return False,"file too small < 100 K"
+        #print('checking : %s'%(file_name))
         with h5py.File(file_name,'r') as h5f:
+            if 'intact_void_file' in h5f.attrs:
+                return True,"void file"
             if 'is_intact_nh5' not in h5f.attrs:
-                return False,""
+                return False,"no is_intact_nh5 attr"
             IsIntact = h5f.attrs['is_intact_nh5'] == 1
-            return IsIntact,""
-           #
-           # if 'total_block_N' not in h5f.attrs:
-           #     return False, "total_block_N not in %s"%(file_name)
-           # total_block_N = h5f.attrs['total_block_N']
-           # if not h5f['data'].shape[0] == total_block_N:
-           #     return False, "total_block_N = %d, data shape0 = %d \nfile:%s"%(total_block_N,h5f['data'].shape[0],file_name)
-           # if not h5f['labels'].shape[0] == total_block_N:
-           #     return False, "total_block_N = %d, labels shape0 = %d \nfile: %s"%(total_block_N,h5f['labels'].shape[0],file_name)
-           # if 'label_category_hist' not in h5f['labels'].attrs:
-           #     return False, "label_category_hist not in %s"%(file_name)
-           # return True,""
+            return IsIntact,"is_intact_nh5=1"
 
     def rm_invalid_data(self):
         for dset_name_i in self.h5f:
@@ -3483,9 +3478,10 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
     print('start generating merged file: %s'%(merged_filename))
     with h5py.File(merged_filename,'w') as merged_h5f:
         for k,fn in enumerate(in_filename_ls):
-
             print('merging %s'%(fn))
             with h5py.File(fn,'r') as in_h5f:
+                if 'intact_void_file' in in_h5f.attrs:
+                    continue
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
                     merged_normed_h5f.copy_root_attrs_from_normed(in_h5f,'MergeNormed_H5f')
