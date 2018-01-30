@@ -29,13 +29,17 @@ For classification, two fully connected network are need to produced to classifi
 #### 5. regression with fully connected network
 Fore regression, one or two FCNs are needed, bounding box regression is essentially a linear process, thus too abstract information is not helpful. Features for classification and regression should be different level.
 
-### parameters to tune
+### parameters to tune in the model.py
 * N: the number of sampled point, which is very critical
 * L: how many set abstraction layers are 
 * k: the K value in every layer
 * R: what is the radius in every ball
 * S: how many scales in MSG
 * F: the number of fully connected layers
+
+### parameters to tune in the config.py
+* NEGATIVE_CEN_DIST and POSITIVE_CEN_DIST, they affect a lot about number of positive and negative samples
+* RPN_BATCHSIZE decides the ratio between positive labels and negative labels
 * A: the number of anchors
 * P: the number of mini-batch, how many proposals in every mini-batch
 * O: overlaping ratio of positive samples and negative samples
