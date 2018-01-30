@@ -40,6 +40,7 @@ sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
 from gsbb_config import get_gsbb_config
+import magic
 
 #DEBUGTMP=True
 
@@ -721,17 +722,16 @@ class GlobalSubBaseBLOCK():
             return False,"%s not exist"%(file_name)
         #if os.path.getsize( file_name ) / 1000.0 < 10:
         #    return False,"file too small < 20 K"
-        try:
-            print('checking bmh5 file:',file_name)
-            with h5py.File(file_name,'r') as h5f:
-                if 'is_intact' not in h5f.attrs:
-                    return False,""
-                IsIntact = h5f.attrs['is_intact'] == 1
-                print('bmh5 file intact:',file_name)
-                return IsIntact,""
-        except RuntimeError as err:
-            print('please delete %s'%(root_s_h5f_fn))
-            return False, err
+        file_type = magic.from_file(file_name)
+        if "Hierarchical Data Format" not in file_type:
+            return False,"File signature err"
+        #print('checking bmh5 file:',file_name)
+        with h5py.File(file_name,'r') as h5f:
+            if 'is_intact' not in h5f.attrs:
+                return False,""
+            IsIntact = h5f.attrs['is_intact'] == 1
+            print('bmh5 file intact:',file_name)
+            return IsIntact,""
 
       #      attrs_to_check = ['num_group','cascade_idstr_ls']
       #      for attrs in attrs_to_check:
@@ -1041,8 +1041,11 @@ class Raw_H5f():
         assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 100:
-            return False,"file too small < 20 K"
+        #if os.path.getsize( file_name ) / 1000.0 < 100:
+        #    return False,"file too small < 20 K"
+        file_type = magic.from_file(file_name)
+        if "Hierarchical Data Format" not in file_type:
+            return False,"File signature err"
         with h5py.File(file_name,'r') as h5f:
             attrs_to_check = ['xyz_max','xyz_min']
             for attrs in attrs_to_check:
@@ -1234,8 +1237,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         assert f_format == '.sh5' or f_format == '.rsh5'
         if not os.path.exists(file_name):
             return False,"%s not exist"%(file_name)
-        if os.path.getsize( file_name ) / 1000.0 < 100:
-            return False,"file too small < 20 K"
+        #if os.path.getsize( file_name ) / 1000.0 < 100:
+        #    return False,"file too small < 20 K"
+        file_type = magic.from_file(file_name)
+        if "Hierarchical Data Format" not in file_type:
+            return False,"File signature err"
         with h5py.File(file_name,'r') as h5f:
             if 'is_intact' in h5f.attrs:
                 IsIntact = h5f.attrs['is_intact'] == 1
@@ -3198,7 +3204,10 @@ class Normed_H5f():
 
        # if os.path.getsize( file_name ) / 1000.0 < 100:
        #     return False,"file too small < 100 K"
-        #print('checking : %s'%(file_name))
+        file_type = magic.from_file(file_name)
+        if "Hierarchical Data Format" not in file_type:
+            return False,"File signature err"
+        #print('checking nh5: %s'%(file_name))
         with h5py.File(file_name,'r') as h5f:
             if 'intact_void_file' in h5f.attrs:
                 return True,"void file"

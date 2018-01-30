@@ -473,7 +473,7 @@ class Matterport3D_Prepare():
             if flag == 'region':
                 file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
                 merged_path = merged_houses_path
-                merged_file_name = merged_path + self.house_name+format
+                merged_file_name = merged_path + house_name+format
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
                 MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
@@ -550,7 +550,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls):
-    MultiProcess = 5
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -558,7 +558,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
@@ -615,7 +615,7 @@ def parse_house_ls():
 
     house_names.sort()
 
-    group_n = 10
+    group_n = 5
     for i in range(0,len(house_names),group_n):
         #if i>50: continue
         house_names_i = house_names[i:min(i+group_n,len(house_names))]

@@ -8,8 +8,8 @@
 train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
-maxepoch=5
-batchsize=2
+maxepoch=10
+batchsize=24
 feed_label_elements="label_category,label_instance"
 datafeed_type='Pr_Normed_H5f'
 all_fn_globs='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2/house_groups'
