@@ -28,7 +28,7 @@ ISSUMMARY = False
 TMP_DEBUG = False
 if TMP_DEBUG:
     DEBUG_MULTIFEED=True
-    DEBUG_SMALLDATA=True
+    DEBUG_SMALLDATA=False
 else:
     DEBUG_MULTIFEED=False
     DEBUG_SMALLDATA=False
@@ -381,7 +381,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 bufread_t0 = time.time()
                 while train_feed_buf_q.qsize() == 0:
                     #print('no data in train_feed_buf_q')
-                    if time.time() - bufread_t0 > 2:
+                    if time.time() - bufread_t0 > 5:
                         print('\nWARING!!! no data in train_feed_buf_q for long time\n')
                         bufread_t0 = time.time()
                     time.sleep(0.1)
@@ -434,7 +434,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         accuracy_sum += accuracy_batch
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
-        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%200==0 and batch_idx>0):
+        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%50==0):
             if LOG_TYPE == 'complex':
                 pred_val = np.argmax(pred_val, 2)
                 total_seen += (BATCH_SIZE*NUM_POINT)
@@ -574,9 +574,13 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
             while True:
                 if multi_feed_flags['read_OK_epoch'].value == epoch-1:
                     break
-                #if DEBUG_MULTIFEED: print('%s, cpuid=%d, epoch=%d, read_OK_epoch=%d, waiting for computation and reading in other threads finished'%(train_or_test, cpu_id,epoch, multi_feed_flags['read_OK_epoch'].value))
+                if DEBUG_MULTIFEED: print('%s, cpuid=%d, epoch=%d, read_OK_epoch=%d, waiting for computation and reading in other threads finished'%(train_or_test, cpu_id,epoch, multi_feed_flags['read_OK_epoch'].value))
                 time.sleep(3)
-            net_provider.update_train_eval_shuffled_idx()
+            IsShuffleIdx = epoch%3 == 0
+            #IsShuffleIdx = False
+            if cpu_id==0:
+                log_string('epoch %d train IsShuffleIdx: %s'%(epoch,IsShuffleIdx))
+                if IsShuffleIdx: net_provider.update_train_eval_shuffled_idx()
 
             batch_idx = -1 + batch_idx_start
             #if TMP_DEBUG and train_or_test=='train':
@@ -587,8 +591,6 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        IsShuffleIdx = epoch%2 != 0
-                        IsShuffleIdx = False
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
                     elif train_or_test == 'test':
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
@@ -627,10 +629,15 @@ def main():
 
         two_multi_feed_flags['train']['feed_thread_finish_num'] = mp.Value('i',0)
         two_multi_feed_flags['test']['feed_thread_finish_num'] = mp.Value('i',0)
-        two_multi_feed_flags['train']['read_OK_epoch'] = mp.Value('i',-1)
-        two_multi_feed_flags['test']['read_OK_epoch'] = mp.Value('i',-1)
-        two_multi_feed_flags['train']['feed_finish_epoch'] = mp.Value('i',-1)
-        two_multi_feed_flags['test']['feed_finish_epoch'] = mp.Value('i',-1)
+
+        if FLAGS.finetune:
+            epoch_start = (FLAGS.model_epoch+1)
+        else:
+            epoch_start = 0
+        two_multi_feed_flags['train']['read_OK_epoch'] = mp.Value('i',epoch_start-1)
+        two_multi_feed_flags['test']['read_OK_epoch'] = mp.Value('i',epoch_start-1)
+        two_multi_feed_flags['train']['feed_finish_epoch'] = mp.Value('i',epoch_start-1)
+        two_multi_feed_flags['test']['feed_finish_epoch'] = mp.Value('i',epoch_start-1)
 
         file_nums = {}
         file_nums['train'] = net_provider.train_file_N

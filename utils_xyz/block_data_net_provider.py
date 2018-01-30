@@ -69,8 +69,8 @@ class Net_Provider():
         self.eval_file_N = eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.normed_h5f_file_list =  normed_h5f_file_list = train_file_list + eval_file_list
-        if len(normed_h5f_file_list) > 5:
-            print('WARNING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(normed_h5f_file_list)))
+        if len(normed_h5f_file_list) > 6:
+            print('WARING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(normed_h5f_file_list)))
         #-----------------------------------------------------------------------
         # open each file as a Normed_H5f class instance
         self.norm_h5f_L = []

@@ -22,5 +22,9 @@ run_train="python $train_script  --feed_data_elements $feed_data_elements --feed
 
 run_train_multifeed="python $train_script  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
 
+
+finetune_train_multifeed="python $train_script  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs  --finetune --model_epoch 1"
+
 #$run_train
-$run_train_multifeed
+#$run_train_multifeed
+$finetune_train_multifeed
