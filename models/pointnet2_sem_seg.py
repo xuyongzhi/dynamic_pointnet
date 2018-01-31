@@ -23,7 +23,7 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     l0_xyz = point_cloud
     l0_points = None
     end_points['l0_xyz'] = l0_xyz
-
+    import pdb;pdb.set_trace()
     # Layer 1
     # [b,1024,6] [b,1024,64] [b,1024,32]              [b,8192,6] None
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=1024, radius=0.1, nsample=32, mlp=[32,32,64], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
