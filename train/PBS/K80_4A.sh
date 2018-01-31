@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q gpu
-#PBS -l walltime=10:00:00
+#PBS -l walltime=20:00:00
 #PBS -l mem=26GB
 #PBS -l jobfs=0GB
 #PBS -l ngpus=2
@@ -14,9 +14,8 @@
 #PBS -M y.xu@student.unsw.edu.au
 #PBS -m abe
 
-module load  tensorflow/1.2.1-cudnn6.0-python2.7
-#module load tensorflow/1.3.1-cudnn6.0-python2.7
-#source /home/561/yx2146/scripts/set_env.sh
+module load  tensorflow/1.4-cudnn6.0-python2.7
 module list
  
-./run_train_seg_b32_both.sh > out_sem_seg_b32_both.log
+./run_4A_gpu0_xyz1.sh -> out_run_4A_gpu0_xyz1.log &
+./run_4A_gpu1_xyzm.sh -> out_run_4A_gpu1_xyzm.log

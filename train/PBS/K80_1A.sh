@@ -1,9 +1,9 @@
 #!/bin/bash
-#PBS -q gpupascal
-#PBS -l walltime=10:00:00
-#PBS -l mem=18GB
+#PBS -q gpu
+#PBS -l walltime=20:00:00
+#PBS -l mem=26GB
 #PBS -l jobfs=0GB
-#PBS -l ngpus=1
+#PBS -l ngpus=2
 #PBS -l ncpus=6
 ## For licensed software, you have to specify it to get the job running. For unlicensed software, you should also specify it to help us analyse the software usage on our system.
 #PBS -l software=tensorflow/1.2.1-cudnn6.0-python2.7
@@ -11,11 +11,11 @@
 ## The job will be executed from current working directory instead of home.
 #PBS -l wd 
 #PBS -r y
-#PBS -M yongzhi.xu@student.unsw.edu.au
+#PBS -M y.xu@student.unsw.edu.au
 #PBS -m abe
 
-module load  tensorflow/1.2.1-cudnn6.0-python2.7
-source /home/561/yx2146/scripts/set_env.sh
+module load  tensorflow/1.4-cudnn6.0-python2.7
 module list
  
-./run_train_seg_xyz1norm.sh -> out_run_train_seg_xyz1norm.log
+./run_1A_gpu0_xyz1.sh -> out_run_1A_gpu0_xyz1.log &
+./run_1A_gpu1_xyzm.sh -> out_run_1A_gpu1_xyzm.log
