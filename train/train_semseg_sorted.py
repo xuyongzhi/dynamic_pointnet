@@ -49,7 +49,7 @@ parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.005, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
-parser.add_argument('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 300000]')
+parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
@@ -121,7 +121,7 @@ LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
-BN_DECAY_DECAY_RATE = 0.5
+BN_DECAY_DECAY_RATE = 0.6
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 
@@ -165,7 +165,7 @@ def log_string(out_str):
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
                         BASE_LEARNING_RATE,  # Base learning rate.
-                        global_step * 30,  # Current index into the dataset.
+                        global_step * BATCH_SIZE,  # Current index into the dataset.
                         DECAY_STEP,          # Decay step.
                         DECAY_RATE,          # Decay rate.
                         staircase=True)
@@ -175,7 +175,7 @@ def get_learning_rate(global_step):
 def get_bn_decay(global_step):
     bn_momentum = tf.train.exponential_decay(
                       BN_INIT_DECAY,
-                      global_step * 30,
+                      global_step * BATCH_SIZE,
                       BN_DECAY_DECAY_STEP,
                       BN_DECAY_DECAY_RATE,
                       staircase=True)
