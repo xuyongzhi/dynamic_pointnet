@@ -28,7 +28,7 @@ ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
-Is_REPORT_PRED = True
+Is_REPORT_PRED = False
 ISNoEval = True
 LOG_TYPE = 'simple'
 
