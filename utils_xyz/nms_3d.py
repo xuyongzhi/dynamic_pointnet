@@ -16,15 +16,15 @@ def nms_3d(all_boxes, thresh = 0.3):
         4. deleting the boxes whose overlaps are higher than a threshold
         5. repeatting
     input:
-        all_boxes : n x 8(l, w, h,theta, x, y, z, score)
+        all_boxes : n x 8(l, w, h,theta, x, y, z, score,.....) make sure that the first 7 elements must be the same format
     '''
     assert all_boxes.shape[0] > 0
-    assert all_boxes.shape[1] == 8
+    assert all_boxes.shape[1] >= 7
     # initialize the list of picked indices
     pick = []
     ## sortting the scores
     indices_box = np.argsort( all_boxes[:, 7])  ## check type of data
-    coordinate_list = convert_to_list_points(all_boxes) # shape: n x 5, data type is list
+    coordinate_list = convert_to_list_points(all_boxes[:,0:7]) # shape: n x 5, data type is list
     while(indices_box.shape[0]>0):
         last = indices_box.shape[0] - 1
         i = indices_box[last]
@@ -64,8 +64,8 @@ def nms_3d(all_boxes, thresh = 0.3):
         # ratio_overlap = area_overlap/(current_box_area + rest_box_area - area) ## np.arry
         '''
         coordinate_rest_list = [ coordinate_list[indices_box[x]] for x in range(last) ]
-        ratio_overlap = caculate_3d_overlap( all_boxes[i,:],                  coordinate_list[i],
-                                            all_boxes[indices_box[0:last],:], coordinate_rest_list )
+        ratio_overlap = caculate_3d_overlap( all_boxes[i,0:7],                  coordinate_list[i],
+                                            all_boxes[indices_box[0:last],0:7], coordinate_rest_list )
 
 
 
@@ -86,7 +86,8 @@ def caculate_3d_overlap(cur_box, cur_coordinate, rest_box, rest_coordinate):
 
     '''
     assert rest_box.shape[0]>0
-    assert rest_box.shape[1]>=7
+    assert rest_box.shape[1]==7
+    assert cur_box.shape[0]==7
     cur_polygon  = Polygon(cur_coordinate)
     rest_polygon = []
     num_rest = rest_box.shape[0]
@@ -101,7 +102,7 @@ def caculate_3d_overlap(cur_box, cur_coordinate, rest_box, rest_coordinate):
     height_overlap  = np.zeros(( birdview_overlap.shape[0], 1))
     cond_1   = np.where( (cur_box[2] + rest_box[:,2])/2. >= np.abs( cur_box[6] - rest_box[:,6]))[0]
 
-    value_1  = ( cur_box[2] + rest_box[:,2])/2. - np.abs( cur_box[6] - rest_box[:,6])
+    value_1  = np.abs(( cur_box[2] + rest_box[:,2])/2. - np.abs( cur_box[6] - rest_box[:,6]))
     value_1  = value_1.reshape(-1,1)
     height_overlap[cond_1] = value_1[cond_1]
     cond_2   = np.where( np.abs( cur_box[2] - rest_box[:,2] )/2. > np.abs( cur_box[6] - rest_box[:,6]))[0]
@@ -122,6 +123,7 @@ def convert_to_list_points(all_boxes):
     # input shape: n x 8
     # output shape: n list,
     assert all_boxes.shape[0]>0
+    assert all_boxes.shape[1]==7
 
     all_coordinates = []
     num_point = all_boxes.shape[0]

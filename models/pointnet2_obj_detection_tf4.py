@@ -71,8 +71,8 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint= 8192, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
     l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint= 4096, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
     l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 2048, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
-    l5_xyz, l5_points, l5_indices = pointnet_sa_module(l4_xyz, l4_points, npoint= 1024, radius= radius_l5, nsample=32, mlp=[512,512,1024], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer5')
-    l6_xyz, l6_points, l6_indices = pointnet_sa_module(l5_xyz, l5_points, npoint=  512, radius= radius_l6, nsample=32, mlp=[1024,1024,2048], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer6')
+#    l5_xyz, l5_points, l5_indices = pointnet_sa_module(l4_xyz, l4_points, npoint= 1024, radius= radius_l5, nsample=32, mlp=[512,512,1024], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer5')
+#    l6_xyz, l6_points, l6_indices = pointnet_sa_module(l5_xyz, l5_points, npoint=  512, radius= radius_l6, nsample=32, mlp=[1024,1024,2048], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer6')
 
 
 
@@ -83,13 +83,13 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     #l0_points = pointnet_fp_module(l0_xyz, l1_xyz, l0_points, l1_points, [128,128,128], is_training, bn_decay, scope='fa_layer4')
 
     # FC layers
-    net = tf_util.conv1d(l6_points, 1024, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    net = tf_util.conv1d(l4_points, 1024, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
     net_class = tf_util.conv1d(net, num_3d_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2') # outputing the classification for every point
     net_boxes = tf_util.conv1d(net, num_3d_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc3') # outputing the 3D bounding boxes
 
-    return end_points, net_class, net_boxes, l6_xyz
+    return end_points, net_class, net_boxes, l4_xyz
 
 
 def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
@@ -117,9 +117,13 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     NUM_regression = cfg.TRAIN.NUM_REGRESSION
     NUM_class      = cfg.TRAIN.NUM_CLASSES
     RPN_BATCHSIZE  = cfg.TRAIN.RPN_BATCHSIZE
+    NUM_anchors    = cfg.TRAIN.NUM_ANCHORS
 
     pred_class = tf.reshape(pred_class, [batch_size, -1, NUM_class])
     pred_box   = tf.reshape(pred_box,   [batch_size, -1, NUM_regression])
+
+    pred_prob = tf.nn.softmax(pred_class)
+    pred_prob = tf.reshape(pred_prob, [batch_size, -1, NUM_class*NUM_anchors])
 
     NUM_all_point = pred_class.get_shape()[1].value  ## all_point x num_anchor
 
@@ -135,10 +139,17 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
 
     indices_labels = tf.where(tf.greater_equal(output_labels,0))
     pred_class = tf.gather_nd(pred_class, indices_labels)
+    #tf.summary.scalar('pred_class_0', tf.shape(pred_class))
+    #print(pred_class.get_shape())
     pred_class = tf.reshape(pred_class, [batch_size,-1, NUM_class]) # batch: batch_size x num x num_class
+    #tf.summary.scalar('pred_class_1', tf.shape(pred_class))
 
     pred_box   = tf.gather_nd(pred_box, indices_labels)
+    #tf.summary.scalar('pred_box_0', tf.shape(pred_box))
+    #print(pred_box.get_shape())
     pred_box   = tf.reshape(pred_box, [batch_size, -1, NUM_regression])   # batch: batch_size x num x num_regression
+    #tf.summary.scalar('pred_box_1', tf.shape(pred_box))
+
     # output_pred_box_one_batch  = tf.reshape(output_pred_box_one_batch,  [-1, NUM_regression])
     # output_box_targets         = tf.reshape(output_box_targets ,        [-1, NUM_regression])
     # output_box_inside_weights  = tf.reshape(output_box_inside_weights,  [-1, NUM_regression])
@@ -155,7 +166,7 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
     tf.summary.scalar('classification loss', classification_loss)
     tf.summary.scalar('regression loss', regression_loss)
 
-    return all_loss
+    return all_loss, classification_loss, regression_loss, pred_prob
 
 
 def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
@@ -294,22 +305,27 @@ def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
             # print('')
 
         # output_pred_box_one_batch[n,:,:]  = pred_box_one_batch[labels>=0,:]
-        if (labels[labels>=0].shape[0]) == rpn_batchsize:
-            output_box_targets[n,:,:]         = box_targets[labels>=0,:]
-            output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
-            output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
-            output_labels[n,:]   = labels  # shape: batch x all_points
-            output_gt_class[n,:] = labels[ labels>=0 ]
-        else:
-            output_box_targets[n,:,:]         = np.resize( box_targets[labels>=0,:], [rpn_batchsize, NUM_regression] )
-            output_box_inside_weights[n,:,:]  = np.resize( box_inside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
-            output_box_outside_weights[n,:,:] = np.resize( box_outside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
-            output_labels[n,:]   = labels  # shape: batch x all_points
-            output_gt_class[n,:] = np.resize(labels[labels>=0], [rpn_batchsize])
-            if ISDEBUG:
-                print('padding the laels:{}'.format(output_box_targets[n,:,:].shape))
+        assert (labels[labels>=0].shape[0]) == rpn_batchsize
+        output_box_targets[n,:,:]         = box_targets[labels>=0,:]
+        output_box_inside_weights[n,:,:]  = box_inside_weights[labels>=0,:]
+        output_box_outside_weights[n,:,:] = box_outside_weights[labels>=0,:]
+        output_labels[n,:]   = labels  # shape: batch x all_points
+        output_gt_class[n,:] = labels[ labels>=0 ]
+        #else:
+        #    output_box_targets[n,:,:]         = np.resize( box_targets[labels>=0,:], [rpn_batchsize, NUM_regression] )
+        #    output_box_inside_weights[n,:,:]  = np.resize( box_inside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
+        #    output_box_outside_weights[n,:,:] = np.resize( box_outside_weights[labels>=0,:], [rpn_batchsize, NUM_regression] )
+        #    output_labels[n,:]   = labels  # shape: batch x all_points
+        #    output_gt_class[n,:] = np.resize(labels[labels>=0], [rpn_batchsize])
+        #    if ISDEBUG:
+        #        print('padding the laels:{}'.format(output_box_targets[n,:,:].shape))
+        if False:
+            print('Ground truth shape is {}'.format(gt_box[n,:,:].shape))
+            print('Positive label size is {}'.format(labels[labels>=1].shape))
 
-
+    if ISDEBUG:
+        print('box target shape is {}, box inside shape is {}, box outside is {}, label shape is{}, gt box shape is {}'.format(output_box_targets.shape, output_box_inside_weights.shape,
+                                                                                                                            output_box_outside_weights.shape, output_labels.shape, output_gt_class.shape))
 
     return output_box_targets, output_box_inside_weights, output_box_outside_weights, output_gt_class, output_labels
 
@@ -330,11 +346,11 @@ def _smooth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_wei
     # smooth_l1_sign =  (np.absolute(inside_mul) < (1.0/sigma2))*1
     smooth_l1_option1 = tf.multiply(tf.multiply(inside_mul,inside_mul), 0.5*sigma2)
     # smooth_l1_option1 = (inside_mul)**2*sigma2*0.5
-    smooth_l1_option2 = tf.subtract(tf.abs(inside_mul), 0.5*sigma2)
+    smooth_l1_option2 = tf.subtract(tf.abs(inside_mul), 0.5/sigma2)
     # smooth_l1_option2 = np.absolute(inside_mul) - 0.5/sigma2
 
     smooth_l1_result  = tf.add(tf.multiply(smooth_l1_option1, smooth_l1_sign),
-                               tf.multiply(smooth_l1_option2, tf.abs(tf.subtract(smooth_l1_sign, 1.0))))
+                               tf.multiply(smooth_l1_option2, tf.abs(tf.subtract(1. ,smooth_l1_sign))))
     # smooth_l1_result =  smooth_l1_option1*smooth_l1_sign + smooth_l1_option2*np.absolute(smooth_l1_sign - 1)
 
     outside_mul   = tf.multiply(box_outside_weights, smooth_l1_result)

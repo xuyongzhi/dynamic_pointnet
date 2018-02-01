@@ -49,7 +49,7 @@ parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [def
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
-parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial learning rate [default: 0.01]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
@@ -170,7 +170,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Get model and loss
             end_points, pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss = get_loss(BATCH_SIZE,pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
+            loss, classification_loss, regression_loss, pred_prob = get_loss(BATCH_SIZE,pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
             tf.summary.scalar('loss', loss)
 
             #correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
@@ -217,6 +217,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'pred_box': pred_box,
                'xyz_pl': xyz_pl,
                'loss': loss,
+               'classification_loss':classification_loss,
+               'regression_loss':regression_loss,
+               'pred_prob':pred_prob,
                'train_op': train_op,
                'merged': merged,
                'step': batch,
@@ -330,17 +333,19 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
-                summary, step, _, loss_val, pred_class_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class']],
+                summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss']],
                                             feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            summary, step, _, loss_val, pred_class_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class']],
+            summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss']],
                                         feed_dict=feed_dict)
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         if batch_idx%80 == 0:
             print('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
+            print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
+            #print('the all merged is {}'.format(summary))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_val = np.argmax(pred_class_val, 2)
             loss_sum += loss_val
@@ -407,26 +412,27 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                      ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights }
-        summary, step, loss_val, pred_class_val, pred_box_val, xyz_pl = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_box'], ops['xyz_pl']],
+        summary, step, loss_val, pred_class_val, pred_prob_val, pred_box_val, xyz_pl, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_prob'], ops['pred_box'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
         all_gt_box.append(gt_box)  # all_gt_box is a list, num_batches x BATCH_SIZE x ( k*8 ), all_gt_box[n][m] is the ground truth box of one label image.
-        all_pred_class_val.append(pred_class_val)  # the all_pred_class_val is the list, num_batches x BATCH_SIZE x point_num x 4, all_pred_val[n] is the narray of BATCH_SIZE x point_num
+        all_pred_class_val.append(pred_prob_val)  # the all_pred_class_val is the list, num_batches x BATCH_SIZE x point_num x 4, all_pred_val[n] is the narray of BATCH_SIZE x point_num
         all_pred_box_val.append(pred_box_val)  # the all_pred_box_val is also list, num_batches x BATCH_SIZE x point_num x 14, all_pred_box_val[n] is the narray of BATCH_SIZE x point_num
         all_xyz.append(xyz_pl)    # the all_xyz shape: num_batches x (BATCHSIZE X point_num x3)
 
         if False and (batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0)):
-            pred_logits = np.argmax(pred_class_val, 2)
+            pred_logits = np.argmax(pred_prob_val, 2)
             total_seen += (BATCH_SIZE*NUM_POINT)
             loss_sum += loss_val
             c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
-            #net_provider.set_pred_label_batch(pred_class_val,start_idx,end_idx)
+            #net_provider.set_pred_label_batch(pred_prob_val,start_idx,end_idx)
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx%40 == 0:
             print('the test batch is {}, the loss value is {}'.format(batch_idx, loss_val))
+            print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
     ## estimate the all detection results
     # format of all_pred_boxes: l, w, h, theta, x, y, z, score
     # format of gt_boxes: type, l, w, h, theta, x, y, z

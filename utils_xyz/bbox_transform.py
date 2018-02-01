@@ -54,19 +54,19 @@ def bbox_transform_inv(pred_box, xyz):
     anchor_width  = cfg.TRAIN.Anchors[1]
     anchor_height = cfg.TRAIN.Anchors[2]
     anchor_alpha  = cfg.TRAIN.Alpha
-    temp_pred_box_l   = np.array([ np.exp( pred_box[:,(x*num_regression)])*anchor_length  for x in range(num_anchors)])
+    temp_pred_box_l   = np.array([ np.exp( pred_box[:,(x*num_regression)])*anchor_length  for x in range(num_anchors)]).transpose(1,0)
     temp_pred_box_l   = temp_pred_box_l.reshape(-1,1)
-    temp_pred_box_w   = np.array([ np.exp( pred_box[:,(x*num_regression+1)])*anchor_width  for x in range(num_anchors)])
+    temp_pred_box_w   = np.array([ np.exp( pred_box[:,(x*num_regression+1)])*anchor_width  for x in range(num_anchors)]).transpose(1,0)
     temp_pred_box_w   = temp_pred_box_w.reshape(-1,1)
-    temp_pred_box_h   = np.array([ np.exp( pred_box[:,(x*num_regression+2)])*anchor_height  for x in range(num_anchors)])
+    temp_pred_box_h   = np.array([ np.exp( pred_box[:,(x*num_regression+2)])*anchor_height  for x in range(num_anchors)]).transpose(1,0)
     temp_pred_box_h   = temp_pred_box_h.reshape(-1,1)
-    temp_pred_box_alpha = np.array([ pred_box[:,(x*num_regression+3)]*np.pi/4+anchor_alpha[x,0]  for x in range(num_anchors)])
+    temp_pred_box_alpha = np.array([ pred_box[:,(x*num_regression+3)]*np.pi/4+anchor_alpha[x,0]  for x in range(num_anchors)]).transpose(1,0)
     temp_pred_box_alpha = temp_pred_box_alpha.reshape(-1,1)
-    temp_pred_box_x   = np.array([ pred_box[:,(x*num_regression+4)]*anchor_length + xyz[:,0]  for x in range(num_anchors) ])
+    temp_pred_box_x   = np.array([ pred_box[:,(x*num_regression+4)]*anchor_length + xyz[:,0]  for x in range(num_anchors) ]).transpose(1,0)
     temp_pred_box_x   = temp_pred_box_x.reshape(-1,1)
-    temp_pred_box_y   = np.array([ pred_box[:,(x*num_regression+5)]*anchor_width + xyz[:,1]  for x in range(num_anchors) ])
+    temp_pred_box_y   = np.array([ pred_box[:,(x*num_regression+5)]*anchor_width + xyz[:,1]  for x in range(num_anchors) ]).transpose(1,0)
     temp_pred_box_y   = temp_pred_box_y.reshape(-1,1)
-    temp_pred_box_z   = np.array([ pred_box[:,(x*num_regression+6)]*anchor_height + xyz[:,2]  for x in range(num_anchors) ])
+    temp_pred_box_z   = np.array([ pred_box[:,(x*num_regression+6)]*anchor_height + xyz[:,2]  for x in range(num_anchors) ]).transpose(1,0)
     temp_pred_box_z   = temp_pred_box_z.reshape(-1,1)
 
     all_box = np.hstack((temp_pred_box_l, temp_pred_box_w, temp_pred_box_h, temp_pred_box_alpha, temp_pred_box_x, temp_pred_box_y, temp_pred_box_z))

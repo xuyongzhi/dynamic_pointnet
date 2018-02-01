@@ -17,7 +17,7 @@ def average_precsion(recall, precesion):
         if np.sum(recall >= t) == 0:
             p = 0
         else:
-            p = np.sum(precesion[recall>=t])
+            p = np.max(precesion[recall>=t])
         aveg_precision = aveg_precision + p/11.
 
     return aveg_precision
@@ -52,7 +52,7 @@ def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
     # caculate the cooridnate list of gt_boxes
     for j in range(num_all_boxes):
        num_gt = num_gt + all_gt_boxes[j].shape[0]
-       all_gt_boxes_coordinate.append(convert_to_list_points(all_gt_boxes[j]))
+       all_gt_boxes_coordinate.append(convert_to_list_points(all_gt_boxes[j][:,1:8]))
 
     num_ind = sorted_ind.shape[0]
     tp  = np.zeros(num_ind)
@@ -64,7 +64,7 @@ def evaluation_3d( all_pred_boxes, all_gt_boxes, threshold = 0.5 ):
         coordinate_cur = convert_to_list_points(np_all_boxes[ np_index_cur, 1:8].reshape(1, -1))[0]
         # coordinate_cur_gt = all_gt_boxes_coordinate[ gt_index_cur ]
 
-        ratio_overlap = caculate_3d_overlap( np_all_boxes[np_index_cur,1:8], coordinate_cur, all_gt_boxes[gt_index_cur], all_gt_boxes_coordinate[ gt_index_cur ])
+        ratio_overlap = caculate_3d_overlap( np_all_boxes[np_index_cur,1:8], coordinate_cur, all_gt_boxes[gt_index_cur][:,1:8], all_gt_boxes_coordinate[ gt_index_cur ])
 
         overlap_max  = np.max( ratio_overlap )
 

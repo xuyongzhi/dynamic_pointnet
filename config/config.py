@@ -69,13 +69,13 @@ __C.TRAIN.USE_FLIPPED = True
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = np.ones((1,__C.TRAIN.NUM_REGRESSION))*1.0 # (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 
 
-__C.TRAIN.DEBUG = False #True
+__C.TRAIN.DEBUG =False  # True
 
 
 __C.TRAIN.SIGMA = 2.0
 # IOU >= thresh: positive example
 
-__C.TRAIN.LAMBDA = 1.0
+__C.TRAIN.LAMBDA = 0.4
 
 #__C.TRAIN.RPN_POSITIVE_OVERLAP = 0.7
 
@@ -86,15 +86,15 @@ __C.TRAIN.LAMBDA = 1.0
 __C.TRAIN.POSITIVE_ALPHA = np.pi/4
 
 # Distance between central points
-__C.TRAIN.NEGATIVE_CEN_DIST = 0.8
+__C.TRAIN.NEGATIVE_CEN_DIST = 1.9
 
-__C.TRAIN.POSITIVE_CEN_DIST = 0.2
+__C.TRAIN.POSITIVE_CEN_DIST = 0.9
 
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5
 
 # Total number of examples
-__C.TRAIN.RPN_BATCHSIZE = 256
+__C.TRAIN.RPN_BATCHSIZE = 128
 
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
@@ -127,9 +127,9 @@ __C.TEST.NUM_REGRESSION = 7
 
 # radius for grouping
 __C.TEST.Radius_1 = 0.2
-__C.TEST.Radius_2 = 0.4
-__C.TEST.Radius_3 = 0.8
-__C.TEST.Radius_4 = 1.2
+__C.TEST.Radius_2 = 0.6
+__C.TEST.Radius_3 = 1.0
+__C.TEST.Radius_4 = 1.8
 __C.TEST.Radius_5 = 1.8
 __C.TEST.Radius_6 = 2.4
 
@@ -145,7 +145,7 @@ __C.TEST.Alpha = np.array([0,np.pi/2])
 __C.TEST.NMS = 0.3
 
 ## NMS threshold used on RPN proposals
-__C.TEST.RPN_NMS_THRESH = 0.5
+__C.TEST.RPN_NMS_THRESH = 0.4
 
 ## Number of top scoring boxes to keep before apply NMS to RPN proposals
 __C.TEST.RPN_PRE_NMS_TOP_N = 1000
