@@ -1,6 +1,10 @@
 # xyz Nov 2017
 
 import numpy as np
+import os,sys
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR+'/matterport_metadata')
+from get_mpcat40 import MatterportMeta
 
 class EvaluationMetrics():
     @staticmethod
@@ -66,3 +70,29 @@ class EvaluationMetrics():
                 c_TP_FN_FP[1,l] += p!=l
                 c_TP_FN_FP[2,p] += p!=l
         return c_TP_FN_FP
+
+    @staticmethod
+    def report_pred( file_name, pred_val, label_category, dataset_name):
+        if dataset_name == 'matterport3d':
+            label2class = MatterportMeta['label2class']
+        pred_logit = np.argmax( pred_val,-1 )
+        is_correct = label_category == pred_logit
+        print('writing pred log:%s'%(file_name))
+        with open(file_name,'w') as f:
+            classes_str = ' '.join([label2class[l] for l in range(len(label2class))])+'\n'
+            for i in range(pred_val.shape[0]):
+                for j in range(pred_val.shape[1]):
+                    if is_correct[i,j]:
+                        str_ij = '  Y '
+                    else:
+                        str_ij = '! N '
+                    str_ij += '%s'%( label2class[label_category[i,j]] ) + '\t'
+                    score_order = np.argsort( pred_val[i,j] )
+                    for k in range( min(7,len(score_order)) ):
+                        label_k = score_order[len(score_order) - k -1]
+                        str_ij += '%s:%0.1f'%(label2class[label_k],pred_val[i,j,label_k]) + '  '
+                    str_ij += '\n'
+                    f.write(str_ij)
+                f.flush()
+        print('finish pred log:%s'%(file_name))
+

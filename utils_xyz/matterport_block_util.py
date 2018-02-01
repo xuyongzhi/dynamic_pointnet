@@ -502,9 +502,11 @@ class Matterport3D_Prepare():
                     MergeNormed_H5f(filename_ls_k,merged_fn,IsShowSummaryFinished=True)
 
 
-    def GenObj_RawH5f(self):
-        file_name = self.house_rawh5f_dir+'/region1.rh5'
-        file_name = '/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
+    def GenObj_RawH5f(self,house_name):
+        house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
+        house_rawh5f_dir = house_h5f_dir+'/rawh5f'
+        file_name = house_rawh5f_dir+'/region5.rh5'
+        #file_name = '/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
         xyz_cut_rate= [0,0,0.9]
         with h5py.File(file_name,'r') as h5f:
             rawh5f = Raw_H5f(h5f,file_name)
@@ -559,9 +561,9 @@ def parse_house(house_names_ls):
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
-    #operations  = ['GenObj_RawH5f']
+    operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
@@ -595,7 +597,8 @@ def parse_house(house_names_ls):
     if 'MergeNormed_house' in operations:
         matterport3d_prepare.MergeNormed(house_names_ls[0],new_stride,new_step,numpoint_block,'.prh5','house')
     if 'GenObj_RawH5f' in operations:
-        matterport3d_prepare.GenObj_RawH5f()
+        for house_name in house_names_ls:
+            matterport3d_prepare.GenObj_RawH5f(house_name)
     if 'GenObj_SortedH5f' in operations:
         matterport3d_prepare.GenObj_SortedH5f()
     if 'GenObj_NormedH5f' in operations:
@@ -604,14 +607,13 @@ def parse_house(house_names_ls):
 def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
-
-    house_names = all_house_names
+    #house_names = all_house_names
 
     house_names.sort()
 

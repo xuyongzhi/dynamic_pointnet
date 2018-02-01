@@ -28,6 +28,8 @@ ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
+Is_REPORT_PRED = True
+ISNoEval = True
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
@@ -291,7 +293,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
-            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
+            if ISNoEval: eval_log_str = ''
+            else:
+                eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
@@ -302,7 +306,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             if epoch == MAX_EPOCH -1:
                 LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
 
-            print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
+            #print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
 
 def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP = None,total_seen=None,accuracy=None):
 
@@ -397,25 +401,17 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
             feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
+        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
+                                    feed_dict=feed_dict)
+
         if FLAGS.datafeed_type == 'Pr_Normed_H5f':
             cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
             if IS_GEN_PLY:
                 cur_flatten_pointcloud, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
-                color_flag = 'raw_color'
-                if color_flag == 'gt_color':
-                    cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS['xyz']]
-                    create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label[...,CATEGORY_LABEL_IDX] )
-                if color_flag == 'raw_color':
-                    cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS['xyz']+DATA_ELE_IDXS['color_1norm']]
-                    cur_xyz_color[...,[3,4,5]] *= 255
-                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
-                    cur_xyz_color = cur_data[...,DATA_ELE_IDXS['xyz']+DATA_ELE_IDXS['color_1norm']]
-                    cur_xyz_color[...,[3,4,5]] *= 255
-                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
-        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
-                                    feed_dict=feed_dict)
+                gen_ply(cur_flatten_pointcloud, cur_label, np.argmax(pred_val,2), cur_data, batch_idx)
+            if Is_REPORT_PRED:
+                pred_fn = LOG_DIR+'/train_pred_log.txt'
+                EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
 
         loss_sum += loss_val
         accuracy_sum += accuracy_batch
@@ -433,6 +429,29 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             os.system('nvidia-smi')
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr
+
+def gen_ply(cur_flatten_pointcloud, cur_label, pred_val, cur_data, batch_idx):
+                #color_flags = ['raw_color']
+                color_flags = ['gt_color']
+                position = 'xyz_midnorm_block'
+                position = 'xyz_1norm_file'
+                position = 'xyz'
+                if 'gt_color' in color_flags:
+                    cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]]
+                    cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
+                    create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label_category  )
+                    create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_predcolor'%(batch_idx)+'.ply', pred_val )
+                    err_idxs = cur_label_category != pred_val
+                    create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_predcolor'%(batch_idx)+'.ply', pred_val[err_idxs] )
+                    create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_gtcolor'%(batch_idx)+'.ply', cur_label_category[err_idxs] )
+
+                if 'raw_color' in color_flags:
+                    cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+                    cur_xyz_color[...,[3,4,5]] *= 255
+                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
+                    cur_xyz_color = cur_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+                    cur_xyz_color[...,[3,4,5]] *= 255
+                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:
@@ -627,6 +646,7 @@ def main():
         file_nums['test'] = net_provider.eval_file_N
 
         for tot in ['train','test']:
+            if ISNoEval and tot=='test': continue
             for k in range( min(MAX_MULTIFEED_NUM,file_nums[tot]) ):
                 if DEBUG_SMALLDATA: limit_max_train_num_batches = int( max(1, LIMIT_MAX_NUM_BATCHES[tot]/min(file_nums[tot],MAX_MULTIFEED_NUM) ) )
                 else: limit_max_train_num_batches = None
