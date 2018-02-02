@@ -696,11 +696,11 @@ class GlobalSubBaseBLOCK():
 
     def save_bmap_between_dif_stride_step(self):
         '''
-        bmh5f format:
-            cascade_id_ls = ['root', '0', '1', '2', '3', 'global']
-            h5f.attrs['group_num'] = len(cascade_id_ls) # finish flag
+        bmh5f structure:
             for each cascde_id, create a group. eg cascade_id='root' grp_name='root-stride_0d1_step_0d1'
-            In each grp, fro each new_bid, create a blockid_map_dset, shape=(len(base_ids),) blockid_map_dset[...] = base_ids
+            In each grp,
+                1) create a dataset: "all_sorted_aimbids", shape=all_sorted_larger_blockids.shape
+                2) for each new_bid, create a dataset: str(new_bid), shape=(len(base_ids),) blockid_map_dset[...] = base_ids
 
         '''
         assert self.mode == 'write'
@@ -735,15 +735,10 @@ class GlobalSubBaseBLOCK():
                     for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
                         blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
                         blockid_map_dset[...] = base_ids
-            #h5f.attrs['cascade_idstr_ls'] = np.array(cascade_id_ls)
-            #h5f.attrs['num_group'] = len(cascade_id_ls)
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
             print('write finish: %s'%(self.bmh5_fn))
 
-    @staticmethod
-    def merge_bmh5( bmh5_fn_ls ):
-        pass
 
     @staticmethod
     def check_bmh5_intact(file_name):
