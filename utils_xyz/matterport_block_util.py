@@ -198,7 +198,8 @@ def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_pyh5 = False
-        Always_CreateNew_bmh5 = False
+        if TMPDEBUG:
+            Always_CreateNew_bmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
@@ -406,6 +407,9 @@ class Matterport3D_Prepare():
             house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
             base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
             file_list += glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+            if TMPDEBUG:
+                file_list = glob.glob( os.path.join(base_sorted_path,'region0.sh5') )
+
         #file_list = ['/DS/Matterport3D/Matterport3D_H5F/v1/scans/gxdoqLR6rwA/stride_0d1_step_0d1/region2.sh5']
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -543,12 +547,12 @@ class Matterport3D_Prepare():
         else:
             print("file not intact: %s \n\t %s"%(file_name,check_str))
 
-    def ShowBidxmap(self):
-        file_name = self.house_rawh5f_dir+'/region1.rh5'
-        step = stride = [0.1,0.1,0.1]
-        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) + '/region2.sh5'
-        with h5py.File(file_name,'r') as h5f:
-            GlobalSubBaseBLOCK.show_all(h5f,file_name)
+    def ShowBidxmap(self,house_name):
+        house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
+        house_bmh5_dir = house_h5f_dir+'/stride_0d1_step_0d1-bidxmap-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2'
+        bmh5_fn = house_bmh5_dir + '/region0.bmh5'
+        gsbb_load = GlobalSubBaseBLOCK(bmh5_fn=bmh5_fn)
+        gsbb_load.show_all()
 
 
 def parse_house(house_names_ls):
@@ -563,7 +567,7 @@ def parse_house(house_names_ls):
     #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
-    operations  = ['GenObj_RawH5f']
+    #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
     if 'ParseRaw' in operations:
@@ -629,15 +633,15 @@ def show_summary():
     matterport3d_prepare.ShowSummary()
 def show_bidxmap():
     matterport3d_prepare = Matterport3D_Prepare()
-    matterport3d_prepare.ShowBidxmap()
+    matterport3d_prepare.ShowBidxmap('17DRP5sb8fy')
 
 def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    parse_house_ls()
+    #parse_house_ls()
     #show_summary()
-    #show_bidxmap()
+    show_bidxmap()
     #show_all_label_colors()
 
 

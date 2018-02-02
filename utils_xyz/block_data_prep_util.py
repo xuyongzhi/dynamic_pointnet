@@ -222,59 +222,98 @@ class GlobalSubBaseBLOCK():
     #sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
     #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
     #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
-    global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
-        get_gsbb_config()
+
+    def load_default_parameters( self ):
+        global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
+            get_gsbb_config()
+        for pn in self.para_names:
+            setattr( self, pn, eval(pn) )
+
+    def load_para_from_file( self, bmh5_fn ):
+        IsIntact,s = GlobalSubBaseBLOCK.check_bmh5_intact( bmh5_fn )
+        assert IsIntact, s
+        with h5py.File( bmh5_fn,'r' ) as h5f:
+            for ele_name in self.para_names + self.meta_names + self.root_para_names:
+                setattr( self,ele_name, h5f.attrs[ele_name]  )
+
+    def load_para_from_rootsh5( self ):
+        IsIntact,s = Sorted_H5f.check_sh5_intact( self.root_s_h5f_fn )
+        assert IsIntact, s
+        for ele_name in self.root_para_names:
+            setattr( self,ele_name, self.root_h5fattrs[ele_name[5:len(ele_name)]]  )
     #---------------------------------------------------------------------------
-    cascade_num = len(sub_block_size_candis)
-    sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
-    sum_flatten_bmap_sample_num = np.zeros(shape=(cascade_num))
+    def update_parameters( self ):
+        self.cascade_num = cascade_num = len(self.sub_block_size_candis)
+        self.sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
+        self.sum_flatten_bmap_sample_num = np.zeros(shape=(cascade_num))
 
-    sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num,2)).astype(np.int32)
-    for i in range(1,cascade_num):
-        sg_bidxmaps_extract_idx[i,0] = sg_bidxmaps_extract_idx[i-1,0] + nsubblock_candis[i]
-        sg_bidxmaps_extract_idx[i,1] = npoint_subblock_candis[i]
-    flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
-    for i in range(1,cascade_num+1):
-        if i==1:
-            last_flatten_bmap_shape0 = global_num_point
-        else:
-            last_flatten_bmap_shape0 = nsubblock_candis[i-2]
-        flatten_bidxmaps_extract_idx[i,0] = flatten_bidxmaps_extract_idx[i-1,0] + last_flatten_bmap_shape0
-        flatten_bidxmaps_extract_idx[i,1] = 2
+        sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num,2)).astype(np.int32)
+        for i in range(1,cascade_num):
+            sg_bidxmaps_extract_idx[i,0] = sg_bidxmaps_extract_idx[i-1,0] + self.nsubblock_candis[i]
+            sg_bidxmaps_extract_idx[i,1] = self.npoint_subblock_candis[i]
+        flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
+        for i in range(1,cascade_num+1):
+            if i==1:
+                last_flatten_bmap_shape0 = self.global_num_point
+            else:
+                last_flatten_bmap_shape0 = self.nsubblock_candis[i-2]
+            flatten_bidxmaps_extract_idx[i,0] = flatten_bidxmaps_extract_idx[i-1,0] + last_flatten_bmap_shape0
+            flatten_bidxmaps_extract_idx[i,1] = 2
 
-    cascade_id_ls = ['root']+range(cascade_num)+['global']
-    base_cascade_ids = {}
-    base_cascade_ids['global'] = 0
-    for i in range(cascade_num):
-        if i==0:
-            base_cascade_ids[0] = 'root'
-        else:
-            base_cascade_ids[i] = i-1
-    def __init__(self,root_s_h5f,root_s_h5f_fn):
-        self.root_s_h5f = root_s_h5f
-        self.root_s_h5f_fn = root_s_h5f_fn
+        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num)+['global']
+        base_cascade_ids = {}
+        base_cascade_ids['global'] = 0
+        for i in range(cascade_num):
+            if i==0:
+                base_cascade_ids[0] = 'root'
+            else:
+                base_cascade_ids[i] = i-1
+        self.base_cascade_ids = base_cascade_ids
+
+    def __init__(self,root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None):
         self.new_attrs = {}
         self.bm_output = {}
-    @staticmethod
-    def get_bmapfn(root_s_h5f_fn):
-        out_folder = os.path.dirname(root_s_h5f_fn)+'-bidxmap-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+        self.para_names = ['global_stride','global_step','global_num_point','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ]
+        self.root_para_names = ['root_block_stride','root_block_step']
+        self.meta_names = ['sum_sg_bidxmap_sample_num','sum_flatten_bmap_sample_num']
+
+        if bmh5_fn != None:
+            assert root_s_h5f_fn == None and root_s_h5f == None
+            self.mode = 'load'
+            # load gsbb configuration from bmh5 file
+            self.bmh5_fn = bmh5_fn
+            self.load_para_from_file(bmh5_fn)
+        else:
+            self.load_default_parameters()
+            if root_s_h5f != None and root_s_h5f_fn != None:
+                assert bmh5_fn == None
+                self.mode = 'write'
+                self.root_s_h5f = root_s_h5f
+                self.root_h5fattrs = root_s_h5f.attrs
+                self.root_s_h5f_fn = root_s_h5f_fn
+                # load gsbb configuration from gsbb_config.py
+                self.load_para_from_rootsh5()
+                self.bmh5_fn = self.get_bmapfn()
+            elif root_s_h5f_fn == None and root_s_h5f == None and bmh5_fn == None:
+                self.mode = 'empty_use'
+
+        self.update_parameters()
+
+    def get_bmapfn(self):
+        assert self.mode == 'write'
+        out_folder = os.path.dirname(self.root_s_h5f_fn)+'-bidxmap-'+self.get_pyramid_flag()
         if not os.path.exists(out_folder):
             os.mkdir(out_folder)
-        base_name = os.path.splitext( os.path.basename(root_s_h5f_fn) )[0]
+        base_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
         blockid_maps_fn = out_folder + '/' + base_name + '.bmh5'
         return blockid_maps_fn
-    @staticmethod
-    def write_paras_in_h5fattrs(attrs):
-        ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis','sum_sg_bidxmap_sample_num','sum_flatten_bmap_sample_num']
-        for ele_name in ele_names:
-            attrs[ele_name] = getattr( GlobalSubBaseBLOCK,ele_name )
-    def load_paras_from_h5fattrs(attrs):
-        ele_names = ['global_stride','global_step','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis']
-        for ele_name in ele_names:
-            setattr( GlobalSubBaseBLOCK,ele_name, attrs[ele_name]  )
 
-    @staticmethod
-    def get_pyramid_flag():
+    def write_paras_in_h5fattrs(self, aim_attrs ):
+        assert self.mode == 'write'
+        for ele_name in self.para_names + self.meta_names + self.root_para_names:
+            aim_attrs[ele_name] = getattr( self,ele_name )
+
+    def get_pyramid_flag(self):
         def my_str(s):
             if s%1!=0:
                 str_ = '%dd'%(int(s))+str(int((10*s)%10))
@@ -283,71 +322,74 @@ class GlobalSubBaseBLOCK():
             return str_
 
         flag_str = ''
-        flag_str += my_str(GlobalSubBaseBLOCK.global_stride[0])+'_'+my_str(GlobalSubBaseBLOCK.global_step[0])+'-'
-        for i,n in enumerate(GlobalSubBaseBLOCK.nsubblock_candis):
+        flag_str += my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])+'-'
+        for i,n in enumerate(self.nsubblock_candis):
             flag_str += str(n)
-            if i<len(GlobalSubBaseBLOCK.nsubblock_candis)-1:
+            if i<len(self.nsubblock_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
-        for i,n in enumerate(GlobalSubBaseBLOCK.npoint_subblock_candis):
+        for i,n in enumerate(self.npoint_subblock_candis):
             flag_str += str(n)
-            if i<len(GlobalSubBaseBLOCK.npoint_subblock_candis)-1:
+            if i<len(self.npoint_subblock_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
-        for i,s in enumerate(GlobalSubBaseBLOCK.sub_block_size_candis):
+        for i,s in enumerate(self.sub_block_size_candis):
             flag_str += my_str(s)
-            if i<len(GlobalSubBaseBLOCK.sub_block_size_candis)-1:
+            if i<len(self.sub_block_size_candis)-1:
                 flag_str += '_'
         return flag_str
 
-    @staticmethod
-    def get_block_sample_shape(cascade_id):
-        base_casid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
-        return np.array((GlobalSubBaseBLOCK.nsubblock_candis[base_casid],GlobalSubBaseBLOCK.npoint_subblock_candis[base_casid],))
+    def get_block_sample_shape(self,cascade_id):
+        base_casid = self.base_cascade_ids[cascade_id]
+        return np.array((self.nsubblock_candis[base_casid],self.npoint_subblock_candis[base_casid],))
 
     def get_new_attrs(self,cascade_id) :
+        assert self.mode == 'write'
         if cascade_id not in self.new_attrs:
-            stride,step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,self.root_s_h5f)
-            new_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(self.root_s_h5f.attrs,stride,step)
+            stride,step = self.get_stride_step_(cascade_id)
+            new_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(self.root_h5fattrs,stride,step)
             # add total_block_N, not add total_row_N yet
-            total_block_N = GlobalSubBaseBLOCK.get_block_n_of_new_stride_step_(self.root_s_h5f,self.root_s_h5f_fn,cascade_id)
+            total_block_N = self.get_block_n_of_new_stride_step_(self.root_s_h5f,self.root_s_h5f_fn,cascade_id)
             new_attrs['total_block_N'] = total_block_N
             self.new_attrs[cascade_id] = new_attrs
         return self.new_attrs[cascade_id]
 
     def get_stride_step(self,cascade_id):
-        return GlobalSubBaseBLOCK.get_stride_step_(cascade_id,self.root_s_h5f.attrs)
-    @staticmethod
-    def get_stride_step_(cascade_id,root_h5fattrs=None):
-        if cascade_id=='root': assert root_h5fattrs!=None
+        return self.get_stride_step_(cascade_id)
+
+    def get_stride_step_(self,cascade_id):
+        #if cascade_id=='root': assert (root_h5fattrs!=None) or ('root_block_stride' in self)
         if cascade_id == 'global':
-            stride = GlobalSubBaseBLOCK.global_stride
-            step = GlobalSubBaseBLOCK.global_step
+            stride = self.global_stride
+            step = self.global_step
         elif cascade_id == 'root':
-            stride = root_h5fattrs['block_stride']
-            step = root_h5fattrs['block_step']
+            if self.mode == 'w':
+                stride = root_h5fattrs['block_stride']
+                step = root_h5fattrs['block_step']
+            else:
+                stride = self.root_block_stride
+                step = self.root_block_step
         else:
-            assert cascade_id <= GlobalSubBaseBLOCK.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
-            stride = step =  np.array([1.0,1.0,1.0])*GlobalSubBaseBLOCK.sub_block_size_candis[cascade_id]
+            assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
+            stride = step =  np.array([1.0,1.0,1.0])*self.sub_block_size_candis[cascade_id]
         return stride,step
 
-    @staticmethod
-    def get_group_name(cascade_id,root_h5fattrs=None):
-        aim_stride,aim_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_h5fattrs)
+    def get_group_name(self,cascade_id):
+        aim_stride,aim_step = self.get_stride_step_(cascade_id)
         aim_name = get_stride_step_name(aim_stride,aim_step)
         if cascade_id=='root':
             group_name = 'root-'+aim_name
         else:
-            base_stride,base_step = GlobalSubBaseBLOCK.get_stride_step_(GlobalSubBaseBLOCK.base_cascade_ids[cascade_id],root_h5fattrs)
+            base_stride,base_step = self.get_stride_step_(self.base_cascade_ids[cascade_id])
             base_name = get_stride_step_name(base_stride,base_step)
             group_name = 'BASE_'+base_name+'-AIM_'+aim_name
         return group_name
 
     @staticmethod
-    def get_block_n_of_new_stride_step_(root_s_h5f,root_s_h5f_fn,cascade_id):
-        return  GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num'])['block_num']
+    def get_block_n_of_new_stride_step_(cascade_id):
+        return  self.load_one_bidxmap_(cascade_id,out=['block_num'])['block_num']
 
     def get_all_sorted_aimbids(self,cascade_id):
         ele_name = 'all_sorted_aimbids_'+str(cascade_id)
@@ -391,8 +433,8 @@ class GlobalSubBaseBLOCK():
         valid_sorted_basebids = np.sort(valid_sorted_basebids)
         flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
 
-        aim_nsubblock =  GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
-        aim_npoint_subblock = GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id]
+        aim_nsubblock =  self.nsubblock_candis[cascade_id]
+        aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
 
         # (1) Remove all the aim blocks contain no valid base blocks
         all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
@@ -503,10 +545,10 @@ class GlobalSubBaseBLOCK():
         '''
         sg_bidxmaps_ls = []
         sg_bidxmaps_fixed_ls =  []
-        sg_bidxmaps_fixed_shape1 = GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()[1]
-        sg_bidxmap_sample_num = np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,8)).astype(np.uint64)
+        sg_bidxmaps_fixed_shape1 = self.get_sg_bidxmaps_fixed_shape()[1]
+        sg_bidxmap_sample_num = np.zeros(shape=(self.cascade_num,8)).astype(np.uint64)
         flatten_bidxmaps_ls = []
-        flatten_bmap_sample_num =  np.zeros(shape=(GlobalSubBaseBLOCK.cascade_num,3)).astype(np.uint64)
+        flatten_bmap_sample_num =  np.zeros(shape=(self.cascade_num,3)).astype(np.uint64)
 
         sg_bidxmap_sample_num[0,:] = sg_sample_num_cas0
         def fix_var_shape(org_var,aim_shape,axis):
@@ -527,7 +569,7 @@ class GlobalSubBaseBLOCK():
             return new_var, sample_num
 
 
-        global_num = GlobalSubBaseBLOCK.global_num_point
+        global_num = self.global_num_point
         flatten_bidxmap0,inv_sample_num0 = fix_var_shape(flatten_bidxmap0,global_num,0)
         flatten_bidxmaps_ls.append(flatten_bidxmap0)
         flatten_bmap_sample_num[0,:] = inv_sample_num0
@@ -539,7 +581,7 @@ class GlobalSubBaseBLOCK():
             sg_bidxmaps_fixed_ls.append( fix_var_shape(bidxmap,sg_bidxmaps_fixed_shape1,1)[0] )
 
             sg_bidxmap_sample_num[cascade_id,:] = sg_sample_num
-            flatten_bidxmap,sample_num_flatten = fix_var_shape(flatten_bidxmap,GlobalSubBaseBLOCK.nsubblock_candis[cascade_id-1],0)
+            flatten_bidxmap,sample_num_flatten = fix_var_shape(flatten_bidxmap,self.nsubblock_candis[cascade_id-1],0)
             flatten_bidxmaps_ls.append(flatten_bidxmap)
             flatten_bmap_sample_num[cascade_id,:] = sample_num_flatten
         sg_bidxmaps = np.concatenate(sg_bidxmaps_fixed_ls,axis=0)
@@ -547,13 +589,13 @@ class GlobalSubBaseBLOCK():
 
         IsCheck_bidxmaps = True
         if IsCheck_bidxmaps:
-            assert sg_bidxmaps.shape == GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()
-            assert flatten_bidxmaps.shape ==  GlobalSubBaseBLOCK.get_flatten_bidxmaps_shape()
+            assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
+            assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
             for cascade_id in range(0,self.cascade_num):
                 if cascade_id!=0:
-                    assert np.sum(sg_bidxmaps_ls[cascade_id-1] != GlobalSubBaseBLOCK.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
+                    assert np.sum(sg_bidxmaps_ls[cascade_id-1] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
                 try:
-                    assert np.sum(flatten_bidxmaps_ls[cascade_id] != GlobalSubBaseBLOCK.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
+                    assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
                 except:
                     print()
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -563,55 +605,50 @@ class GlobalSubBaseBLOCK():
 
     @staticmethod
     def extract_sg_bidxmaps(sg_bidxmaps,cascade_id):
-        start = GlobalSubBaseBLOCK.sg_bidxmaps_extract_idx[cascade_id-1,:]
-        end = GlobalSubBaseBLOCK.sg_bidxmaps_extract_idx[cascade_id,:]
-        #start_ = np.sum(GlobalSubBaseBLOCK.nsubblock_candis[1:cascade_id])+0
-        #end_ = start + GlobalSubBaseBLOCK.nsubblock_candis[cascade_id]
+        start = self.sg_bidxmaps_extract_idx[cascade_id-1,:]
+        end = self.sg_bidxmaps_extract_idx[cascade_id,:]
+        #start_ = np.sum(self.nsubblock_candis[1:cascade_id])+0
+        #end_ = start + self.nsubblock_candis[cascade_id]
         return sg_bidxmaps[ start[0]:end[0],0:end[1] ]
 
-        #return sg_bidxmaps[start:end,0:GlobalSubBaseBLOCK.npoint_subblock_candis[cascade_id]]
+        #return sg_bidxmaps[start:end,0:self.npoint_subblock_candis[cascade_id]]
+
     @staticmethod
     def extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id):
-        start = GlobalSubBaseBLOCK.flatten_bidxmaps_extract_idx[cascade_id,:]
-        end = GlobalSubBaseBLOCK.flatten_bidxmaps_extract_idx[cascade_id+1,:]
+        start = self.flatten_bidxmaps_extract_idx[cascade_id,:]
+        end = self.flatten_bidxmaps_extract_idx[cascade_id+1,:]
 
-        #tmp = [GlobalSubBaseBLOCK.flatten_bmap_shape0(cid) for cid in range(cascade_id)]
+        #tmp = [self.flatten_bmap_shape0(cid) for cid in range(cascade_id)]
         #start_ = int(np.sum(tmp)+0)
-        #end_ = int(start_ + GlobalSubBaseBLOCK.flatten_bmap_shape0(cascade_id))
+        #end_ = int(start_ + self.flatten_bmap_shape0(cascade_id))
         return flatten_bidxmaps[start[0]:end[0],:]
 
     @staticmethod
     def get_sg_bidxmaps_fixed_shape():
-        shape0 = np.sum(GlobalSubBaseBLOCK.nsubblock_candis[1:GlobalSubBaseBLOCK.cascade_num])
-        shape1 = max(GlobalSubBaseBLOCK.npoint_subblock_candis[1:GlobalSubBaseBLOCK.cascade_num])
+        shape0 = np.sum(self.nsubblock_candis[1:self.cascade_num])
+        shape1 = max(self.npoint_subblock_candis[1:self.cascade_num])
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id
-        root_s_h5f = self.root_s_h5f
-        root_s_h5f_fn = self.root_s_h5f_fn
-        return GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out,new_bid)
+        return self.load_one_bidxmap_(cascade_id,out,new_bid)
     @staticmethod
     def flatten_bmap_shape0(cascade_id):
         if cascade_id==0:
-            return GlobalSubBaseBLOCK.global_num_point
+            return self.global_num_point
         else:
-            return GlobalSubBaseBLOCK.nsubblock_candis[cascade_id-1]
+            return self.nsubblock_candis[cascade_id-1]
     @staticmethod
     def get_flatten_bidxmaps_shape():
-        shape0 = np.sum([GlobalSubBaseBLOCK.flatten_bmap_shape0(cid) for cid in range(GlobalSubBaseBLOCK.cascade_num)])
+        shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
         return (shape0,2)
 
-    @staticmethod
-    def load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
-        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        #GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn)
-        assert os.path.exists(blockid_maps_fn),"file not exist: %s"%(blockid_maps_fn)
-        with h5py.File(blockid_maps_fn,'r') as h5f:
-            larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id,root_s_h5f.attrs)
-            group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
+    def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+        assert os.path.exists(self.bmh5_fn),"file not exist: %s"%(self.bmh5_fn)
+        with h5py.File(self.bmh5_fn, 'r') as h5f:
+            larger_stride, larger_step = self.get_stride_step_(cascade_id)
+            group_name = self.get_group_name(cascade_id)
             grp = h5f[group_name]
-            cascade_idstr_ls = h5f.attrs['cascade_idstr_ls']
             bm_output = {}
             if 'block_num' in out or 'all_sorted_aimbids' in out:
                 all_sorted_aimbids = grp['all_sorted_aimbids'][...]
@@ -629,27 +666,22 @@ class GlobalSubBaseBLOCK():
                 bm_output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
             return bm_output
 
-    @staticmethod
-    def show_all_groupnames(root_s_h5f_fn):
-        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        group_names = []
-        with h5py.File(blockid_maps_fn,'r') as h5f:
+    def show_all_groupnames(self):
+        with h5py.File(self.bmh5_fn,'r') as h5f:
             print('\nall group names')
             for group_name in h5f:
-                group_names.append(group_name)
                 print(group_name)
 
-    @staticmethod
-    def show_all(root_s_h5f,root_s_h5f_fn):
-        GlobalSubBaseBLOCK.show_all_groupnames(root_s_h5f_fn)
+    def show_all(self):
+        self.show_all_groupnames( )
         t0 = time.time()
         new_bid = 0
         for out in ['block_num','all_sorted_aimbids']:
-            cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
+            cascade_id_ls = self.cascade_id_ls
             for cascade_id in cascade_id_ls:
                 if cascade_id=='root' and out=='baseids_inanew':
                     continue
-                output = GlobalSubBaseBLOCK.load_one_bidxmap_(root_s_h5f,root_s_h5f_fn,cascade_id,[out],new_bid)
+                output = self.load_one_bidxmap_(cascade_id,[out],new_bid)
 
                 if out=='all_sorted_aimbids':
                     n = output[out].shape[0]
@@ -658,47 +690,43 @@ class GlobalSubBaseBLOCK():
                 if out=='block_num':
                     print('block_num:',output[out])
                 #print('\nt = %f ms, cascade_id = %s   %s'%(1000*(time.time()-t0),str(cascade_id),out))
-        IsIntact,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( root_s_h5f_fn )
+        IsIntact,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
         print('IsIntact:',IsIntact)
 
 
-    @staticmethod
-    def save_allblockids_between_dif_stride_step(root_s_h5f,root_s_h5f_fn):
+    def save_bmap_between_dif_stride_step(self):
         '''
         bmh5f format:
             cascade_id_ls = ['root', '0', '1', '2', '3', 'global']
-            h5f.attrs['cascade_idstr_ls'] = cascade_id_ls
             h5f.attrs['group_num'] = len(cascade_id_ls) # finish flag
             for each cascde_id, create a group. eg cascade_id='root' grp_name='root-stride_0d1_step_0d1'
             In each grp, fro each new_bid, create a blockid_map_dset, shape=(len(base_ids),) blockid_map_dset[...] = base_ids
 
         '''
-        blockid_maps_fn = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
-        #IsIntact,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( blockid_maps_fn )
-        #if (not Always_CreateNew) and IsIntact:
-        #    print('bmh5 file intact: %s'%(blockid_maps_fn))
-        #    return
-        with h5py.File(blockid_maps_fn,'w') as h5f:
-            h5f.attrs['is_intact'] = 0
-            all_sorted_blockids_dic={}
-            all_sorted_blockids_dic['root'] = np.sort([int(k) for k in root_s_h5f])
+        assert self.mode == 'write'
+        with h5py.File(self.bmh5_fn,'w') as h5f:
+            h5f.attrs['is_intact_bmh5'] = 0
+            self.write_paras_in_h5fattrs( h5f.attrs )
 
-            cascade_id_ls = GlobalSubBaseBLOCK.cascade_id_ls
+            all_sorted_blockids_dic={}
+            all_sorted_blockids_dic['root'] = np.sort([int(k) for k in self.root_s_h5f])
+
+            cascade_id_ls = self.cascade_id_ls
             cascade_attrs = {}
-            cascade_attrs['root'] = root_s_h5f.attrs
+            cascade_attrs['root'] = self.root_s_h5f.attrs
             for cascade_id in cascade_id_ls:
                 if cascade_id == 'root':
                     all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
                 else:
-                    base_bid = GlobalSubBaseBLOCK.base_cascade_ids[cascade_id]
+                    base_bid = self.base_cascade_ids[cascade_id]
                     all_sorted_base_blockids = all_sorted_blockids_dic[base_bid]
                     base_attrs = cascade_attrs[base_bid]
-                    larger_stride, larger_step = GlobalSubBaseBLOCK.get_stride_step_(cascade_id)
+                    larger_stride, larger_step = self.get_stride_step_(cascade_id)
                     new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
                                                             base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
                     all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
                     cascade_attrs[cascade_id] = new_attrs
-                group_name = GlobalSubBaseBLOCK.get_group_name(cascade_id,root_s_h5f.attrs)
+                group_name = self.get_group_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
                 all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_blockids.shape,dtype=np.int32  )
@@ -707,15 +735,19 @@ class GlobalSubBaseBLOCK():
                     for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
                         blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
                         blockid_map_dset[...] = base_ids
-            h5f.attrs['cascade_idstr_ls'] = np.array(cascade_id_ls)
-            h5f.attrs['num_group'] = len(cascade_id_ls)
-            h5f.attrs['is_intact'] = 1
+            #h5f.attrs['cascade_idstr_ls'] = np.array(cascade_id_ls)
+            #h5f.attrs['num_group'] = len(cascade_id_ls)
+            h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
-            print('write finish: %s'%(blockid_maps_fn))
+            print('write finish: %s'%(self.bmh5_fn))
 
     @staticmethod
-    def check_bmh5_intact(root_s_h5f_fn):
-        file_name = GlobalSubBaseBLOCK.get_bmapfn(root_s_h5f_fn)
+    def merge_bmh5( bmh5_fn_ls ):
+        pass
+
+    @staticmethod
+    def check_bmh5_intact(file_name):
+        #file_name = self.get_bmapfn(root_s_h5f_fn)
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.bmh5'
         if not os.path.exists(file_name):
@@ -727,9 +759,9 @@ class GlobalSubBaseBLOCK():
             return False,"File signature err"
         #print('checking bmh5 file:',file_name)
         with h5py.File(file_name,'r') as h5f:
-            if 'is_intact' not in h5f.attrs:
+            if 'is_intact_bmh5' not in h5f.attrs:
                 return False,""
-            IsIntact = h5f.attrs['is_intact'] == 1
+            IsIntact = h5f.attrs['is_intact_bmh5'] == 1
             print('bmh5 file intact:',file_name)
             return IsIntact,""
 
@@ -834,6 +866,8 @@ class GlobalSubBaseBLOCK():
             del all_base_bids_in_aim_dic_valid[cut_aim_bid]
         return keep_aim_bids, all_base_bids_in_aim_dic_valid
 
+
+gsbb_empty =  GlobalSubBaseBLOCK()
 
 class Raw_H5f():
     '''
@@ -2433,7 +2467,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         save by global block
         '''
-        out_folder = os.path.dirname(self.file_name)+'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+        gsbb_write = GlobalSubBaseBLOCK( root_s_h5f = self.h5f, root_s_h5f_fn = self.file_name )
+
+        out_folder = os.path.dirname(self.file_name) + '_pyramid-' + gsbb_write.get_pyramid_flag()
         if not os.path.exists(out_folder):
             os.makedirs(out_folder)
         file_name_base = os.path.splitext(os.path.basename(self.file_name))[0]
@@ -2445,13 +2481,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             return
         IsIntact_nh5,ck_str = Normed_H5f.check_nh5_intact( pyramid_filename )
 
+        # check bmh5 intact primarily
+        IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_bmh5_intact(gsbb_write.bmh5_fn)
+        if Always_CreateNew_bmh5 or ( not IsIntact_bmh5 ):
+            gsbb_write.save_bmap_between_dif_stride_step()
+
         if (not Always_CreateNew_pyh5) and IsIntact_nh5:
             print('pyh5 intact: %s'%(pyramid_filename))
             return
-        # check bmh5 intact primarily
-        IsIntact_bmh5,_ = GlobalSubBaseBLOCK.check_bmh5_intact(self.file_name)
-        if Always_CreateNew_bmh5 or ( not IsIntact_bmh5 ):
-            GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(self.h5f,self.file_name)
 
         print('start gen pyramid file: ',pyramid_filename)
         with h5py.File(pyramid_filename,'w') as h5f:
@@ -3637,7 +3674,7 @@ def Test_get_block_data_of_new_stride_step():
     sample_num=8
 
     with h5py.File(base_h5f_name,'r') as base_h5f:
-        GlobalSubBaseBLOCK.save_allblockids_between_dif_stride_step(base_h5f,base_h5f_name)
+        GlobalSubBaseBLOCK.save_bmap_between_dif_stride_step(base_h5f,base_h5f_name)
         #GlobalSubBaseBLOCK.show_all(base_h5f,base_h5f_name)
 
         base_sh5f = Sorted_H5f(base_h5f,base_h5f_name)
