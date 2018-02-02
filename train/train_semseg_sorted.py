@@ -27,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = True
+IS_GEN_PLY = False
 Is_REPORT_PRED = False
 ISNoEval = True
 LOG_TYPE = 'simple'
@@ -431,30 +431,30 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     return train_logstr
 
 def gen_ply(cur_flatten_pointcloud, cur_label, pred_val, cur_data, batch_idx):
-                #color_flags = ['raw_color']
-                color_flags = ['gt_color']
-                position = 'xyz_midnorm_block'
-                position = 'xyz_1norm_file'
-                position = 'xyz'
-                if 'gt_color' in color_flags:
-                    cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]]
-                    test_box(cur_xyz)
-                    return
+    #color_flags = ['raw_color']
+    color_flags = ['gt_color']
+    position = 'xyz_midnorm_block'
+    position = 'xyz_1norm_file'
+    position = 'xyz'
+    if 'gt_color' in color_flags:
+        cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]]
+        #test_box(cur_xyz)
+        #return
 
-                    cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
-                    create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label_category  )
-                    #create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_predcolor'%(batch_idx)+'.ply', pred_val )
-                    #err_idxs = cur_label_category != pred_val
-                    #create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_predcolor'%(batch_idx)+'.ply', pred_val[err_idxs] )
-                    #create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_gtcolor'%(batch_idx)+'.ply', cur_label_category[err_idxs] )
+        cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
+        create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label_category  )
+        create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_predcolor'%(batch_idx)+'.ply', pred_val )
+        err_idxs = cur_label_category != pred_val
+        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_predcolor'%(batch_idx)+'.ply', pred_val[err_idxs] )
+        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_gtcolor'%(batch_idx)+'.ply', cur_label_category[err_idxs] )
 
-                if 'raw_color' in color_flags:
-                    cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
-                    cur_xyz_color[...,[3,4,5]] *= 255
-                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
-                    cur_xyz_color = cur_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
-                    cur_xyz_color[...,[3,4,5]] *= 255
-                    create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
+    if 'raw_color' in color_flags:
+        cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+        cur_xyz_color[...,[3,4,5]] *= 255
+        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
+        cur_xyz_color = cur_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+        cur_xyz_color[...,[3,4,5]] *= 255
+        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:

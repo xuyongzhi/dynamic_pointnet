@@ -71,13 +71,16 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
     mlps = []
-    if model_flag=='1A':
+    if model_flag=='1A' or '1AG':
         mlps.append( [64,64,64,128,1024] )
-    elif model_flag=='3A':
+    if model_flag=='2A' or '2AG':
+        mlps.append( [32,64,64,128] )
+        mlps.append( [128,128,256,512] )
+    elif model_flag=='3A' or '3AG':
         mlps.append( [32,32,64] )
         mlps.append( [64,128,256] )
         mlps.append( [256,256,512] )
-    elif model_flag=='4A':
+    elif model_flag=='4AG':
         mlps.append( [32,32,64] )
         mlps.append( [64,64,128] )
         mlps.append( [128,128,256] )
@@ -94,13 +97,16 @@ def get_sa_module_config(model_flag):
 def get_fp_module_config( model_flag ):
     mlps_fp = []
 
-    if model_flag=='1A':
+    if model_flag=='1A' or '1AG':
         mlps_fp.append( [512,256,128] )
-    elif model_flag=='3A':
+    if model_flag=='2A' or '2AG':
+        mlps_fp.append( [256,128,128] )
+        mlps_fp.append( [512,256,256] )
+    elif model_flag=='3A' or '3AG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
-    elif model_flag=='4A':
+    elif model_flag=='4AG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [384,256] )
@@ -135,13 +141,18 @@ def get_model(model_flag, grouped_rawdata, is_training, num_class, sg_bidxmaps, 
         out: (N,n1,n2,class)
     """
     IsShowModel = True
+    if 'G' in model_flag:
+        IsAddGlobalLayer = True
+    else:
+        IsAddGlobalLayer = False
+
     batch_size = grouped_rawdata.get_shape()[0].value
     block_sample0 = grouped_rawdata.get_shape()[1].value
     block_sample1 = grouped_rawdata.get_shape()[2].value
     end_points = {}
 
     cascade_num = int(model_flag[0])
-    assert cascade_num <= sg_bm_extract_idx.shape[0]+1  # sg_bm_extract_idx do not include the global step
+    assert cascade_num <= sg_bm_extract_idx.shape[0]+(1*IsAddGlobalLayer)  # sg_bm_extract_idx do not include the global step
     mlps,mlp2s = get_sa_module_config(model_flag)
     l_points = []                       # size = l_points+1
     l_points.append( None )
@@ -149,16 +160,18 @@ def get_model(model_flag, grouped_rawdata, is_training, num_class, sg_bidxmaps, 
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([grouped_rawdata]) ))
     for k in range(cascade_num):
-        if k==0 and cascade_num>1:
+        IsGlobalLayer = False
+        if IsAddGlobalLayer and k==cascade_num-1:
+            IsGlobalLayer = True
             sg_bidxmap_k = None
-        elif k==cascade_num-1:
+        elif k==0:
             sg_bidxmap_k = None
         else:
             start = sg_bm_extract_idx[k-1]
             end = sg_bm_extract_idx[k]
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
 
-        l_xyz, new_points, root_points = pointnet_sa_module(k, cascade_num, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
+        l_xyz, new_points, root_points = pointnet_sa_module(k, IsGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
                                                         bn_decay=bn_decay, scope='sa_layer'+str(k), flatten_bidxmap0_concat=flatten_bidxmap0_concat)
         if k == 0:
             l_points[0] = root_points

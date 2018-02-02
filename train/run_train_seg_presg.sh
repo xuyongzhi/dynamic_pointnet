@@ -8,7 +8,7 @@
 train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
-maxepoch=1
+maxepoch=30
 batchsize=6
 feed_label_elements="label_category-label_instance"
 datafeed_type='Pr_Normed_H5f'
@@ -19,8 +19,8 @@ eval_fnglob_or_rate='WYY-X7H-XcA-YFu-YVU-YmJ-Z6M-ZMo-aay-ac2-b8c-cV4-dhj-e9z-fzy
 feed_data_elements='xyz-color_1norm'
 #feed_data_elements='xyz_midnorm_block-color_1norm'
 #feed_data_elements='xyz_1norm_file-xyz_midnorm-color_1norm'
-model_flag='4A'
-#model_flag='1A'    # batchsize=10 9G
+model_flag='3AG'
+model_flag='2A'    # batchsize=10 9G
 
 
 
@@ -35,11 +35,11 @@ run_train_multifeed="python $train_script   --model_flag $model_flag --multip_fe
 
 
 
-finetune_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --finetune --model_epoch 99"
+finetune_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --finetune --model_epoch 29"
 
 finetune_train_multifeed="python $train_script  --model_flag $model_flag  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs  --finetune --model_epoch 5"
 
-#$run_train
+$run_train
 #$run_train_multifeed
-$finetune_train
+#$finetune_train
 #$finetune_train_multifeed

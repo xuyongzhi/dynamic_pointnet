@@ -90,7 +90,7 @@ def test_box( pl_xyz=None ):
     box_xyz1 = box_xyz0 + np.array([0.3,0.3,0])
     box_xyz = np.concatenate( [box_xyz0,box_xyz1],0 )
 
-    pl_xyz = box_xyz + np.array([-0.3,-0.3,0.2])
+    #pl_xyz = box_xyz + np.array([-0.3,-0.3,0.2])
 
     gen_box_pl( '/tmp/box_pl.ply',box_xyz, pl_xyz )
 

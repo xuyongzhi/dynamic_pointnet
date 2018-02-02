@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, cascade_num, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True, flatten_bidxmap0_concat=None):
+def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True, flatten_bidxmap0_concat=None):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -46,7 +46,13 @@ def pointnet_sa_module(cascade_id, cascade_num, xyz, points, bidmap, mlp, mlp2, 
     IsShowModel = False
     with tf.variable_scope(scope) as sc:
 
-        if cascade_id == 0 and cascade_num>1:
+        if IsGlobalLayer:
+            if cascade_id == 0:
+                points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
+                xyz = points[...,0:3]
+            grouped_xyz = tf.expand_dims( xyz,axis=1 )
+            grouped_points = tf.expand_dims(points,axis=1)
+        elif cascade_id == 0:
             # already grouped, no need to group
             assert len(xyz.shape) == 4
             # (2, 512, 128, 6)
@@ -54,11 +60,6 @@ def pointnet_sa_module(cascade_id, cascade_num, xyz, points, bidmap, mlp, mlp2, 
             # the first step, xyz can be actually rawdata include color ...
             # assume xyz in at the first 3 channels
             grouped_xyz = xyz[...,0:3]
-        elif cascade_id == cascade_num-1:
-            if cascade_id == 0:
-                points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
-            grouped_xyz = tf.expand_dims( points[...,0:3],axis=1 )
-            grouped_points = tf.expand_dims(points,axis=1)
         else:
             assert len(xyz.shape) == 3
             batch_size = xyz.get_shape()[0].value
