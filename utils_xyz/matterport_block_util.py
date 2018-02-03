@@ -145,13 +145,13 @@ def get_vertex_label_from_face(face_vertex_indices,face_semantic,num_vertex):
 
     return vertex_semantic,vertex_indices_multi_semantic,face_indices_multi_semantic
 
-def WriteRawH5f_Region_Ply(ply_item_name,rs_zf,house_name,house_h5f_dir,house_dir_extracted):
+def WriteRawH5f_Region_Ply(ply_item_name,rs_zf,house_name,scans_h5f_dir,house_dir_extracted):
     #file_name = 'region'+str(k_region)
     region_ply_fn = zip_extract(ply_item_name,rs_zf,house_dir_extracted)
     s = ply_item_name.index('region_segmentations/region')+len('region_segmentations/region')
     e = ply_item_name.index('.ply')
     k_region = int( ply_item_name[ s:e ] )
-    rawh5f_fn = house_h5f_dir+'/rawh5f/region'+str(k_region)+'.rh5'
+    rawh5f_fn = scans_h5f_dir+'/rawh5f/'+house_name + '/region' + str(k_region)+'.rh5'
     IsDelVexMultiSem = True
     IsIntact,_  = check_h5fs_intact(rawh5f_fn)
     if  IsIntact:
@@ -198,8 +198,10 @@ def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_pyh5 = False
+        Always_CreateNew_bmh5 = False
         if TMPDEBUG:
-            Always_CreateNew_bmh5 = True
+            Always_CreateNew_bmh5 = False
+            Always_CreateNew_pyh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5 )
     return fn
@@ -238,9 +240,24 @@ class Matterport3D_Prepare():
     def Parse_houses_regions(self,house_names_ls,MultiProcess=0):
         for house_name in house_names_ls:
             self.Parse_house_regions(house_name,MultiProcess)
+
+    def move_path(self, house_name ):
+        org_house_dir = self.scans_h5f_dir+'/%s'%(house_name)
+        dir_ls = ['stride_0d1_step_0d1','stride_0d1_step_0d1-bidxmap-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2','stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
+        for dn in dir_ls:
+            org_rawh5f_path = org_house_dir + '/'+ dn
+            new_rawh5f_path = self.scans_h5f_dir+'/'+ dn +'/'+house_name
+            import shutil
+            if os.path.exists(org_rawh5f_path):
+                shutil.move( org_rawh5f_path, new_rawh5f_path )
+                print('move %s to %s'%(org_rawh5f_path, new_rawh5f_path))
+            if os.path.exists( org_house_dir ):
+                shutil.rmtree( org_house_dir )
+
     def Parse_house_regions(self,house_name,MultiProcess=0):
         t0 = time.time()
         house_dir = self.scans_dir+'/%s'%(house_name)
+        house_dir_extracted = self.matterport3D_extracted_dir + self.scans_name+'/%s'%(house_name)
         region_segmentations_zip_fn = house_dir+'/region_segmentations.zip'
         rs_zf = zipfile.ZipFile(region_segmentations_zip_fn,'r')
 
@@ -252,9 +269,9 @@ class Matterport3D_Prepare():
             pool = mp.Pool(MultiProcess)
         for ply_item_name in namelist_ply:
             if not IsMultiProcess:
-                WriteRawH5f_Region_Ply(ply_item_name,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted)
+                WriteRawH5f_Region_Ply(ply_item_name,rs_zf, house_name, self.scans_h5f_dir, house_dir_extracted)
             else:
-                results = pool.apply_async(WriteRawH5f_Region_Ply,(ply_item_name,rs_zf,self.house_name,self.house_h5f_dir,self.house_dir_extracted))
+                results = pool.apply_async(WriteRawH5f_Region_Ply,(ply_item_name,rs_zf, house_name, self.scans_h5f_dir, house_dir_extracted))
                 s = ply_item_name.index('region_segmentations/region')+len('region_segmentations/region')
                 e = ply_item_name.index('.ply')
                 k_region = int( ply_item_name[ s:e ] )
@@ -279,12 +296,11 @@ class Matterport3D_Prepare():
         rawh5_file_ls = []
         house_names_ls.sort()
         for house_name in house_names_ls:
-            house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-            base_raw_path = house_h5f_dir+'/rawh5f'
-            rawh5_file_ls += glob.glob( os.path.join(base_raw_path,'*.rh5') )
+            house_rawh5f_dir = self.scans_h5f_dir+'/rawh5f/%s'%(house_name)
+            rawh5_file_ls += glob.glob( os.path.join(house_rawh5f_dir,'*.rh5') )
         #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
-        sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(block_step_xyz,block_step_xyz)
+        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/' + house_name
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
@@ -404,13 +420,11 @@ class Matterport3D_Prepare():
         file_list = []
         #house_names_ls.sort()
         for house_name in house_names_ls:
-            house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-            base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-            file_list += glob.glob( os.path.join(base_sorted_path,'*.sh5') )
+            house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
+            file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             if TMPDEBUG:
-                file_list = glob.glob( os.path.join(base_sorted_path,'region0.sh5') )
+                file_list = glob.glob( os.path.join(house_sh5f_dir,'region0.sh5') )
 
-        #file_list = ['/DS/Matterport3D/Matterport3D_H5F/v1/scans/gxdoqLR6rwA/stride_0d1_step_0d1/region2.sh5']
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
             pool = mp.Pool(MultiProcess)
@@ -570,6 +584,8 @@ def parse_house(house_names_ls):
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
+
+
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
@@ -639,9 +655,9 @@ def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    #parse_house_ls()
+    parse_house_ls()
     #show_summary()
-    show_bidxmap()
+    #show_bidxmap()
     #show_all_label_colors()
 
 
