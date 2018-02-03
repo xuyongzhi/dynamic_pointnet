@@ -37,7 +37,7 @@ def test_plyfile():
                            ('red', 'u1'), ('green', 'u1'),('blue', 'u1')])
     el_edge = PlyElement.describe(edge,'edge')
 
-    PlyData([el_vertex,el_edge],text=True).write('tmp/test_ascii.ply')
+    PlyData([el_vertex,el_edge],text=True).write('/tmp/test_ascii.ply')
    # PlyData([el],
    #         byte_order='>').write('tmp/big_endian_binary.ply')
     print('write tmp/test_ascii.ply')
@@ -92,6 +92,7 @@ def test_box( pl_xyz=None ):
 
     pl_xyz = box_xyz + np.array([-0.3,-0.3,0.2])
 
+    create_ply(pl_xyz, '/tmp/point_cloud.ply')
     gen_box_pl( '/tmp/box_pl.ply',box_xyz, pl_xyz )
 
 def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
@@ -101,7 +102,7 @@ def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
     if not os.path.exists(folder):
         os.makedirs(folder)
     xyz = np.reshape( xyz,(-1,xyz.shape[-1]) )
-    if xyz.shape[-1] == 3 and (label!=None).all() and label2color!=None:
+    if xyz.shape[-1] == 3 and (label!=None) and label2color!=None:
         label2color_ls = []
         for i in range(len(label2color)):
             label2color_ls.append( np.reshape(np.array(label2color[i]),(1,3)) )
