@@ -251,6 +251,7 @@ class GlobalSubBaseBLOCK():
         for i in range(1,cascade_num):
             sg_bidxmaps_extract_idx[i,0] = sg_bidxmaps_extract_idx[i-1,0] + self.nsubblock_candis[i]
             sg_bidxmaps_extract_idx[i,1] = self.npoint_subblock_candis[i]
+        self.sg_bidxmaps_extract_idx = sg_bidxmaps_extract_idx
         flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
         for i in range(1,cascade_num+1):
             if i==1:
@@ -259,6 +260,7 @@ class GlobalSubBaseBLOCK():
                 last_flatten_bmap_shape0 = self.nsubblock_candis[i-2]
             flatten_bidxmaps_extract_idx[i,0] = flatten_bidxmaps_extract_idx[i-1,0] + last_flatten_bmap_shape0
             flatten_bidxmaps_extract_idx[i,1] = 2
+        self.flatten_bidxmaps_extract_idx = flatten_bidxmaps_extract_idx
 
         self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num)+['global']
         base_cascade_ids = {}
@@ -600,17 +602,11 @@ class GlobalSubBaseBLOCK():
             for cascade_id in range(0,self.cascade_num):
                 if cascade_id!=0:
                     assert np.sum(sg_bidxmaps_ls[cascade_id-1] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
-                try:
-                    assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
-                except:
-                    print()
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
+                assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
 
         return sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps, flatten_bmap_sample_num
 
-    @staticmethod
-    def extract_sg_bidxmaps(sg_bidxmaps,cascade_id):
+    def extract_sg_bidxmaps(self,sg_bidxmaps,cascade_id):
         start = self.sg_bidxmaps_extract_idx[cascade_id-1,:]
         end = self.sg_bidxmaps_extract_idx[cascade_id,:]
         #start_ = np.sum(self.nsubblock_candis[1:cascade_id])+0
@@ -619,8 +615,7 @@ class GlobalSubBaseBLOCK():
 
         #return sg_bidxmaps[start:end,0:self.npoint_subblock_candis[cascade_id]]
 
-    @staticmethod
-    def extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id):
+    def extract_flatten_bidxmaps(self,flatten_bidxmaps,cascade_id):
         start = self.flatten_bidxmaps_extract_idx[cascade_id,:]
         end = self.flatten_bidxmaps_extract_idx[cascade_id+1,:]
 
@@ -637,14 +632,12 @@ class GlobalSubBaseBLOCK():
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id
         return self.load_one_bidxmap_(cascade_id,out,new_bid)
-    @staticmethod
-    def flatten_bmap_shape0(cascade_id):
+    def flatten_bmap_shape0(self,cascade_id):
         if cascade_id==0:
             return self.global_num_point
         else:
             return self.nsubblock_candis[cascade_id-1]
-    @staticmethod
-    def get_flatten_bidxmaps_shape():
+    def get_flatten_bidxmaps_shape(self):
         shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
         return (shape0,2)
 
@@ -2466,6 +2459,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return batch_datas, batch_labels
 
+    @staticmethod
+    def check_sgfh5_intact( file_name ):
+        f_format = os.path.splitext(file_name)[-1]
+        assert f_format == '.sgfh5'
+        if not os.path.exists(file_name):
+            return False, "%s not exist"%(file_name)
+        file_type = magic.from_file(file_name)
+        if "Hierarchical Data Format" not in file_type:
+            return False,"File signature err"
+        with h5py.File(file_name,'r') as h5f:
+            if 'is_intact_sgfh5' not in h5f.attrs:
+                return False,"no is_intact_sgfh5 attr"
+            IsIntact = h5f.attrs['is_intact_sgfh5'] == 1
+            return IsIntact,"is_intact_sgfh5=1"
+
     def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_pyh5=False,Always_CreateNew_bmh5=False):
         '''
         save by global block
@@ -2477,8 +2485,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         house_name = os.path.basename(house_dir_name)
         rootsort_dirname = os.path.dirname(house_dir_name)
 
-        out_folder_pl = rootsort_dirname + '_pl-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = True )
-        out_folder_bmap = rootsort_dirname + '_bmap-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = False)
+        out_folder_pl = rootsort_dirname + '_pl-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = True ) + '/' + house_name
+        out_folder_bmap = rootsort_dirname + '_bmap-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = False) + '/' + house_name
 
         if not os.path.exists(out_folder_pl):
             os.makedirs(out_folder_pl)
@@ -2495,131 +2503,150 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if Always_CreateNew_bmh5 or ( not IsIntact_bmh5 ):
             gsbb_write.save_bmap_between_dif_stride_step()
 
-        pl_pyramid_filename = os.path.join(out_folder_pl,house_name + '/' + region_name+'.prh5')
-        IsIntact_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_pyramid_filename )
-        if (not Always_CreateNew_pyh5) and IsIntact_nh5:
-            print('pyh5 intact: %s'%(pl_pyramid_filename))
-            return
         #-----------------------------------------------------------------------
-        print('start gen pyramid file: ',pl_pyramid_filename)
+        def save_pl_prh5( pl_pyramid_filename, gsbb_write, S_H5f):
+            print('start gen pyramid file: ',pl_pyramid_filename)
+            with h5py.File(pl_pyramid_filename,'w') as h5f:
+                global_block_sample_shape = gsbb_write.get_block_sample_shape('global')
+                global_attrs = gsbb_write.get_new_attrs('global')
+
+                pl_pyramid_h5f = Normed_H5f(h5f,pl_pyramid_filename,S_H5f.h5f.attrs['datasource_name'])
+                pl_pyramid_h5f.copy_root_attrs_from_sorted(global_attrs,global_block_sample_shape,S_H5f.IS_CHECK)
+
+                file_datas = []
+                file_labels = []
+
+                feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
+                feed_data_elements = feed_norm_ele_info['norm_data_eles']
+                feed_label_elements = feed_norm_ele_info['label_eles']
+
+                #sg_all_bidxmaps = []
+                #all_flatten_bidxmaps = []
+                #sum_sg_bidxmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,8))
+                #sum_flatten_bmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,3))
+
+                all_sorted_global_bids_valid = []
+                cas0_bidxmap_meta = {}
+                cas0_bidxmap_meta[ 'sg_sample_num_cas0_dic' ] = {}
+                cas0_bidxmap_meta[ 'cas0_bids_in_global_valid_dic' ] = {}
+                cas0_bidxmap_meta[ 'flatten_bidxmap0_dic' ] = {}
+
+                all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
+                for global_block_id in all_sorted_global_bids:
+                    block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = \
+                        self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements )
+                    if block_datas.size == 0:
+                        continue
+
+                    all_sorted_global_bids_valid.append( global_block_id )
+                    cas0_bidxmap_meta['sg_sample_num_cas0_dic' ][global_block_id] = sg_sample_num_cas0
+                    cas0_bidxmap_meta['cas0_bids_in_global_valid_dic'][global_block_id] = cas0_bids_in_global_valid
+                    cas0_bidxmap_meta['flatten_bidxmap0_dic'][global_block_id] = flatten_bidxmap0
+
+                    #sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = \
+                    #      gsbb_write.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
+                    #sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
+                    #all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
+                    #sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
+                    #sum_flatten_bmap_sample_num += flatten_bmap_sample_num
+
+                    file_datas.append(np.expand_dims(block_datas,axis=0))
+                    file_labels.append(np.expand_dims(block_labels,axis=0))
+
+                if len(file_datas) == 0:
+                    h5f.attrs['intact_void_file'] = 1
+                    print('all point in this file are void : %s\n'%(pl_pyramid_filename))
+                else:
+                    file_datas = np.concatenate(file_datas,axis=0)
+                    file_labels = np.concatenate(file_labels,axis=0)
+                    pl_pyramid_h5f.append_to_dset('data',file_datas)
+                    pl_pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+
+                    #sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
+                    #all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
+                    #gsbb_write.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
+                    #gsbb_write.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
+                    #gsbb_write.write_paras_in_h5fattrs( pl_pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
+                    #pl_pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+                    #pl_pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+
+                    pl_pyramid_h5f.create_done()
+                    if IsShowSummaryFinished:
+                        pl_pyramid_h5f.show_summary_info()
+                    print('pyramid file save finished: data shape: %s'%(str(pl_pyramid_h5f.data_set.shape)) )
+            return all_sorted_global_bids_valid, cas0_bidxmap_meta
+        #-----------------------------------------------------------------------
+        def save_sgf_h5f( sgflat_map_filename, all_sorted_global_bids_valid,  cas0_bidxmap_meta ):
+            with h5py.File( sgflat_map_filename,'w' ) as sgf_h5f:
+                sgf_h5f.attrs['is_intact_sgfh5'] = 0
+                all_sorted_global_bids_valid_dset = sgf_h5f.create_dataset('all_sorted_global_bids_valid', shape=all_sorted_global_bids_valid.shape,dtype=np.int64)
+                all_sorted_global_bids_valid_dset[...] = all_sorted_global_bids_valid
+                for dname,data in cas0_bidxmap_meta.items():
+                    for global_block_id in all_sorted_global_bids_valid:
+                        dset = sgf_h5f.create_dataset(dname+'/'+str(global_block_id),shape=data[global_block_id].shape, dtype=np.int32)
+                        dset[...] = data[global_block_id]
+                sgf_h5f.attrs['is_intact_sgfh5'] = 1
+                sgf_h5f.flush()
+                print('write finish: %s'%(sgflat_map_filename))
+        #-----------------------------------------------------------------------
+        pl_pyramid_filename = os.path.join(out_folder_pl,region_name+'.prh5')
+        sgflat_map_filename = os.path.join(out_folder_pl,region_name+'.sgfh5')
         gsbb_write = GlobalSubBaseBLOCK(self.h5f,self.file_name)
-        all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
+        IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_pyramid_filename )
+        IsIntact_sgfh5,ck_str = Sorted_H5f.check_sgfh5_intact( sgflat_map_filename )
+        if (not Always_CreateNew_pyh5) and IsIntact_pl_nh5 and IsIntact_sgfh5:
+            print('pyh5 intact: %s'%(pl_pyramid_filename))
+            print('sgf_h5f intact: %s'%(sgflat_map_filename))
+        else:
+            all_sorted_global_bids_valid, cas0_bidxmap_meta = save_pl_prh5( pl_pyramid_filename, gsbb_write, self)
+            # save cas0 sg_flatten_block_indexmap for this prh5 file
+            all_sorted_global_bids_valid = np.array(all_sorted_global_bids_valid).astype(np.int64)
+            save_sgf_h5f( sgflat_map_filename, all_sorted_global_bids_valid, cas0_bidxmap_meta )
 
-        with h5py.File(pl_pyramid_filename,'w') as h5f:
-            global_block_sample_shape = gsbb_write.get_block_sample_shape('global')
-            global_attrs = gsbb_write.get_new_attrs('global')
-
-            pl_pyramid_h5f = Normed_H5f(h5f,pl_pyramid_filename,self.h5f.attrs['datasource_name'])
-            pl_pyramid_h5f.copy_root_attrs_from_sorted(global_attrs,global_block_sample_shape,self.IS_CHECK)
-
-            file_datas = []
-            file_labels = []
-
-            feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(self.h5f.attrs['element_names'])
-            feed_data_elements = feed_norm_ele_info['norm_data_eles']
-            feed_label_elements = feed_norm_ele_info['label_eles']
-
-            #sg_all_bidxmaps = []
-            #all_flatten_bidxmaps = []
-            #sum_sg_bidxmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,8))
-            #sum_flatten_bmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,3))
-
-            all_sorted_global_bids_valid = []
-            sg_sample_num_cas0_dic = {}
-            cas0_bids_in_global_valid_dic = {}
-            flatten_bidxmap0_dic = {}
-
-            for global_block_id in all_sorted_global_bids:
-                block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = \
-                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements )
-                if block_datas.size == 0:
-                    continue
-
-                all_sorted_global_bids_valid.append( global_block_id )
-                sg_sample_num_cas0_dic[global_block_id] = sg_sample_num_cas0
-                cas0_bids_in_global_valid_dic[global_block_id] = cas0_bids_in_global_valid
-                flatten_bidxmap0_dic[global_block_id] = flatten_bidxmap0
-
-                #sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = \
-                #      gsbb_write.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
-                #sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
-                #all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
-                #sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
-                #sum_flatten_bmap_sample_num += flatten_bmap_sample_num
-
-                file_datas.append(np.expand_dims(block_datas,axis=0))
-                file_labels.append(np.expand_dims(block_labels,axis=0))
-
-            if len(file_datas) == 0:
-                h5f.attrs['intact_void_file'] = 1
-                print('all point in this file are void : %s\n'%(pl_pyramid_filename))
-            else:
-                file_datas = np.concatenate(file_datas,axis=0)
-                file_labels = np.concatenate(file_labels,axis=0)
-                pl_pyramid_h5f.append_to_dset('data',file_datas)
-                pl_pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
-
-                #sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
-                #all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
-                #gsbb_write.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
-                #gsbb_write.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
-                #gsbb_write.write_paras_in_h5fattrs( pl_pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
-                #pl_pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-                #pl_pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
-
-                pl_pyramid_h5f.create_done()
-                if IsShowSummaryFinished:
-                    pl_pyramid_h5f.show_summary_info()
-                print('pyramid file save finished: data shape: %s'%(str(pl_pyramid_h5f.data_set.shape)) )
 
         #-----------------------------------------------------------------------
-        # save cas0 sg_flatten_block_indexmap for this prh5 file
-        sgflat_map_filename = os.path.join(out_folder_pl,house_name + '/' + region_name+'.sgfh5')
-        all_sorted_global_bids_valid = np.array(all_sorted_global_bids_valid)
-        with h5py.File( sgflat_map_filename,'w' ) as sgf_h5f:
-            sgf_h5f.attrs['is_intact_sgfh5'] = 0
-            all_sorted_global_bids_valid_dset = sgf_h5f.create_dataset('all_sorted_global_bids_valid', shape=all_sorted_global_bids_valid.shape,dtype=np.float32)
-            all_sorted_global_bids_valid_dset[...] = all_sorted_global_bids_valid
-            for global_block_id in all_sorted_global_bids_valid:
-                sg_sample_num_cas0_dset = sgf_h5f.create_dataset(str(global_block_id)+'/sg_sample_num_cas0',shape=sg_sample_num_cas0_dic[global_block_id].shape, dtype=np.int32)
-                sg_sample_num_cas0_dset[...] = sg_sample_num_cas0_dic[global_block_id]
-                flatten_bidxmap0_dset = sgf_h5f.create_dataset(str(global_block_id)+'/flatten_bidxmap0', shape=flatten_bidxmap0_dic[global_block_id].shape, dtype=np.int32)
-                flatten_bidxmap0_dset[...] = flatten_bidxmap0_dic[global_block_id]
-            sgf_h5f.attrs['is_intact_sgfh5'] = 1
-            sgf_h5f.flush()
+        # save bmap file
+        def save_bmap_h5f(bmap_pyramid_filename, S_H5f, sgflat_map_filename):
+            with h5py.File(sgflat_map_filename,'r') as sgf_h5f, h5py.File(bmap_pyramid_filename,'w') as bmap_h5f:
+                all_sorted_global_bids_valid = sgf_h5f['all_sorted_global_bids_valid']
+                cas0_bids_in_global_valid_dic = sgf_h5f['cas0_bids_in_global_valid_dic']
+                sg_sample_num_cas0_dic = sgf_h5f['sg_sample_num_cas0_dic']
+                flatten_bidxmap0_dic = sgf_h5f['flatten_bidxmap0_dic']
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                bmap_pyramid_h5f = Normed_H5f(bmap_h5f,bmap_pyramid_filename,S_H5f.h5f.attrs['datasource_name'])
+                bmap_pyramid_h5f.create_bidxmap_dsets( gsbb_write )
 
-        bmap_pyramid_filename = os.path.join(out_folder_bmap,house_name + '/' + region_name+'.prh5')
-        IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bmap_pyramid_filename )
-        if  IsIntact_nh5_bmap:
-            print('bmap pyh5 intact: %s'%(bmap_pyramid_filename))
-            return
-        with h5py.File(bmap_pyramid_filename,'w') as bmap_h5f:
-
-            sg_all_bidxmaps = []
-            all_flatten_bidxmaps = []
-            sum_sg_bidxmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,8))
-            sum_flatten_bmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,3))
-            for global_block_id in all_sorted_global_bids:
-
-                sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num =\
-                     gsbb_write.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
-                sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
-                all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
-                sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
-                sum_flatten_bmap_sample_num += flatten_bmap_sample_num
+                sg_all_bidxmaps = []
+                all_flatten_bidxmaps = []
+                sum_sg_bidxmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,8))
+                sum_flatten_bmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,3))
+                for global_block_id in all_sorted_global_bids_valid:
+                    sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num =\
+                           gsbb_write.get_all_bidxmaps( cas0_bids_in_global_valid_dic[str(global_block_id)][...],
+                                                        sg_sample_num_cas0_dic[str(global_block_id)][...],
+                                                        flatten_bidxmap0_dic[str(global_block_id)][...] )
+                    sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
+                    all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
+                    sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
+                    sum_flatten_bmap_sample_num += flatten_bmap_sample_num
 
                 sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
                 all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
                 gsbb_write.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
                 gsbb_write.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
 
-                gsbb_write.write_paras_in_h5fattrs( pl_pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
-                pl_pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-                pl_pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+                gsbb_write.write_paras_in_h5fattrs( bmap_pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
+                bmap_pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+                bmap_pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+                bmap_pyramid_h5f.create_done()
+                print('write finish: %s'%(bmap_pyramid_filename))
 
-                pl_pyramid_h5f.create_done()
+        bmap_pyramid_filename = os.path.join(out_folder_bmap,region_name+'.bxmh5')
+        IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bmap_pyramid_filename )
+        if  IsIntact_nh5_bmap:
+            print('bxmh5 intact: %s'%(bmap_pyramid_filename))
+        else:
+            save_bmap_h5f( bmap_pyramid_filename, self, sgflat_map_filename )
 
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
@@ -3186,6 +3213,7 @@ class Normed_H5f():
         return dset.shape
 
     def create_dsets(self):
+        self.h5f.attrs['is_intact_nh5'] = 0
         if 'total_block_N' in self.h5f.attrs:
             total_block_N = self.h5f.attrs['total_block_N']
         else:
@@ -3210,15 +3238,6 @@ class Normed_H5f():
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
                             chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
 
-        #sg_block_shape = GlobalSubBaseBLOCK.get_sg_bidxmaps_fixed_shape()
-        #sg_bidxmap_dset = self.h5f.create_dataset('bidxmaps_sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32,
-        #                    maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
-        #sg_bidxmap_dset.attrs['valid_num'] = 0
-        #flatten_bidxmap_shape = GlobalSubBaseBLOCK.get_flatten_bidxmaps_shape()
-        #flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
-        #                    maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
-        #flatten_bidxmap_dset.attrs['valid_num'] = 0
-
         # predicted label
         pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,)+sample_num+(label_eles_num,),\
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
@@ -3237,6 +3256,19 @@ class Normed_H5f():
         self.labels_set = labels_set
         #self.bidxmap_dsets = bidxmap_dsets
         self.pred_logits_set = pred_logits_set
+
+    def create_bidxmap_dsets(self, gsbb_write):
+        self.h5f.attrs['is_intact_nh5'] = 0
+        chunks_n = 1
+        total_block_N = 1
+        sg_block_shape = gsbb_write.get_sg_bidxmaps_fixed_shape()
+        sg_bidxmap_dset = self.h5f.create_dataset('bidxmaps_sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32,
+                            maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
+        sg_bidxmap_dset.attrs['valid_num'] = 0
+        flatten_bidxmap_shape = gsbb_write.get_flatten_bidxmaps_shape()
+        flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
+                            maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
+        flatten_bidxmap_dset.attrs['valid_num'] = 0
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
@@ -3304,7 +3336,7 @@ class Normed_H5f():
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
-        assert f_format == '.nh5' or f_format == '.prh5'
+        assert f_format == '.nh5' or f_format == '.prh5' or f_format == '.bxmh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
 
@@ -3338,6 +3370,8 @@ class Normed_H5f():
 
     def add_label_histagram(self):
         label_name = 'label_category'
+        if not hasattr(self,'labels_set'):
+            return
         if label_name in self.labels_set.attrs:
             label_hist,_ = np.histogram(self.labels_set[:,:,self.labels_set.attrs[label_name]],range(self.num_classes+1))
             label_hist_1norm = label_hist / np.sum(label_hist).astype(np.float)
