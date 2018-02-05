@@ -627,7 +627,7 @@ def parse_house(house_names_ls):
 def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 

@@ -230,11 +230,17 @@ class GlobalSubBaseBLOCK():
             setattr( self, pn, eval(pn) )
 
     def load_para_from_file( self, bmh5_fn ):
-        IsIntact,s = GlobalSubBaseBLOCK.check_bmh5_intact( bmh5_fn )
-        assert IsIntact, s
+        f_format = os.path.splitext(bmh5_fn)[-1]
+        if f_format == '.bmh5':
+            IsIntact,s = GlobalSubBaseBLOCK.check_bmh5_intact( bmh5_fn )
+            assert IsIntact, s
+        else:
+            IsIntact,s = Normed_H5f.check_nh5_intact( bmh5_fn )
+            assert IsIntact, s
         with h5py.File( bmh5_fn,'r' ) as h5f:
             for ele_name in self.para_names + self.meta_names + self.root_para_names:
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
+
 
     def load_para_from_rootsh5( self ):
         IsIntact,s = Sorted_H5f.check_sh5_intact( self.root_s_h5f_fn )
@@ -2635,7 +2641,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 gsbb_write.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
                 gsbb_write.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
 
-                gsbb_write.write_paras_in_h5fattrs( bmap_pyramid_h5f.h5f['bidxmaps_sample_group'].attrs )
+                gsbb_write.write_paras_in_h5fattrs( bmap_pyramid_h5f.h5f.attrs )
                 bmap_pyramid_h5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
                 bmap_pyramid_h5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
                 bmap_pyramid_h5f.create_done()
@@ -3096,9 +3102,11 @@ class Normed_H5f():
             datas = self.data_set[start_block:end_blcok,...,normed_data_ele_idx]
         return datas
 
-    def get_bidxmap(self,start_block,end_block):
-        flatten_bidxmaps = self.h5f['bidxmaps_flatten'][start_block:end_block,:]
-        sg_bidxmaps = self.h5f['bidxmaps_sample_group'][start_block:end_block,:]
+    @staticmethod
+    def get_bidxmap(bxmh5_fn, start_block,end_block):
+        with h5py.File(bxmh5_fn,'r') as h5f:
+            flatten_bidxmaps = h5f['bidxmaps_flatten'][start_block:end_block,:]
+            sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
         return  sg_bidxmaps, flatten_bidxmaps
 
