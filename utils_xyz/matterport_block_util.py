@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = False
+TMPDEBUG = True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -422,8 +422,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            #if TMPDEBUG:
-            #    file_list = glob.glob( os.path.join(house_sh5f_dir,'region0.sh5') )
+            if TMPDEBUG:
+                file_list = glob.glob( os.path.join(house_sh5f_dir,'region2.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:

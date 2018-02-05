@@ -208,23 +208,21 @@ def check_h5fs_intact(file_name):
     else:
         return False, "file format not recognized %s"%(f_format)
 
-
+def float_exact_division( A, B ):
+    C = A / B
+    r = np.isclose( C, np.rint(C) )
+    R = r.all()
+    return R
 
 class GlobalSubBaseBLOCK():
     '''
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
     '''
-    #global_stride = np.array([1.0,1.0,-1]).astype(np.float)
-    #global_step = np.array([2.0,2.0,-1]).astype(np.float)
-    #global_num_point = 10240
-
-    #sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-    #nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
-    #npoint_subblock_candis = np.array([128,  16,  16]).astype(np.int32)
+    max_flatten_num = 3
 
     def load_default_parameters( self ):
-        global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
+        global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
             get_gsbb_config()
         for pn in self.para_names:
             setattr( self, pn, eval(pn) )
@@ -249,7 +247,7 @@ class GlobalSubBaseBLOCK():
             setattr( self,ele_name, self.root_h5fattrs[ele_name[5:len(ele_name)]]  )
     #---------------------------------------------------------------------------
     def update_parameters( self ):
-        self.cascade_num = cascade_num = len(self.sub_block_size_candis)
+        self.cascade_num = cascade_num = len(self.sub_block_stride_candis)
         self.sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
         self.sum_flatten_bmap_sample_num = np.zeros(shape=(cascade_num))
 
@@ -281,7 +279,7 @@ class GlobalSubBaseBLOCK():
     def __init__(self,root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None):
         self.new_attrs = {}
         self.bm_output = {}
-        self.para_names = ['global_stride','global_step','global_num_point','sub_block_size_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ]
+        self.para_names = ['global_stride','global_step','global_num_point','sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ]
         self.root_para_names = ['root_block_stride','root_block_step']
         self.meta_names = ['sum_sg_bidxmap_sample_num','sum_flatten_bmap_sample_num']
 
@@ -349,9 +347,16 @@ class GlobalSubBaseBLOCK():
             else:
                 flag_str +='-'
             if OnlyFirst: break
-        for i,s in enumerate(self.sub_block_size_candis):
+        for i,s in enumerate(self.sub_block_step_candis):
             flag_str += my_str(s)
-            if i<len(self.sub_block_size_candis)-1 and not OnlyFirst:
+            if i<len(self.sub_block_step_candis)-1:
+                flag_str += '_'
+            else:
+                flag_str +='-'
+            if OnlyFirst: break
+        for i,s in enumerate(self.sub_block_stride_candis):
+            flag_str += my_str(s)
+            if i<len(self.sub_block_stride_candis)-1 and not OnlyFirst:
                 flag_str += '_'
             if OnlyFirst: break
         return flag_str
@@ -388,7 +393,8 @@ class GlobalSubBaseBLOCK():
                 step = self.root_block_step
         else:
             assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
-            stride = step =  np.array([1.0,1.0,1.0])*self.sub_block_size_candis[cascade_id]
+            stride  =  np.array([1.0,1.0,1.0])*self.sub_block_stride_candis[cascade_id]
+            step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
         return stride,step
 
     def get_group_name(self,cascade_id):
@@ -445,7 +451,6 @@ class GlobalSubBaseBLOCK():
         # valid_sorted_basebids.size is the valid number of base blocks. Maximum value is nsubblock of last cascade.
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         valid_sorted_basebids = np.sort(valid_sorted_basebids)
-        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
 
         aim_nsubblock =  self.nsubblock_candis[cascade_id]
         aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
@@ -477,14 +482,15 @@ class GlobalSubBaseBLOCK():
             valid_aimb_num = aim_nsubblock
         else:
             valid_aimb_num = valid_sorted_aimbids.size
-            valid_sorted_aimbids_sampled = np.sort( random_choice(valid_sorted_aimbids, aim_nsubblock) )
+            valid_sorted_aimbids_sampled = random_choice(valid_sorted_aimbids, aim_nsubblock)
 
         # (2) Get all the maps of valid aim blocks
         sg_bidxmap = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
-        bid_valid_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
+        aimb_valid_point_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
 
-
-
+        #flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,GlobalSubBaseBLOCK.max_flatten_num,2)).astype(np.int32)*(-1)
+        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,2)).astype(np.int32)*(-1)
+        flatten_bidxmap_num = np.zeros( shape=(valid_sorted_basebids.size) ).astype(np.int8)
         for aim_b_index in range(aim_nsubblock):
             aim_bid = valid_sorted_aimbids_sampled[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic[aim_bid]
@@ -492,9 +498,12 @@ class GlobalSubBaseBLOCK():
             sg_bidxmap[aim_b_index,:] = random_choice( base_bid_valid_indexs,aim_npoint_subblock )
 
             if aim_b_index < valid_aimb_num:
-                bid_valid_num[aim_b_index] = base_bid_valid_indexs.size
-            for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
-                flatten_bidxmap[baseb_index,:] = [aim_b_index,pointindex_within_subblock]
+                aimb_valid_point_num[aim_b_index] = base_bid_valid_indexs.size
+                for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
+                    if flatten_bidxmap_num[baseb_index] < self.max_flatten_num:
+                        #flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock]
+                        flatten_bidxmap[baseb_index,:] = [aim_b_index,pointindex_within_subblock]
+                        flatten_bidxmap_num[baseb_index] += 1
 
         # (3) Tile flatten_bidxmap for all the missed blocks
         #     Because of insufficient aim_nsubblock or small aim_sub_block_size,
@@ -503,19 +512,20 @@ class GlobalSubBaseBLOCK():
         #     point. The correct way is to propogate from nearest 1/3 others aim_blocks.
         #     Temoporaly, use large aim_nsubblock or aim_sub_block_size to
         #     reduce missed_baseb_num.
-        valid_baseb_is_missed = flatten_bidxmap[:,0]<0
+        valid_baseb_is_missed = flatten_bidxmap_num == 0
         missed_baseb_num = np.sum( valid_baseb_is_missed )
-        if missed_baseb_num > 0:
-            for baseb_index in range( valid_sorted_basebids.size ):
-                if not valid_baseb_is_missed[baseb_index]:
-                    last_valid_baseb_index = baseb_index
-                    break
-            for baseb_index in range( valid_sorted_basebids.size ):
-                if not valid_baseb_is_missed[baseb_index]:
-                    last_valid_baseb_index = baseb_index
-                else:
-                    flatten_bidxmap[baseb_index,:] = flatten_bidxmap[last_valid_baseb_index,:]
-        assert np.sum(flatten_bidxmap[:,0]<0)==0,"%d of %d base blocks are not used"%(np.sum(flatten_bidxmap[:,0]<0), flatten_bidxmap.shape[0])
+
+        #if missed_baseb_num > 0:
+        #    for baseb_index in range( valid_sorted_basebids.size ):
+        #        if not valid_baseb_is_missed[baseb_index]:
+        #            last_valid_baseb_index = baseb_index
+        #            break
+        #    for baseb_index in range( valid_sorted_basebids.size ):
+        #        if not valid_baseb_is_missed[baseb_index]:
+        #            last_valid_baseb_index = baseb_index
+        #        else:
+        #            flatten_bidxmap[baseb_index,:] = flatten_bidxmap[last_valid_baseb_index,:]
+        #assert np.sum(flatten_bidxmap[:,0]<0)==0,"%d of %d base blocks are not used"%(np.sum(flatten_bidxmap[:,0]<0), flatten_bidxmap.shape[0])
 
         sg_sample_num = np.array( [missed_baseb_num, valid_sorted_basebids.size, aim_nsubblock, all_sorted_aimbids.size, 1,
                                    aim_npoint_subblock*raw_valid_base_bnum.size, raw_valid_base_bnum.sum(),raw_valid_base_bnum.size ] ).astype(np.uint64)
@@ -708,6 +718,10 @@ class GlobalSubBaseBLOCK():
 
         '''
         assert self.mode == 'write'
+        folder = os.path.dirname(self.bmh5_fn)
+        if not os.path.exists( folder ):
+            os.makedirs( folder )
+        print('start writing %s'%(self.bmh5_fn))
         with h5py.File(self.bmh5_fn,'w') as h5f:
             h5f.attrs['is_intact_bmh5'] = 0
             self.write_paras_in_h5fattrs( h5f.attrs )
@@ -722,11 +736,12 @@ class GlobalSubBaseBLOCK():
                 if cascade_id == 'root':
                     all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
                 else:
-                    base_bid = self.base_cascade_ids[cascade_id]
-                    all_sorted_base_blockids = all_sorted_blockids_dic[base_bid]
-                    base_attrs = cascade_attrs[base_bid]
+                    base_cascadeid = self.base_cascade_ids[cascade_id]
+                    all_sorted_base_blockids = all_sorted_blockids_dic[base_cascadeid]
+                    base_attrs = cascade_attrs[base_cascadeid]
                     larger_stride, larger_step = self.get_stride_step_(cascade_id)
-                    new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_each_largerbid(
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_all_largerbid(
                                                             base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
                     all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
                     cascade_attrs[cascade_id] = new_attrs
@@ -786,7 +801,7 @@ class GlobalSubBaseBLOCK():
         xyz_scope = xyz_max - xyz_min
         return xyz_scope
     @staticmethod
-    def get_basebids_in_each_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
+    def get_basebids_in_all_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
@@ -826,14 +841,19 @@ class GlobalSubBaseBLOCK():
         all_sorted_larger_blockids = np.sort(larger_blockids)
 
         # check: basebids_in_each_largerbid_dic shoule contain all the all_base_blockids. If larger_stride==larger_step, each base bid should occur one time.
-        CHECK = False
+        CHECK = True
         if CHECK:
-            all_base_blockids_indic = np.concatenate( basebids_in_each_largerbid_dic.values())
-            all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
+            all_base_blockids_indic = np.concatenate( basebids_in_each_largerbid_dic.values()).astype(np.int32)
+            if not (larger_stride == larger_step).all():
+                all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
             all_base_blockids_indic = np.sort(all_base_blockids_indic)
-            assert all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]
-            if (larger_stride == larger_step).all():
-                assert (all_base_blockids_indic == all_base_blockids).all()
+            if not all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                assert False, "Not  all the base blocks are exactly included"
+            if not (all_base_blockids_indic == all_base_blockids).all():
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                assert False, "Not  all the base blocks are exactly included"
+
             print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
@@ -1420,17 +1440,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def get_blockids_of_dif_stride_step(base_block_id,base_attrs,aim_attrs):
         '''
-        base_block_id: int
-        1) base_attrs: self.h5f.attrs or new_sorted_h5f_attrs
-           aim_attrs:  new_sorted_h5f_attrs or self.h5f.attrs
-            True: based on blockid of current(self) stride and step,
-                find the  corresponding block_ids of new step and stride
-            Fale: based on blockid of new stride and step,
-                find the  corresponding block_ids of current step and stride
-        returned block_ks is a list
-        2) If aim_stride and step is larger, returned blocks contains base block.
+        1) base_block_id: int, the input block id
+           base_attrs: the input stride step size
+           aim_attrs:  the outpit (new) stride step size
+           return the all the aim block ids (a list)   "within"/"contain" the input "base_block_id"
+        2) If aim stride or step are larger, returned blocks contains base block.
             The containing relationship should be totally containing.
-           If aim stride and step is smaller, returned blocks are contained within the base block.
+           If aim stride or step are smaller, returned blocks are contained within the base block.
         '''
         IsRecordTime = False
         if IsRecordTime:
@@ -1485,18 +1501,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if IsCheck_Scope:
             min_k,max_k,_ = Sorted_H5f.get_block_scope_from_k_(base_block_id, base_attrs)
 
-        if (base_attrs['block_step'] > aim_attrs['block_step']).any():
+        #if (base_attrs['block_stride'] > aim_attrs['block_stride']).any() or (base_attrs['block_step'] > aim_attrs['block_step']).any():
+        if (base_attrs['block_step'] >= aim_attrs['block_step']).any():
             '''
-            find all the small(out) blocks within the large input block
+            find all the small out (aim) blocks within the large (base) input block
             The out dataset is a base dataset in which: block_step_out == block_stride_out
             '''
-            assert((base_attrs['block_step'] > aim_attrs['block_step'] ).all())
-            assert((aim_attrs['block_step'] == aim_attrs['block_stride']).all())
+            assert((base_attrs['block_step'] >= aim_attrs['block_step'] ).all())
             # check stride step aligned:
-            #check1 = base_attrs['block_stride'] / aim_attrs['block_stride']
-            #assert np.isclose( check1, np.rint(check1) ).all(),"check1:%s"%(check1)
-            #check2 = base_attrs['block_step'] / aim_attrs['block_step']
-            #assert np.isclose( check2, np.rint(check2) ).all(),"check2:%s"%(check2)
+            #IsExactDivision0 = float_exact_division( base_attrs['block_step'], aim_attrs['block_step'] )
+            #assert IsExactDivision0
+            #IsExactDivision1 = float_exact_division( base_attrs['block_stride'], aim_attrs['block_stride'] )
+            #assert IsExactDivision1
 
             search = my_ceil( base_attrs['block_step'] / aim_attrs['block_step']).astype(np.int64)
             for i_x in range(0,search[0]):
@@ -1537,16 +1553,24 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                         i_xyz_new_list.append(i_xyz_new)
                         block_k_new_list.append(block_k_new)
-
-
+            #if not (aim_attrs['block_step'] == aim_attrs['block_stride']).all():
+            #    print('aim step != stride')
+            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #if not (base_attrs['block_step'] == base_attrs['block_stride']).all():
+            #    print('base step != stride')
+            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
         else:
             '''
             find all the large(out) blocks contains the small input block
             check: all xyz_scope_k_new contain xyz_scope_k
             '''
-            assert( (base_attrs['block_step'] <= aim_attrs['block_step']).all() )
-            assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
+            if not (base_attrs['block_step'] <= aim_attrs['block_step']).all():
+                print(  "base_attrs['block_step']:%s \n aim_attrs['block_step']:%s"%(base_attrs['block_step'],aim_attrs['block_step'] ) )
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                assert False
             assert( (aim_attrs['block_stride'] >= base_attrs['block_step']).all() )
+
+            assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
             assert( ((aim_attrs['block_stride'] / base_attrs['block_step'])%1 == 0).all() )
 
             search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
@@ -2357,7 +2381,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
         nsubblock = int(gsbb.nsubblock_candis[0])
-        sub_block_size = gsbb.sub_block_size_candis[0]
+        sub_block_stride = gsbb.sub_block_stride_candis[0]
+        sub_block_step = gsbb.sub_block_step_candis[0]
         npoint_subblock = gsbb.npoint_subblock_candis[0]
         cas0b_attrs = gsbb.get_new_attrs(0)
         cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
@@ -2395,8 +2420,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = []
         subblock_sample_num = np.zeros([2]).astype(np.uint64)
         flatten_bidxmap0 = []
+        #flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,GlobalSubBaseBLOCK.max_flatten_num,2)).astype(np.int32)*(-1)
+        root_bids_in_cas0_ls = []
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
             root_bids_in_cas0 = cas0_all_base_blockids_indic_valid[cas0_bid]
+
+            for root_bid in root_bids_in_cas0:
+                if root_bid in root_bids_in_cas0_ls:
+                    print(root_bid)
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            root_bids_in_cas0_ls += root_bids_in_cas0.tolist()
+
             datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements,npoint_subblock)
             if datas_k.shape[0] !=0:
                 global_block_datas.append(np.expand_dims(datas_k,axis=0))
@@ -2411,6 +2445,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if len(flatten_bidxmap0)==0:
             # all void points
             return np.array([]),None,None,None,None
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
         num_candi_cas0bids = len(global_block_datas)  # the length may reduce because of removing void
@@ -3103,7 +3138,7 @@ class Normed_H5f():
         return datas
 
     @staticmethod
-    def get_bidxmap(bxmh5_fn, start_block,end_block):
+    def get_bidxmaps(bxmh5_fn, start_block,end_block):
         with h5py.File(bxmh5_fn,'r') as h5f:
             flatten_bidxmaps = h5f['bidxmaps_flatten'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]

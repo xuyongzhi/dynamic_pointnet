@@ -23,7 +23,8 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
         global_num_point = 25600
 
-        sub_block_size_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+        sub_block_stride_candis = np.array([0.1,0.4,1.2]).astype(np.float)
+        sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
     elif config_flag == '3C':
@@ -36,7 +37,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(config_flag)
-    return global_stride,global_step,global_num_point,sub_block_size_candis,nsubblock_candis,npoint_subblock_candis,config_flag
+    return global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis,config_flag
 
 
 
