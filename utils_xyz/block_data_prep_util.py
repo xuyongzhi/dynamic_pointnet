@@ -172,12 +172,14 @@ def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
         #str = '%d -> %d  %d%%'%(org_N,sample_N,100.0*sample_N/org_N)
         #print(str)
     return sample_choice,reduced_num
-def random_choice(org_vector,sample_N,random_sampl_pro=None):
+def random_choice(org_vector,sample_N,random_sampl_pro=None, keeporder=True):
     org_N = org_vector.size
     if org_N == sample_N:
         sampled_vector = org_vector
     elif org_N > sample_N:
         sampled_vector = np.random.choice(org_vector,sample_N,replace=False,p=random_sampl_pro)
+        if keeporder:
+            sampled_vector = np.sort(sampled_vector)
     else:
         new_vector = np.random.choice(org_vector,sample_N-org_N,replace=True)
         sampled_vector = np.concatenate( [org_vector,new_vector] )
@@ -504,6 +506,7 @@ class GlobalSubBaseBLOCK():
                         #flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock]
                         flatten_bidxmap[baseb_index,:] = [aim_b_index,pointindex_within_subblock]
                         flatten_bidxmap_num[baseb_index] += 1
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         # (3) Tile flatten_bidxmap for all the missed blocks
         #     Because of insufficient aim_nsubblock or small aim_sub_block_size,
@@ -831,9 +834,6 @@ class GlobalSubBaseBLOCK():
                 if valid_scope_rate > 0.2:
                     new_total_block_N += 1
                     basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
-                else:
-                    print('valid_scope_rate = %f'%(valid_scope_rate))
-                    if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
             if new_block_id >0 and new_block_id % 10000==0:
                 rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
@@ -850,17 +850,12 @@ class GlobalSubBaseBLOCK():
                 all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
             all_base_blockids_indic = np.sort(all_base_blockids_indic)
             if not all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]:
-                if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert False, "Not  all the base blocks are exactly included"
             if not (all_base_blockids_indic == all_base_blockids).all():
-                if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert False, "Not  all the base blocks are exactly included"
 
             print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
-            if DEBUGTMP and larger_step[0] == 0.6:
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                print('')
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
@@ -2276,10 +2271,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
         return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
     def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
-                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
+                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'] ):
         new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
         new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
-        return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements,sample_num)
+        return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements)
 
     def get_numpoint_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb):
         root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
@@ -2300,7 +2295,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return feed_data, feed_label
 
     def get_block_data_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,root_bids_in_cas0,
-                                          feed_data_elements,feed_label_elements, npoint_cas0block=None ):
+                                          feed_data_elements,feed_label_elements ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         IsRecordTime = False
 
@@ -2352,22 +2347,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         labels = np.concatenate(labels,axis=0)
         valid_data_n = datas.shape[0]
 
-        if npoint_cas0block != None and datas.shape[0] != 0:
-            sample_choice_within_cas0block,reduced_num = get_sample_choice(datas.shape[0],npoint_cas0block)
-            datas = datas[sample_choice_within_cas0block,:]
-            labels = labels[sample_choice_within_cas0block,:]
-            sample_num = np.array( [ npoint_cas0block, valid_data_n ] ).astype(np.uint64)
-        else:
-            sample_num = np.array( [ npoint_cas0block, npoint_cas0block ] ).astype(np.uint64)
-
        # print(datas.shape)
        # print(labels.shape)
        # print(datas[0:3,:])
        # print(labels[0:3,:])
-        return datas,labels, sample_num
+        return datas, labels
 
 
-    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements ):
+    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -2382,109 +2369,63 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
         '''
-        IsRecordTime = False
-        if IsRecordTime: t0 = time.time()
         h5f = self.h5f
         # (1) SAMPLE: Use all the center of base blocks as candidate sub-points
         nsubblock = int(gsbb.nsubblock_candis[0])
-        sub_block_stride = gsbb.sub_block_stride_candis[0]
-        sub_block_step = gsbb.sub_block_step_candis[0]
         npoint_subblock = gsbb.npoint_subblock_candis[0]
         cas0b_attrs = gsbb.get_new_attrs(0)
         cas0_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
-        num_candi_cas0bids = cas0_bids_in_global.shape[0]
-
         cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
-        if num_candi_cas0bids > nsubblock:
-            # only read nsubblock cas0 blocks
-            cas0_bids_in_global_valid, cas0_all_base_blockids_indic_valid = GlobalSubBaseBLOCK.fix_bmap( cas0_bids_in_global,cas0_all_base_blockids_indic, nsubblock, npoint_subblock, cas0b_attrs )
-
-           # if  1.0 * num_candi_cas0bids / nsubblock > 1.5:
-           #     cas0_all_base_blockids_indic = gsbb.get_all_base_blockids_indic(0)
-           #     cas0_num_bid = np.array([ cas0_all_base_blockids_indic[cas0_bid].shape[0] for cas0_bid in cas0_bids_in_global ])
-           #     random_sampl_pro = 1.0*cas0_num_bid / np.sum(cas0_num_bid)
-           # else: random_sampl_pro = None
-           # cas0_bids_in_global_valid = random_choice( cas0_bids_in_global,nsubblock,random_sampl_pro )
-           # cas0_bids_in_global_valid = np.sort(cas0_bids_in_global_valid)
-        else:
-            cas0_bids_in_global_valid = cas0_bids_in_global
-            cas0_all_base_blockids_indic_valid = cas0_all_base_blockids_indic
-
-        if IsRecordTime: t1 = time.time()
-        # (1.5) Check how many base block ids are misssed in sub block valid space.
-
- #       IsCheckSubblockParas = True
- #       if IsCheckSubblockParas:
- #           sub_h5fattrs = self.get_attrs_of_new_stride_step(sub_block_stride,sub_block_step)
- #           for base_blockid in cas0_bids_in_global:
- #               block_k_new_list,_ = self.get_blockids_of_dif_stride_step(base_blockid,self.h5f.attrs,sub_h5fattrs)
- #               for k_new in block_k_new_list:
-
 
         # (2) GROUP: Collect all the base blocks for each sub-point.
         global_block_datas = []
         global_block_labels = []
-        subblock_sample_num = np.zeros([2]).astype(np.uint64)
-        flatten_bidxmap0 = []
-        #flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,GlobalSubBaseBLOCK.max_flatten_num,2)).astype(np.int32)*(-1)
-        root_bids_in_cas0_ls = []
-        for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
-            root_bids_in_cas0 = cas0_all_base_blockids_indic_valid[cas0_bid]
+        global_cas0bids = []
+        #global_sg_bidxmaps = []
+        sum_global_point_num = 0
+        #missed_num_cas0 = []
+        #root_bids_in_cas0_ls = []
+        for cas0_bid_index,cas0_bid in enumerate( cas0_bids_in_global ):
+            root_bids_in_cas0 = cas0_all_base_blockids_indic[cas0_bid]
 
-            #for root_bid in root_bids_in_cas0:
-            #    if root_bid in root_bids_in_cas0_ls:
-            #        if DEBUGTMP:
-            #            print(root_bid)
-            #            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            root_bids_in_cas0_ls += root_bids_in_cas0.tolist()
+            #root_bids_in_cas0_ls += root_bids_in_cas0.tolist()
 
-            datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements,npoint_subblock)
-            if datas_k.shape[0] !=0:
-                global_block_datas.append(np.expand_dims(datas_k,axis=0))
-                global_block_labels.append(np.expand_dims(labels_k,axis=0))
-                subblock_sample_num += sample_num_k
+            datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements )
+            num_point_k = datas_k.shape[0]
+            if num_point_k !=0:
+                global_block_datas.append( datas_k )
+                global_block_labels.append( labels_k )
+                global_cas0bids.append( cas0_bid )
+#                sum_global_point_num += num_point_k
+#                cas0b_split_point_idx.append( np.expand_dims( np.array([cas0_bid, sum_global_point_num]),0 ) )
 
-                valid_sample_k = sample_num_k.min()
-                for point_index_in_root_block in range(valid_sample_k):
-                    valid_point_index = np.array( [cas0_bid_index,point_index_in_root_block]).astype(np.int32)
-                    flatten_bidxmap0.append(np.expand_dims(valid_point_index,axis=0) )
+#                sg_bidxmap_k = random_choice( np.arange(num_point_k), npoint_subblock ) + sum_global_point_num
+#                missed_num_cas0.append( num_point_k - npoint_subblock )
+#                global_sg_bidxmaps.append( np.expand_dims( sg_bidxmap_k, 0 ) )
 
-        if len(flatten_bidxmap0)==0:
+        if len( global_block_datas )==0:
             # all void points
             return np.array([]),None,None,None,None
 
-        flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
-        num_candi_cas0bids = len(global_block_datas)  # the length may reduce because of removing void
+        global_block_datas = np.concatenate(global_block_datas,axis=0).astype( np.float32 )
+        global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
+        global_cas0bids = np.array( global_cas0bids ).astype( np.int32 )
 
-        # cal num of all points in the global block
-        num_point_all = 0
-        for cas0_bid in cas0_bids_in_global:
-            num_point_all +=  self.get_numpoint_of_new_stride_step_byid( cas0_bid,cas0b_attrs,gsbb )
-        missed_baseb_num_ca0 = num_point_all - subblock_sample_num[1]
+        raw_point_num = global_block_datas.shape[0]
+        choices = random_choice( range(raw_point_num), global_num_point )
+        global_block_datas = global_block_datas[ choices,... ]
+        global_block_labels = global_block_labels[ choices,... ]
+        global_cas0bids = global_cas0bids[ choices ]
 
-        sg_sample_num_cas0 = np.array( [ missed_baseb_num_ca0, num_point_all,  nsubblock, num_candi_cas0bids,1, subblock_sample_num[0],subblock_sample_num[1],cas0_bids_in_global_valid.size ] ).reshape(1,8).astype(np.uint64)
+        #cas0b_split_point_idx = np.concatenate(cas0b_split_point_idx,axis=0)
+        #global_sg_bidxmaps = np.concatenate(global_sg_bidxmaps,axis=0)
+        #missed_num_cas0 = np.array( missed_num_cas0 )
 
-        if num_candi_cas0bids <= nsubblock:
-            # till at the end to nsubblock shape
-            new_cas0_bindex = np.random.choice(num_candi_cas0bids,nsubblock-num_candi_cas0bids)
+        #choices = random_choice( np.arange(len(global_sg_bidxmaps)), nsubblock, keeporder=True )
+        #global_sg_bidxmaps0 = global_sg_bidxmaps[ choices,: ]
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-            for cas0_bindex in new_cas0_bindex:
-                global_block_datas.append(global_block_datas[cas0_bindex])
-                global_block_labels.append(global_block_labels[cas0_bindex])
-
-        global_block_datas = np.concatenate(global_block_datas,axis=0)
-        global_block_labels = np.concatenate(global_block_labels,axis=0)
-
-
-       # print(global_block_datas.shape)
-       # print(global_block_labels.shape)
-        if IsRecordTime:
-           t2 = time.time()
-           print('\nsampling t=%f ms'%(1000*(t1-t0)))
-           print('grouping t=%f ms'%(1000*(t2-t1)))
-           print('one global block read t=%f ms'%(1000*(t2-t0)))
-
-        return global_block_datas,global_block_labels, cas0_bids_in_global_valid, sg_sample_num_cas0, flatten_bidxmap0
+        return global_block_datas, global_block_labels, global_cas0bids, raw_point_num
 
     def get_batch_of_larger_block( self,global_blockid_start,global_blockid_end,feed_data_elements,feed_label_elements ):
         gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
@@ -2521,7 +2462,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             IsIntact = h5f.attrs['is_intact_sgfh5'] == 1
             return IsIntact,"is_intact_sgfh5=1"
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_pyh5=False,Always_CreateNew_bmh5=False):
+    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_pyh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False):
         '''
         save by global block
         '''
@@ -2562,6 +2503,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 file_datas = []
                 file_labels = []
+                file_cas0b_split_point_idxs = []
+                max_cas0b_num = 50000
 
                 feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
                 feed_data_elements = feed_norm_ele_info['norm_data_eles']
@@ -2580,15 +2523,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
                 for global_block_id in all_sorted_global_bids:
-                    block_datas,block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = \
+                    #block_datas, block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = \
+                    block_datas, block_labels, cas0b_split_point_idx = \
                         self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements )
                     if block_datas.size == 0:
                         continue
+                    cas0b_split_point_idx_fixed = (np.ones( shape=(max_cas0b_num,2) ) * (-1)).astype(np.int32)
+                    cas0b_split_point_idx_fixed[0:cas0b_split_point_idx.shape[0],:] = cas0b_split_point_idx
 
-                    all_sorted_global_bids_valid.append( global_block_id )
-                    cas0_bidxmap_meta['sg_sample_num_cas0_dic' ][global_block_id] = sg_sample_num_cas0
-                    cas0_bidxmap_meta['cas0_bids_in_global_valid_dic'][global_block_id] = cas0_bids_in_global_valid
-                    cas0_bidxmap_meta['flatten_bidxmap0_dic'][global_block_id] = flatten_bidxmap0
+#                    all_sorted_global_bids_valid.append( global_block_id )
+#                    cas0_bidxmap_meta['sg_sample_num_cas0_dic' ][global_block_id] = sg_sample_num_cas0
+#                    cas0_bidxmap_meta['cas0_bids_in_global_valid_dic'][global_block_id] = cas0_bids_in_global_valid
+#                    cas0_bidxmap_meta['flatten_bidxmap0_dic'][global_block_id] = flatten_bidxmap0
 
                     #sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = \
                     #      gsbb_write.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
@@ -2599,6 +2545,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                     file_datas.append(np.expand_dims(block_datas,axis=0))
                     file_labels.append(np.expand_dims(block_labels,axis=0))
+                    file_cas0b_split_point_idxs.append(np.expand_dims(cas0b_split_point_idx_fixed,axis=0))
 
                 if len(file_datas) == 0:
                     h5f.attrs['intact_void_file'] = 1
@@ -2606,8 +2553,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 else:
                     file_datas = np.concatenate(file_datas,axis=0)
                     file_labels = np.concatenate(file_labels,axis=0)
+                    file_cas0b_split_point_idxs = np.concatenate(file_cas0b_split_point_idxs,axis=0)
                     pl_pyramid_h5f.append_to_dset('data',file_datas)
                     pl_pyramid_h5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                    pl_pyramid_h5f.append_to_dset('cas0b_split_point_idx',file_cas0b_split_point_idxs)
 
                     #sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
                     #all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
@@ -2690,7 +2639,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         bmap_pyramid_filename = os.path.join(out_folder_bmap,region_name+'.bxmh5')
         IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bmap_pyramid_filename )
-        if  IsIntact_nh5_bmap:
+        if (not Always_CreateNew_bxmh5) and  IsIntact_nh5_bmap:
             print('bxmh5 intact: %s'%(bmap_pyramid_filename))
         else:
             save_bmap_h5f( bmap_pyramid_filename, self, sgflat_map_filename )
