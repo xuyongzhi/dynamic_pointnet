@@ -42,7 +42,7 @@ import csv,pickle
 from gsbb_config import get_gsbb_config
 import magic
 
-#DEBUGTMP=True
+DEBUGTMP=True
 
 START_T = time.time()
 
@@ -740,7 +740,6 @@ class GlobalSubBaseBLOCK():
                     all_sorted_base_blockids = all_sorted_blockids_dic[base_cascadeid]
                     base_attrs = cascade_attrs[base_cascadeid]
                     larger_stride, larger_step = self.get_stride_step_(cascade_id)
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
                     new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_all_largerbid(
                                                             base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
                     all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
@@ -832,6 +831,9 @@ class GlobalSubBaseBLOCK():
                 if valid_scope_rate > 0.2:
                     new_total_block_N += 1
                     basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
+                else:
+                    print('valid_scope_rate = %f'%(valid_scope_rate))
+                    if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
             if new_block_id >0 and new_block_id % 10000==0:
                 rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
@@ -848,14 +850,17 @@ class GlobalSubBaseBLOCK():
                 all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
             all_base_blockids_indic = np.sort(all_base_blockids_indic)
             if not all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]:
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert False, "Not  all the base blocks are exactly included"
             if not (all_base_blockids_indic == all_base_blockids).all():
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                if DEBUGTMP: import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert False, "Not  all the base blocks are exactly included"
 
             print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+            if DEBUGTMP and larger_step[0] == 0.6:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                print('')
 
         return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
 
@@ -1246,7 +1251,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             h5fattrs['block_step']  = block_step
             h5fattrs['block_stride'] = block_stride
             Sorted_H5f.set_whole_scene_stride_step(h5fattrs)
-            h5fattrs['block_dims_N'] = np.ceil(xyz_scope_aligned / h5fattrs['block_stride']).astype(np.int64)
+            h5fattrs['block_dims_N'] = np.ceil( (xyz_scope_aligned - h5fattrs['block_step']) / h5fattrs['block_stride'] + 1 ).astype(np.int64)
         h5fattrs['xyz_min_aligned'] = xyz_min_aligned
         h5fattrs['xyz_max_aligned'] = xyz_max_aligned
         h5fattrs['xyz_scope_aligned'] = xyz_scope_aligned
@@ -1514,7 +1519,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #IsExactDivision1 = float_exact_division( base_attrs['block_stride'], aim_attrs['block_stride'] )
             #assert IsExactDivision1
 
-            search = my_ceil( base_attrs['block_step'] / aim_attrs['block_step']).astype(np.int64)
+            search = my_ceil( ( base_attrs['block_step'] - aim_attrs['block_step'] ) / aim_attrs['block_stride'] + 1).astype(np.int64)
             for i_x in range(0,search[0]):
                 for i_y in range(0,search[1]):
                     for i_z in range(0,search[2]):
@@ -1553,8 +1558,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                         i_xyz_new_list.append(i_xyz_new)
                         block_k_new_list.append(block_k_new)
-            #if not (aim_attrs['block_step'] == aim_attrs['block_stride']).all():
-            #    print('aim step != stride')
+            #if base_attrs['block_step'][0] == 0.6:
+            #    print('0.6')
             #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
             #if not (base_attrs['block_step'] == base_attrs['block_stride']).all():
             #    print('base step != stride')
@@ -1573,7 +1578,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
             assert( ((aim_attrs['block_stride'] / base_attrs['block_step'])%1 == 0).all() )
 
-            search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
+            #search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
+            search = ( (aim_attrs['block_step']-base_attrs['block_step']) / aim_attrs['block_stride'] + 1).astype(np.float64)
             if ( search%1*aim_attrs['block_stride'] >= base_attrs['block_step']).all() :
                 search = np.ceil(search).astype(np.int64)
             else:
@@ -2425,10 +2431,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for cas0_bid_index,cas0_bid in enumerate(cas0_bids_in_global_valid):
             root_bids_in_cas0 = cas0_all_base_blockids_indic_valid[cas0_bid]
 
-            for root_bid in root_bids_in_cas0:
-                if root_bid in root_bids_in_cas0_ls:
-                    print(root_bid)
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #for root_bid in root_bids_in_cas0:
+            #    if root_bid in root_bids_in_cas0_ls:
+            #        if DEBUGTMP:
+            #            print(root_bid)
+            #            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             root_bids_in_cas0_ls += root_bids_in_cas0.tolist()
 
             datas_k,labels_k,sample_num_k = self.get_block_data_of_new_stride_step_byid(cas0_bid,cas0b_attrs,root_bids_in_cas0,feed_data_elements,feed_label_elements,npoint_subblock)
@@ -2445,7 +2452,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if len(flatten_bidxmap0)==0:
             # all void points
             return np.array([]),None,None,None,None
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         flatten_bidxmap0 = np.concatenate(flatten_bidxmap0,axis=0)
         num_candi_cas0bids = len(global_block_datas)  # the length may reduce because of removing void
