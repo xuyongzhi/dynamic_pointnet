@@ -320,7 +320,7 @@ class GlobalSubBaseBLOCK():
         house_name = os.path.basename(house_dir_name)
         rootsort_dirname = os.path.dirname(house_dir_name)
 
-        out_folder = rootsort_dirname + '_bmh5-' + self.get_pyramid_flag( OnlyFirst = False)
+        out_folder = rootsort_dirname + '_bmh5-' + self.get_pyramid_flag( OnlyGlobal = False)
         if not os.path.exists(out_folder):
             os.mkdir(out_folder)
         blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
@@ -331,7 +331,7 @@ class GlobalSubBaseBLOCK():
         for ele_name in self.para_names + self.meta_names + self.root_para_names:
             aim_attrs[ele_name] = getattr( self,ele_name )
 
-    def get_pyramid_flag(self, OnlyFirst=False):
+    def get_pyramid_flag(self, OnlyGlobal=False):
         def my_str(s):
             if s%1!=0:
                 str_ = '%dd'%(int(s))+str(int((10*s)%10))
@@ -339,34 +339,33 @@ class GlobalSubBaseBLOCK():
                 str_ = str(int(s))
             return str_
 
-        flag_str = ''
-        flag_str += my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])+'-'
+        flag_str = str(self.global_num_point)
+        flag_str += '_'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
+        if OnlyGlobal:
+            return flag_str
+        flag_str += '-'
         for i,n in enumerate(self.nsubblock_candis):
             flag_str += str(n)
             if i<len(self.nsubblock_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
-            if OnlyFirst: break
         for i,n in enumerate(self.npoint_subblock_candis):
             flag_str += str(n)
             if i<len(self.npoint_subblock_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
-            if OnlyFirst: break
         for i,s in enumerate(self.sub_block_step_candis):
             flag_str += my_str(s)
             if i<len(self.sub_block_step_candis)-1:
                 flag_str += '_'
             else:
                 flag_str +='-'
-            if OnlyFirst: break
         for i,s in enumerate(self.sub_block_stride_candis):
             flag_str += my_str(s)
-            if i<len(self.sub_block_stride_candis)-1 and not OnlyFirst:
+            if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
-            if OnlyFirst: break
         return flag_str
 
     def get_block_sample_shape(self,cascade_id):
@@ -532,6 +531,7 @@ class GlobalSubBaseBLOCK():
                         flatten_bidxmap[baseb_index,:] = [aim_b_index,pointindex_within_subblock]
                         flatten_bidxmap_num[baseb_index] += 1
 
+        print( np.sum( flatten_bidxmap_num!=1 ) )
         # tile the last one to fix flatten_bidxmap shape
         if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
         else: base_nsubblock = self.global_num_point
@@ -547,6 +547,7 @@ class GlobalSubBaseBLOCK():
         #     reduce missed_baseb_num.
         valid_baseb_is_missed = flatten_bidxmap_num == 0
         missed_baseb_num = np.sum( valid_baseb_is_missed )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         if missed_baseb_num>0:
             print('missed_baseb_num=%d'%(missed_baseb_num))
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -2540,8 +2541,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         house_name = os.path.basename(house_dir_name)
         rootsort_dirname = os.path.dirname(house_dir_name)
 
-        out_folder_pl = rootsort_dirname + '_pl-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = True ) + '/' + house_name
-        out_folder_bmap = rootsort_dirname + '_bmap-prh5-' + gsbb_write.get_pyramid_flag( OnlyFirst = False) + '/' + house_name
+        out_folder_pl = rootsort_dirname + '_pl_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
+        out_folder_bmap = rootsort_dirname + '_bmap_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = False) + '/' + house_name
 
         if not os.path.exists(out_folder_pl):
             os.makedirs(out_folder_pl)

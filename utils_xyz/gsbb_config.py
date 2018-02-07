@@ -5,7 +5,7 @@ from __future__ import print_function
 import numpy as np
 
 
-_gsbb_config = '3A'
+_gsbb_config = '3B'
 #_gsbb_config = '3C'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
