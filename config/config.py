@@ -46,12 +46,12 @@ __C.TRAIN.EVALUATION_NUM = 500 # 1000
 __C.TRAIN.NUM_REGRESSION = 7
 
 # radius for grouping
-__C.TRAIN.Radius_1 = 0.2
-__C.TRAIN.Radius_2 = 0.4
-__C.TRAIN.Radius_3 = 0.8
-__C.TRAIN.Radius_4 = 1.2
-__C.TRAIN.Radius_5 = 1.6
-__C.TRAIN.Radius_6 = 2.4
+__C.TRAIN.Radius_1 = 0.3
+__C.TRAIN.Radius_2 = 0.6
+__C.TRAIN.Radius_3 = 1.0
+__C.TRAIN.Radius_4 = 1.8
+__C.TRAIN.Radius_5 = 2.2
+__C.TRAIN.Radius_6 = 2.6
 
 # 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different
 # orientation alpha (pi = 0, pi/4, pi/2)

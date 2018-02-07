@@ -5,8 +5,8 @@ train_script=train_obj_detection.py
 debug_script=train_obj_detection_debug.py
 dataset_name=rawh5_kitti
 baselogname=log
-maxepoch=30
-batchsize=2
+maxepoch=39
+batchsize=4
 numpoint=32768
 feed_label_elements="label_category"
 
@@ -16,4 +16,4 @@ run_code="python $train_script --dataset_name $dataset_name --log_dir $baselogna
 
 
 
-$d_code
+$run_code
