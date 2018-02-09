@@ -1,0 +1,1 @@
+{'around_aimb_dis_std': 0.566576058261, 'after_fix_missed_baseb_num': 573, 'npoint_subblock_std': 58.27821992662578, 'around_aimb_dis_mean': 1.2883353553259893, 'npoint_subblock_mean': 65.474609375, 'missed_aimb_num': 2661, 'baseb_exact_flat_num': (array([6764, 8999, 6114, 3723]), array([0, 1, 2, 3, 4]))}

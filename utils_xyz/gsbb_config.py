@@ -5,7 +5,7 @@ from __future__ import print_function
 import numpy as np
 
 
-_gsbb_config = '3B'
+_gsbb_config = '3A'
 #_gsbb_config = '3C'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
@@ -19,15 +19,26 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
-    elif config_flag == '3B':
+
+    if config_flag == '3A1':
         global_stride = np.array([1.6,1.6,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
-        global_num_point = 2560
+        global_num_point = 8192
 
-        sub_block_stride_candis = np.array([0.1,0.4,0.8]).astype(np.float)
+        sub_block_stride_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
+
+    elif config_flag == '3B':
+        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
+        global_step = np.array([2.0,2.0,-1]).astype(np.float)
+        global_num_point = 25600
+
+        sub_block_stride_candis = np.array([0.1,0.4,0.8]).astype(np.float)
+        sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+        nsubblock_candis =       np.array([2048,256, 64]).astype(np.int32)
+        npoint_subblock_candis = np.array([384,  12,  6]).astype(np.int32)
     elif config_flag == '3C':
         global_stride = np.array([1.2,1.2,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
