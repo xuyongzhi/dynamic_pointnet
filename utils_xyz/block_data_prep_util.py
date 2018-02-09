@@ -235,10 +235,11 @@ class GlobalSubBaseBLOCK():
     settings['fix_bmap_method_cascade0'] = 'random'
     settings['fix_bmap_method_others'] = 'random'
     settings['is_mv_cutted_aimb'] = False
-    flatbxmap_max_nearest_num = 1
+    flatbxmap_max_nearest_num = 3
     flatbxmap_max_dis = 3
+
     def load_default_parameters( self ):
-        global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
+        max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config = \
             get_gsbb_config()
         for pn in self.para_names:
             setattr( self, pn, eval(pn) )
@@ -297,7 +298,7 @@ class GlobalSubBaseBLOCK():
     def __init__(self,root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None):
         self.new_attrs = {}
         self.bm_output = {}
-        self.global_para_names = ['global_num_point','global_stride','global_step']
+        self.global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
         self.para_names = self.global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ]
         self.root_para_names = ['root_block_stride','root_block_step']
         self.meta_names = ['missed_aimb_num','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npoint_subblock_mean','npoint_subblock_std']
@@ -358,16 +359,18 @@ class GlobalSubBaseBLOCK():
                 meta_str += '\n'
             bmap_meta_f.write( meta_str )
 
-    def get_pyramid_flag(self, OnlyGlobal=False):
+    def get_pyramid_flag(self, OnlyGlobal=False, IncludeGlobalNum=False):
         def my_str(s):
             if s%1!=0:
                 str_ = '%dd'%(int(s))+str(int((10*s)%10))
             else:
                 str_ = str(int(s))
             return str_
-
-        flag_str = str(self.global_num_point)
-        flag_str += '_'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
+        if IncludeGlobalNum:
+            flag_str = str(self.global_num_point) + '_'
+        else:
+            flag_str = ''
+        flag_str += my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
         if OnlyGlobal:
             return flag_str
         flag_str += '-'
@@ -556,7 +559,7 @@ class GlobalSubBaseBLOCK():
         sg_bidxmap_fixed = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         aimb_valid_point_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
 
-        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,self.flatbxmap_max_nearest_num,3)).astype(np.int32)*(-1)
+        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,self.flatbxmap_max_nearest_num,3)).astype(np.float32)*(-1)
         flatten_bidxmap_num = np.zeros( shape=(valid_sorted_basebids.size) ).astype(np.int8)
         baseb_num = []
         for aim_b_index in range(aim_nsubblock):
@@ -646,6 +649,10 @@ class GlobalSubBaseBLOCK():
                     flatten_bidxmap[baseb_index,i,:] = flatten_bidxmap[baseb_index,0,:]
                     flatten_bidxmap[baseb_index,i,2] = 1000
                     flatten_bidxmap_num[baseb_index] += 1
+        #-----------------------------------------------------------------------
+        # convert dis to weight
+        for baseb_index in range(flatten_bidxmap.shape[0]):
+            dis = flatten_bidxmap[base]
 
         nonfull_baseb_num = np.sum( flatten_bidxmap_num != self.flatbxmap_max_nearest_num )
         assert nonfull_baseb_num==0
@@ -669,6 +676,7 @@ class GlobalSubBaseBLOCK():
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
         flatten_bidxmap_tile = np.tile( np.expand_dims(flatten_bidxmap[-1,:,:],0), (base_nsubblock-flatten_bidxmap.shape[0],1,1) )
         flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
         bxmap_meta['missed_aimb_num'] = np.array([all_sorted_aimbids.size - aim_nsubblock])
@@ -2465,26 +2473,25 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
-        global_block_datas, global_block_labels, rootb_split_idxmap, global_sampling_meta = Sorted_H5f.down_sample_bsplit_idxmap( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
+        global_block_datas, global_block_labels, rootb_split_idxmap, global_sampling_meta = Sorted_H5f.down_sample_global_block( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
 
         # fix root b num
-        assert max_rootb_num >= rootb_split_idxmap.shape[0]
-        rootb_split_idxmap_fixed = (np.ones( shape=(max_rootb_num,2) ) * (-1)).astype(np.int32)
-        rootb_split_idxmap_fixed[0:rootb_split_idxmap.shape[0],:] = rootb_split_idxmap
-
-       # raw_point_num = global_block_datas.shape[0]
-       # choices = random_choice( range(raw_point_num), global_num_point )
-       # global_block_datas = global_block_datas[ choices,... ]
-       # global_block_labels = global_block_labels[ choices,... ]
-
-
-        #choices = random_choice( np.arange(len(global_sg_bidxmaps)), nsubblock, keeporder=True )
-        #global_sg_bidxmaps0 = global_sg_bidxmaps[ choices,: ]
+#        assert max_rootb_num >= rootb_split_idxmap.shape[0]
+#        rootb_split_idxmap_fixed = (np.ones( shape=(max_rootb_num,2) ) * (-1)).astype(np.int32)
+#        rootb_split_idxmap_fixed[0:rootb_split_idxmap.shape[0],:] = rootb_split_idxmap
+        rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap )
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta
 
     @staticmethod
-    def down_sample_bsplit_idxmap( data, label,  bsplit_idxmap, sample_num ):
+    def fix_rootb_split_idxmap( rootb_split_idxmap ):
+        assert  Normed_H5f.max_rootb_num  >= rootb_split_idxmap.shape[0]
+        rootb_split_idxmap_fixed = (np.ones( shape=(Normed_H5f.max_rootb_num,2) ) * (-1)).astype(np.int32)
+        rootb_split_idxmap_fixed[0:rootb_split_idxmap.shape[0],:] = rootb_split_idxmap
+        return rootb_split_idxmap_fixed
+
+    @staticmethod
+    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num ):
         org_num = bsplit_idxmap[-1,1]
         assert org_num == data.shape[0]
         sampling_meta = {}
@@ -2494,13 +2501,50 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             label_tile = np.tile( label[org_num-1:org_num,:],[sample_num-org_num,1] )
             label = np.concatenate( [label,label_tile], 0 )
             bsplit_idxmap[-1,1] = sample_num
-            sampling_meta['miss_rootb_num'] = 0
+            sampling_meta['missed_rootb_num'] = 0
         else:
             del_choice = np.sort( random_choice(  np.arange(org_num), org_num - sample_num, keeporder=True ) )
             data = np.delete( data, del_choice, axis=0 )
             label = np.delete( label, del_choice, axis=0 )
 
             # update bsplit_idxmap after downsampling
+#            del_num_eachb = np.zeros( shape=(bsplit_idxmap.shape[0]) )
+#            del_bidx = 0
+#            for del_point_idx in del_choice:
+#                while del_point_idx >= bsplit_idxmap[del_bidx,1]:
+#                    del_bidx += 1
+#                del_num_eachb[del_bidx] += 1
+#            sum_del_point_num = 0
+#            for bidx in range( bsplit_idxmap.shape[0] ):
+#                sum_del_point_num += del_num_eachb[bidx]
+#                bsplit_idxmap[bidx,1] -= sum_del_point_num
+#            # check if points in some blocks are all delted
+#            empty_bidxs = []
+#            last_point_idx = 0
+#            for bidx in range( bsplit_idxmap.shape[0] ):
+#                if bsplit_idxmap[bidx][1] == last_point_idx:
+#                    empty_bidxs.append( bidx )
+#                last_point_idx = bsplit_idxmap[bidx][1]
+#            empty_bidxs = np.array( empty_bidxs )
+#            bsplit_idxmap = np.delete( bsplit_idxmap, empty_bidxs, 0 )
+#            assert bsplit_idxmap[-1,1] == sample_num
+
+            bsplit_idxmap, missed_rootb_num = Sorted_H5f.down_sample_bsplit_idxmap( bsplit_idxmap, del_choice, sample_num )
+
+            sampling_meta['missed_rootb_num'] = missed_rootb_num
+        sampling_meta['missed_point_num'] = org_num - sample_num
+
+        return data, label, bsplit_idxmap, sampling_meta
+
+    @staticmethod
+    def down_sample_bsplit_idxmap( raw_bsplit_idxmap, del_choice, sample_num ):
+            bsplit_idxmap = np.copy(raw_bsplit_idxmap)
+            if bsplit_idxmap[-1,0] == -1:
+                for valid_n in range(bsplit_idxmap.shape[0]):
+                    if bsplit_idxmap[valid_n,0] == -1:
+                        bsplit_idxmap = bsplit_idxmap[0:valid_n,:]
+                        break
+
             del_num_eachb = np.zeros( shape=(bsplit_idxmap.shape[0]) )
             del_bidx = 0
             for del_point_idx in del_choice:
@@ -2520,12 +2564,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 last_point_idx = bsplit_idxmap[bidx][1]
             empty_bidxs = np.array( empty_bidxs )
             bsplit_idxmap = np.delete( bsplit_idxmap, empty_bidxs, 0 )
-            assert bsplit_idxmap[-1,1] == sample_num
-
-            sampling_meta['miss_rootb_num'] = empty_bidxs.size
-        sampling_meta['miss_point_n'] = org_num - sample_num
-
-        return data, label, bsplit_idxmap, sampling_meta
+            if not bsplit_idxmap[-1,1] == sample_num:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                assert False, '%d != %d'%(bsplit_idxmap[-1,1], sample_num)
+            missed_rootb_num = empty_bidxs.size
+            if raw_bsplit_idxmap.shape[0] == Normed_H5f.max_rootb_num:
+                bsplit_idxmap = Sorted_H5f.fix_rootb_split_idxmap( bsplit_idxmap )
+            return bsplit_idxmap, missed_rootb_num
 
     def get_batch_of_larger_block( self,global_blockid_start,global_blockid_end,feed_data_elements,feed_label_elements ):
         gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
@@ -2573,8 +2618,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         house_name = os.path.basename(house_dir_name)
         rootsort_dirname = os.path.dirname(house_dir_name)
 
-        out_folder_pl = rootsort_dirname + '_pl_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
-        out_folder_bmap = rootsort_dirname + '_bmap_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = False) + '/' + house_name
+        out_folder_pl = rootsort_dirname + '_pl_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False ) + '/' + house_name
+        out_folder_bmap = rootsort_dirname + '_bmap_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
 
         if not os.path.exists(out_folder_pl):
             os.makedirs(out_folder_pl)
@@ -2593,10 +2638,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         #-----------------------------------------------------------------------
         def save_pl_prh5( pl_nh5_filename, gsbb_write, S_H5f):
-            print('start gen pyramid file: ',pl_nh5_filename)
+            global_num_point = gsbb_write.global_num_point
+            assert global_num_point >= gsbb_write.max_global_num_point
+            print('start gen nh5 file: ',pl_nh5_filename)
             with h5py.File(pl_nh5_filename,'w') as h5f:
-                #global_block_sample_shape = gsbb_write.get_block_sample_shape('global')
-                global_num_point = gsbb_write.global_num_point
                 global_attrs = gsbb_write.get_new_attrs('global')
 
                 pl_nh5f = Normed_H5f(h5f,pl_nh5_filename,S_H5f.h5f.attrs['datasource_name'])
@@ -2605,45 +2650,27 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 file_datas = []
                 file_labels = []
                 file_rootb_split_idxmaps = []
+                global_sampling_meta_sum = {}
 
                 feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
                 feed_data_elements = feed_norm_ele_info['norm_data_eles']
                 feed_label_elements = feed_norm_ele_info['label_eles']
 
-                #sg_all_bidxmaps = []
-                #all_flatten_bidxmaps = []
-                #sum_sg_bidxmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,8))
-                #sum_flatten_bmap_sample_num = np.zeros(shape=(gsbb_write.cascade_num,3))
-
-                all_sorted_global_bids_valid = []
-                cas0_bidxmap_meta = {}
-                cas0_bidxmap_meta[ 'sg_sample_num_cas0_dic' ] = {}
-                cas0_bidxmap_meta[ 'cas0_bids_in_global_valid_dic' ] = {}
-                cas0_bidxmap_meta[ 'flatten_bidxmap0_dic' ] = {}
-
                 all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
                 for global_block_id in all_sorted_global_bids:
-                    #block_datas, block_labels,cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0 = \
                     block_datas, block_labels, rootb_split_idxmap, global_sampling_meta = \
                         self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
                     if block_datas.size == 0:
                         continue
 
-#                    all_sorted_global_bids_valid.append( global_block_id )
-#                    cas0_bidxmap_meta['sg_sample_num_cas0_dic' ][global_block_id] = sg_sample_num_cas0
-#                    cas0_bidxmap_meta['cas0_bids_in_global_valid_dic'][global_block_id] = cas0_bids_in_global_valid
-#                    cas0_bidxmap_meta['flatten_bidxmap0_dic'][global_block_id] = flatten_bidxmap0
-
-                    #sg_bidxmaps,sg_bidxmap_sample_num,flatten_bidxmaps,flatten_bmap_sample_num = \
-                    #      gsbb_write.get_all_bidxmaps(cas0_bids_in_global_valid,sg_sample_num_cas0,flatten_bidxmap0)
-                    #sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
-                    #all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
-                    #sum_sg_bidxmap_sample_num += sg_bidxmap_sample_num
-                    #sum_flatten_bmap_sample_num += flatten_bmap_sample_num
-
                     file_datas.append(np.expand_dims(block_datas,axis=0))
                     file_labels.append(np.expand_dims(block_labels,axis=0))
                     file_rootb_split_idxmaps.append(np.expand_dims(rootb_split_idxmap,axis=0))
+                    if len( global_sampling_meta_sum ) == 0:
+                        global_sampling_meta_sum = global_sampling_meta
+                    else:
+                        for key in global_sampling_meta:
+                            global_sampling_meta_sum[key] += global_sampling_meta[key]
 
                 if len(file_datas) == 0:
                     h5f.attrs['intact_void_file'] = 1
@@ -2656,50 +2683,77 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     pl_nh5f.append_to_dset('data',file_datas)
                     pl_nh5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                     pl_nh5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
-
-                    #sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
-                    #all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
-                    #gsbb_write.sum_sg_bidxmap_sample_num = sum_sg_bidxmap_sample_num
-                    #gsbb_write.sum_flatten_bmap_sample_num = sum_flatten_bmap_sample_num
-                    #gsbb_write.write_paras_in_h5fattrs( pl_nh5f.h5f['bidxmaps_sample_group'].attrs )
-                    #pl_nh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-                    #pl_nh5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+                    for key in global_sampling_meta_sum:
+                        h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
 
                     pl_nh5f.create_done()
+                    pl_nh5f.write_summary()
                     if IsShowSummaryFinished:
                         pl_nh5f.show_summary_info()
-                    print('pyramid file save finished: data shape: %s'%(str(pl_nh5f.data_set.shape)) )
-        #-----------------------------------------------------------------------
-        #def save_sgf_h5f( sgflat_map_filename, all_sorted_global_bids_valid,  cas0_bidxmap_meta ):
-        #    with h5py.File( sgflat_map_filename,'w' ) as sgf_h5f:
-        #        sgf_h5f.attrs['is_intact_sgfh5'] = 0
-        #        all_sorted_global_bids_valid_dset = sgf_h5f.create_dataset('all_sorted_global_bids_valid', shape=all_sorted_global_bids_valid.shape,dtype=np.int64)
-        #        all_sorted_global_bids_valid_dset[...] = all_sorted_global_bids_valid
-        #        for dname,data in cas0_bidxmap_meta.items():
-        #            for global_block_id in all_sorted_global_bids_valid:
-        #                dset = sgf_h5f.create_dataset(dname+'/'+str(global_block_id),shape=data[global_block_id].shape, dtype=np.int32)
-        #                dset[...] = data[global_block_id]
-        #        sgf_h5f.attrs['is_intact_sgfh5'] = 1
-        #        sgf_h5f.flush()
-        #        print('write finish: %s'%(sgflat_map_filename))
+                    print('plnh5 file create finished: data shape: %s'%(str(pl_nh5f.data_set.shape)) )
+
+        def add_new_sample_num_in_plnh5( pl_nh5_filename, gsbb_write ):
+            global_num_point = gsbb_write.global_num_point
+            global_num_point_str  = str(int(global_num_point))
+            with h5py.File(pl_nh5_filename,'a') as pl_h5f:
+                # check is intact already
+                if global_num_point_str in pl_h5f and 'is_intact_new_sample_num' in pl_h5f[global_num_point_str+'-rootb_split_idxmap'].attrs:
+                    if pl_h5f[global_num_point_str+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num']==1:
+                        print('small global_num %d is already intact in %s'%(global_num_point,pl_nh5_filename))
+                        return
+                print('start add global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_nh5_filename) )
+
+                cur_global_num_point = pl_h5f.attrs['sample_num']
+                assert global_num_point < cur_global_num_point
+                assert cur_global_num_point >= gsbb_write.max_global_num_point
+                rootb_split_idxmap = pl_h5f['rootb_split_idxmap']
+                new_rootb_split_idxmap = []
+                new_point_idxs = []
+                missed_rootb_num = 0
+                missed_point_num = 0
+                for k in range(rootb_split_idxmap.shape[0]):
+                    new_point_idxs_k = random_choice( np.arange(cur_global_num_point), global_num_point )
+                    new_point_idxs.append( np.expand_dims(new_point_idxs_k,0) )
+                    del_point_idxs_k = [i for i in range(cur_global_num_point) if i not in new_point_idxs_k ]
+                    new_rootb_split_idxmap_k,missed_rootb_num_k = Sorted_H5f.down_sample_bsplit_idxmap( rootb_split_idxmap[k], del_point_idxs_k, global_num_point )
+                    new_rootb_split_idxmap.append( np.expand_dims( new_rootb_split_idxmap_k,0 ) )
+                    missed_rootb_num += missed_rootb_num_k
+                    missed_point_num += pl_h5f['rootb_split_idxmap'].attrs['missed_point_num'] + pl_h5f.attrs['sample_num'] - global_num_point
+                new_rootb_split_idxmap = np.concatenate( new_rootb_split_idxmap,0 )
+                new_point_idxs = np.concatenate( new_point_idxs,0 )
+
+                pl_nh5f = Normed_H5f(pl_h5f, pl_nh5_filename)
+                pl_nh5f.create_dsets_new_sample_num( global_num_point )
+                pl_nh5f.append_to_dset( global_num_point_str + '-rootb_split_idxmap', new_rootb_split_idxmap )
+                pl_nh5f.append_to_dset( global_num_point_str + '-point_indices', new_point_idxs )
+                pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_point_num'] = missed_point_num
+                pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_rootb_num'] = missed_rootb_num
+                pl_nh5f.write_summary()
+                pl_nh5f.create_done()
+            print('finish adding global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_nh5_filename) )
         #-----------------------------------------------------------------------
         pl_nh5_filename = os.path.join(out_folder_pl,region_name+'.nh5')
         gsbb_write = GlobalSubBaseBLOCK(self.h5f,self.file_name)
         IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_nh5_filename )
         if (not Always_CreateNew_pyh5) and IsIntact_pl_nh5:
-            print('pyh5 intact: %s'%(pl_nh5_filename))
+            with h5py.File( pl_nh5_filename,'r' ) as plh5f:
+                cur_global_num_point = plh5f.attrs['sample_num']
+            if cur_global_num_point != gsbb_write.global_num_point:
+                add_new_sample_num_in_plnh5( pl_nh5_filename, gsbb_write )
+            else:
+                print('pyh5 intact: %s'%(pl_nh5_filename))
         else:
             save_pl_prh5( pl_nh5_filename, gsbb_write, self)
-            # save cas0 sg_flatten_block_indexmap for this prh5 file
-            #all_sorted_global_bids_valid = np.array(all_sorted_global_bids_valid).astype(np.int64)
-            #save_sgf_h5f( sgflat_map_filename, all_sorted_global_bids_valid, cas0_bidxmap_meta )
 
         #-----------------------------------------------------------------------
         # save bmap file
         def save_bxmap_h5f(bmap_nh5_filename, S_H5f, pl_nh5_filename, bmap_meta_filename):
             print( 'start writing bxmap h5f: %s'%(bmap_nh5_filename))
             with h5py.File(pl_nh5_filename,'r') as pl_nh5f, h5py.File(bmap_nh5_filename,'w') as bmap_h5f:
-                rootb_split_idxmap = pl_nh5f['rootb_split_idxmap']
+                if gsbb_write.global_num_point == pl_nh5f.attrs['sample_num']:
+                    rootb_split_idxmap = pl_nh5f['rootb_split_idxmap']
+                else:
+                    rootb_split_idxmap = pl_nh5f[str(gsbb_write.global_num_point)+'-rootb_split_idxmap']
                 global_block_num = rootb_split_idxmap.shape[0]
 
                 bmap_nh5f = Normed_H5f(bmap_h5f,bmap_nh5_filename,S_H5f.h5f.attrs['datasource_name'])
@@ -3313,7 +3367,7 @@ class Normed_H5f():
         if 'total_block_N' in self.h5f.attrs:
             total_block_N = self.h5f.attrs['total_block_N']
         else:
-            total_block_N = 1
+            total_block_N = 0
         chunks_n = 1
         sample_num = self.h5f.attrs['sample_num']
         if sample_num.size==1:
@@ -3357,6 +3411,29 @@ class Normed_H5f():
         #self.bidxmap_dsets = bidxmap_dsets
         self.pred_logits_set = pred_logits_set
 
+    def create_dsets_new_sample_num( self, new_sample_num ):
+        total_block_N = 0
+        chunks_n = 1000
+        str_new_sample_num = str(int(new_sample_num))
+
+        if str_new_sample_num+'-rootb_split_idxmap' in self.h5f:
+            self.h5f.__delitem__(str_new_sample_num+'-rootb_split_idxmap')
+        if str_new_sample_num+'-point_indices' in self.h5f:
+            self.h5f.__delitem__(str_new_sample_num+'-point_indices')
+
+        new_rootb_split_idxmap_set = self.h5f.create_dataset( str_new_sample_num+'-rootb_split_idxmap',shape=(total_block_N, Normed_H5f.max_rootb_num,2),\
+                maxshape=(None, Normed_H5f.max_rootb_num, 2),dtype=np.int32,compression="gzip", chunks = (chunks_n,Normed_H5f.max_rootb_num,2,)  )
+        new_rootb_split_idxmap_set.attrs['valid_num'] = 0
+        new_point_indices_set = self.h5f.create_dataset( str_new_sample_num+'-point_indices',shape=(total_block_N, new_sample_num),\
+                maxshape=(None, new_sample_num),dtype=np.int32,compression="gzip", chunks = (chunks_n,new_sample_num,)  )
+        new_point_indices_set.attrs['valid_num'] = 0
+        self.h5f[str_new_sample_num+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 0
+        new_sample_num = np.array([new_sample_num])
+        if 'smaller_sample_num' not in self.h5f.attrs:
+            self.h5f.attrs['smaller_sample_num'] = new_sample_num
+        else:
+            self.h5f.attrs['smaller_sample_num'] = np.concatenate( [self.h5f.attrs['smaller_sample_num'],new_sample_num] )
+
     def create_bidxmap_dsets(self, gsbb_write):
         self.h5f.attrs['is_intact_nh5'] = 0
         chunks_n = 1
@@ -3369,6 +3446,28 @@ class Normed_H5f():
         flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
                             maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
         flatten_bidxmap_dset.attrs['valid_num'] = 0
+
+    def write_summary( self ):
+        summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
+        with open(summary_fn,'w') as sf:
+            summary = 'basic info'
+            attrs = self.h5f.attrs
+            for ele_name in attrs:
+                summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+
+            summary += '\nsampling meta for sample_num=%d'%(attrs['sample_num'])
+            attrs = self.h5f['rootb_split_idxmap'].attrs
+            for ele_name in attrs:
+                summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+
+            if 'smaller_sample_num' in self.h5f.attrs:
+                for sample_num in self.h5f.attrs['smaller_sample_num']:
+                    summary += '\nsampling meta for sample_num=%d\n'%(sample_num)
+                    attrs = self.h5f[str(sample_num)+'-rootb_split_idxmap'].attrs
+                    for ele_name in attrs:
+                        summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+            sf.write( summary )
+            print('finish summary file: %s'%(summary_fn))
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
@@ -3385,10 +3484,10 @@ class Normed_H5f():
         valid_num = dset.attrs['valid_num']
         if data_i.ndim == len(dset.shape) -1:
             for i in range(1,len(dset.shape)):
-                assert(dset.shape[i] == data_i.shape[i-1]), "in Normed_H5f.append_to_dset: data shape not match dataset"
+                assert(dset.shape[i] == data_i.shape[i-1]), "(A) dset.shape: %s \t data_i.shape: %s"%(dset.shape, data_i.shape)
             new_valid_num = valid_num + 1
         else:
-            assert(dset.shape[1:] == data_i.shape[1:]), "in Normed_H5f.append_to_dset: data shape not match dataset"
+            assert(dset.shape[1:] == data_i.shape[1:]), "(B) dset.shape: %s \t data_i.shape: %s"%(dset.shape, data_i.shape)
             new_valid_num = valid_num + data_i.shape[0]
             print('%s  %d -> %d'%(dset_name,valid_num,new_valid_num) )
 
@@ -3433,6 +3532,9 @@ class Normed_H5f():
         self.rm_invalid_data()
         self.add_label_histagram()
         self.h5f.attrs['is_intact_nh5'] = 1
+        if 'smaller_sample_num' in self.h5f:
+            for new_sample_num in self.h5f.attrs['smaller_sample_num']:
+                self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
