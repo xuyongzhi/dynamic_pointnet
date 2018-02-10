@@ -203,6 +203,7 @@ def GenPyramidSortedFlie(fn):
             Always_CreateNew_bmh5 = False
             Always_CreateNew_pyh5 = False
             Always_CreateNew_bxmh5 = True
+            fn = os.path.join( DATA_DIR, 'Matterport3D_H5F/data_small/region2.sh5' )
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
