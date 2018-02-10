@@ -487,7 +487,7 @@ class GlobalSubBaseBLOCK():
                          N: base_bid_index
                         [:,:,0]: aim_b_index
                         [:,:,1]: point_index_in_aimb
-                        [:,:,2]: index_dis
+                        [:,:,2]: index_distance
         '''
         IsRecordTime = False and DEBUGTMP
         if IsRecordTime: t0 = time.time()
@@ -559,7 +559,7 @@ class GlobalSubBaseBLOCK():
         sg_bidxmap_fixed = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         aimb_valid_point_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
 
-        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,self.flatbxmap_max_nearest_num,3)).astype(np.float32)*(-1)
+        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,self.flatbxmap_max_nearest_num,3)).astype(np.float32)*(-10)
         flatten_bidxmap_num = np.zeros( shape=(valid_sorted_basebids.size) ).astype(np.int8)
         baseb_num = []
         for aim_b_index in range(aim_nsubblock):
@@ -608,7 +608,7 @@ class GlobalSubBaseBLOCK():
                         if (ixyz_sr >= 0).all() and (ixyz_sr < block_dims_N).all():
                             bid = Sorted_H5f.ixyz_to_block_index_( ixyz_sr,attrs )
                             if (bid not in ar_bidx_dis) and isin_sorted( valid_bids, bid):
-                                b_index = index_in_sorted( valid_bids,bid )
+                                b_index = index_in_sorted( valid_bids,bid )[0]
                                 dis = np.linalg.norm( ixyz - ixyz_sr )
                                 ar_bidx_dis.append( [b_index, dis] )
                                 ar_ixyzs.append( ixyz_sr )
@@ -627,7 +627,7 @@ class GlobalSubBaseBLOCK():
                 # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
                 around_aimbidx_dis = get_around_bid( aim_ixyzs, aim_attrs, valid_sorted_aimbids, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
                 for k in range( min( around_aimbidx_dis.shape[0] ,self.flatbxmap_max_nearest_num) ):
-                    flatten_bidxmap[baseb_index,k,:] = [ around_aimbidx_dis[k,0],-1,around_aimbidx_dis[k,1] ]
+                    flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],-1,around_aimbidx_dis[k,1] ]
                     flatten_bidxmap_num[baseb_index] += 1
                     around_aimb_dis.append( around_aimbidx_dis[k,1] )
         if IsRecordTime: t4 = time.time()
@@ -651,8 +651,12 @@ class GlobalSubBaseBLOCK():
                     flatten_bidxmap_num[baseb_index] += 1
         #-----------------------------------------------------------------------
         # convert dis to weight
+        theta = 1.5
         for baseb_index in range(flatten_bidxmap.shape[0]):
-            dis = flatten_bidxmap[base]
+            dis = self.flatbxmap_max_dis -  flatten_bidxmap[baseb_index,:,2]
+            weight = np.exp(dis*theta)
+            weight = weight / (weight.sum()+1e-8)
+            flatten_bidxmap[baseb_index,:,2] = weight
 
         nonfull_baseb_num = np.sum( flatten_bidxmap_num != self.flatbxmap_max_nearest_num )
         assert nonfull_baseb_num==0
@@ -676,7 +680,6 @@ class GlobalSubBaseBLOCK():
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
         flatten_bidxmap_tile = np.tile( np.expand_dims(flatten_bidxmap[-1,:,:],0), (base_nsubblock-flatten_bidxmap.shape[0],1,1) )
         flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
         bxmap_meta['missed_aimb_num'] = np.array([all_sorted_aimbids.size - aim_nsubblock])
@@ -1786,8 +1789,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         # check
                         if IsCheck_Scope:
                             min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
-                            min_check = (min_k_new - min_k < max_padding).all()
-                            max_check = (max_k_new - max_k > -max_padding).all()
+                            min_check = (min_k_new - min_k < max_padding+1e-8).all()
+                            max_check = (max_k_new - max_k > -max_padding-1e-8).all()
                         else:
                             min_check = True
                             max_check = True
