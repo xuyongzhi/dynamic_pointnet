@@ -43,7 +43,7 @@ from gsbb_config import get_gsbb_config
 import magic
 
 DEBUGTMP=True
-
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -230,15 +230,50 @@ def float_exact_division( A, B ):
     R = r.all()
     return R
 
+def my_fix(orgvar):
+    # why do not use np.fix() directly: np.fix(2.999999) = 2.0
+    assert orgvar.ndim == 1
+    rint_var = np.rint(orgvar)
+    zero_gap = rint_var - orgvar
+    fix_var = np.copy(orgvar).astype(np.int64)
+    for i in range(orgvar.size):
+        if np.isclose(zero_gap[i],0):
+            fix_var[i] = rint_var[i].astype(np.int64)
+        else:
+            fix_var[i] = np.fix(orgvar[i]).astype(np.int64)
+    return fix_var
+
+def my_ceil(orgvar):
+    # why do not use np.ceil: np.ceil(12.0000000000000001)=13
+    assert orgvar.ndim == 1
+    rint_var = np.rint(orgvar)
+    zero_gap = rint_var - orgvar
+    ceil_var = np.copy(orgvar).astype(np.int64)
+    for i in range(orgvar.size):
+        if np.isclose(zero_gap[i],0):
+            ceil_var[i] = rint_var[i].astype(np.int64)
+        else:
+            try:
+                ceil_var[i] = np.ceil(orgvar[i]).astype(np.int64)
+            except:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                pass
+    return ceil_var
+
+
 class GlobalSubBaseBLOCK():
     '''
         * Check + Problem:
             If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
+        rootb_split_idxmap: (:,2) [:,0]:root_bid  [:,1]:point_index_end
     '''
     settings = {}
     settings['fix_bmap_method_cascade0'] = 'random'
     settings['fix_bmap_method_others'] = 'random'
     settings['is_mv_cutted_aimb'] = False
+    IsCheck_gsbb = {}
+    IsCheck_gsbb['Aim_b_index'] = True and ENABLECHECK
+    IsCheck_gsbb['bidxmap_extract'] = True and ENABLECHECK
 
     def load_default_parameters( self ):
         max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
@@ -488,6 +523,18 @@ class GlobalSubBaseBLOCK():
         valid_aimb_num = min(sorted_aimbids.size,aim_nsubblock)
         return all_sorted_aimbids_sampled, valid_aimb_num
 
+    @staticmethod
+    def point_index_to_rootbid( rootb_split_idxmap, point_index ):
+        last_point_index = 0
+        for i in range(rootb_split_idxmap.shape[0]):
+            if rootb_split_idxmap[i,0] < 0: break
+            if  point_index >= last_point_index and point_index < rootb_split_idxmap[i,1]:
+                rootbid = rootb_split_idxmap[i,0]
+                return rootbid
+            last_point_index = rootb_split_idxmap[i,1]
+        assert False, "point_index= %d, rootbid not found"%(point_index)
+        return -1
+
     def get_bidxmap(self, cascade_id, valid_sorted_basebids ):
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
@@ -508,10 +555,13 @@ class GlobalSubBaseBLOCK():
             # remove invalid values
             valid_rootb_n = np.searchsorted( rootb_split_idxmap[:,0]==-1,1 )
             rootb_split_idxmap = rootb_split_idxmap[0:valid_rootb_n,:]
-            valid_sorted_basebids = np.arange( rootb_split_idxmap[-1,1] ) # root bids are the point indexs
+            valid_sorted_rootbids = rootb_split_idxmap[:,0]
+            valid_sorted_pointids = np.arange( rootb_split_idxmap[-1,1] ) # root bids are the point indexs
+            baseb_num = rootb_split_idxmap[-1,1]
             assert rootb_split_idxmap.ndim == 2
-        else: assert valid_sorted_basebids.ndim == 1
-        IsCheck = True
+        else:
+            baseb_num = valid_sorted_basebids.size
+            assert valid_sorted_basebids.ndim == 1
         # valid_sorted_basebids.size is the valid number of base blocks. Maximum value is nsubblock of last cascade.
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         #valid_sorted_basebids = np.sort(valid_sorted_basebids)
@@ -575,8 +625,8 @@ class GlobalSubBaseBLOCK():
         sg_bidxmap_fixed = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
         aimb_valid_point_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
 
-        flatten_bidxmap = np.ones(shape=(valid_sorted_basebids.size,self.flatbxmap_max_nearest_num,3)).astype(np.float32)*(-10)
-        flatten_bidxmap_num = np.zeros( shape=(valid_sorted_basebids.size) ).astype(np.int8)
+        flatten_bidxmap = np.ones(shape=(baseb_num, self.flatbxmap_max_nearest_num,3)).astype(np.float32)*(-10)
+        flatten_bidxmap_num = np.zeros( shape=(baseb_num) ).astype(np.int8)
         baseb_num = []
         for aim_b_index in range(aim_nsubblock):
             aim_bid = sorted_aimbids_fixed[aim_b_index]
@@ -591,13 +641,15 @@ class GlobalSubBaseBLOCK():
                         flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock,0]
                         flatten_bidxmap_num[baseb_index] += 1
 
-                    IsCheck_Aim_b_index = True
-                    if IsCheck_Aim_b_index:
-                        base_bid = valid_sorted_basebids[ baseb_index ]
+                    if self.IsCheck_gsbb['Aim_b_index']:
+                        if cascade_id==0:
+                            base_bid = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index )
+                        else:
+                            base_bid = valid_sorted_basebids[ baseb_index ]
                         aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs )
                         if aim_bid not in aim_bids:
                             print('aim_bid and base_bid not match')
-                            #import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )
         if IsRecordTime: t3 = time.time()
@@ -611,7 +663,10 @@ class GlobalSubBaseBLOCK():
         sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
         for baseb_index in range(flatten_bidxmap.shape[0]):
             if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
-                base_bid = valid_sorted_basebids[baseb_index]
+                if cascade_id==0:
+                    base_bid = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index )
+                else:
+                    base_bid = valid_sorted_basebids[baseb_index]
                 aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs )
                 # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
                 if len(aim_bids) > 4:
@@ -690,8 +745,6 @@ class GlobalSubBaseBLOCK():
             bxmap_meta['around_aimb_dis_std'] = np.array( [0] )
         bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
 
-        #sg_sample_num = np.array( [missed_baseb_num, valid_sorted_basebids.size, aim_nsubblock, all_sorted_aimbids.size, 1,
-        #                           aim_npoint_subblock*raw_valid_base_bnum.size, raw_valid_base_bnum.sum(),raw_valid_base_bnum.size ] ).astype(np.uint64)
         return sg_bidxmap_fixed, valid_sorted_aimbids_fixed, flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
@@ -775,7 +828,7 @@ class GlobalSubBaseBLOCK():
         (4) flatten_bmap_sample_num:
             [ flatten fixed num, flatten valid num, block_num ]
         '''
-        IsCheck_bidxmaps = True
+        IsCheck_bidxmap_extract = self.IsCheck_gsbb['bidxmap_extract']
 
         sg_bidxmaps_ls = []
         sg_bidxmaps_fixed_ls =  []
@@ -821,7 +874,7 @@ class GlobalSubBaseBLOCK():
         valid_sorted_basebids_fixed = rootb_split_idxmap
         for cascade_id in range(0,self.cascade_num):
             sg_bidxmap, valid_sorted_basebids_fixed, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed )
-            if IsCheck_bidxmaps:  sg_bidxmaps_ls.append( sg_bidxmap )
+            if IsCheck_bidxmap_extract:  sg_bidxmaps_ls.append( sg_bidxmap )
             sg_bidxmap_fixed = np.ones( shape=(sg_bidxmap.shape[0],sg_bidxmaps_fixed_shape1) ).astype(np.int32) * (-1)
             sg_bidxmap_fixed[:,0:sg_bidxmap.shape[1]] = sg_bidxmap
             sg_bidxmaps_fixed_ls.append( sg_bidxmap_fixed )
@@ -837,7 +890,7 @@ class GlobalSubBaseBLOCK():
         sg_bidxmaps = np.concatenate(sg_bidxmaps_fixed_ls,axis=0)
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,axis=0)
 
-        if IsCheck_bidxmaps:
+        if IsCheck_bidxmap_extract:
             assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
             for cascade_id in range(0,self.cascade_num):
@@ -1044,7 +1097,7 @@ class GlobalSubBaseBLOCK():
         for new_block_id in range(max_new_block_id+1):
 
             base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                    new_block_id,new_sorted_h5f_attrs,base_attrs)
+                                    new_block_id, new_sorted_h5f_attrs, base_attrs)
             base_bids = np.array(base_bid_ls).astype(np.uint32)
 
             mask = np.in1d( base_bids,all_base_blockids )
@@ -1370,6 +1423,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         The xyz_midnorm_block may be not useful if larger scale used in training.
         While using larger block scale in training, xyz_1norm_block and xyz_midnorm_block has to be generated online.
     '''
+    IsCheck_sh5f = {}
+    IsCheck_sh5f['bid_mapping'] = True and ENABLECHECK
+    IsCheck_sh5f['bid_scope'] = True and ENABLECHECK
+    IsCheck_sh5f['index_to_ixyz'] = False and ENABLECHECK
+
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_material']
     #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
@@ -1589,15 +1647,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def block_index_to_ixyz(self,block_k):
         return Sorted_H5f.block_index_to_ixyz_(block_k,self.h5f.attrs)
     @staticmethod
-    def block_index_to_ixyz_(block_k,attrs):
+    def block_index_to_ixyz_(block_k, attrs):
         i_xyz = np.zeros(3,np.int64)
         assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
+        if block_k >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
+            assert False, "input bid %d exceed limit"%(block_k)
         i_xyz[2] = block_k % block_dims_N[2]
         k = int( block_k / block_dims_N[2] )
         i_xyz[1] = k % block_dims_N[1]
         k = int( k / block_dims_N[1] )
         i_xyz[0] = k % block_dims_N[0]
+
+        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+            bid_tocheck = Sorted_H5f.ixyz_to_block_index_( i_xyz, attrs )
+            assert bid_tocheck == block_k
         return i_xyz
     @staticmethod
     def get_block_dis_(bid0,bid1,attrs):
@@ -1674,193 +1738,288 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
        # get_attrs_str(self.h5f.attrs)
         return new_sorted_h5f_attrs
 
-    @staticmethod
-    def get_blockids_of_dif_stride_step(base_block_id,base_attrs,aim_attrs):
-        '''
-        1) base_block_id: int, the input block id
-           base_attrs: the input stride step size
-           aim_attrs:  the outpit (new) stride step size
-           return the all the aim block ids (a list)   "within"/"contain" the input "base_block_id"
-        2) If aim stride or step are larger, returned blocks contains base block.
-            The containing relationship should be totally containing.
-           If aim stride or step are smaller, returned blocks are contained within the base block.
-        '''
-        IsRecordTime = False
-        if IsRecordTime:
-            t0 = time.time()
 
+    @staticmethod
+    def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, IsCheck_mapping=None):
+        '''
+            base_bid: int
+            base_attrs: dictionary
+            aim_attrs: dictionary
+        '''
         assert (base_attrs['xyz_min_aligned'] == aim_attrs['xyz_min_aligned']).all()
         assert (base_attrs['xyz_max_aligned'] == aim_attrs['xyz_max_aligned']).all()
 
-        def my_fix(orgvar):
-            # why do not use np.fix() directly: np.fix(2.999999) = 2.0
-            assert orgvar.ndim == 1
-            rint_var = np.rint(orgvar)
-            zero_gap = rint_var - orgvar
-            fix_var = np.copy(orgvar).astype(np.uint64)
-            for i in range(orgvar.size):
-                if np.isclose(zero_gap[i],0):
-                    fix_var[i] = rint_var[i].astype(np.uint64)
-                else:
-                    fix_var[i] = np.fix(orgvar[i]).astype(np.uint64)
-            return fix_var
-
-        def my_ceil(orgvar):
-            # why do not use np.ceil: np.ceil(12.0000000000000001)=13
-            assert orgvar.ndim == 1
-            rint_var = np.rint(orgvar)
-            zero_gap = rint_var - orgvar
-            ceil_var = np.copy(orgvar).astype(np.uint64)
-            for i in range(orgvar.size):
-                if np.isclose(zero_gap[i],0):
-                    ceil_var[i] = rint_var[i].astype(np.uint64)
-                else:
-                    ceil_var[i] = np.ceil(orgvar[i]).astype(np.uint64)
-            return ceil_var
-
-        i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
-        i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
-        ## use rint, if strides are not aligned, padding abs less than half of new step
-        #i_xyz_new_start_fixed = np.rint(i_xyz_new_start).astype(np.int32)
-        ## use fix, always get more space is not aligned. start padding >= 0
-        i_xyz_new_start_fixed = my_fix(i_xyz_new_start).astype(np.int32)
-        start_padding = (i_xyz_new_start - i_xyz_new_start_fixed) * aim_attrs['block_stride']
-        i_xyz_new_start = i_xyz_new_start_fixed
-
-        max_padding = aim_attrs['block_step'] # max abs padding at both start and end
-        assert (start_padding < max_padding).all()
-        #print( self.xyz_min_aligned )
-        #print( new_sorted_h5f.xyz_min_aligned )
-        i_xyz_new_list = []
-        block_k_new_list = []
-
-        IsCheck_Scope =  True
-        if IsCheck_Scope:
-            min_k,max_k,_ = Sorted_H5f.get_block_scope_from_k_(base_block_id, base_attrs)
-
-        #if (base_attrs['block_stride'] > aim_attrs['block_stride']).any() or (base_attrs['block_step'] > aim_attrs['block_step']).any():
+        base_bixyz = Sorted_H5f.block_index_to_ixyz_(base_bid, base_attrs)
+        aim_bixyz_threshold0 = ( base_bixyz * base_attrs['block_stride'] ) / aim_attrs['block_stride']
+        aim_bixyz_threshold1 = ( base_bixyz * base_attrs['block_stride'] + base_attrs['block_step'] - aim_attrs['block_step']) / aim_attrs['block_stride']
+        aim_bixyz_padding_max = np.array([0.2, 0.2, 0.2]) * 0
+        large_step_flag = ''
         if (base_attrs['block_step'] >= aim_attrs['block_step']).any():
-            '''
-            find all the small out (aim) blocks within the large (base) input block
-            The out dataset is a base dataset in which: block_step_out == block_stride_out
-            '''
-            assert((base_attrs['block_step'] >= aim_attrs['block_step'] ).all())
-            # check stride step aligned:
-            #IsExactDivision0 = float_exact_division( base_attrs['block_step'], aim_attrs['block_step'] )
-            #assert IsExactDivision0
-            #IsExactDivision1 = float_exact_division( base_attrs['block_stride'], aim_attrs['block_stride'] )
-            #assert IsExactDivision1
-
-            search = my_ceil( ( base_attrs['block_step'] - aim_attrs['block_step'] ) / aim_attrs['block_stride'] + 1).astype(np.int64)
-            for i_x in range(0,search[0]):
-                for i_y in range(0,search[1]):
-                    for i_z in range(0,search[2]):
-                        i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.uint64)
-                        if (i_xyz_new >= aim_attrs['block_dims_N']).any():
-                            # out of global scope: invalid search
-                            continue
-                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
-
-                        #check scope
-                        if IsCheck_Scope:
-                            i_xyz_new_tocheck = Sorted_H5f.block_index_to_ixyz_(block_k_new,aim_attrs)
-                            ixyz_check = (i_xyz_new == i_xyz_new_tocheck).all()
-                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
-                            min_check = ( (min_k - min_k_new) < max_padding ).all()
-                            max_check = ( (max_k_new - max_k) < max_padding ).all()
-                            if not (min_check and max_check and ixyz_check):
-                                print('base step:', base_attrs['block_step'])
-                                print('base stride:', base_attrs['block_stride'])
-                                print('base xyz_min_aligned:', base_attrs['xyz_min_aligned'])
-                                print('aim step:', aim_attrs['block_step'])
-                                print('aim stride:', aim_attrs['block_stride'])
-                                print('aim xyz_min_aligned:', aim_attrs['xyz_min_aligned'])
-
-                                print('new=small failed i_xyz=',i_xyz,'\t i_xyz_new=',i_xyz_new)
-                                if not min_check:
-                                    print('\nmin check failed in get_sub_blcok_ks')
-                                    print('new min = ',min_k_new,'\norg min = ',min_k)
-                                if not max_check:
-                                    print('\nmax check failed in get_blockids_of_dif_stride_step 1')
-                                    print('new max = ',max_k_new,'\norg max = ',max_k)
-                                if not ixyz_check:
-                                    print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
-                            assert ixyz_check and min_check and max_check
-
-                        i_xyz_new_list.append(i_xyz_new)
-                        block_k_new_list.append(block_k_new)
-            #if base_attrs['block_step'][0] == 0.6:
-            #    print('0.6')
-            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            #if not (base_attrs['block_step'] == base_attrs['block_stride']).all():
-            #    print('base step != stride')
-            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            aim_bixyz_min = my_ceil( aim_bixyz_threshold0 - aim_bixyz_padding_max )
+            aim_bixyz_max = my_fix( aim_bixyz_threshold1 + aim_bixyz_padding_max )
+            large_step_flag = 'base'
         else:
-            '''
-            find all the large(out) blocks contains the small input block
-            check: all xyz_scope_k_new contain xyz_scope_k
-            '''
-            if not (base_attrs['block_step'] <= aim_attrs['block_step']).all():
-                print(  "base_attrs['block_step']:%s \n aim_attrs['block_step']:%s"%(base_attrs['block_step'],aim_attrs['block_step'] ) )
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                assert False
-            assert( (aim_attrs['block_stride'] >= base_attrs['block_step']).all() )
+            aim_bixyz_max = my_fix( aim_bixyz_threshold0 + aim_bixyz_padding_max)
+            aim_bixyz_min = my_ceil( aim_bixyz_threshold1 - aim_bixyz_padding_max )
+            large_step_flag = 'aim'
+        for i in range(3):
+            aim_bixyz_min[i] = max( aim_bixyz_min[i], 0 )
+            aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
-            #assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
-            #assert( ((aim_attrs['block_stride'] / base_attrs['block_step'])%1 == 0).all() )
+        IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
+        if IsCheck_Scope:
+            base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs)
 
-            #search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
-            #search = ( (aim_attrs['block_step']-base_attrs['block_step']) / aim_attrs['block_stride'] + 1).astype(np.float64)
-            search = ( base_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
-            search = np.ceil(search).astype(np.int64)
-            #if ( search%1*aim_attrs['block_stride'] >= base_attrs['block_step']).all() :
-            #    search = np.ceil(search).astype(np.int64)
-            #else:
-            #    search = np.trunc(search).astype(np.int64)
-            for i_x in range( -search[0]+1,1 ):
-                for i_y in range(  -search[1]+1,1  ):
-                    for i_z in range(  -search[2]+1,1 ):
-                        i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.int64)
-                        if ( (i_xyz_new < 0).any() or (i_xyz_new >= aim_attrs['block_dims_N']).any() ):
-                            continue
+        aim_bixyz_ls = []
+        aim_bid_ls = []
+        for ix in range( aim_bixyz_min[0], aim_bixyz_max[0]+1 ):
+            for iy in range( aim_bixyz_min[1], aim_bixyz_max[1]+1 ):
+                for iz in range( aim_bixyz_min[2], aim_bixyz_max[2]+1 ):
+                    aim_bixyz = np.array([ix,iy,iz]).astype(np.int32)
+                    aim_bid = Sorted_H5f.ixyz_to_block_index_( aim_bixyz, aim_attrs )
+                    aim_bixyz_ls.append( aim_bixyz )
+                    aim_bid_ls.append( aim_bid )
 
-                        block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
-                        # check
-                        if IsCheck_Scope:
-                            min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
-                            min_check = (min_k_new - min_k < max_padding+1e-8).all()
-                            max_check = (max_k_new - max_k > -max_padding-1e-8).all()
-                        else:
-                            min_check = True
-                            max_check = True
+            #check scope
+            if IsCheck_Scope:
+                aim_bixyz_tocheck = Sorted_H5f.block_index_to_ixyz_(aim_bid, aim_attrs)
+                ixyz_check = (aim_bixyz == aim_bixyz_tocheck).all()
+                aim_xyz_min, aim_xyz_max, _ = Sorted_H5f.get_block_scope_from_k_(aim_bid, aim_attrs)
+                max_padding = aim_bixyz_padding_max * aim_attrs['block_step'] + 1e-10
+                min_gap = base_xyz_min - aim_xyz_min
+                max_gap = aim_xyz_max - base_xyz_max
+                if large_step_flag == 'aim':
+                    min_gap = -min_gap
+                    max_gap = -max_gap
+                min_check = ( min_gap < max_padding ).all()
+                max_check = ( max_gap < max_padding ).all()
+                if not (min_check and max_check and ixyz_check):
+                    show_info()
+                    if not min_check:
+                        print('\nmin check failed in get_sub_blcok_ks, min_gap=%s'%(min_gap))
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    if not max_check:
+                        print('\nmax check failed in get_blockids_of_dif_stride_step, max_gap=%s'%(max_gap))
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    if not ixyz_check:
+                        print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                assert ixyz_check and min_check and max_check
+                #print('ixyz, min, max check ok')
 
-                        if not min_check & max_check:
-                            print('new=large failed i_xyz=',[i_x,i_y,i_z])
-                            if not min_check:
-                                print('\nmin check failed in get_sub_blcok_ks')
-                                print('new min = ',min_k_new,'\norg min = ',min_k)
-                            if not max_check:
-                                print('\nmax check failed in get_blockids_of_dif_stride_step 2')
-                                print('new max = ',max_k_new,'\norg max = ',max_k)
-                                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                        else:
-                            #print('both min and max check passed, i_xyz= ',[i_x,i_y,i_z])
-                            i_xyz_new_list.append(i_xyz_new)
-                            block_k_new_list.append(block_k_new)
+        def show_info():
+            print('%s step larger'%(large_step_flag))
+            print('base_bid: ',base_bid, 'ixyz:', base_bixyz)
+            print('aim_bid_ls:',aim_bid_ls, 'aim_bixyz_ls:',aim_bixyz_ls)
+            print('base: ',base_attrs['block_stride'], base_attrs['block_step'])
+            print('aim: ',aim_attrs['block_stride'], aim_attrs['block_step'])
 
-        if IsRecordTime:
-            print('base: ',base_attrs['block_stride'],base_attrs['block_step'])
-            print('aim: ',aim_attrs['block_stride'],aim_attrs['block_step'])
-            print('t = %f  ms'%(1000.0*(time.time()-t0)))
-            print('search = ',search)
-            print('\n')
-            '''
-            base:  [ 1.  1.  1.] [ 2.  2.  2.]
-            aim:  [ 0.1  0.1  0.1] [ 0.1  0.1  0.1]
-            t = 332.636118  ms
-            search =  [20 20 20]
-            '''
-        return block_k_new_list,i_xyz_new_list
+        #if base_attrs['block_step'][0]==2:
+        #    IsRecordTime = True
+        #    IsCheck_mapping = True
+        #else:
+        #    IsCheck_mapping = False
+        if IsCheck_mapping==None:
+            IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
+        if IsCheck_mapping:
+            #print( 'block_k_new_list:',block_k_new_list,'\n' )
+            for k, bid_new in enumerate( aim_bid_ls ):
+                base_bids_check, base_ixyzs_check = Sorted_H5f.get_blockids_of_dif_stride_step(bid_new, aim_attrs, base_attrs, IsCheck_mapping = False)
+                if base_bid not in base_bids_check:
+                    show_info()
+                    print('mapping err: base_bid %s not in base_bid_check %s  for aim_bid %s'%(base_bid, base_bids_check, bid_new))
+                    print('base_ixyz: %s  aim_ixyz: %s  base_ixyzs_check:%s'%( base_bixyz, aim_bid_ls[k], base_ixyzs_check))
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                else:
+                    #print('mapping OK: base_bid %s in base_bid_check %s  for aim_bid %s'%(base_bid, base_bids_check, bid_new))
+                    #print('base_ixyz: %s  aim_ixyz: %s  base_ixyzs_check:%s'%(base_bixyz, aim_bixyz_ls[k], base_ixyzs_check))
+                    #print('\n')
+                    pass
+            #print('all mapping OK: base_bid %s aim_bid %s'%(base_bid, aim_bid_ls))
+        return aim_bid_ls, aim_bixyz_ls
+
+    #@staticmethod
+    #def get_blockids_of_dif_stride_step_old(base_block_id, base_attrs, aim_attrs, IsCheck_mapping=True):
+    #    '''
+    #    1) base_block_id: int, the input block id
+    #       base_attrs: the input stride step size
+    #       aim_attrs:  the outpit (new) stride step size
+    #       return the all the aim block ids (a list)   "within"/"contain" the input "base_block_id"
+    #    2) If aim stride or step are larger, returned blocks contains base block.
+    #        The containing relationship should be totally containing.
+    #       If aim stride or step are smaller, returned blocks are contained within the base block.
+    #    '''
+    #    IsRecordTime = False
+    #    if base_attrs['block_step'][0]==2:
+    #        IsRecordTime = True
+    #        IsCheck_mapping = True
+    #    else:
+    #        IsCheck_mapping = False
+    #    if IsRecordTime:
+    #        print('base_bid: ',base_block_id)
+    #        print('base: ',base_attrs['block_stride'],base_attrs['block_step'])
+    #        print('aim: ',aim_attrs['block_stride'],aim_attrs['block_step'])
+    #        t0 = time.time()
+
+    #    assert (base_attrs['xyz_min_aligned'] == aim_attrs['xyz_min_aligned']).all()
+    #    assert (base_attrs['xyz_max_aligned'] == aim_attrs['xyz_max_aligned']).all()
+
+
+    #    i_xyz = Sorted_H5f.block_index_to_ixyz_(base_block_id,base_attrs)
+    #    i_xyz_new_start = i_xyz * base_attrs['block_stride'] / aim_attrs['block_stride']
+    #    ## use rint, if strides are not aligned, padding abs less than half of new step
+    #    #i_xyz_new_start_fixed = np.rint(i_xyz_new_start).astype(np.int32)
+    #    ## use fix, always get more space is not aligned. start padding >= 0
+    #    i_xyz_new_start_fixed = my_fix(i_xyz_new_start).astype(np.int32)
+    #    start_padding = (i_xyz_new_start - i_xyz_new_start_fixed) * aim_attrs['block_stride']
+    #    i_xyz_new_start = i_xyz_new_start_fixed
+
+    #    max_padding = aim_attrs['block_step'] # max abs padding at both start and end
+    #    assert (start_padding < max_padding).all()
+    #    #print( self.xyz_min_aligned )
+    #    #print( new_sorted_h5f.xyz_min_aligned )
+    #    i_xyz_new_list = []
+    #    block_k_new_list = []
+
+    #    IsCheck_Scope =  True
+    #    if IsCheck_Scope:
+    #        min_k,max_k,_ = Sorted_H5f.get_block_scope_from_k_(base_block_id, base_attrs)
+
+    #    #if (base_attrs['block_stride'] > aim_attrs['block_stride']).any() or (base_attrs['block_step'] > aim_attrs['block_step']).any():
+    #    if (base_attrs['block_step'] >= aim_attrs['block_step']).any():
+    #        '''
+    #        find all the small out (aim) blocks within the large (base) input block
+    #        The out dataset is a base dataset in which: block_step_out == block_stride_out
+    #        '''
+    #        assert((base_attrs['block_step'] >= aim_attrs['block_step'] ).all())
+    #        # check stride step aligned:
+    #        #IsExactDivision0 = float_exact_division( base_attrs['block_step'], aim_attrs['block_step'] )
+    #        #assert IsExactDivision0
+    #        #IsExactDivision1 = float_exact_division( base_attrs['block_stride'], aim_attrs['block_stride'] )
+    #        #assert IsExactDivision1
+
+    #        search = my_ceil( ( base_attrs['block_step'] - aim_attrs['block_step'] ) / aim_attrs['block_stride'] + 1).astype(np.int64)
+    #        for i_x in range(0,search[0]):
+    #            for i_y in range(0,search[1]):
+    #                for i_z in range(0,search[2]):
+    #                    i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.uint64)
+    #                    if (i_xyz_new >= aim_attrs['block_dims_N']).any():
+    #                        # out of global scope: invalid search
+    #                        continue
+    #                    block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
+
+    #                    #check scope
+    #                    if IsCheck_Scope:
+    #                        i_xyz_new_tocheck = Sorted_H5f.block_index_to_ixyz_(block_k_new,aim_attrs)
+    #                        ixyz_check = (i_xyz_new == i_xyz_new_tocheck).all()
+    #                        min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
+    #                        min_check = ( (min_k - min_k_new) < max_padding ).all()
+    #                        max_check = ( (max_k_new - max_k) < max_padding ).all()
+    #                        if not (min_check and max_check and ixyz_check):
+    #                            print('base step:', base_attrs['block_step'])
+    #                            print('base stride:', base_attrs['block_stride'])
+    #                            print('base xyz_min_aligned:', base_attrs['xyz_min_aligned'])
+    #                            print('aim step:', aim_attrs['block_step'])
+    #                            print('aim stride:', aim_attrs['block_stride'])
+    #                            print('aim xyz_min_aligned:', aim_attrs['xyz_min_aligned'])
+
+    #                            print('new=small failed i_xyz=',i_xyz,'\t i_xyz_new=',i_xyz_new)
+    #                            if not min_check:
+    #                                print('\nmin check failed in get_sub_blcok_ks')
+    #                                print('new min = ',min_k_new,'\norg min = ',min_k)
+    #                            if not max_check:
+    #                                print('\nmax check failed in get_blockids_of_dif_stride_step 1')
+    #                                print('new max = ',max_k_new,'\norg max = ',max_k)
+    #                            if not ixyz_check:
+    #                                print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
+    #                        assert ixyz_check and min_check and max_check
+
+    #                    i_xyz_new_list.append(i_xyz_new)
+    #                    block_k_new_list.append(block_k_new)
+    #    else:
+    #        '''
+    #        find all the large(out) blocks contains the small input block
+    #        check: all xyz_scope_k_new contain xyz_scope_k
+    #        '''
+    #        if not (base_attrs['block_step'] <= aim_attrs['block_step']).all():
+    #            print(  "base_attrs['block_step']:%s \n aim_attrs['block_step']:%s"%(base_attrs['block_step'],aim_attrs['block_step'] ) )
+    #            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #            assert False
+    #        assert( (aim_attrs['block_stride'] >= base_attrs['block_step']).all() )
+
+    #        #assert( ((aim_attrs['block_step'] / base_attrs['block_step'])%1 == 0).all() )
+    #        #assert( ((aim_attrs['block_stride'] / base_attrs['block_step'])%1 == 0).all() )
+
+    #        #search = ( aim_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
+    #        #search = ( (aim_attrs['block_step']-base_attrs['block_step']) / aim_attrs['block_stride'] + 1).astype(np.float64)
+    #        search = ( base_attrs['block_step'] / aim_attrs['block_stride'] ).astype(np.float64)
+    #        search = np.ceil(search).astype(np.int64)
+    #        #if ( search%1*aim_attrs['block_stride'] >= base_attrs['block_step']).all() :
+    #        #    search = np.ceil(search).astype(np.int64)
+    #        #else:
+    #        #    search = np.trunc(search).astype(np.int64)
+    #        for i_x in range( -search[0]+1,1 ):
+    #            for i_y in range(  -search[1]+1,1  ):
+    #                for i_z in range(  -search[2]+1,1 ):
+    #                    i_xyz_new = ( i_xyz_new_start + np.array([i_x,i_y,i_z]) ).astype(np.int64)
+    #                    if ( (i_xyz_new < 0).any() or (i_xyz_new >= aim_attrs['block_dims_N']).any() ):
+    #                        continue
+
+    #                    block_k_new = Sorted_H5f.ixyz_to_block_index_(i_xyz_new,aim_attrs)
+    #                    # check
+    #                    if IsCheck_Scope:
+    #                        min_k_new,max_k_new,_ = Sorted_H5f.get_block_scope_from_k_(block_k_new,aim_attrs)
+    #                        min_check = (min_k_new - min_k < max_padding+1e-8).all()
+    #                        max_check = (max_k_new - max_k > -max_padding-1e-8).all()
+    #                    else:
+    #                        min_check = True
+    #                        max_check = True
+
+    #                    if not min_check & max_check:
+    #                        print('new=large failed i_xyz=',[i_x,i_y,i_z])
+    #                        if not min_check:
+    #                            print('\nmin check failed in get_sub_blcok_ks')
+    #                            print('new min = ',min_k_new,'\norg min = ',min_k)
+    #                        if not max_check:
+    #                            print('\nmax check failed in get_blockids_of_dif_stride_step 2')
+    #                            print('new max = ',max_k_new,'\norg max = ',max_k)
+    #                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #                    else:
+    #                        #print('both min and max check passed, i_xyz= ',[i_x,i_y,i_z])
+    #                        i_xyz_new_list.append(i_xyz_new)
+    #                        block_k_new_list.append(block_k_new)
+
+    #        if base_block_id==368:
+    #            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #            pass
+
+    #    if IsRecordTime:
+    #        print('t = %f  ms'%(1000.0*(time.time()-t0)))
+    #        print('search = ',search)
+    #        print('\n')
+    #        '''
+    #        base:  [ 1.  1.  1.] [ 2.  2.  2.]
+    #        aim:  [ 0.1  0.1  0.1] [ 0.1  0.1  0.1]
+    #        t = 332.636118  ms
+    #        search =  [20 20 20]
+    #        '''
+    #    if IsCheck_mapping == None:
+    #        IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
+    #    if IsCheck_mapping:
+    #        #print( 'block_k_new_list:',block_k_new_list,'\n' )
+    #        for k, bid_new in enumerate( block_k_new_list ):
+    #            base_bids_check, base_ixyzs_check = Sorted_H5f.get_blockids_of_dif_stride_step(bid_new, aim_attrs, base_attrs, IsCheck_mapping = False)
+    #            if base_block_id not in base_bids_check:
+    #                print('mapping err: base_bid %s not in base_bid_check %s  for aim_bid %s'%(base_block_id, base_bids_check, bid_new))
+    #                print('base_ixyz: %s  aim_ixyz: %s  base_ixyzs_check:%s'%(i_xyz, i_xyz_new_list[k], base_ixyzs_check))
+    #                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #            else:
+    #                print('mapping OK: base_bid %s in base_bid_check %s  for aim_bid %s'%(base_block_id, base_bids_check, bid_new))
+    #                print('base_ixyz: %s  aim_ixyz: %s  base_ixyzs_check:%s'%(i_xyz, i_xyz_new_list[k], base_ixyzs_check))
+    #                print('\n')
+    #                pass
+    #        print('all mapping OK: base_bid %s aim_bid %s'%(base_block_id, block_k_new_list))
+    #    return block_k_new_list, i_xyz_new_list
 
 
     def get_blocked_dset(self,block_k,new_set_default_rows=None,column_N = 9):
