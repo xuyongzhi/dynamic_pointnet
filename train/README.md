@@ -45,6 +45,6 @@ Fore regression, one or two FCNs are needed, bounding box regression is essentia
 * O: overlaping ratio of positive samples and negative samples
 
 ### How to do experiments
-set #1: (radius=0.3, 0.6, 1.0, 1.8),(nsample= 32, 16, 16, 8), thresh=0.7, acc_38 = 0.1612, acc_30=0.1892
+set #1: (radius=0.3, 0.6, 1.0, 1.8),(nsample= 32, 16, 16, 8), thresh=0.7, acc_38 = 0.1612, acc_30=0.1892  
 set #2: (radius=0.3, 0.6, 1.0, 1.8, 2.2), (nsample = 32, 16, 16, 8, 8), thresh=0.6, batchsize = 5
 
