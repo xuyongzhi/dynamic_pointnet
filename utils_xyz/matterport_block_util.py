@@ -199,8 +199,9 @@ def GenPyramidSortedFlie(fn):
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_pyh5 = False
         Always_CreateNew_bmh5 = False
+        Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
-            Always_CreateNew_bmh5 = False
+            Always_CreateNew_bmh5 = True
             Always_CreateNew_pyh5 = False
             Always_CreateNew_bxmh5 = False
 
@@ -424,7 +425,7 @@ class Matterport3D_Prepare():
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             if TMPDEBUG:
-                file_list = glob.glob( os.path.join(house_sh5f_dir,'region2.sh5') )
+                file_list = glob.glob( os.path.join(house_sh5f_dir,'region8.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -480,9 +481,46 @@ class Matterport3D_Prepare():
         house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
-            base_sorted_sampled_normed_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
-            file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
-            config_flag = os.path.basename( base_sorted_sampled_normed_path )
+           # base_sorted_sampled_normed_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
+           # file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
+           # config_flag = os.path.basename( base_sorted_sampled_normed_path )
+
+
+            base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
+            py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
+            config_flag = os.path.basename( py_normed_path )
+            merged_base_path = self.matterport3D_h5f_dir+'/'+config_flag
+            merged_houses_path = merged_base_path+'/all_houses/'
+            if flag == 'region':
+                file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
+                merged_path = merged_houses_path
+                merged_file_name = merged_path + house_name+format
+                if not os.path.exists(merged_path):
+                    os.makedirs(merged_path)
+                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
+
+            elif flag == 'house':
+                all_file_list = glob.glob( os.path.join(merged_houses_path,'*.prh5') )
+                all_housenames_ls = [ os.path.splitext( os.path.basename(fn) )[0]  for fn in all_file_list]
+                all_housenames_ls.sort()
+                group_n = 15
+                for k in range( 0,len(all_housenames_ls),group_n ):
+                    house_names_k = all_housenames_ls[k:min(k+group_n,len(all_housenames_ls))]
+                    print('merging: ',house_names_k)
+                    filename_ls_k = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in house_names_k ]
+
+                    merged_basefn = ''
+                    for i in range(len(house_names_k)):
+                        merged_basefn += house_names_k[i][0:3]
+                        if i < len(house_names_k)-1:
+                            merged_basefn += '-'
+
+                    merged_path = merged_base_path + '/house_groups/'
+                    if not os.path.exists(merged_path):
+                        os.makedirs(merged_path)
+                    merged_fn = os.path.join( merged_path, merged_basefn+'.prh5' )
+
+                    MergeNormed_H5f(filename_ls_k,merged_fn,IsShowSummaryFinished=True)
         elif format == '.prh5':
             base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
