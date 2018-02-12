@@ -555,7 +555,7 @@ class GlobalSubBaseBLOCK():
                         [:,:,1]: point_index_in_aimb
                         [:,:,2]: index_distance
         '''
-        IsRecordTime = True and DEBUGTMP
+        IsRecordTime = False and DEBUGTMP
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
@@ -2911,7 +2911,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     def save_pl_prh5(self, pl_nh5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
-        assert global_num_point >= gsbb_write.max_global_num_point
+        assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_nh5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
         print('start gen nh5 file: ',pl_nh5_filename)
         with h5py.File(pl_nh5_filename,'w') as h5f:
             global_attrs = gsbb_write.get_new_attrs('global')
@@ -2971,8 +2971,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_num_point_str  = str(int(global_num_point))
         with h5py.File(pl_nh5_filename,'a') as pl_h5f:
             # check is intact already
-            if global_num_point_str in pl_h5f and 'is_intact_new_sample_num' in pl_h5f[global_num_point_str+'-rootb_split_idxmap'].attrs:
-                if pl_h5f[global_num_point_str+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num']==1:
+            rsm_str = global_num_point_str+'-rootb_split_idxmap'
+            if rsm_str in pl_h5f and 'is_intact_new_sample_num' in pl_h5f[ rsm_str ].attrs:
+                if pl_h5f[rsm_str].attrs['is_intact_new_sample_num']==1:
                     print('small global_num %d is already intact in %s'%(global_num_point,pl_nh5_filename))
                     return
             print('start add global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_nh5_filename) )
@@ -3699,6 +3700,14 @@ class Normed_H5f():
         flatten_bidxmap_dset.attrs['valid_num'] = 0
 
     def write_summary( self ):
+        def get_rootb_num( rootb_split_idxmap ):
+            rootb_nums = []
+            for i in range(rootb_split_idxmap.shape[0]):
+                rootb_num = index_in_sorted( rootb_split_idxmap[i,:,0]==-1, np.array([1]) )
+                rootb_nums.append(rootb_num)
+            rootb_num = np.mean( rootb_nums )
+            return rootb_num
+
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
         with open(summary_fn,'w') as sf:
             summary = 'basic info'
@@ -3706,19 +3715,35 @@ class Normed_H5f():
             for ele_name in attrs:
                 summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
 
-            summary += '\nsampling meta for sample_num=%d'%(attrs['sample_num'])
+            base_sample_num = attrs['sample_num']
+            summary += '\nsampling meta for sample_num=%d'%( base_sample_num )
             attrs = self.h5f['rootb_split_idxmap'].attrs
+            rootb_num = get_rootb_num( self.h5f['rootb_split_idxmap'] )
             for ele_name in attrs:
-                summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+                summary += '\t%s: %s'%(ele_name, attrs[ele_name])
+                if ele_name == 'missed_point_num':
+                    total_point_num = base_sample_num + attrs[ele_name]
+                    summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
+                if ele_name == 'missed_rootb_num':
+                    summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
+                summary += '\n'
 
             if 'smaller_sample_num' in self.h5f.attrs:
                 for sample_num in self.h5f.attrs['smaller_sample_num']:
-                    summary += '\nsampling meta for sample_num=%d\n'%(sample_num)
+                    rootb_num = get_rootb_num( self.h5f[str(sample_num)+'-rootb_split_idxmap'] )
+                    summary += '\nsampling meta for point_num=%d\n'%(sample_num)
                     attrs = self.h5f[str(sample_num)+'-rootb_split_idxmap'].attrs
                     for ele_name in attrs:
-                        summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+                        summary += '\t%s: %s'%(ele_name, attrs[ele_name])
+                        if ele_name == 'missed_point_num':
+                            total_point_num = sample_num + attrs[ele_name]
+                            summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
+                        if ele_name == 'missed_rootb_num':
+                            summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
+                        summary += '\n'
             sf.write( summary )
             print('finish summary file: %s'%(summary_fn))
+
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
@@ -3783,7 +3808,7 @@ class Normed_H5f():
         self.rm_invalid_data()
         self.add_label_histagram()
         self.h5f.attrs['is_intact_nh5'] = 1
-        if 'smaller_sample_num' in self.h5f:
+        if 'smaller_sample_num' in self.h5f.attrs:
             for new_sample_num in self.h5f.attrs['smaller_sample_num']:
                 self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
     @staticmethod
