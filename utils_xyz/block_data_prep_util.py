@@ -274,6 +274,7 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb = {}
     IsCheck_gsbb['Aim_b_index'] = True and ENABLECHECK
     IsCheck_gsbb['bidxmap_extract'] = True and ENABLECHECK
+    IsCheck_gsbb['all_base_included'] = True and ENABLECHECK
 
     def load_default_parameters( self ):
         max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
@@ -481,7 +482,7 @@ class GlobalSubBaseBLOCK():
             step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
         return stride,step
 
-    def get_group_name(self,cascade_id):
+    def get_cascade_grp_name(self,cascade_id):
         aim_stride,aim_step = self.get_stride_step_(cascade_id)
         aim_name = get_stride_step_name(aim_stride,aim_step)
         if cascade_id=='root':
@@ -501,16 +502,21 @@ class GlobalSubBaseBLOCK():
             self.bm_output[ele_name] = self.load_one_bidxmap(cascade_id,['all_sorted_aimbids'])['all_sorted_aimbids']
         return self.bm_output[ele_name]
 
-    def get_baseids_inanew(self,cascade_id,new_bid):
-        ele_name = 'allbaseids_in_new_dic-'+str(cascade_id)
+    def get_basebids_ina_aim(self,cascade_id,new_bid):
+        ele_name = 'allbasebids_in_aim_dic-'+str(cascade_id)
         if ele_name in self.bm_output:
             return self.bm_output[ele_name][new_bid]
         else:
-            return self.load_one_bidxmap(cascade_id,['baseids_inanew'],new_bid=new_bid)['baseids_inanew']
-    def get_all_base_blockids_indic(self,cascade_id):
-        ele_name = 'allbaseids_in_new_dic-'+str(cascade_id)
+            return self.load_one_bidxmap(cascade_id,['basebids_ina_aim'],new_bid=new_bid)['basebids_ina_aim']
+    def get_all_base_bids_in_aim_dic(self,cascade_id):
+        ele_name = 'allbasebids_in_aim_dic-'+str(cascade_id)
         if ele_name not in self.bm_output:
-            self.bm_output[ele_name]  = self.load_one_bidxmap(cascade_id,['allbaseids_in_new_dic'])['allbaseids_in_new_dic']
+            self.bm_output[ele_name]  = self.load_one_bidxmap(cascade_id,['allbasebids_in_aim_dic'])['allbasebids_in_aim_dic']
+        return self.bm_output[ele_name]
+    def get_all_aim_bids_in_base_dic(self,cascade_id):
+        ele_name = 'allaimbids_in_base_dic-'+str(cascade_id)
+        if ele_name not in self.bm_output:
+            self.bm_output[ele_name]  = self.load_one_bidxmap(cascade_id,['allaimbids_in_base_dic'])['allaimbids_in_base_dic']
         return self.bm_output[ele_name]
     @staticmethod
     def weighted_sample_bids(sorted_aimbids,base_bids_indic,aim_nsubblock):
@@ -524,16 +530,17 @@ class GlobalSubBaseBLOCK():
         return all_sorted_aimbids_sampled, valid_aimb_num
 
     @staticmethod
-    def point_index_to_rootbid( rootb_split_idxmap, point_index ):
+    def point_index_to_rootbid( rootb_split_idxmap, point_index, rootb_index_search_start=0 ):
         last_point_index = 0
-        for i in range(rootb_split_idxmap.shape[0]):
+        for i in range(rootb_index_search_start, rootb_split_idxmap.shape[0]):
             if rootb_split_idxmap[i,0] < 0: break
+            if i==0: last_point_index = 0
+            else: last_point_index = rootb_split_idxmap[i-1,1]
             if  point_index >= last_point_index and point_index < rootb_split_idxmap[i,1]:
                 rootbid = rootb_split_idxmap[i,0]
-                return rootbid
-            last_point_index = rootb_split_idxmap[i,1]
+                return rootbid, i
         assert False, "point_index= %d, rootbid not found"%(point_index)
-        return -1
+        return -1, -1
 
     def get_bidxmap(self, cascade_id, valid_sorted_basebids ):
         '''
@@ -572,11 +579,11 @@ class GlobalSubBaseBLOCK():
         # (1) Remove all the aim blocks contain no valid base blocks
         if IsRecordTime: t1 = time.time()
         all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
-        all_base_blockids_indic = self.get_all_base_blockids_indic(cascade_id)
+        all_base_bids_indic = self.get_all_base_bids_in_aim_dic(cascade_id)
         bidxmap_dic={}
         raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
-            base_bids = all_base_blockids_indic[aim_bid]
+            base_bids = all_base_bids_indic[aim_bid]
             # use valid_sorted_basebids, instead of
             # valid_sorted_basebids_sample. Thus, when some base bids are
             # replicated, base_bid_valid_indexs are always assigned with smaller
@@ -636,6 +643,7 @@ class GlobalSubBaseBLOCK():
             if aim_b_index < valid_aimb_num:
                 baseb_num.append( base_bid_valid_indexs.size )
                 aimb_valid_point_num[aim_b_index] = base_bid_valid_indexs.size
+                last_rootb_index = -1
                 for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
                     if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
                         flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock,0]
@@ -643,7 +651,8 @@ class GlobalSubBaseBLOCK():
 
                     if self.IsCheck_gsbb['Aim_b_index']:
                         if cascade_id==0:
-                            base_bid = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index )
+                            base_bid, rootb_index = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
+                            last_rootb_index = rootb_index
                         else:
                             base_bid = valid_sorted_basebids[ baseb_index ]
                         aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs )
@@ -661,23 +670,38 @@ class GlobalSubBaseBLOCK():
 
         around_aimb_dis = []
         sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
+        allaimbids_in_base_dic = self.get_all_aim_bids_in_base_dic( cascade_id )
+        if IsRecordTime: tts = []
+        last_rootb_index = -1
         for baseb_index in range(flatten_bidxmap.shape[0]):
             if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                if IsRecordTime: tt0 = time.time()
                 if cascade_id==0:
-                    base_bid = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index )
+                    base_bid, rootb_index = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
+                    last_rootb_index = rootb_index
                 else:
                     base_bid = valid_sorted_basebids[baseb_index]
-                aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs )
+                if IsRecordTime: tt1 = time.time()
+                #aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs )
+                aim_bids = allaimbids_in_base_dic[base_bid]
+                aim_ixyzs = []
+                for aim_bid in aim_bids:
+                    aim_ixyzs.append( Sorted_H5f.block_index_to_ixyz_( aim_bid, aim_attrs ) )
+                if IsRecordTime: tt2 = time.time()
                 # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
-                if len(aim_bids) > 4:
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
                 around_aimbidx_dis,sr_count = GlobalSubBaseBLOCK.get_around_bid( aim_ixyzs, aim_attrs, valid_sorted_aimbids, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
                 sr_counts[baseb_index] += sr_count
                 for k in range( around_aimbidx_dis.shape[0] ):
                     flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],-1,around_aimbidx_dis[k,1] ]
                     flatten_bidxmap_num[baseb_index] += 1
                     around_aimb_dis.append( around_aimbidx_dis[k,1] )
+                if IsRecordTime: tt3 = time.time()
+                if IsRecordTime:
+                        tts.append( np.expand_dims( np.array( [ (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ] ),0) )
+                #    print('sr_count:%d  1:%f  2:%f  3:%f'%( sr_count, (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ))
+        if IsRecordTime:
+            tts = np.concatenate( tts )
+            print( 'tts: ', tts.mean(axis=0) )
         if IsRecordTime: t4 = time.time()
 
         #-----------------------------------------------------------------------
@@ -924,7 +948,7 @@ class GlobalSubBaseBLOCK():
         shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])
         shape1 = max(self.npoint_subblock_candis[0:self.cascade_num])
         return (shape0,shape1)
-    def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+    def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
         # return block id map from cascade_id-1 to cascade_id
         return self.load_one_bidxmap_(cascade_id,out,new_bid)
@@ -937,27 +961,38 @@ class GlobalSubBaseBLOCK():
         shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
         return (shape0,self.flatbxmap_max_nearest_num,3)
 
-    def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','baseids_inanew','allbaseids_in_new_dic'],new_bid=None):
+    def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic','allaimbids_in_base_dic'],aim_bid=None):
         assert os.path.exists(self.bmh5_fn),"file not exist: %s"%(self.bmh5_fn)
         with h5py.File(self.bmh5_fn, 'r') as h5f:
             larger_stride, larger_step = self.get_stride_step_(cascade_id)
-            group_name = self.get_group_name(cascade_id)
-            grp = h5f[group_name]
+            cascade_grp_name = self.get_cascade_grp_name(cascade_id)
+            cascade_grp = h5f[ cascade_grp_name ]
+            base_in_aim_grp = h5f[ cascade_grp_name + '/aim' ]
+            aim_in_base_grp = h5f[ cascade_grp_name + '/base' ]
             bm_output = {}
             if 'block_num' in out or 'all_sorted_aimbids' in out:
-                all_sorted_aimbids = grp['all_sorted_aimbids'][...]
+                all_sorted_aimbids = cascade_grp['all_sorted_aimbids'][...]
                 if 'block_num' in out:
                     bm_output['block_num'] = all_sorted_aimbids.shape[0]
                 if 'all_sorted_aimbids' in out:
                     bm_output['all_sorted_aimbids'] = all_sorted_aimbids
-            if 'baseids_inanew' in out:
-                bm_output['baseids_inanew'] = grp[str(new_bid)][...]
-            if 'allbaseids_in_new_dic' in out:
-                allbaseids_in_new_dic = {}
-                for new_bid_str in grp:
-                    if new_bid_str != 'all_sorted_aimbids':
-                        allbaseids_in_new_dic[int(new_bid_str)] = grp[new_bid_str][...]
-                bm_output['allbaseids_in_new_dic'] = allbaseids_in_new_dic
+            if 'basebids_ina_aim' in out:
+                bm_output['basebids_ina_aim'] = base_in_aim_grp[str(aim_bid)][...]
+            if 'allbasebids_in_aim_dic' in out:
+                allbasebids_in_aim_dic = {}
+                for aim_bid_str in base_in_aim_grp:
+                    if aim_bid_str != 'all_sorted_aimbids':
+                        allbasebids_in_aim_dic[int(aim_bid_str)] = base_in_aim_grp[aim_bid_str][...]
+                bm_output['allbasebids_in_aim_dic'] = allbasebids_in_aim_dic
+
+            if 'aimbids_ina_base' in out:
+                bm_output['aimbids_ina_base'] = aim_in_base_grp[str(base_bid)][...]
+            if 'allaimbids_in_base_dic' in out:
+                allaimbids_in_base_dic = {}
+                for base_bid_str in aim_in_base_grp:
+                    if base_bid_str != 'all_sorted_basebids':
+                        allaimbids_in_base_dic[int(base_bid_str)] = aim_in_base_grp[base_bid_str][...]
+                bm_output['allaimbids_in_base_dic'] = allaimbids_in_base_dic
             return bm_output
 
     def show_all_groupnames(self):
@@ -973,7 +1008,7 @@ class GlobalSubBaseBLOCK():
         for out in ['block_num','all_sorted_aimbids']:
             cascade_id_ls = self.cascade_id_ls
             for cascade_id in cascade_id_ls:
-                if cascade_id=='root' and out=='baseids_inanew':
+                if cascade_id=='root' and out=='basebids_ina_aim':
                     continue
                 output = self.load_one_bidxmap_(cascade_id,[out],new_bid)
 
@@ -993,7 +1028,7 @@ class GlobalSubBaseBLOCK():
         bmh5f structure:
             for each cascde_id, create a group. eg cascade_id='root' grp_name='root-stride_0d1_step_0d1'
             In each grp,
-                1) create a dataset: "all_sorted_aimbids", shape=all_sorted_larger_blockids.shape
+                1) create a dataset: "all_sorted_aimbids", shape=all_sorted_larger_aimbids.shape
                 2) for each new_bid, create a dataset: str(new_bid), shape=(len(base_ids),) blockid_map_dset[...] = base_ids
 
         '''
@@ -1014,25 +1049,28 @@ class GlobalSubBaseBLOCK():
             cascade_attrs['root'] = self.root_s_h5f.attrs
             for cascade_id in cascade_id_ls:
                 if cascade_id == 'root':
-                    all_sorted_larger_blockids = all_sorted_blockids_dic[cascade_id]
+                    all_sorted_larger_aimbids = all_sorted_blockids_dic[cascade_id]
                 else:
                     base_cascadeid = self.base_cascade_ids[cascade_id]
                     all_sorted_base_blockids = all_sorted_blockids_dic[base_cascadeid]
                     base_attrs = cascade_attrs[base_cascadeid]
                     larger_stride, larger_step = self.get_stride_step_(cascade_id)
-                    new_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids = GlobalSubBaseBLOCK.get_basebids_in_all_largerbid(
-                                                            base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
-                    all_sorted_blockids_dic[cascade_id] = all_sorted_larger_blockids
+                    new_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic = \
+                            GlobalSubBaseBLOCK.get_basebids_in_all_largerbid(base_attrs,all_sorted_base_blockids,larger_stride,larger_step)
+                    all_sorted_blockids_dic[cascade_id] = all_sorted_larger_aimbids
                     cascade_attrs[cascade_id] = new_attrs
-                group_name = self.get_group_name(cascade_id)
+                group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
-                all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_blockids.shape,dtype=np.int32  )
-                all_sorted_aimbids_dset[...] = all_sorted_larger_blockids
+                all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_aimbids.shape,dtype=np.int32  )
+                all_sorted_aimbids_dset[...] = all_sorted_larger_aimbids
                 if not cascade_id == 'root':
-                    for new_bid,base_ids in basebids_in_each_largerbid_dic.items():
-                        blockid_map_dset = grp.create_dataset( str(new_bid),shape=(len(base_ids),),dtype=np.int32  )
-                        blockid_map_dset[...] = base_ids
+                    for aim_bid, base_bids in basebids_in_largeraimbid_dic.items():
+                        base_in_aim_map_dset = grp.create_dataset( 'aim/'+str(aim_bid),shape=(len(base_bids),),dtype=np.int32  )
+                        base_in_aim_map_dset[...] = base_bids
+                    for base_bid, aim_bids in aimbids_in_smallerbasebid_dic.items():
+                        aim_in_base_map_dset = grp.create_dataset( 'base/'+str(base_bid),shape=(len(aim_bids),),dtype=np.int32  )
+                        aim_in_base_map_dset[...] = aim_bids
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
             print('write finish: %s'%(self.bmh5_fn))
@@ -1080,7 +1118,7 @@ class GlobalSubBaseBLOCK():
         xyz_scope = xyz_max - xyz_min
         return xyz_scope
     @staticmethod
-    def get_basebids_in_all_largerbid(base_attrs,all_base_blockids,larger_stride,larger_step):
+    def get_basebids_in_all_largerbid(base_attrs,all_base_bids,larger_stride,larger_step):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
@@ -1092,7 +1130,7 @@ class GlobalSubBaseBLOCK():
             assert new_block_dims_N[-1]==1
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
-        basebids_in_each_largerbid_dic = {}
+        basebids_in_largeraimbid_dic = {}
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
 
@@ -1100,7 +1138,7 @@ class GlobalSubBaseBLOCK():
                                     new_block_id, new_sorted_h5f_attrs, base_attrs)
             base_bids = np.array(base_bid_ls).astype(np.uint32)
 
-            mask = np.in1d( base_bids,all_base_blockids )
+            mask = np.in1d( base_bids,all_base_bids )
             valid_base_bids = base_bids[mask]
             # check the scope of valid_cur_bids
 
@@ -1110,31 +1148,39 @@ class GlobalSubBaseBLOCK():
                 valid_scope_rate = np.min(scope_rate)
                 if valid_scope_rate > 0.2:
                     new_total_block_N += 1
-                    basebids_in_each_largerbid_dic[new_block_id] = valid_base_bids
+                    basebids_in_largeraimbid_dic[new_block_id] = valid_base_bids
 
             if new_block_id >0 and new_block_id % 10000==0:
                 rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
                 print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
-        larger_blockids = np.array(list(basebids_in_each_largerbid_dic.keys())).astype(np.uint32)
-        all_sorted_larger_blockids = np.sort(larger_blockids)
+        larger_blockids = np.array(list(basebids_in_largeraimbid_dic.keys())).astype(np.uint32)
+        all_sorted_larger_aimbids = np.sort(larger_blockids)
 
-        # check: basebids_in_each_largerbid_dic shoule contain all the all_base_blockids. If larger_stride==larger_step, each base bid should occur one time.
-        CHECK = True
-        if CHECK:
-            all_base_blockids_indic = np.concatenate( basebids_in_each_largerbid_dic.values()).astype(np.int32)
+        # get aimbids_in_smallerbasebid_dic
+        aimbids_in_smallerbasebid_dic = {}
+        for aim_bid, basebids in basebids_in_largeraimbid_dic.items():
+            for base_bid in basebids:
+                if base_bid not in aimbids_in_smallerbasebid_dic:
+                    aimbids_in_smallerbasebid_dic[base_bid] = np.array( [aim_bid] )
+                else:
+                    aimbids_in_smallerbasebid_dic[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic[base_bid],np.array( [aim_bid] )]  )
+
+        # check: basebids_in_largeraimbid_dic shoule contain all the all_base_bids. If larger_stride==larger_step, each base bid should occur one time.
+        if GlobalSubBaseBLOCK.IsCheck_gsbb['all_base_included']:
+            all_base_bids_indic = np.concatenate( basebids_in_largeraimbid_dic.values()).astype(np.int32)
             if not (larger_stride == larger_step).all():
-                all_base_blockids_indic = np.setxor1d(all_base_blockids_indic,np.array([])).astype(np.int32)
-            all_base_blockids_indic = np.sort(all_base_blockids_indic)
-            if not all_base_blockids_indic.shape[0] == all_base_blockids.shape[0]:
+                all_base_bids_indic = np.setxor1d(all_base_bids_indic,np.array([])).astype(np.int32)
+            all_base_bids_indic = np.sort(all_base_bids_indic)
+            if not all_base_bids_indic.shape[0] == all_base_bids.shape[0]:
                 assert False, "Not  all the base blocks are exactly included"
-            if not (all_base_blockids_indic == all_base_blockids).all():
+            if not (all_base_bids_indic == all_base_bids).all():
                 assert False, "Not  all the base blocks are exactly included"
 
             print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
                       get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
-        return new_sorted_h5f_attrs, basebids_in_each_largerbid_dic, all_sorted_larger_blockids
+        return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic
 
     @staticmethod
     def fix_bmap( cascade_id, all_sorted_aimbids, all_base_bids_in_aim_dic, nsubblock, npoint_subblock, aim_attrs):
@@ -1651,8 +1697,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         i_xyz = np.zeros(3,np.int64)
         assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
-        if block_k >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
-            assert False, "input bid %d exceed limit"%(block_k)
+        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+            if block_k >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
+                assert False, "input bid %d exceed limit"%(block_k)
         i_xyz[2] = block_k % block_dims_N[2]
         k = int( block_k / block_dims_N[2] )
         i_xyz[1] = k % block_dims_N[1]
@@ -2570,7 +2617,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements)
 
     def get_numpoint_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb):
-        root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        root_bids_in_cas0 = gsbb.get_basebids_ina_aim(0,new_block_id)
         num_point_all = 0
         for cur_block_id in root_bids_in_cas0:
             num_point_all += self.h5f[str(cur_block_id)].shape[0]
@@ -2591,7 +2638,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         datas = []
         labels = []
-        #root_bids_in_cas0 = gsbb.get_baseids_inanew(0,new_block_id)
+        #root_bids_in_cas0 = gsbb.get_basebids_ina_aim(0,new_block_id)
         for cur_block_id in root_bids_in_cas0:
            # if str(cur_block_id) not in self.h5f:
            #     continue
@@ -2649,8 +2696,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         #nsubblock = int(gsbb.nsubblock_candis[base_cascadeid])
         #npoint_subblock = gsbb.npoint_subblock_candis[base_cascadeid]
         #rootb_attrs = gsbb.root_h5fattrs
-        root_bids_in_global = gsbb.get_baseids_inanew('global',global_block_id)
-        #root_all_base_bids_indic = gsbb.get_all_base_blockids_indic('')
+        root_bids_in_global = gsbb.get_basebids_ina_aim('global',global_block_id)
+        #root_all_base_bids_indic = gsbb.get_all_base_bids_in_aim_dic('')
 
         # (2) GROUP: Collect all the base blocks for each sub-point.
         global_block_datas = []
@@ -2834,6 +2881,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         IsIntact_bmh5,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact(gsbb_write.bmh5_fn)
         if Always_CreateNew_bmh5 or ( not IsIntact_bmh5 ):
             gsbb_write.save_bmap_between_dif_stride_step()
+        t1 = time.time()
         #-----------------------------------------------------------------------
         pl_nh5_filename = os.path.join(out_folder_pl,region_name+'.nh5')
         gsbb_write = GlobalSubBaseBLOCK(self.h5f,self.file_name)
@@ -2849,7 +2897,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             self.save_pl_prh5( pl_nh5_filename, gsbb_write, self, IsShowSummaryFinished)
 
         #-----------------------------------------------------------------------
-        t1 = time.time()
+        t2 = time.time()
         # save bmap file
         bmap_nh5_filename = os.path.join(out_folder_bmap,region_name+'.bxmh5')
         bmap_meta_filename = os.path.join(out_folder_bmap,region_name+'.txt')
@@ -2858,8 +2906,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             print('bxmh5 intact: %s'%(bmap_nh5_filename))
         else:
             Sorted_H5f.save_bxmap_h5f( bmap_nh5_filename, gsbb_write, self, pl_nh5_filename, bmap_meta_filename )
-        t2 = time.time()
-        print('save pl_nh5 t: %f, save bxmap_h5 t: %f'%(t1-t0,t2-t1))
+        t3 = time.time()
+        print('save bmh5 t:%f  save pl_nh5 t: %f, save bxmap_h5 t: %f'%(t1-t0, t2-t1, t3-t2))
 
     def save_pl_prh5(self, pl_nh5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
