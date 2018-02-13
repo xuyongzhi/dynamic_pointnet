@@ -1132,7 +1132,7 @@ class GlobalSubBaseBLOCK():
         xyz_scope = xyz_max - xyz_min
         return xyz_scope
     @staticmethod
-    def get_basebids_in_all_largerbid(base_attrs,all_base_bids,larger_stride,larger_step,cascade_id, padding):
+    def get_basebids_in_all_largerbid(base_attrs, all_base_bids, larger_stride, larger_step, cascade_id, padding):
         '''
         find all the valid block ids with larger_stride and larger_step,
         and all the base block ids in each larger_stride and larger_step.
@@ -1147,7 +1147,6 @@ class GlobalSubBaseBLOCK():
         basebids_in_largeraimbid_dic = {}
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
-
             base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                     new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding)
             base_bids = np.array(base_bid_ls).astype(np.uint32)
@@ -1181,8 +1180,10 @@ class GlobalSubBaseBLOCK():
                     aimbids_in_smallerbasebid_dic[base_bid] = np.array( [aim_bid] )
                 else:
                     aimbids_in_smallerbasebid_dic[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic[base_bid],np.array( [aim_bid] )]  )
-
-        assert len(aimbids_in_smallerbasebid_dic) == all_base_bids.size
+        if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
+            pass
         # check: basebids_in_largeraimbid_dic shoule contain all the all_base_bids. If larger_stride==larger_step, each base bid should occur one time.
         if GlobalSubBaseBLOCK.IsCheck_gsbb['all_base_included']:
             all_base_bids_indic = np.concatenate( basebids_in_largeraimbid_dic.values()).astype(np.int32)
@@ -1798,6 +1799,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         smallb_ixyz_padding_max = np.array([1.0, 1.0, 1.0]) * padding
 
         base_bixyz = Sorted_H5f.block_index_to_ixyz_(base_bid, base_attrs)
+
+        # at the edge block, use 1.0 padding to avoid lost some aim_bids
+        for i in range(3):
+            if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
+                smallb_ixyz_padding_max[i] = 1.0
+
         large_step_flag = ''
         if (base_attrs['block_step'] >= aim_attrs['block_step']).any():
             large_step_flag = 'base'
