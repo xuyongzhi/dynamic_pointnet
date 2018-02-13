@@ -13,6 +13,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
     max_global_num_point = 25600
     flatbxmap_max_nearest_num = 6
     flatbxmap_max_dis = 4
+    padding = 0.6
     if config_flag == '3A':
         global_stride = np.array([1.6,1.6,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
@@ -52,7 +53,8 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(config_flag)
-    return max_global_num_point, global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis,config_flag, flatbxmap_max_nearest_num, flatbxmap_max_dis
+    return max_global_num_point, global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,\
+            npoint_subblock_candis,config_flag, flatbxmap_max_nearest_num, flatbxmap_max_dis, padding
 
 
 
