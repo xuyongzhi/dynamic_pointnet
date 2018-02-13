@@ -475,20 +475,28 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self,house_name,stride,step,numpoint_block,format, flag = 'region'):
+    def MergeNormed(self,house_name,stride,step,numpoint_block ,format, flag = 'region'):
         house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
-           # base_sorted_sampled_normed_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)+'_'+str(numpoint_block)+'_normed'
-           # file_list = glob.glob( os.path.join(base_sorted_sampled_normed_path,'*.nh5') )
-           # config_flag = os.path.basename( base_sorted_sampled_normed_path )
-
+            config_folder_name = 'stride_0d1_step_0d1_bmh5-1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
+            house_h5f_path = self.scans_name + '/' + config_folder_name + '/' + house_name
+            merged_path = os.path.basename( self.scans_h5f_dir ) + '/each_hosue'
+            if flag == 'region':
+                file_list = glob.glob( os.path.join(house_h5f_dir,format) )
+                merged_path = merged_houses_path
+                merged_file_name = merged_path + house_name+format
+                if not os.path.exists(merged_path):
+                    os.makedirs(merged_path)
+                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
 
             base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
             config_flag = os.path.basename( py_normed_path )
             merged_base_path = self.matterport3D_h5f_dir+'/'+config_flag
             merged_houses_path = merged_base_path+'/all_houses/'
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             if flag == 'region':
                 file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
                 merged_path = merged_houses_path
@@ -615,7 +623,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
@@ -650,9 +658,9 @@ def parse_house(house_names_ls):
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     if 'MergeNormed_region' in operations:
         for house_name in house_names_ls:
-            matterport3d_prepare.MergeNormed(house_name,new_stride,new_step,numpoint_block,'.prh5','region')
+            matterport3d_prepare.MergeNormed(house_name,new_stride,new_step,numpoint_block,'.nh5','region')
     if 'MergeNormed_house' in operations:
-        matterport3d_prepare.MergeNormed(house_names_ls[0],new_stride,new_step,numpoint_block,'.prh5','house')
+        matterport3d_prepare.MergeNormed(house_names_ls[0],new_stride,new_step,numpoint_block,'.nh5','house')
     if 'GenObj_RawH5f' in operations:
         for house_name in house_names_ls:
             matterport3d_prepare.GenObj_RawH5f(house_name)
@@ -665,8 +673,8 @@ def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
