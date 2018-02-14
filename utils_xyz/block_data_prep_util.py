@@ -278,6 +278,12 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
     IsCheck_gsbb['all_base_included'] = False and ENABLECHECK
 
+    global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
+    para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
+                'flatbxmap_max_nearest_num', 'flatbxmap_max_dis', 'padding']
+    root_para_names = ['root_block_stride','root_block_step']
+    meta_names = ['count','missed_aimb_num','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npoint_subblock_mean','npoint_subblock_std','sr_count']
+
     def load_default_parameters( self ):
         max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
         flatbxmap_max_nearest_num, flatbxmap_max_dis, padding  = \
@@ -339,11 +345,6 @@ class GlobalSubBaseBLOCK():
     def __init__(self,root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None):
         self.new_attrs = {}
         self.bm_output = {}
-        self.global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
-        self.para_names = self.global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
-                        'flatbxmap_max_nearest_num', 'flatbxmap_max_dis', 'padding']
-        self.root_para_names = ['root_block_stride','root_block_step']
-        self.meta_names = ['count','missed_aimb_num','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npoint_subblock_mean','npoint_subblock_std','sr_count']
 
         if bmh5_fn != None:
             assert root_s_h5f_fn == None and root_s_h5f == None
@@ -3403,7 +3404,13 @@ class Normed_H5f():
         # - org_row_index when sortedh5f IS_CHECK=True
         self.create_dsets()
 
-    def copy_root_attrs_from_normed(self,h5f_normed,flag=None):
+    def copy_root_attrs_from_normed(self,h5f_normed, in_bmh5_fn=None, flag=None):
+        if 'data' in h5f_normed:
+            self.copy_root_attrs_from_normed_plnh5( h5f_normed, flag )
+        elif 'bidxmaps_flatten' in h5f_normed:
+            self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bmh5_fn, flag )
+
+    def copy_root_attrs_from_normed_plnh5(self,h5f_normed,flag=None):
        # attrs_candis=['datasource_name','element_names','total_block_N',
        #        'xyz_max','xyz_min','xyz_max_aligned','xyz_min_aligned','xyz_scope_aligned',
        #        'block_step','block_stride','block_dims_N','total_row_N']
@@ -3423,9 +3430,20 @@ class Normed_H5f():
             sample_num = (normed_data_shape[1],normed_data_shape[2],)
         self.h5f.attrs['sample_num'] = sample_num
         self.create_dsets()
-        for attr in h5f_normed['bidxmaps_sample_group'].attrs:
-            if attr != 'valid_num':
-                self.h5f['bidxmaps_sample_group'].attrs[attr] = h5f_normed['bidxmaps_sample_group'].attrs[attr]
+        #if 'bidxmaps_sample_group' in h5f_normed:
+        #    for attr in h5f_normed['bidxmaps_sample_group'].attrs:
+        #        if attr != 'valid_num':
+        #            self.h5f['bidxmaps_sample_group'].attrs[attr] = h5f_normed['bidxmaps_sample_group'].attrs[attr]
+
+    def copy_root_attrs_from_normed_bxmh5(self,h5f_normed, in_bmh5_fn, flag=None):
+        for attr in h5f_normed.attrs:
+            self.h5f.attrs[attr] = h5f_normed.attrs[attr]
+            #if attr in GlobalSubBaseBLOCK.meta_names:
+            #    self.h5f.attrs[attr] = h5f_normed.attrs[attr] * 0
+            #print(attr,h5f_normed.attrs[attr])
+        self.h5f.attrs['is_intact_nh5'] = 0
+        gsbb_load = GlobalSubBaseBLOCK( bmh5_fn = in_bmh5_fn )
+        self.create_bidxmap_dsets(gsbb_load)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
@@ -3531,15 +3549,15 @@ class Normed_H5f():
         else:
             self.h5f.attrs['smaller_sample_num'] = np.concatenate( [self.h5f.attrs['smaller_sample_num'],new_sample_num] )
 
-    def create_bidxmap_dsets(self, gsbb_write):
+    def create_bidxmap_dsets(self, gsbb_write_or_load):
         self.h5f.attrs['is_intact_nh5'] = 0
         chunks_n = 1
         total_block_N = 1
-        sg_block_shape = gsbb_write.get_sg_bidxmaps_fixed_shape()
+        sg_block_shape = gsbb_write_or_load.get_sg_bidxmaps_fixed_shape()
         sg_bidxmap_dset = self.h5f.create_dataset('bidxmaps_sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32,
                             maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
         sg_bidxmap_dset.attrs['valid_num'] = 0
-        flatten_bidxmap_shape = gsbb_write.get_flatten_bidxmaps_shape()
+        flatten_bidxmap_shape = gsbb_write_or_load.get_flatten_bidxmaps_shape()
         flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
                             maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
         flatten_bidxmap_dset.attrs['valid_num'] = 0
@@ -3956,16 +3974,16 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                     continue
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
-                    merged_normed_h5f.copy_root_attrs_from_normed(in_h5f,'MergeNormed_H5f')
+                    merged_normed_h5f.copy_root_attrs_from_normed(in_h5f, fn, 'MergeNormed_H5f')
                 else:
-                    merged_normed_h5f.h5f['bidxmaps_sample_group'].attrs['sum_sg_bidxmap_sample_num'] += in_h5f['bidxmaps_sample_group'].attrs['sum_sg_bidxmap_sample_num']
-                    merged_normed_h5f.h5f['bidxmaps_sample_group'].attrs['sum_flatten_bmap_sample_num'] += in_h5f['bidxmaps_sample_group'].attrs['sum_flatten_bmap_sample_num']
+                    for attr in in_h5f.attrs:
+                        if attr in GlobalSubBaseBLOCK.meta_names:
+                            merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
+                    pass
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
-                merged_normed_h5f.append_to_dset('data',in_normed_h5f.data_set)
-                merged_normed_h5f.append_to_dset('labels',in_normed_h5f.labels_set)
-                merged_normed_h5f.append_to_dset('bidxmaps_sample_group',in_normed_h5f.h5f['bidxmaps_sample_group'])
-                merged_normed_h5f.append_to_dset('bidxmaps_flatten',in_normed_h5f.h5f['bidxmaps_flatten'])
+                for ele in in_h5f:
+                    merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         merged_normed_h5f.create_done()
         if IsShowSummaryFinished:
             merged_normed_h5f.show_summary_info()

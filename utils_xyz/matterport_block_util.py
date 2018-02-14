@@ -479,54 +479,21 @@ class Matterport3D_Prepare():
         house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
-            config_folder_name = 'stride_0d1_step_0d1_bmh5-1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
-            house_h5f_path = self.scans_name + '/' + config_folder_name + '/' + house_name
-            merged_path = os.path.basename( self.scans_h5f_dir ) + '/each_hosue'
-            if flag == 'region':
-                file_list = glob.glob( os.path.join(house_h5f_dir,format) )
-                merged_path = merged_houses_path
-                merged_file_name = merged_path + house_name+format
-                if not os.path.exists(merged_path):
-                    os.makedirs(merged_path)
-                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
-
-            base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
-            config_flag = os.path.basename( py_normed_path )
-            merged_base_path = self.matterport3D_h5f_dir+'/'+config_flag
-            merged_houses_path = merged_base_path+'/all_houses/'
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            if flag == 'region':
-                file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
-                merged_path = merged_houses_path
-                merged_file_name = merged_path + house_name+format
-                if not os.path.exists(merged_path):
-                    os.makedirs(merged_path)
-                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
-
-            elif flag == 'house':
-                all_file_list = glob.glob( os.path.join(merged_houses_path,'*.prh5') )
-                all_housenames_ls = [ os.path.splitext( os.path.basename(fn) )[0]  for fn in all_file_list]
-                all_housenames_ls.sort()
-                group_n = 15
-                for k in range( 0,len(all_housenames_ls),group_n ):
-                    house_names_k = all_housenames_ls[k:min(k+group_n,len(all_housenames_ls))]
-                    print('merging: ',house_names_k)
-                    filename_ls_k = [ os.path.join(merged_houses_path,basefn+'.prh5') for basefn in house_names_k ]
-
-                    merged_basefn = ''
-                    for i in range(len(house_names_k)):
-                        merged_basefn += house_names_k[i][0:3]
-                        if i < len(house_names_k)-1:
-                            merged_basefn += '-'
-
-                    merged_path = merged_base_path + '/house_groups/'
+            plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
+            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
+            nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
+            formats = ['.nh5','.bxmh5']
+            for j in range(2):
+                region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
+                base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/'
+                if flag == 'region':
+                    file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
+                    merged_path = base_path
+                    merged_file_name = merged_path + house_name+formats[j]
                     if not os.path.exists(merged_path):
                         os.makedirs(merged_path)
-                    merged_fn = os.path.join( merged_path, merged_basefn+'.prh5' )
+                    MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
 
-                    MergeNormed_H5f(filename_ls_k,merged_fn,IsShowSummaryFinished=True)
         elif format == '.prh5':
             base_sorted_path = house_h5f_dir+'/'+get_stride_step_name(stride,step)
             py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
@@ -621,7 +588,7 @@ def parse_house(house_names_ls):
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
-    operations  = ['GenPyramid']
+    #operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
@@ -673,8 +640,8 @@ def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)
