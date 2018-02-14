@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = False
+TMPDEBUG = True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -201,8 +201,8 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_bmh5 = False
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
-            Always_CreateNew_bmh5 = True
-            Always_CreateNew_pyh5 = False
+            Always_CreateNew_bmh5 = False
+            Always_CreateNew_pyh5 = True
             Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
@@ -485,7 +485,7 @@ class Matterport3D_Prepare():
             formats = ['.nh5','.bxmh5']
             for j in range(2):
                 region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
-                base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/'
+                base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/' + nh5_folder_names[j] + '/'
                 if flag == 'region':
                     file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
                     merged_path = base_path
@@ -588,9 +588,9 @@ def parse_house(house_names_ls):
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
-    #operations  = ['GenPyramid']
+    operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

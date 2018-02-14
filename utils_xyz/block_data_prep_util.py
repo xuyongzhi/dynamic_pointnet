@@ -139,6 +139,8 @@ def show_h5f_summary_info(h5f):
         print('# dataset %d: '%(id),dset_name,'  shape=',dset.shape)
         if id>6: return
         print(get_attrs_str(dset.attrs))
+        if len(dset.shape)==2:
+            print(dset[0:min(10,dset.shape[0]),:])
         if len(dset.shape)==3:
             print(dset[0:min(2,dset.shape[0]),:])
         elif len(dset.shape)==4:
@@ -827,9 +829,6 @@ class GlobalSubBaseBLOCK():
                 pass
         return ar_bidx_dis, sr_count
 
-    def get_bidxmap0( self, rootb_split_idxmap ):
-
-        return sg_bidxmap0, flatten_bidxmap0, valid_sorted_bids_cas0
 
     @staticmethod
     def get_sg_bidxmap_sample_num_elename():
@@ -2769,6 +2768,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             file_labels = []
             file_rootb_split_idxmaps = []
             global_sampling_meta_sum = {}
+            file_gbixyzs = []
 
             feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
             feed_data_elements = feed_norm_ele_info['norm_data_eles']
@@ -2778,11 +2778,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
+                global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
                 if block_datas.size == 0:
                     continue
 
                 file_datas.append(np.expand_dims(block_datas,axis=0))
                 file_labels.append(np.expand_dims(block_labels,axis=0))
+                file_gbixyzs.append(np.expand_dims(global_bixyz,axis=0))
                 file_rootb_split_idxmaps.append(np.expand_dims(rootb_split_idxmap,axis=0))
                 if len( global_sampling_meta_sum ) == 0:
                     global_sampling_meta_sum = global_sampling_meta
@@ -2796,10 +2798,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             else:
                 file_datas = np.concatenate(file_datas,axis=0)
                 file_labels = np.concatenate(file_labels,axis=0)
+                file_gbixyzs = np.concatenate(file_gbixyzs,axis=0)
                 file_rootb_split_idxmaps = np.concatenate(file_rootb_split_idxmaps,axis=0)
 
                 pl_nh5f.append_to_dset('data',file_datas)
                 pl_nh5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                pl_nh5f.append_to_dset('gbixyz',file_gbixyzs)
                 pl_nh5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
@@ -3338,6 +3342,8 @@ class Normed_H5f():
         if feed_elements==None:
             datas = self.data_set[start_block:end_blcok,...]
         else:
+            check_feed_ele = [ ele in self.data_set.attrs for ele in feed_elements]
+            assert all( check_feed_ele ), " not all ele in feed_elements exist "
             normed_data_ele_idx = np.sort(list(set([k for e in feed_elements for k in self.data_set.attrs[e] ])))
             datas = self.data_set[start_block:end_blcok,...,normed_data_ele_idx]
         return datas
@@ -3502,6 +3508,9 @@ class Normed_H5f():
         labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
                 maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
                             chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+        gbixyz_set = self.h5f.create_dataset( 'gbixyz',shape=(total_block_N,3,),\
+                maxshape=(None,3,),dtype=np.int32,compression="gzip",\
+                            chunks = (chunks_n,3,)  )
         rootb_split_idxmap_set = self.h5f.create_dataset( 'rootb_split_idxmap',shape=(total_block_N, Normed_H5f.max_rootb_num,2),\
                 maxshape=(None, Normed_H5f.max_rootb_num, 2),dtype=np.int32,compression="gzip",\
                             chunks = (chunks_n,Normed_H5f.max_rootb_num,2,)  )
@@ -3519,6 +3528,7 @@ class Normed_H5f():
 
         data_set.attrs['valid_num'] = 0
         labels_set.attrs['valid_num'] = 0
+        gbixyz_set.attrs['valid_num'] = 0
         rootb_split_idxmap_set.attrs['valid_num'] = 0
         pred_logits_set.attrs['valid_num'] = 0
         self.data_set = data_set
