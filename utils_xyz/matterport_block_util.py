@@ -202,8 +202,8 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
-            Always_CreateNew_pyh5 = True
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_pyh5 = False
+            Always_CreateNew_bxmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -640,8 +640,8 @@ def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
     all_house_names = os.listdir(scans_name_abs)

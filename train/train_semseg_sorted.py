@@ -36,15 +36,19 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='3A', help='model flag')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
-parser.add_argument('--datafeed_type', default='Pr_Normed_H5f', help='SortedH5f or Normed_H5f or Pr_NormedH5f')
-parser.add_argument('--all_fn_globs', type=str,default='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2',\
+parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1_2/',\
                     help='The file name glob for both training and evaluation')
-parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--all_fn_globs', type=str,default='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1',\
+#                    help='The file name glob for both training and evaluation')
+parser.add_argument('--eval_fnglob_or_rate',  default='region0', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
+parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
-parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
-parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
+parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 50]')
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -68,20 +72,25 @@ FLAGS = parser.parse_args()
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 
+if IS_GEN_PLY:
+    FLAGS.feed_data_elements = 'xyz-color_1norm'
+    FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
+    FLAGS.max_epoch = 1
+    FLAGS.finetune = True
+    FLAGS.model_epoch = 99
+    FLAGS.batch_size = 1
+#-------------------------------------------------------------------------------
+feed_data_elements = FLAGS.feed_data_elements.split('-')
+feed_label_elements = FLAGS.feed_label_elements.split('-')
 if FLAGS.model_type == 'fds':
     from pointnet2_sem_seg import  get_model,get_loss
     import pdb; pdb.set_trace()
-    if FLAGS.datafeed_type == 'Pr_Normed_H5f':
-        from pointnet2_sem_seg_pyramid_feed import  placeholder_inputs
-    else:
-        from pointnet2_sem_seg import placeholder_inputs
+    from pointnet2_sem_seg import placeholder_inputs
 elif FLAGS.model_type == 'presg':
-    from pointnet2_sem_seg_pyramid_feed import  placeholder_inputs,get_model,get_loss
+    from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 BATCH_SIZE = FLAGS.batch_size
-if FLAGS.datafeed_type == 'Pr_Normed_H5f':
-    FLAGS.num_point = Net_Provider.global_num_point
-NUM_POINT = FLAGS.num_point
+#FLAGS.num_point = Net_Provider.global_num_point
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
 MOMENTUM = FLAGS.momentum
@@ -89,6 +98,31 @@ OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 
+
+# ------------------------------------------------------------------------------
+# Load Data
+FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+net_provider = Net_Provider(
+                            dataset_name=FLAGS.dataset_name,
+                            all_filename_glob=FLAGS.all_fn_globs,
+                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
+                            bxmh5_folder_name = FLAGS.bxmh5_folder_name,
+                            only_evaluate = FLAGS.only_evaluate,
+                            feed_data_elements=feed_data_elements,
+                            feed_label_elements=feed_label_elements)
+
+NUM_POINT = net_provider.global_num_point
+NUM_DATA_ELES = net_provider.data_num_eles
+NUM_CLASSES = net_provider.num_classes
+NUM_LABEL_ELES = net_provider.label_num_eles
+LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
+DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
+CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
+TRAIN_FILE_N = net_provider.train_file_N
+EVAL_FILE_N = net_provider.eval_file_N
+MAX_MULTIFEED_NUM = 5
+
+# ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
     log_eval_fn_glob = ''
@@ -103,11 +137,9 @@ if FLAGS.only_evaluate:
 else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_train.txt'
-    gsbb_config = Net_Provider.gsbb_config
+    gsbb_config = net_provider.gsbb_config
     FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_data_elements+'-'+str(FLAGS.num_point)+'-'+FLAGS.dataset_name[0:3]
-FLAGS.feed_data_elements = FLAGS.feed_data_elements.split('-')
-FLAGS.feed_label_elements = FLAGS.feed_label_elements.split('-')
+                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
@@ -130,27 +162,7 @@ BN_DECAY_CLIP = 0.99
 HOSTNAME = socket.gethostname()
 
 print('BATCH_SIZE = %d'%(BATCH_SIZE))
-
-# Load Data
-FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
-net_provider = Net_Provider(InputType=FLAGS.datafeed_type,
-                            dataset_name=FLAGS.dataset_name,
-                            all_filename_glob=FLAGS.all_fn_globs,
-                            eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
-                            only_evaluate = FLAGS.only_evaluate,
-                            num_point_block = FLAGS.num_point,
-                            feed_data_elements=FLAGS.feed_data_elements,
-                            feed_label_elements=FLAGS.feed_label_elements)
-NUM_DATA_ELES = net_provider.data_num_eles
-NUM_CLASSES = net_provider.num_classes
-NUM_LABEL_ELES = net_provider.label_num_eles
-LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
-DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
-CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
-TRAIN_FILE_N = net_provider.train_file_N
-EVAL_FILE_N = net_provider.eval_file_N
-MAX_MULTIFEED_NUM = 5
-
+# ------------------------------------------------------------------------------
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
     LIMIT_MAX_NUM_BATCHES = {}
@@ -187,11 +199,9 @@ def get_bn_decay(global_step):
 def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_multi_feed_flags, lock):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            if FLAGS.datafeed_type == 'Normed_H5f':
-                pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
-            elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
-                flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
-                grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl, pointclouds_pl, labels_pl, smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, flatten_bidxmap0_concat = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+            #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
+            flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
+            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -208,7 +218,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred,end_points = get_model( FLAGS.model_flag, grouped_pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, flatten_bidxmap0_concat, bn_decay=bn_decay)
+                pred,end_points = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
             tf.summary.scalar('loss', loss)
 
@@ -259,18 +269,11 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                'merged': merged,
                'step': global_step,
                'accuracy':accuracy}
-        if FLAGS.datafeed_type == 'Normed_H5f':
-            ops['pointclouds_pl'] = pointclouds_pl
-            ops['labels_pl'] = labels_pl
-            ops['smpws_pl'] = smpws_pl
-        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
-            ops['grouped_pointclouds_pl'] = grouped_pointclouds_pl
-            ops['grouped_labels_pl'] = grouped_labels_pl
-            ops['labels_pl'] = labels_pl
-            ops['grouped_smpws_pl'] = grouped_smpws_pl
-            ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
-            ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
-            ops['pointclouds_pl'] = pointclouds_pl
+        ops['pointclouds_pl'] = pointclouds_pl
+        ops['labels_pl'] = labels_pl
+        ops['smpws_pl'] = smpws_pl
+        ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
+        ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
 
         if FLAGS.finetune:
             saver.restore(sess,MODEL_PATH)
@@ -390,28 +393,22 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             break # all data reading finished
         label_category = cur_label[:,:,CATEGORY_LABEL_IDX]
         feed_dict = { ops['is_training_pl']: is_training }
-        if FLAGS.datafeed_type == 'Normed_H5f':
-            feed_dict[ops['pointclouds_pl']] = cur_data
-            feed_dict[ops['labels_pl']] = cur_label
-            feed_dict[ops['smpws_pl']] = cur_smp_weights
-        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
-            feed_dict[ops['grouped_pointclouds_pl']] = cur_data
-            feed_dict[ops['grouped_labels_pl']] = cur_label
-            feed_dict[ops['grouped_smpws_pl']] = cur_smp_weights
-            feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-            feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['pointclouds_pl']] = cur_data
+        feed_dict[ops['labels_pl']] = cur_label
+        feed_dict[ops['smpws_pl']] = cur_smp_weights
+        feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
-                                    feed_dict=feed_dict)
+        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
+                                    feed_dict=feed_dict )
 
-        if FLAGS.datafeed_type == 'Pr_Normed_H5f':
-            cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
-            if IS_GEN_PLY:
-                cur_flatten_pointcloud, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
-                gen_ply(cur_flatten_pointcloud, cur_label, np.argmax(pred_val,2), cur_data, batch_idx)
-            if Is_REPORT_PRED:
-                pred_fn = LOG_DIR+'/train_pred_log.txt'
-                EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
+        cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
+        if IS_GEN_PLY:
+            cur_flatten_pointcloud, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
+            gen_ply(cur_flatten_pointcloud, cur_label, np.argmax(pred_val,2), cur_data, batch_idx)
+        if Is_REPORT_PRED:
+            pred_fn = LOG_DIR+'/train_pred_log.txt'
+            EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
 
         loss_sum += loss_val
         accuracy_sum += accuracy_batch
@@ -434,12 +431,12 @@ def gen_ply(cur_flatten_pointcloud, cur_label, pred_val, cur_data, batch_idx):
     #color_flags = ['raw_color']
     color_flags = ['gt_color']
     position = 'xyz_midnorm_block'
-    position = 'xyz_1norm_file'
-    position = 'xyz'
+    position = 'xyz_1norm_block'
+    #position = 'xyz'
+    if position!='xyz':
+        assert BATCH_SIZE == 1
     if 'gt_color' in color_flags:
         cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]]
-        #test_box(cur_xyz)
-        #return
 
         cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
         create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label_category  )
@@ -521,16 +518,11 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
             break # all data reading finished
 
         feed_dict = { ops['is_training_pl']: is_training }
-        if FLAGS.datafeed_type == 'Normed_H5f':
-            feed_dict[ops['pointclouds_pl']] = cur_data
-            feed_dict[ops['labels_pl']] = cur_label
-            feed_dict[ops['smpws_pl']] = cur_smp_weights
-        elif FLAGS.datafeed_type == 'Pr_Normed_H5f':
-            feed_dict[ops['grouped_pointclouds_pl']] = cur_data
-            feed_dict[ops['grouped_labels_pl']] = cur_label
-            feed_dict[ops['grouped_smpws_pl']] = cur_smp_weights
-            feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-            feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['pointclouds_pl']] = cur_data
+        feed_dict[ops['labels_pl']] = cur_label
+        feed_dict[ops['smpws_pl']] = cur_smp_weights
+        feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
         if FLAGS.datafeed_type == 'Pr_Normed_H5f':
             cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )

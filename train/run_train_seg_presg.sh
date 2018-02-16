@@ -9,35 +9,27 @@ train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
 maxepoch=30
-batchsize=6
+batchsize=10
 feed_label_elements="label_category-label_instance"
-datafeed_type='Pr_Normed_H5f'
-all_fn_globs='stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2/house_groups'
-eval_fnglob_or_rate='WYY-X7H-XcA-YFu-YVU-YmJ-Z6M-ZMo-aay-ac2-b8c-cV4-dhj-e9z-fzy'
+all_fn_globs='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1'
+eval_fnglob_or_rate='17DRP5sb8fy'
+bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'
 #feed_data_elements='xyz_1norm_file-color_1norm'
 feed_data_elements='xyz-color_1norm'
 #feed_data_elements='xyz_midnorm_block-color_1norm'
 #feed_data_elements='xyz_1norm_file-xyz_midnorm-color_1norm'
 model_flag='3AG'
-model_flag='2A'    # batchsize=10 9G
+model_flag='3A'    # batchsize=10 9G
+
+run_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
+
+run_train_multifeed="python $train_script   --model_flag $model_flag --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
 
 
+finetune_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --finetune --model_epoch 29"
 
-all_fn_globs='v1/scans/17DRP5sb8fy/small_test'
-all_fn_globs='data_small'
-eval_fnglob_or_rate='region2'
-
-
-run_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
-
-run_train_multifeed="python $train_script   --model_flag $model_flag --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs"
-
-
-
-finetune_train="python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --finetune --model_epoch 29"
-
-finetune_train_multifeed="python $train_script  --model_flag $model_flag  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname --datafeed_type $datafeed_type --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs  --finetune --model_epoch 5"
+finetune_train_multifeed="python $train_script  --model_flag $model_flag  --multip_feed --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batchsize --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs  --finetune --model_epoch 5"
 
 $run_train
 #$run_train_multifeed

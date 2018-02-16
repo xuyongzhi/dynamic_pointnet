@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True, flatten_bidxmap0_concat=None):
+def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -43,23 +43,23 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
         new_xyz: (batch_size,nsubblock1,3)
         new_points: (batch_size,nsubblock1,channel)
     '''
-    IsShowModel = False
+    IsShowModel = True
     with tf.variable_scope(scope) as sc:
 
         if IsGlobalLayer:
-            if cascade_id == 0:
-                points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
-                xyz = points[...,0:3]
+            #if cascade_id == 0:
+            #    points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
+            #    xyz = points[...,0:3]
             grouped_xyz = tf.expand_dims( xyz,axis=1 )
             grouped_points = tf.expand_dims(points,axis=1)
-        elif cascade_id == 0:
-            # already grouped, no need to group
-            assert len(xyz.shape) == 4
-            # (2, 512, 128, 6)
-            grouped_points = xyz
-            # the first step, xyz can be actually rawdata include color ...
-            # assume xyz in at the first 3 channels
-            grouped_xyz = xyz[...,0:3]
+        #elif cascade_id == 0:
+        #    # already grouped, no need to group
+        #    assert len(xyz.shape) == 4
+        #    # (2, 512, 128, 6)
+        #    grouped_points = xyz
+        #    # the first step, xyz can be actually rawdata include color ...
+        #    # assume xyz in at the first 3 channels
+        #    grouped_xyz = xyz[...,0:3]
         else:
             assert len(xyz.shape) == 3
             batch_size = xyz.get_shape()[0].value
@@ -79,7 +79,6 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         new_xyz = tf.reduce_mean(grouped_xyz,-2)
-
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 
         if IsShowModel:
@@ -100,9 +99,10 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
             # (2, 512, 128, 64)
 
         if cascade_id == 0:
-            root_points = tf.gather_nd( new_points,flatten_bidxmap0_concat,name="root_points")
+            #root_point_features = tf.gather_nd( new_points,flatten_bidxmap0_concat,name="root_point_features")
+            root_point_features = new_points
         else:
-            root_points = None
+            root_point_features = None
 
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
@@ -138,12 +138,12 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
 
         if IsShowModel:
             print('pointnet_sa_module return\n new_xyz: %s\n new_points:%s\n\n'%(shape_str([new_xyz]),shape_str([new_points])))
-            import pdb;pdb.set_trace()
+            #import pdb;pdb.set_trace()
         # (2, 512, 64)
-        return new_xyz, new_points, root_points
+        return new_xyz, new_points, root_point_features
 
 
-def pointnet_fp_module( points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True ):
+def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -151,23 +151,39 @@ def pointnet_fp_module( points1, points2, flatten_bidxmap, mlp, is_training, bn_
     Input:
         points1 (cascade_id=2): (2, 256, 256)
         points2 (cascade_id=3): (2, 64, 512)
-        flatten_bidxmap: (2, 256, 2)
+        flatten_bidxmap: (B,256,self.flatbxmap_max_nearest_num,3)
+                     N: base_bid_index
+                    [:,:,0]: aim_b_index
+                    [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
+                    [:,:,2]: index_distance
         mlp: [256,256]
     Output:
         new_points1: (2, 256, 256)
     '''
-    IsShowModel = False
+    IsShowModel = True
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
     with tf.variable_scope(scope) as sc:
-        flatten_bidxmap = flatten_bidxmap[:,:,0:1]  # (2, 256, 1)
+        assert len(flatten_bidxmap.get_shape()) == 4
+        if cascade_id == 0:
+            assert len(points1.get_shape()) == 4
+        else:
+            assert flatten_bidxmap.shape[1] == points1.shape[1]
         batch_size = points2.get_shape()[0].value
         batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
-        flatten_bidxmap_shape1 = flatten_bidxmap.get_shape()[1].value
-        batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap_shape1,1] ) # (2, 256, 1)
+        point1_num = flatten_bidxmap.get_shape()[1].value
+        batch_idx = tf.tile( batch_idx,[1, point1_num ,1] ) # (2, 256, 1)
+        flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
 
-        flatten_bidxmap_concat = tf.concat( [batch_idx,flatten_bidxmap],axis=-1 ) # (2, 256, 2)
-        mapped_points2 = tf.gather_nd(points2,flatten_bidxmap_concat) # (2, 256, 512)
+        flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
+
+        mapped_points2 = tf.gather_nd(points2,flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+
+        if cascade_id == 0:
+            flatten_bidxmap_aimbidx1 = flatten_bidxmap[:,:,0,0:2]  # (2, 256, 1)
+            flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
+            points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
+
         new_points1 = tf.concat(values=[points1,mapped_points2],axis=-1)
         new_points1 = tf.expand_dims(new_points1,2)     # (2, 256, 1, 768)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
@@ -180,5 +196,5 @@ def pointnet_fp_module( points1, points2, flatten_bidxmap, mlp, is_training, bn_
             if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
         new_points1 = tf.squeeze(new_points1,[2]) # (2, 256, 256)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));
-        if IsShowModel:  import pdb; pdb.set_trace()
+        #if IsShowModel:  import pdb; pdb.set_trace()
     return new_points1

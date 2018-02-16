@@ -267,9 +267,13 @@ def my_ceil(orgvar):
 
 class GlobalSubBaseBLOCK():
     '''
-        * Check + Problem:
-            If nsubblock and sub_block_size are reasonable, to ensure all valid space is utilized, and no base block id is missed.
         rootb_split_idxmap: (:,2) [:,0]:root_bid  [:,1]:point_index_end
+
+        flatten_bidxmap: (N,self.flatbxmap_max_nearest_num,3)
+                     N: base_bid_index
+                    [:,:,0]: aim_b_index
+                    [:,:,1]: point_index_in_aimb
+                    [:,:,2]: index_distance
     '''
     settings = {}
     settings['fix_bmap_method_cascade0'] = 'random'
@@ -765,7 +769,7 @@ class GlobalSubBaseBLOCK():
         bxmap_meta['missed_aimb_num'] = np.array([all_sorted_aimbids.size - aim_nsubblock])
         bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num[0],0 )
         bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
-        bxmap_meta['npoint_subblock_mean'] = np.array( [np.mean(baseb_num)] )
+        bxmap_meta['npoint_subblock_mean'] = np.array( [np.mean(base_block_num_ls)] )
         bxmap_meta['npoint_subblock_std'] = np.array( [np.std(baseb_num)] )
         if len(around_aimb_dis) > 0:
             bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )
@@ -3262,8 +3266,8 @@ class Normed_H5f():
     normed_data_elements_candi['nxnynz'] = ['nxnynz']
     normed_data_elements_candi['color'] = ['color_1norm']
     normed_data_elements_candi['intensity'] = ['intensity_1norm']
-    normed_ele_idx_order = ['xyz','xyz_midnorm_block','xyz_1norm_file','color_1norm','nxnynz','intensity_1norm']
-    normed_data_ele_candi_len = {'xyz':3,'xyz_midnorm_block':3,'xyz_1norm_file':3,'nxnynz':3,'color_1norm':3,'intensity_1norm':1}
+    normed_ele_idx_order = ['xyz_midnorm_block','xyz_1norm_file','xyz_1norm_block','xyz','color_1norm','nxnynz','intensity_1norm']
+    normed_data_ele_candi_len = {'xyz':3,'xyz_midnorm_block':3,'xyz_1norm_file':3,'xyz_1norm_block':3,'nxnynz':3,'color_1norm':3,'intensity_1norm':1}
 
     labels_order = ['label_category','label_instance','label_material']
     label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
@@ -3343,7 +3347,7 @@ class Normed_H5f():
             datas = self.data_set[start_block:end_blcok,...]
         else:
             check_feed_ele = [ ele in self.data_set.attrs for ele in feed_elements]
-            assert all( check_feed_ele ), " not all ele in feed_elements exist "
+            assert all( check_feed_ele ), " not all ele in feed_elements exist, feed_elements=%s "%(feed_elements)
             normed_data_ele_idx = np.sort(list(set([k for e in feed_elements for k in self.data_set.attrs[e] ])))
             datas = self.data_set[start_block:end_blcok,...,normed_data_ele_idx]
         return datas

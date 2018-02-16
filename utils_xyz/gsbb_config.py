@@ -5,17 +5,17 @@ from __future__ import print_function
 import numpy as np
 
 
-_gsbb_config = '3B'
+_gsbb_config = '3A'
 #_gsbb_config = '3C'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( config_flag = _gsbb_config ):
     max_global_num_point = 25600
-    flatbxmap_max_nearest_num = 6
+    flatbxmap_max_nearest_num = 3
     flatbxmap_max_dis = 4
     padding = 0.6
     if config_flag == '3A':
-        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
+        global_stride = np.array([1,1,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
         global_num_point = 25600
 
