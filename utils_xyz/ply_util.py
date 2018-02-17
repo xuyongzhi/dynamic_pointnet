@@ -101,7 +101,7 @@ def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
     if not os.path.exists(folder):
         os.makedirs(folder)
     xyz = np.reshape( xyz,(-1,xyz.shape[-1]) )
-    if xyz.shape[-1] == 3 and (label!=None).all() and label2color!=None:
+    if xyz.shape[-1] == 3 and type(label) != type(None) and label2color!=None:
         label2color_ls = []
         for i in range(len(label2color)):
             label2color_ls.append( np.reshape(np.array(label2color[i]),(1,3)) )
@@ -131,3 +131,5 @@ if __name__ == '__main__':
     #test_plyfile()
     test_box()
 
+    sg_bidxmap_i0 = np.arange( sg_bidxmap_i1.shape[0] ).reshape([-1,1,1,1])
+    sg_bidxmap_i0 = np.tile( sg_bidxmap_i0, [0,sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2],1] )

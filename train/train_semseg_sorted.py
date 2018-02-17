@@ -27,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = False
+IS_GEN_PLY = True
 Is_REPORT_PRED = False
 ISNoEval = True
 LOG_TYPE = 'simple'
@@ -46,7 +46,7 @@ parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz
 #parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=12, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 50]')
 
@@ -74,11 +74,11 @@ ISDEBUG = FLAGS.debug
 
 if IS_GEN_PLY:
     FLAGS.feed_data_elements = 'xyz-color_1norm'
-    FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
+    #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
     FLAGS.model_epoch = 99
-    FLAGS.batch_size = 1
+    #FLAGS.batch_size = 1
 #-------------------------------------------------------------------------------
 feed_data_elements = FLAGS.feed_data_elements.split('-')
 feed_label_elements = FLAGS.feed_label_elements.split('-')
@@ -218,7 +218,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred,end_points = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay)
+                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
             tf.summary.scalar('loss', loss)
 
@@ -274,6 +274,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['smpws_pl'] = smpws_pl
         ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+        if 'l_xyz' in debug:
+            ops['l_xyz'] = debug['l_xyz']
 
         if FLAGS.finetune:
             saver.restore(sess,MODEL_PATH)
@@ -404,8 +406,15 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
         if IS_GEN_PLY:
-            cur_flatten_pointcloud, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
-            gen_ply(cur_flatten_pointcloud, cur_label, np.argmax(pred_val,2), cur_data, batch_idx)
+            #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
+            for lk in range( len(ops['l_xyz']) ):
+                pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
+                if lk == 0:
+                    color_flags = ['gt_color']
+                    gen_ply( batch_idx,pl_display, color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_lxyz0')
+                else:
+                    color_flags = ['no_color']
+                    gen_ply( batch_idx, pl_display, color_flags,  name_meta = '_lxyz'+str(lk))
         if Is_REPORT_PRED:
             pred_fn = LOG_DIR+'/train_pred_log.txt'
             EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
@@ -427,29 +436,32 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr
 
-def gen_ply(cur_flatten_pointcloud, cur_label, pred_val, cur_data, batch_idx):
+def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None, name_meta = ''):
     #color_flags = ['raw_color']
-    color_flags = ['gt_color']
+    #color_flags = ['gt_color']
     position = 'xyz_midnorm_block'
     position = 'xyz_1norm_block'
-    #position = 'xyz'
+    position = 'xyz'
     if position!='xyz':
         assert BATCH_SIZE == 1
-    if 'gt_color' in color_flags:
-        cur_xyz = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]]
+    if 'no_color' in color_flags:
+        cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
+        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_nocolor'%(batch_idx)+name_meta+'.ply' )
 
+    if 'gt_color' in color_flags:
+        cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
         cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
-        create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_gtcolor'%(batch_idx)+'.ply', cur_label_category  )
-        create_ply_matterport( cur_xyz, LOG_DIR+'/train_flat_%d_predcolor'%(batch_idx)+'.ply', pred_val )
+        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category  )
+        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_predcolor'%(batch_idx)+name_meta+'.ply', pred_val )
         err_idxs = cur_label_category != pred_val
-        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_predcolor'%(batch_idx)+'.ply', pred_val[err_idxs] )
-        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_flat_%d_err_gtcolor'%(batch_idx)+'.ply', cur_label_category[err_idxs] )
+        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_predcolor'%(batch_idx)+name_meta+'.ply', pred_val[err_idxs] )
+        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category[err_idxs] )
 
     if 'raw_color' in color_flags:
-        cur_xyz_color = cur_flatten_pointcloud[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+        cur_xyz_color = pl_display[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
         cur_xyz_color[...,[3,4,5]] *= 255
-        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_flat_%d_rawcolor'%(batch_idx)+'.ply' )
-        cur_xyz_color = cur_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
+        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_%d_rawcolor'%(batch_idx)+'.ply' )
+        cur_xyz_color = raw_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
         cur_xyz_color[...,[3,4,5]] *= 255
         create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
 

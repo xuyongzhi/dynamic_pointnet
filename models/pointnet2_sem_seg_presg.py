@@ -159,6 +159,10 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     l_points.append( rawdata )
     l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
 
+    debug = {}
+    debug['l_xyz'] = []
+    debug['l_xyz'].append( l_xyz )
+
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
     for k in range(cascade_num):
         IsGlobalLayer = False
@@ -170,6 +174,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
 
         l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
                                                         bn_decay=bn_decay, scope='sa_layer'+str(k) )
+        debug['l_xyz'].append( l_xyz )
         if k == 0:
             l_points[0] = root_point_features
         l_points.append(new_points)
@@ -203,7 +208,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel: print('net:%s'%(shape_str([net])))
 
-    return net, end_points
+    return net, end_points, debug
 
 def get_loss(pred, label, smpw, label_eles_idx ):
     """ pred: BxNxC,

@@ -35,6 +35,7 @@ import glob
 import time
 import multiprocessing as mp
 import itertools
+from ply_util import create_ply_matterport
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
@@ -1245,6 +1246,32 @@ class GlobalSubBaseBLOCK():
             del all_base_bids_in_aim_dic_fixed[cut_aim_bid]
         return kept_aim_bids, all_base_bids_in_aim_dic_fixed
 
+    def gen_sg_ply( self, sg_all_bidxmaps, pl_xyz,bmap_nh5_filename ):
+        print('start gen ply for %s'%(bmap_nh5_filename))
+        for cascade_id in range(self.cascade_num):
+            start = self.sg_bidxmaps_extract_idx[cascade_id]
+            end = self.sg_bidxmaps_extract_idx[cascade_id+1]
+            sg_bidxmap_i1 = sg_all_bidxmaps[:,start[0]:end[0], 0:end[1] ]
+            sg_bidxmap_i1 = np.expand_dims( np.expand_dims(sg_bidxmap_i1,-1), -1 )
+            sg_bidxmap_i1 = np.tile( sg_bidxmap_i1, [1,1,1,3,1] )
+
+            sg_bidxmap_i0 = np.arange( pl_xyz.shape[0] ).reshape([-1,1,1,1,1])
+            sg_bidxmap_i0 = np.tile( sg_bidxmap_i0, [1,sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2], sg_bidxmap_i1.shape[3],1] )
+            sg_bidxmap_i2 = np.arange( pl_xyz.shape[2] ).reshape([1,1,1,-1,1])
+            sg_bidxmap_i2 = np.tile( sg_bidxmap_i2, [sg_bidxmap_i1.shape[0], sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2],1,1] )
+
+            sg_bidxmap_i = np.concatenate( [sg_bidxmap_i0, sg_bidxmap_i1, sg_bidxmap_i2], -1 )
+            sg_xyz = np.zeros(shape=( sg_bidxmap_i.shape[0:4] ))
+
+            for i in range( sg_bidxmap_i.shape[0] ):
+                for j in range( sg_bidxmap_i.shape[1] ):
+                    for k in range( sg_bidxmap_i.shape[2] ):
+                        for r in range( sg_bidxmap_i.shape[3] ):
+                            idxs = sg_bidxmap_i[i,j,k,r]
+                            sg_xyz[i,j,k,r] = pl_xyz[idxs[0],idxs[1],idxs[2]]
+            ply_fn= os.path.splitext(bmap_nh5_filename)[0] + '_cascade_' + str(cascade_id) + '.ply'
+            print('cascade_id %d sg_xyz: %s'%( cascade_id, sg_xyz.shape ))
+            create_ply_matterport( sg_xyz[0], ply_fn )
 
 gsbb_empty =  GlobalSubBaseBLOCK()
 
@@ -2900,6 +2927,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             bmap_nh5f.create_done()
             print('write finish: %s'%(bmap_nh5_filename))
+            if DEBUGTMP:
+                gsbb_write.gen_sg_ply( sg_all_bidxmaps, pl_nh5f['data'][...,0:3],bmap_nh5_filename )
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
         feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
