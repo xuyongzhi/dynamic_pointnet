@@ -27,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = False
+IS_GEN_PLY = True
 Is_REPORT_PRED = False
 ISNoEval = True
 LOG_TYPE = 'simple'
@@ -45,6 +45,7 @@ parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5
 parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=9, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
@@ -77,8 +78,11 @@ if IS_GEN_PLY:
     #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 99
-    FLAGS.batch_size = 1
+    FLAGS.model_epoch = 199
+    #FLAGS.batch_size = 1
+
+#FLAGS.finetune = True
+#FLAGS.model_epoch = 99
 #-------------------------------------------------------------------------------
 feed_data_elements = FLAGS.feed_data_elements.split('-')
 feed_label_elements = FLAGS.feed_label_elements.split('-')
@@ -410,6 +414,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
         if IS_GEN_PLY and batch_idx<3:
+            color_flags = ['gt_color']
+            gen_ply( batch_idx, cur_data[:,:,0:3], color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_rawdata')
             #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
             for lk in range( len(ops['l_xyz']) ):
                 pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )

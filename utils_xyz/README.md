@@ -1,4 +1,6 @@
 **IMPORTANT**
+- [ ] effect of padding
+- [ ] effect of loss weight
 - [ ] max_padding = aim_attrs['block_step'] in get_blockids_of_dif_stride_step
 - [ ] Add calculate nearest aim_block index for missed base valid block index. in get_bidxmap() in block_data_prep_util.py
       Or just do no feature back propogation for missed base blocks. Currently, I use random aim_block index to test program. But this is wrong.

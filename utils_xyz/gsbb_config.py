@@ -5,7 +5,7 @@ from __future__ import print_function
 import numpy as np
 
 
-_gsbb_config = '3B1'
+_gsbb_config = '3B2'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( config_flag = _gsbb_config ):
@@ -40,7 +40,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.1,0.4,0.8]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        nsubblock_candis =       np.array([2048,256, 64]).astype(np.int32)
+        nsubblock_candis =       np.array([1024,256, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([192,  48,  6]).astype(np.int32)
 
     elif config_flag == '3C1':
