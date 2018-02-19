@@ -284,6 +284,7 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb['Aim_b_index'] = False and ENABLECHECK
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
     IsCheck_gsbb['all_base_included'] = False and ENABLECHECK
+    IsCheck_gsbb['gen_ply_aimbxyz'] = False and ENABLECHECK
 
     global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
     para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
@@ -543,15 +544,18 @@ class GlobalSubBaseBLOCK():
     @staticmethod
     def point_index_to_rootbid( rootb_split_idxmap, point_index, rootb_index_search_start=0 ):
         last_point_index = 0
-        for i in range(rootb_index_search_start, rootb_split_idxmap.shape[0]):
-            if rootb_split_idxmap[i,0] < 0: break
-            if i==0: last_point_index = 0
-            else: last_point_index = rootb_split_idxmap[i-1,1]
-            if  point_index >= last_point_index and point_index < rootb_split_idxmap[i,1]:
-                rootbid = rootb_split_idxmap[i,0]
-                return rootbid, i
-        assert False, "point_index= %d, rootbid not found"%(point_index)
-        return -1, -1
+        for rootb_index in range(rootb_index_search_start, rootb_split_idxmap.shape[0]):
+            if rootb_split_idxmap[rootb_index,0] < 0: break
+            if rootb_index==0: last_point_index = 0
+            else: last_point_index = rootb_split_idxmap[rootb_index-1,1]
+            if  point_index >= last_point_index and point_index < rootb_split_idxmap[rootb_index,1]:
+                rootbid = rootb_split_idxmap[rootb_index,0]
+                point_idx_inroot = point_index - last_point_index
+                return rootbid, rootb_index, point_idx_inroot
+        print( "point_index= %d, rootbid not found"%(point_index) )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        assert False
+        return -1, -1, -1
 
     def get_bidxmap(self, cascade_id, valid_sorted_basebids ):
         '''
@@ -570,6 +574,7 @@ class GlobalSubBaseBLOCK():
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
+            del valid_sorted_basebids
             # remove invalid values
             valid_rootb_n = np.searchsorted( rootb_split_idxmap[:,0]==-1,1 )
             rootb_split_idxmap = rootb_split_idxmap[0:valid_rootb_n,:]
@@ -640,29 +645,30 @@ class GlobalSubBaseBLOCK():
             base_attrs = self.root_h5fattrs
         else:
             base_attrs = self.get_new_attrs( cascade_id-1 )
-        sg_bidxmap_fixed = np.zeros(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32)
-        aimb_valid_point_num = np.zeros( shape=(valid_aimb_num) ).astype(np.int32)
+        sg_bidxmap_fixed = np.ones(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32) * (-11)
 
-        flatten_bidxmap = np.ones(shape=(baseb_num, self.flatbxmap_max_nearest_num,3)).astype(np.int32)*(-10)
+        flatten_bidxmap = np.ones(shape=(baseb_num, self.flatbxmap_max_nearest_num,3)).astype(np.int32)*(-11)
         flatten_bidxmap_num = np.zeros( shape=(baseb_num) ).astype(np.int8)
         base_block_num_ls = []
         for aim_b_index in range(aim_nsubblock):
             aim_bid = sorted_aimbids_fixed[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
             sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
+            base_block_num_ls.append( base_bid_valid_indexs.size )
 
             if aim_b_index < valid_aimb_num:
-                base_block_num_ls.append( base_bid_valid_indexs.size )
-                aimb_valid_point_num[aim_b_index] = base_bid_valid_indexs.size
+                base_bnum_fixvalid = min( base_bid_valid_indexs.size, aim_npoint_subblock  )
+                base_bid_valid_indexs_fixvalid = sg_bidxmap_fixed[aim_b_index,:][0:base_bnum_fixvalid]
                 last_rootb_index = -1
-                for pointindex_within_subblock, baseb_index in enumerate(base_bid_valid_indexs):
+                for pointindex_within_subblock, baseb_index in enumerate( base_bid_valid_indexs_fixvalid ):
                     if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                        # exactly containing relationship, so the dis=0
                         flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock,0]
                         flatten_bidxmap_num[baseb_index] += 1
 
                     if self.IsCheck_gsbb['Aim_b_index']:
                         if cascade_id==0:
-                            base_bid, rootb_index = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
+                            base_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
                             last_rootb_index = rootb_index
                         else:
                             base_bid = valid_sorted_basebids[ baseb_index ]
@@ -670,6 +676,7 @@ class GlobalSubBaseBLOCK():
                         if aim_bid not in aim_bids:
                             print('aim_bid and base_bid not match')
                             import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )
         if IsRecordTime: t3 = time.time()
@@ -692,7 +699,7 @@ class GlobalSubBaseBLOCK():
             if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
                 if IsRecordTime: tt0 = time.time()
                 if cascade_id==0:
-                    base_bid, rootb_index = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
+                    base_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
                     last_rootb_index = rootb_index
                 else:
                     base_bid = valid_sorted_basebids[baseb_index]
@@ -710,7 +717,7 @@ class GlobalSubBaseBLOCK():
                 around_aimbidx_dis,sr_count = GlobalSubBaseBLOCK.get_around_bid( aim_ixyzs, aim_attrs, valid_sorted_aimbids, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
                 sr_counts[baseb_index] += sr_count
                 for k in range( around_aimbidx_dis.shape[0] ):
-                    flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],-1,around_aimbidx_dis[k,1] ]
+                    flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],0,around_aimbidx_dis[k,1] ]
                     flatten_bidxmap_num[baseb_index] += 1
                     around_aimb_dis.append( around_aimbidx_dis[k,1] )
                 if IsRecordTime: tt3 = time.time()
@@ -764,6 +771,33 @@ class GlobalSubBaseBLOCK():
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
         flatten_bidxmap_tile = np.tile( np.expand_dims(flatten_bidxmap[-1,:,:],0), (base_nsubblock-flatten_bidxmap.shape[0],1,1) )
         flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
+        #-----------------------------------------------------------------------
+        # check by visulization
+        if self.IsCheck_gsbb['gen_ply_aimbxyz']:
+            sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
+            for aim_b_index in range( aim_nsubblock ):
+                aim_bid = sorted_aimbids_fixed[aim_b_index]
+                sg_aimb_xyzs[aim_b_index,:] = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+            create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_cascadeid%d.ply'%(cascade_id) )
+
+            sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
+            for aim_b_index in range( aim_nsubblock ):
+                for pi in range( aim_npoint_subblock ):
+                    if cascade_id == 0:
+                        point_index = valid_sorted_pointids[ sg_bidxmap_fixed[aim_b_index,pi] ]
+                        root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
+                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
+                    else:
+                        base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
+                        sg_baseb_xyzs[aim_b_index,pi,:] = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
+            create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_cascadeid%d.ply'%(cascade_id) )
+
+            flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
+            for i in range( flat_xyzs.shape[0] ):
+                flat_idx = flatten_bidxmap_fixed[i,0,0:2]
+                flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
+            create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_cascadeid%d.ply'%(cascade_id) )
+            if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
@@ -1247,6 +1281,7 @@ class GlobalSubBaseBLOCK():
         return kept_aim_bids, all_base_bids_in_aim_dic_fixed
 
     def gen_sg_ply( self, sg_all_bidxmaps, pl_xyz,bmap_nh5_filename ):
+        ''' Still not right '''
         print('start gen ply for %s'%(bmap_nh5_filename))
         for cascade_id in range(self.cascade_num):
             start = self.sg_bidxmaps_extract_idx[cascade_id]
@@ -1262,7 +1297,6 @@ class GlobalSubBaseBLOCK():
 
             sg_bidxmap_i = np.concatenate( [sg_bidxmap_i0, sg_bidxmap_i1, sg_bidxmap_i2], -1 )
             sg_xyz = np.zeros(shape=( sg_bidxmap_i.shape[0:4] ))
-
             for i in range( sg_bidxmap_i.shape[0] ):
                 for j in range( sg_bidxmap_i.shape[1] ):
                     for k in range( sg_bidxmap_i.shape[2] ):
@@ -1520,8 +1554,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     '''
     IsCheck_sh5f = {}
     IsCheck_sh5f['bid_mapping'] = False and ENABLECHECK
-    IsCheck_sh5f['bid_scope'] = True and ENABLECHECK
+    IsCheck_sh5f['bid_scope'] = False and ENABLECHECK
     IsCheck_sh5f['index_to_ixyz'] = False and ENABLECHECK
+    IsCheck_sh5f['gen_ply_all_bidxmap'] = False and ENABLECHECK
 
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_material']
@@ -2927,7 +2962,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             bmap_nh5f.create_done()
             print('write finish: %s'%(bmap_nh5_filename))
-            if DEBUGTMP:
+            if Sorted_H5f.IsCheck_sh5f['gen_ply_all_bidxmap']:
                 gsbb_write.gen_sg_ply( sg_all_bidxmaps, pl_nh5f['data'][...,0:3],bmap_nh5_filename )
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):

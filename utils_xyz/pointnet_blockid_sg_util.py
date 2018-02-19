@@ -140,10 +140,10 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
             print('pointnet_sa_module return\n new_xyz: %s\n new_points:%s\n\n'%(shape_str([new_xyz]),shape_str([new_points])))
             #import pdb;pdb.set_trace()
         # (2, 512, 64)
-        return new_xyz, new_points, root_point_features
+        return new_xyz, new_points, root_point_features, grouped_xyz
 
 
-def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True ):
+def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True, debug=None ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -161,6 +161,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
         new_points1: (2, 256, 256)
     '''
     IsShowModel = True
+    IsDebug = True
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
     with tf.variable_scope(scope) as sc:
@@ -176,8 +177,13 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
         flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
 
         flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
+        mapped_points2 = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
 
-        mapped_points2 = tf.gather_nd(points2,flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+        if IsDebug:
+            debug['flatten_bidxmap'].append( flatten_bidxmap )
+            flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0,0:2]],axis=-1 ) # (2, 256, 2)
+            flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
+            debug['flat_xyz'].append( flat_xyz )
 
         if cascade_id == 0:
             flatten_bidxmap_aimbidx1 = flatten_bidxmap[:,:,0,0:2]  # (2, 256, 1)
