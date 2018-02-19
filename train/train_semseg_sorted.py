@@ -27,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = True
+IS_GEN_PLY = False
 Is_REPORT_PRED = False
 ISNoEval = True
 LOG_TYPE = 'simple'
@@ -36,12 +36,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='3A', help='model flag')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
+#parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1_2/',\
+#                    help='The file name glob for both training and evaluation')
 parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1d6_2/',\
                     help='The file name glob for both training and evaluation')
 #parser.add_argument('--all_fn_globs', type=str,default='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1',\
 #                    help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
-parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
+parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-1024_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8', help='')
+#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
+#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
 parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
