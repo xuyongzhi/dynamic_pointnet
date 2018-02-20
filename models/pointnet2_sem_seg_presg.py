@@ -86,12 +86,12 @@ def get_sa_module_config(model_flag):
 def get_fp_module_config( model_flag ):
     mlps_fp = []
 
-    if model_flag=='1A' or '1AG':
+    if model_flag=='1A' or model_flag=='1AG':
         mlps_fp.append( [512,256,128] )
-    if model_flag=='2A' or '2AG':
+    if model_flag=='2A' or model_flag=='2AG':
         mlps_fp.append( [256,128,128] )
         mlps_fp.append( [512,256,256] )
-    elif model_flag=='3A' or '3AG':
+    elif model_flag=='3A' or model_flag=='3AG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
