@@ -801,7 +801,12 @@ class GlobalSubBaseBLOCK():
 
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
-        bxmap_meta['missed_aimb_num'] = np.array([all_sorted_aimbids.size - aim_nsubblock])
+
+        valid_sorted_aimbids.size - aim_nsubblock
+
+
+
+        bxmap_meta['missed_aimb_num'] = np.array([)
         bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num[0],0 )
         bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
         bxmap_meta['npoint_subblock_mean'] = np.array( [np.mean(base_block_num_ls)] )
