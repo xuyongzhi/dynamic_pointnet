@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -46,7 +46,7 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
     IsShowModel = True
     with tf.variable_scope(scope) as sc:
 
-        if IsGlobalLayer:
+        if IsExtraGlobalLayer:
             #if cascade_id == 0:
             #    points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
             #    xyz = points[...,0:3]
@@ -75,8 +75,8 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
             grouped_points = tf.gather_nd(points,bidmap_concat)
             # use the average position as new xyz
 
-            if use_xyz:
-                grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
+        if use_xyz:
+            grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         new_xyz = tf.reduce_mean(grouped_xyz,-2)
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
@@ -99,7 +99,6 @@ def pointnet_sa_module(cascade_id, IsGlobalLayer, xyz, points, bidmap, mlp, mlp2
             # (2, 512, 128, 64)
 
         if cascade_id == 0:
-            #root_point_features = tf.gather_nd( new_points,flatten_bidxmap0_concat,name="root_point_features")
             root_point_features = new_points
         else:
             root_point_features = None
@@ -167,8 +166,11 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
     with tf.variable_scope(scope) as sc:
         assert len(flatten_bidxmap.get_shape()) == 4
         if cascade_id == 0:
+            # points1 is grouped point features
             assert len(points1.get_shape()) == 4
         else:
+            # points1 is flat point features
+            assert len(points1.get_shape()) == 3
             assert flatten_bidxmap.shape[1] == points1.shape[1]
         batch_size = points2.get_shape()[0].value
         batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
@@ -186,6 +188,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
             debug['flat_xyz'].append( flat_xyz )
 
         if cascade_id == 0:
+            # convert grouped points1 to flat point features
             flatten_bidxmap_aimbidx1 = flatten_bidxmap[:,:,0,0:2]  # (2, 256, 1)
             flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
             points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )

@@ -1,4 +1,8 @@
-**IMPORTANT**
+
+**BUGS RECORD**
+- [ ] train_0_nocolor_lxyz2.ply is not corret
+
+**IMPORTANT factors to research**
 - [ ] effect of padding
 - [ ] effect of loss weight
 - [ ] max_padding = aim_attrs['block_step'] in get_blockids_of_dif_stride_step
@@ -18,3 +22,6 @@
 	get_block_data_of_new_stride_step_byid
 - [ ] Candidate improvement:                                                 
            1) save all_cur_blockids and all_cur_block_size in h5f to save time.
+
+**CONCLUSIONS**
+- currently, center mask may be not right. While use center mask, the accuracy is up to 0.9, but achieved 0.97 after removing this.

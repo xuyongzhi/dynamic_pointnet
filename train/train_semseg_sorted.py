@@ -33,31 +33,32 @@ ISNoEval = True
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_flag', default='3A', help='model flag')
+parser.add_argument('--model_flag', default='4AG', help='model flag')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 #parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1_2/',\
 #                    help='The file name glob for both training and evaluation')
-parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1d6_2/',\
+parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/',\
                     help='The file name glob for both training and evaluation')
 #parser.add_argument('--all_fn_globs', type=str,default='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1',\
 #                    help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
-parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-1024_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8', help='')
+parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
 #parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
 #parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
-parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-#parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-#parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 #parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+#parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=9, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
-parser.add_argument('--max_epoch', type=int, default=100, help='Epoch to run [default: 50]')
+parser.add_argument('--max_epoch', type=int, default=200, help='Epoch to run [default: 50]')
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
-parser.add_argument('--learning_rate', type=float, default=0.005, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
@@ -76,17 +77,19 @@ FLAGS = parser.parse_args()
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
-
+FLAGS.decay_step = 100 * FLAGS.batch_size
 if IS_GEN_PLY:
-    FLAGS.feed_data_elements = 'xyz-color_1norm'
+    #FLAGS.feed_data_elements = 'xyz-color_1norm'
     #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 199
+    FLAGS.model_epoch = 700
     #FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
-#FLAGS.model_epoch = 99
+#FLAGS.model_epoch = 699
+##FLAGS.learning_rate = 0.001
+#FLAGS.max_epoch = 201
 #-------------------------------------------------------------------------------
 feed_data_elements = FLAGS.feed_data_elements.split('-')
 feed_label_elements = FLAGS.feed_label_elements.split('-')

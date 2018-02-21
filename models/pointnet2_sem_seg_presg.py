@@ -61,7 +61,8 @@ def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
     mlps = []
     if model_flag=='1A' or model_flag=='1AG':
-        mlps.append( [64,64,64,128,1024] )
+        mlps.append( [64,64,128,512] )
+        #mlps.append( [64,64,64,128,1024] )
     elif model_flag=='2A' or model_flag=='2AG':
         mlps.append( [32,64,64,128] )
         mlps.append( [128,128,256,512] )
@@ -119,9 +120,9 @@ def get_global_bidxmap( batch_size, nsubblock_last ):
     sg_bidxmap_global = tf.tile( sg_bidxmap_global,[batch_size,1,1] )
     return sg_bidxmap_global
 
-def get_flatten_bidxmap_global( batch_size, nsubblock_last ):
-    flatten_bidxmap_global = tf.constant(value=[0,0], shape = [1,1,2], dtype=tf.int32)
-    flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size,nsubblock_last,1] )
+def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
+    flatten_bidxmap_global = tf.constant(value=[0,0,0], shape = [1,1,1,3], dtype=tf.int32)
+    flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, nsubblock_last, nearest_block_num, 1] )
     return flatten_bidxmap_global
 
 def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None):
@@ -156,14 +157,16 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
     for k in range(cascade_num):
-        IsGlobalLayer = False
         if IsAddGlobalLayer and k==cascade_num-1:
-            IsGlobalLayer = True
-        start = sg_bm_extract_idx[k]
-        end = sg_bm_extract_idx[k+1]
-        sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+            IsExtraGlobalLayer = True
+            sg_bidxmap_k = None
+        else:
+            IsExtraGlobalLayer = False
+            start = sg_bm_extract_idx[k]
+            end = sg_bm_extract_idx[k+1]
+            sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
+        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
                                                         bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
@@ -182,12 +185,12 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     mlps_fp = get_fp_module_config( model_flag )
     for i in range(cascade_num):
         k = cascade_num-1-i
-        #if i == 0:
-        #    flatten_bidxmaps_k = get_flatten_bidxmap_global( batch_size, l_points[k].get_shape()[1].value )
-        #else:
-        start = flatten_bm_extract_idx[k]
-        end = flatten_bm_extract_idx[k+1]
-        flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
+        if IsAddGlobalLayer and k==cascade_num-1:
+            flatten_bidxmaps_k = get_flatten_bidxmap_global( batch_size, l_points[k].get_shape()[1].value, flatten_bidxmaps.get_shape()[2].value )
+        else:
+            start = flatten_bm_extract_idx[k]
+            end = flatten_bm_extract_idx[k+1]
+            flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
         l_points[k] = pointnet_fp_module( k, l_points[k], l_points[k+1], flatten_bidxmaps_k, mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
