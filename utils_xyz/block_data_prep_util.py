@@ -290,7 +290,7 @@ class GlobalSubBaseBLOCK():
     para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
                 'flatbxmap_max_nearest_num', 'flatbxmap_max_dis', 'padding']
     root_para_names = ['root_block_stride','root_block_step']
-    meta_names = ['count','missed_aimb_num','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npoint_subblock_mean','npoint_subblock_std','sr_count']
+    meta_names = ['count','aimbnum_missed_add','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npointsubblock_missed_add','npoint_subblock_std','sr_count']
 
     def load_default_parameters( self ):
         max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
@@ -408,11 +408,13 @@ class GlobalSubBaseBLOCK():
                 count = self.count[cascade_id]
                 for ele_name in self.meta_names:
                     meta_str += '\t%s: %s'%( ele_name, getattr(self, ele_name)[cascade_id] / count )
-                    if ele_name == 'missed_aimb_num':
+                    if ele_name == 'count':
+                        meta_str += ' - %d'%(count)
+                    if ele_name == 'aimbnum_missed_add':
                         meta_str += ' \t<-- stride:%s  nsubblock:%s'%( self.sub_block_stride_candis[cascade_id], self.nsubblock_candis[cascade_id] )
                     if ele_name == 'baseb_exact_flat_num':
                         meta_str += ' \t<-- nsubblock:%s  step:%s'%( self.nsubblock_candis[cascade_id], self.sub_block_step_candis[cascade_id] )
-                    if ele_name == 'npoint_subblock_mean':
+                    if ele_name == 'npointsubblock_missed_add':
                         meta_str += ' \t<-- npoint_subblock:%s'%( self.npoint_subblock_candis[cascade_id] )
                     meta_str += '\n'
                 meta_str += '\n'
@@ -802,14 +804,13 @@ class GlobalSubBaseBLOCK():
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
 
-        valid_sorted_aimbids.size - aim_nsubblock
-
-
-
-        bxmap_meta['missed_aimb_num'] = np.array([)
+        aimbnum_missed_add = aim_nsubblock - valid_sorted_aimbids.size
+        bxmap_meta['aimbnum_missed_add'] = np.array([[ valid_sorted_aimbids.size, min(0,aimbnum_missed_add), max(0,aimbnum_missed_add) ]])
         bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num[0],0 )
         bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
-        bxmap_meta['npoint_subblock_mean'] = np.array( [np.mean(base_block_num_ls)] )
+        npointsubblock_mean = np.mean(base_block_num_ls)
+        npointsubblock_missed = aim_npoint_subblock - npointsubblock_mean
+        bxmap_meta['npointsubblock_missed_add'] = np.array( [[ npointsubblock_mean, min(0, npointsubblock_missed), max(0, npointsubblock_missed) ]] )
         bxmap_meta['npoint_subblock_std'] = np.array( [np.std(baseb_num)] )
         if len(around_aimb_dis) > 0:
             bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )

@@ -53,7 +53,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.6]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.6]).astype(np.float)
-        nsubblock_candis =       np.array([1024,256]).astype(np.int32)
+        nsubblock_candis =       np.array([160,32]).astype(np.int32)
         npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(config_flag)
