@@ -75,8 +75,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
             grouped_points = tf.gather_nd(points,bidmap_concat)
             # use the average position as new xyz
 
-        if use_xyz:
-            grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
+            if use_xyz:
+                grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         new_xyz = tf.reduce_mean(grouped_xyz,-2)
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size

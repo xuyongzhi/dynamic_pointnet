@@ -33,16 +33,17 @@ ISNoEval = True
 LOG_TYPE = 'simple'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_flag', default='4AG', help='model flag')
+parser.add_argument('--model_flag', default='2A', help='model flag')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 #parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1_2/',\
 #                    help='The file name glob for both training and evaluation')
-parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/',\
-                    help='The file name glob for both training and evaluation')
+#parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_0d5_1/', help='The file name glob for both training and evaluation')
+parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/', help='The file name glob for both training and evaluation')
 #parser.add_argument('--all_fn_globs', type=str,default='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1',\
 #                    help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
+#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_2048_0d5_1_fmn3-512_256-128_12-0d2_0d6-0d2_0d6', help='')
 parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
 #parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
 #parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
@@ -78,13 +79,14 @@ FLAGS = parser.parse_args()
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 FLAGS.decay_step = 100 * FLAGS.batch_size
+FLAGS.eval_fnglob_or_rate=0.3
 if IS_GEN_PLY:
     #FLAGS.feed_data_elements = 'xyz-color_1norm'
     #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 700
-    #FLAGS.batch_size = 1
+    FLAGS.model_epoch = 99
+    FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
@@ -108,7 +110,6 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
-
 
 # ------------------------------------------------------------------------------
 # Load Data
@@ -420,7 +421,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                                     feed_dict=feed_dict )
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
-        if IS_GEN_PLY and batch_idx<3:
+        if IS_GEN_PLY and batch_idx<10:
             color_flags = ['gt_color']
             gen_ply( batch_idx, cur_data[:,:,0:3], color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_rawdata')
             #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )

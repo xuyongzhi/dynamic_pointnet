@@ -202,7 +202,7 @@ def GenPyramidSortedFlie(fn):
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
-            Always_CreateNew_pyh5 = False
+            Always_CreateNew_pyh5 = True
             Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
@@ -553,11 +553,10 @@ class Matterport3D_Prepare():
             sortedh5f.gen_file_obj(IsLabelColor=False)
 
     def GenObj_NormedH5f(self):
-        stride = step = [0.1,0.1,0.1]
-        file_name = self.house_h5f_dir+'/'+get_stride_step_name(step,stride) +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag() + '/region5.prh5'
+        file_name = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5_0d5_1/17DRP5sb8fy/region0.nh5'
         with h5py.File(file_name,'r') as h5f:
             normedh5f = Normed_H5f(h5f,file_name)
-            normedh5f.gen_gt_pred_obj_examples(['ALL'])
+            normedh5f.gen_gt_pred_obj_examples()
             #normedh5f.gen_gt_pred_obj_examples(['void'])
 
     def ShowSummary(self):
@@ -673,5 +672,6 @@ if __name__ == '__main__':
     #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
+
 
 

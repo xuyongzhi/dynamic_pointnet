@@ -61,8 +61,8 @@ def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
     mlps = []
     if model_flag=='1A' or model_flag=='1AG':
-        mlps.append( [64,64,128,512] )
-        #mlps.append( [64,64,64,128,1024] )
+        #mlps.append( [64,64,128,128,512,1024] )
+        mlps.append( [64,64,64,128,1024] )
     elif model_flag=='2A' or model_flag=='2AG':
         mlps.append( [32,64,64,128] )
         mlps.append( [128,128,256,512] )
@@ -79,14 +79,13 @@ def get_sa_module_config(model_flag):
         assert False,"model_flag not recognized: %s"%(model_flag)
 
     mlp2s = []
-    if model_flag=='1A':
-        mlp2s.append( [256,128] )
+    if model_flag=='1A' or model_flag=='1AG':
+        mlp2s.append( [512,256,128] )
     for k in range(cascade_num):
         mlp2s.append(None )
     return mlps,mlp2s
 def get_fp_module_config( model_flag ):
     mlps_fp = []
-
     if model_flag=='1A' or model_flag=='1AG':
         mlps_fp.append( [512,256,128] )
     if model_flag=='2A' or model_flag=='2AG':
@@ -186,7 +185,9 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     for i in range(cascade_num):
         k = cascade_num-1-i
         if IsAddGlobalLayer and k==cascade_num-1:
-            flatten_bidxmaps_k = get_flatten_bidxmap_global( batch_size, l_points[k].get_shape()[1].value, flatten_bidxmaps.get_shape()[2].value )
+            if k==0: nsubblock_last = l_points[k].get_shape()[2].value # l_points[0] is grouped feature
+            else: nsubblock_last = l_points[k].get_shape()[1].value  # l_points[0] is flat feature
+            flatten_bidxmaps_k = get_flatten_bidxmap_global( batch_size, nsubblock_last, flatten_bidxmaps.get_shape()[2].value )
         else:
             start = flatten_bm_extract_idx[k]
             end = flatten_bm_extract_idx[k+1]
@@ -202,7 +203,9 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
     if IsShowModel: print('net:%s'%(shape_str([net])))
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
-    if IsShowModel: print('net:%s'%(shape_str([net])))
+    if IsShowModel:
+        print('net:%s'%(shape_str([net])))
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
     return net, end_points, debug
 

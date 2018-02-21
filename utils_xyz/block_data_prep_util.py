@@ -2663,28 +2663,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             data = np.delete( data, del_choice, axis=0 )
             label = np.delete( label, del_choice, axis=0 )
 
-            # update bsplit_idxmap after downsampling
-#            del_num_eachb = np.zeros( shape=(bsplit_idxmap.shape[0]) )
-#            del_bidx = 0
-#            for del_point_idx in del_choice:
-#                while del_point_idx >= bsplit_idxmap[del_bidx,1]:
-#                    del_bidx += 1
-#                del_num_eachb[del_bidx] += 1
-#            sum_del_point_num = 0
-#            for bidx in range( bsplit_idxmap.shape[0] ):
-#                sum_del_point_num += del_num_eachb[bidx]
-#                bsplit_idxmap[bidx,1] -= sum_del_point_num
-#            # check if points in some blocks are all delted
-#            empty_bidxs = []
-#            last_point_idx = 0
-#            for bidx in range( bsplit_idxmap.shape[0] ):
-#                if bsplit_idxmap[bidx][1] == last_point_idx:
-#                    empty_bidxs.append( bidx )
-#                last_point_idx = bsplit_idxmap[bidx][1]
-#            empty_bidxs = np.array( empty_bidxs )
-#            bsplit_idxmap = np.delete( bsplit_idxmap, empty_bidxs, 0 )
-#            assert bsplit_idxmap[-1,1] == sample_num
-
             bsplit_idxmap, missed_rootb_num = Sorted_H5f.down_sample_bsplit_idxmap( bsplit_idxmap, del_choice, sample_num )
 
             sampling_meta['missed_rootb_num'] = missed_rootb_num
@@ -3646,7 +3624,7 @@ class Normed_H5f():
             for i in range(rootb_split_idxmap.shape[0]):
                 rootb_num = index_in_sorted( rootb_split_idxmap[i,:,0]==-1, np.array([1]) )
                 rootb_nums.append(rootb_num)
-            rootb_num = np.mean( rootb_nums )
+            rootb_num = np.sum( rootb_nums )
             return rootb_num
 
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
@@ -3659,11 +3637,13 @@ class Normed_H5f():
             base_sample_num = attrs['sample_num']
             summary += '\nsampling meta for sample_num=%d'%( base_sample_num )
             attrs = self.h5f['rootb_split_idxmap'].attrs
-            rootb_num = get_rootb_num( self.h5f['rootb_split_idxmap'] )
+            rootb_split_idxmap = self.h5f['rootb_split_idxmap']
+            global_b_num = rootb_split_idxmap.shape[0]
+            rootb_num = get_rootb_num( rootb_split_idxmap )
             for ele_name in attrs:
                 summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
-                    total_point_num = base_sample_num + attrs[ele_name]
+                    total_point_num = base_sample_num*global_b_num + attrs[ele_name]
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
                 if ele_name == 'missed_rootb_num':
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
@@ -3854,7 +3834,7 @@ class Normed_H5f():
         acc_str += 'number(K):   '+getstr(np.trunc(real_Pos/1000.0),str_format='%d')+'\n'
         return acc_str,ave_acc_str
 
-    def gen_gt_pred_obj_examples(self,config_flag = ['None'],out_path=None):
+    def gen_gt_pred_obj_examples(self,config_flag = ['ALL'],out_path=None):
         #all_catigories = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
         all_catigories = [key for key in self.g_class2label]
         #config_flag = ['Z','building_6_no_ceiling']
@@ -3894,12 +3874,11 @@ class Normed_H5f():
                 elif config_flag =='void':
                     xyz_cut_rate=None
                     show_categaries=['void']
-                else:
-                    return None, None
                 return [xyz_cut_rate],[show_categaries],[config_flag]
 
         num_blocks = self.data_set.shape[0]
         vis_block_ids = range(num_blocks)
+        vis_block_ids = [None]
 
         for flag in config_flag:
             xyz_cut_rate_ls,show_categaries,visu_flags = get_config(flag)
