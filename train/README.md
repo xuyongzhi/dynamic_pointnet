@@ -24,10 +24,10 @@ Trying the MSG firstly.
 The basic unit to process the points, feels like it like the convolutional kernel of CNN, you can use it to build the complex architecture.
 
 #### 4. classification with fully connected network
-For classification, two fully connected network are need to produced to classification information, maybe deeper FCNs are needed, for classifications usually need more abstract information.
+For classification, two fully connected network are needed to produce classification information, maybe deeper FCNs are needed, for classifications usually need more abstract information.
 
 #### 5. regression with fully connected network
-Fore regression, one or two FCNs are needed, bounding box regression is essentially a linear process, thus too abstract information is not helpful. Features for classification and regression should be different level.
+Fore regression, one or two FCNs are needed, bounding box regression is essentially a linear process, thus too abstract information is not helpful. Features for classification and regression should be at different level.
 
 ### parameters to tune in the model.py
 * N: the number of sampled point, which is very critical
@@ -45,5 +45,6 @@ Fore regression, one or two FCNs are needed, bounding box regression is essentia
 * O: overlaping ratio of positive samples and negative samples
 
 ### How to do experiments
-
+set #1: (radius=0.3, 0.6, 1.0, 1.8),(nsample= 32, 16, 16, 8), thresh=0.7, acc_38 = 0.1612, acc_30=0.1892  
+set #2: (radius=0.3, 0.6, 1.0, 1.8, 2.2), (nsample = 32, 16, 16, 8, 8), thresh=0.6, batchsize = 5
 
