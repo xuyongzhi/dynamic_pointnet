@@ -366,7 +366,9 @@ class Net_Provider():
 
             if 'xyz' not in self.feed_data_elements:
                 data_i = np.delete( data_i, new_feed_data_ele_idxs['xyz'], 2 )
-            si = 0
+                si = 0
+            else:
+                si = 1
             if 'xyz_midnorm_block' in self.feed_data_elements:
                 data_i = np.concatenate( [xyz_midnorm_block_i, data_i],2 )
                 assert self.feed_data_elements.index( 'xyz_midnorm_block' ) == si

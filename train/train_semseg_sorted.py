@@ -28,7 +28,7 @@ ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
-Is_REPORT_PRED = False
+Is_REPORT_PRED = IS_GEN_PLY
 ISNoEval = True
 LOG_TYPE = 'simple'
 
@@ -36,22 +36,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
-#parser.add_argument('--all_fn_globs', type=str,default='v1/small_test/stride_0d1_step_0d1_pl_nh5_1_2/',\
-#                    help='The file name glob for both training and evaluation')
-#parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_0d5_1/', help='The file name glob for both training and evaluation')
 parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/', help='The file name glob for both training and evaluation')
-#parser.add_argument('--all_fn_globs', type=str,default='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1',\
-#                    help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
-#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_2048_0d5_1_fmn3-512_256-128_12-0d2_0d6-0d2_0d6', help='')
 parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
-#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
-#parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
-#parser.add_argument('--feed_data_elements', default='xyz-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-#parser.add_argument('--feed_data_elements', default='xyz_1norm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-#parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-#parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=9, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
@@ -67,19 +55,24 @@ parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate fo
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
-parser.add_argument('--finetune',action='store_true',help='do not train')
+parser.add_argument('--finetune',type=int,default=0,help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--debug',action='store_true',help='tf debug')
-parser.add_argument('--multip_feed',action='store_true',help='IsFeedData_MultiProcessing = True')
+parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 
 FLAGS = parser.parse_args()
+FLAGS.finetune = bool(FLAGS.finetune)
+FLAGS.multip_feed = bool(FLAGS.multip_feed)
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 FLAGS.decay_step = 80 * FLAGS.batch_size
-FLAGS.eval_fnglob_or_rate=0.3
+try:
+    FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
+except:
+    pass
 if IS_GEN_PLY:
     #FLAGS.feed_data_elements = 'xyz-color_1norm'
     #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'

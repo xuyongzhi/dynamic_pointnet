@@ -38,24 +38,71 @@ sampling \& grouping: stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\
 	\includegraphics[width=\textwidth]{loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat}
 \end{figure}
 \subsection{feed elements}
-epoch num = 100
+epoch num = 100 \par
+stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\_32-32\_12-0d2\_0d6-0d2\_0d6 \par
 \begin{center}
-	\begin{tabular}{|c | c || c c |} 
+	\begin{tabular}{|c |c | c || c c |} 
 		\hline
-		batch size & data elements & acc & loss \\
+		model & batch size & data elements & acc & loss \\
 		\hline
-		9 & xyz color & 0.890 & 0.356\\ [0.5ex] 
+		1AG & 9 & xyz color & 0.890 & 0.356\\ [0.5ex] 
 		\hline
-		27 & xyz color & 0.920 & 0.240\\ [0.5ex] 
+		1AG & 27 & xyz color & 0.920 & 0.240\\ [0.5ex] 
 		\hline
-		81 & xyz color & 0.978 & 0.072\\ [0.5ex] 
+		
+		3AG & 27 & xyz color& 0.912 & 0.273 \\  [0.5ex]
 		\hline
-		9 & xyz  & 0.861 & 0.427\\ [0.5ex] 
+		2A & 27 & xyz color& 0.908 & 0.294 \\  [0.5ex]
 		\hline
-		27 & xyz & 0.907 & 0.257\\ [0.5ex] 
+		2AG & 27 & xyz color& 0.902 & 0.293 \\  [0.5ex]
 		\hline
-		81 & xyz & 0.975 & 0.078 \\  [1ex] 
+		1A & 27 & xyz color& 0.883 & 0.351 \\  [0.5ex]
+		\hline
+		1AG & 81 & xyz color & 0.978 & 0.072\\ [0.5ex] 
+		\hline\hline
+		
+		1AG & 9 & xyz  & 0.861 & 0.427\\ [0.5ex] 
+		\hline
+		1AG & 27 & xyz & 0.907 & 0.257\\ [0.5ex] 
+		\hline
+		1AG & 81 & xyz & 0.975 & 0.078 \\  [0.5ex]
+		\hline\hline
+		1A & 27 & xyzmid color& 0.889 & 0.357 \\  [0.5ex]
+		\hline
+		3AG & 27 & xyzmid color& 0.933 & 0.193 \\  [0.5ex]
+		\hline
+		
+		2A & 27 & xyzmid color& 0.939 & 0.177 \\  [0.5ex]
+		\hline
+		
+		2AG & 27 & xyzmid color& 0.929 & 0.208 \\  [0.5ex]
+		\hline\hline
+		3AG & 27 & xyz xyzmid color& 0.924 & 0.230 \\  [0.5ex]
+		\hline
+		
+		2A & 27 & xyz xyzmid color& 0.898 & 0.317 \\  [0.5ex]
+		\hline
+		2AG & 27 & xyz xyzmid color& 0.908 & 0.280 \\  [0.5ex]
+		\hline
+		1A & 27 & xyz xyzmid color& 0.910 & 0.281 \\  [0.5ex]
+		\hline
+		1AG & 27 & xyz xyzmid color& 0.944 & 0.163 \\  [0.5ex]
+		\hline
+		1AG & 81 & xyz xyzmid color& 0.976 & 0.078 \\  [0.5ex]
+		\hline
+		2A & 81 & xyz xyzmid color& 0.942 & 0.173 \\  [0.5ex]
+		\hline
+		3AG & 81 & xyz xyzmid color& 0.949 & 0.147 \\  [0.5ex]
 		\hline
 	\end{tabular}
 \end{center}
+
+1. large batch size is better \par
+2. $1AG (0.92) > 3AG(0.912) > 2A(0.908) > 2AG(0.902) > 1A(883)$ \par
+   1AG is much better than 1A \par 
+   \textbf{1AG is a bit better than 3AG ???} \par
+
+3. xyz-color is only a bit better than xyz \par
+4. xyzmid-color is much better than xyz-color \par
+5. \textbf{xyzmid-color is normally much better than xyz-xyzmid-color ???} \par
 \end{document}

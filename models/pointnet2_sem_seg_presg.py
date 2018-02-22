@@ -215,7 +215,6 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel:
         print('net:%s'%(shape_str([net])))
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
     return net, end_points, debug
 

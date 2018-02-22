@@ -12,45 +12,24 @@ NETCONFIG['set_center_weight'] = False
 
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '2C1'
+_gsbb_config = '3B1'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( config_flag = _gsbb_config ):
-    flatbxmap_max_nearest_num = 1
+    flatbxmap_max_nearest_num = 4
     flatbxmap_max_dis = 4
     padding = 0.6
-    if config_flag == '3A1':
-        global_stride = np.array([1,1,-1]).astype(np.float)
+
+    if config_flag == '3B1':
+        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)
-        max_global_num_point = 25600
-        global_num_point = 25600
+        max_global_num_point = 12800
+        global_num_point = 12800
 
         sub_block_stride_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
-
-    elif config_flag == '3B1':
-        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
-        global_step = np.array([2.0,2.0,-1]).astype(np.float)
-        max_global_num_point = 25600
-        global_num_point = 25600
-
-        sub_block_stride_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        nsubblock_candis =       np.array([512,256, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([128,  12,  6]).astype(np.int32)
-
-    elif config_flag == '3B2':
-        global_stride = np.array([1.6,1.6,-1]).astype(np.float)
-        global_step = np.array([2.0,2.0,-1]).astype(np.float)
-        max_global_num_point = 25600
-        global_num_point = 25600
-
-        sub_block_stride_candis = np.array([0.1,0.4,0.8]).astype(np.float)
-        sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        nsubblock_candis =       np.array([1024,256, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([192,  48,  6]).astype(np.int32)
+        nsubblock_candis =       np.array([544,56, 24]).astype(np.int32)
+        npoint_subblock_candis = np.array([60,  16,  8]).astype(np.int32)
 
     elif config_flag == '2C1':
         global_stride = np.array([0.5,0.5,-1]).astype(np.float)
