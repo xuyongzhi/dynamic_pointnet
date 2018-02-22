@@ -78,7 +78,7 @@ FLAGS = parser.parse_args()
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
-FLAGS.decay_step = 100 * FLAGS.batch_size
+FLAGS.decay_step = 80 * FLAGS.batch_size
 FLAGS.eval_fnglob_or_rate=0.3
 if IS_GEN_PLY:
     #FLAGS.feed_data_elements = 'xyz-color_1norm'
@@ -86,7 +86,7 @@ if IS_GEN_PLY:
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
     FLAGS.model_epoch = 99
-    FLAGS.batch_size = 1
+    #FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
@@ -173,7 +173,6 @@ BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
-print('BATCH_SIZE = %d'%(BATCH_SIZE))
 # ------------------------------------------------------------------------------
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
@@ -187,6 +186,12 @@ def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
+# log key parameters
+log_string('\n\nkey parameters')
+log_string( 'batch size: %d'%(BATCH_SIZE) )
+log_string( 'data: %s'%(FLAGS.feed_data_elements) )
+log_string( 'model: %s'%(FLAGS.model_flag) )
+log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(

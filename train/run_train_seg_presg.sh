@@ -16,7 +16,8 @@ eval_fnglob_or_rate='17DRP5sb8fy'
 bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'
 #feed_data_elements='xyz_1norm_file-color_1norm'
-feed_data_elements='xyz-color_1norm'
+feed_data_elements='xyz'
+#feed_data_elements='xyz-color_1norm'
 #feed_data_elements='xyz_midnorm_block-color_1norm'
 #feed_data_elements='xyz_1norm_file-xyz_midnorm-color_1norm'
 model_flag='3AG'
@@ -25,14 +26,12 @@ model_flag='3A'    # batch_size=10 9G
 #       *******************************************************************
 all_fn_globs='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/'
 bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2'
-feed_data_elements='xyz_midnorm_block'
 batch_size=9
 model_flag='3A'
 # *****************************************************************************
 all_fn_globs='v1/scans/stride_0d1_step_0d1_pl_nh5_0d5_1/'
-bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_2048_0d5_1_fmn3-512_256-128_12-0d2_0d6-0d2_0d6'
-feed_data_elements='xyz_midnorm_block'
-batch_size=27
+bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_2048_0d5_1_fmn1-160_32-32_12-0d2_0d6-0d2_0d6'
+batch_size=9
 model_flag='1AG'
 # *****************************************************************************
 

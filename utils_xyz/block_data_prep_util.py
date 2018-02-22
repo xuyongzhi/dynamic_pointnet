@@ -40,7 +40,7 @@ from ply_util import create_ply_matterport
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
-from gsbb_config import get_gsbb_config
+from configs import get_gsbb_config
 import magic
 
 DEBUGTMP=True
@@ -409,7 +409,7 @@ class GlobalSubBaseBLOCK():
                 for ele_name in self.meta_names:
                     meta_str += '\t%s: %s'%( ele_name, getattr(self, ele_name)[cascade_id] / count )
                     if ele_name == 'count':
-                        meta_str += ' - %d'%(count)
+                        meta_str += '(%d)'%(count)
                     if ele_name == 'aimbnum_missed_add':
                         meta_str += ' \t<-- stride:%s  nsubblock:%s'%( self.sub_block_stride_candis[cascade_id], self.nsubblock_candis[cascade_id] )
                     if ele_name == 'baseb_exact_flat_num':

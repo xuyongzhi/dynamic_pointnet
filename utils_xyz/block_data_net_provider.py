@@ -14,6 +14,7 @@ import multiprocessing as mp
 import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
+from configs import NETCONFIG
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -23,9 +24,6 @@ DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 
-
-CONFIG = {}
-CONFIG['set_center_weight'] = False
 
 #-------------------------------------------------------------------------------
 # provider for training and testing
@@ -420,8 +418,10 @@ class Net_Provider():
             sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
         sample_weights = np.concatenate(sample_weights,axis=-1).astype( np.float32 )
 
-        if CONFIG['set_center_weight']:
+        if NETCONFIG['set_center_weight']:
             sample_weights *= center_mask
+        if not NETCONFIG['loss_weight']:
+            sample_weights = np.ones_like(sample_weights)
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)

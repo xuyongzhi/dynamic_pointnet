@@ -120,8 +120,18 @@ def get_global_bidxmap( batch_size, nsubblock_last ):
     return sg_bidxmap_global
 
 def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
-    flatten_bidxmap_global = tf.constant(value=[0,0,0], shape = [1,1,1,3], dtype=tf.int32)
-    flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, nsubblock_last, nearest_block_num, 1] )
+    '''
+       flatten_bidxmap: (B,256,self.flatbxmap_max_nearest_num,3)
+                      N: base_bid_index
+                     [:,:,0]: aim_b_index
+                     [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
+                     [:,:,2]: index_distance
+    '''
+    tmp = tf.constant(value=[0], shape = [1,1,1,1], dtype=tf.int32)
+    tmp = tf.tile( tmp,[1, nsubblock_last, 1, 1] )
+    flatten_bidxmap_global = tf.reshape( tf.range( nsubblock_last ),(1,-1,1,1) )
+    flatten_bidxmap_global = tf.concat( [tmp, flatten_bidxmap_global, tmp], -1 )
+    flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, 1, nearest_block_num, 1] )
     return flatten_bidxmap_global
 
 def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None):
@@ -217,6 +227,7 @@ def get_loss(pred, label, smpw, label_eles_idx ):
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
 
+    #classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred)
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)
     tf.summary.scalar('classify loss', classify_loss)
     return classify_loss

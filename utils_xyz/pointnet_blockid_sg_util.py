@@ -194,7 +194,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
             points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
         new_points1 = tf.concat(values=[points1,mapped_points2],axis=-1)
-        new_points1 = tf.expand_dims(new_points1,2)     # (2, 256, 1, 768)
+        new_points1 = tf.expand_dims(new_points1,1)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
 
         for i, num_out_channel in enumerate(mlp):
@@ -203,7 +203,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
                                         bn=bn, is_training=is_training,
                                         scope='conv%d'%(i), bn_decay=bn_decay)
             if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
-        new_points1 = tf.squeeze(new_points1,[2]) # (2, 256, 256)
+        new_points1 = tf.squeeze(new_points1,[1]) # (2, 256, 256)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));
         #if IsShowModel:  import pdb; pdb.set_trace()
     return new_points1
