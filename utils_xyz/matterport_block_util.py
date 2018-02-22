@@ -203,7 +203,7 @@ def GenPyramidSortedFlie(fn):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_pyh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -424,8 +424,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            if TMPDEBUG:
-                file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
+            #if TMPDEBUG:
+            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -482,7 +482,7 @@ class Matterport3D_Prepare():
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
             plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8'
+            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn4-544_56_24-60_16_8-0d2_0d6_1d2-0d2_0d6_1d2'
             nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
             formats = ['.nh5','.bxmh5']
             for j in range(2):
@@ -591,7 +591,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

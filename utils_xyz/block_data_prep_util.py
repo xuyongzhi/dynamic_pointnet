@@ -2859,7 +2859,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
 
                 pl_nh5f.create_done()
-                pl_nh5f.write_summary()
                 if IsShowSummaryFinished:
                     pl_nh5f.show_summary_info()
                 print('plnh5 file create finished: data shape: %s'%(str(pl_nh5f.data_set.shape)) )
@@ -2903,7 +2902,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             pl_nh5f.append_to_dset( global_num_point_str + '-point_indices', new_point_idxs )
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_point_num'] = missed_point_num
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_rootb_num'] = missed_rootb_num
-            pl_nh5f.write_summary()
             pl_nh5f.create_done()
         print('finish adding global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_nh5_filename) )
 
@@ -3738,6 +3736,7 @@ class Normed_H5f():
         if 'smaller_sample_num' in self.h5f.attrs:
             for new_sample_num in self.h5f.attrs['smaller_sample_num']:
                 self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
+        self.write_summary()
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
