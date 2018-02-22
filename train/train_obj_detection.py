@@ -14,6 +14,8 @@ import socket
 import time
 import os
 import sys
+import datetime
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
@@ -35,7 +37,7 @@ from evaluation_3d import evaluation_3d
 
 
 ISDEBUG = False
-ISSUMMARY = False
+ISSUMMARY = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_name', default='rawh5_kitti', help='rawh5_kitti')
@@ -82,6 +84,7 @@ except:
     log_eval_fn_glob = FLAGS.eval_fnglob_or_rate.split('*')[0]
     print('FLAGS.eval_fnglob_or_rate is eval name glob. log_eval_fn_glob:%s'%(log_eval_fn_glob))
 
+date = datetime.datetime.now().date()
 if FLAGS.only_evaluate:
     MAX_EPOCH = 1
     log_name = 'log_Test.txt'
@@ -89,20 +92,24 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
     FLAGS.log_dir = FLAGS.log_dir+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob
+                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob+str(date)
 FLAGS.feed_elements = FLAGS.feed_elements.split(',')
+
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/object_detection_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
-LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/object_detection_result/fusion_log.txt')
+LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/object_detection_result/accuracy_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-os.system('cp %s/models/pointnet2_obj_detection.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/models/pointnet2_obj_detection_tf4.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/config/config.py %s' % (ROOT_DIR,LOG_DIR))
 os.system('cp %s/train_obj_detection.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
 if FLAGS.finetune:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
 else:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
-LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
+#LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
+acc_name = 'accuracy.txt'
+LOG_FOUT_FUSION = open(os.path.join(LOG_DIR, acc_name), 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
@@ -254,6 +261,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
+            log_string('training is finished \n')
             eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
 
             # Save the variables to disk.
@@ -262,8 +270,10 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
-            if epoch == MAX_EPOCH -1:
-                LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
+            # if epoch == MAX_EPOCH -1:
+            LOG_FOUT_FUSION.write('batch_id:'+str(epoch)+', accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
+            log_string('Accuracy is : %0.3f' % (eval_log_str))
+
 
 
 
@@ -445,7 +455,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     all_pred_boxes, all_gt_boxes =  boxes_assemble_filter(all_pred_class_val, all_pred_box_val, all_xyz, all_gt_box, 0.05)
 
     # caculate the average precision with the detection results
-    aveg_precision = evaluation_3d(all_pred_boxes, all_gt_boxes, cfg.TEST.RPN_NMS_THRESH )
+    aveg_precision = evaluation_3d(all_pred_boxes, all_gt_boxes, cfg.TEST.RPN_NMS_THRESH)
     # delete the all_gt_box, all_pred_class_val and all_pred_box_val to save
     # memory
     print('The average precision is {}'.format(aveg_precision))

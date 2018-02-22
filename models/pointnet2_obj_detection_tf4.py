@@ -68,10 +68,10 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
 
 
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint= 16384,radius= radius_l1, nsample=32, mlp=[32,32,64]   , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
-    l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint= 8192, radius= radius_l2, nsample=32, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
-    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint= 4096, radius= radius_l3, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
-    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 2048, radius= radius_l4, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
-#    l5_xyz, l5_points, l5_indices = pointnet_sa_module(l4_xyz, l4_points, npoint= 1024, radius= radius_l5, nsample=32, mlp=[512,512,1024], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer5')
+    l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint= 8192, radius= radius_l2, nsample=16, mlp=[64,64,128]  , mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
+    l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint= 4096, radius= radius_l3, nsample=16, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
+    l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint= 2048, radius= radius_l4, nsample= 8, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
+    l5_xyz, l5_points, l5_indices = pointnet_sa_module(l4_xyz, l4_points, npoint= 2048, radius= radius_l5, nsample= 8, mlp=[512,512,1024], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer5')
 #    l6_xyz, l6_points, l6_indices = pointnet_sa_module(l5_xyz, l5_points, npoint=  512, radius= radius_l6, nsample=32, mlp=[1024,1024,2048], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer6')
 
 
@@ -83,13 +83,13 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     #l0_points = pointnet_fp_module(l0_xyz, l1_xyz, l0_points, l1_points, [128,128,128], is_training, bn_decay, scope='fa_layer4')
 
     # FC layers
-    net = tf_util.conv1d(l4_points, 1024, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    net = tf_util.conv1d(l5_points, 2048, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
     net_class = tf_util.conv1d(net, num_3d_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2') # outputing the classification for every point
     net_boxes = tf_util.conv1d(net, num_3d_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc3') # outputing the 3D bounding boxes
 
-    return end_points, net_class, net_boxes, l4_xyz
+    return end_points, net_class, net_boxes, l5_xyz
 
 
 def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):

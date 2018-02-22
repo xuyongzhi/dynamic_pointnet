@@ -50,7 +50,7 @@ __C.TRAIN.Radius_1 = 0.3
 __C.TRAIN.Radius_2 = 0.6
 __C.TRAIN.Radius_3 = 1.0
 __C.TRAIN.Radius_4 = 1.8
-__C.TRAIN.Radius_5 = 2.2
+__C.TRAIN.Radius_5 = 2.4
 __C.TRAIN.Radius_6 = 2.6
 
 # 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different
@@ -86,7 +86,7 @@ __C.TRAIN.LAMBDA = 0.4
 __C.TRAIN.POSITIVE_ALPHA = np.pi/4
 
 # Distance between central points
-__C.TRAIN.NEGATIVE_CEN_DIST = 1.9
+__C.TRAIN.NEGATIVE_CEN_DIST = 2.1
 
 __C.TRAIN.POSITIVE_CEN_DIST = 0.9
 
@@ -126,12 +126,12 @@ __C.TEST.NUM_CLASS = 2  ## background and vehicle, training from simple situatio
 __C.TEST.NUM_REGRESSION = 7
 
 # radius for grouping
-__C.TEST.Radius_1 = 0.2
-__C.TEST.Radius_2 = 0.6
-__C.TEST.Radius_3 = 1.0
-__C.TEST.Radius_4 = 1.8
-__C.TEST.Radius_5 = 1.8
-__C.TEST.Radius_6 = 2.4
+#__C.TEST.Radius_1 = 0.2
+#__C.TEST.Radius_2 = 0.6
+#__C.TEST.Radius_3 = 1.0
+#__C.TEST.Radius_4 = 1.8
+#__C.TEST.Radius_5 = 1.8
+#__C.TEST.Radius_6 = 2.4
 
 
 
@@ -145,7 +145,7 @@ __C.TEST.Alpha = np.array([0,np.pi/2])
 __C.TEST.NMS = 0.3
 
 ## NMS threshold used on RPN proposals
-__C.TEST.RPN_NMS_THRESH = 0.4
+__C.TEST.RPN_NMS_THRESH = 0.7
 
 ## Number of top scoring boxes to keep before apply NMS to RPN proposals
 __C.TEST.RPN_PRE_NMS_TOP_N = 1000
