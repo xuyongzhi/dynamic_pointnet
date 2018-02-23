@@ -482,7 +482,7 @@ class Matterport3D_Prepare():
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
             plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn4-544_64_24-60_16_8-0d2_0d6_1d2-0d2_0d6_1d2'
+            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
             nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
             formats = ['.nh5','.bxmh5']
             for j in range(2):
@@ -490,6 +490,7 @@ class Matterport3D_Prepare():
                 base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/' + nh5_folder_names[j] + '/'
                 if flag == 'region':
                     file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
+                    assert len(file_list) > 0, "no file matches %s"%(region_h5f_path + '/*' +  formats[j])
                     merged_path = base_path
                     merged_file_name = merged_path + house_name+formats[j]
                     if not os.path.exists(merged_path):
@@ -589,7 +590,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
@@ -638,7 +639,7 @@ def parse_house(house_names_ls):
 def parse_house_ls():
     scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 

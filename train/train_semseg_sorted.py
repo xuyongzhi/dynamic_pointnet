@@ -68,7 +68,6 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
-FLAGS.decay_step = 80 * FLAGS.batch_size
 try:
     FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
 except:
@@ -79,7 +78,7 @@ if IS_GEN_PLY:
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
     FLAGS.model_epoch = 99
-    #FLAGS.batch_size = 1
+    FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
@@ -101,7 +100,6 @@ BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
 MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
-DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 
 # ------------------------------------------------------------------------------
@@ -127,6 +125,8 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
+FLAGS.decay_step = 50 * net_provider.train_num_blocks
+DECAY_STEP = FLAGS.decay_step
 # ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
