@@ -51,7 +51,7 @@ parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial l
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
-parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.5]')
+parser.add_argument('--decay_rate', type=float, default=0.8, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
@@ -318,7 +318,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
+                if (epoch > 0 and epoch % 5 == 0) or epoch == MAX_EPOCH-1:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
