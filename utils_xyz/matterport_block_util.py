@@ -482,7 +482,7 @@ class Matterport3D_Prepare():
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
             plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn4-544_56_24-60_16_8-0d2_0d6_1d2-0d2_0d6_1d2'
+            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn4-544_64_24-60_16_8-0d2_0d6_1d2-0d2_0d6_1d2'
             nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
             formats = ['.nh5','.bxmh5']
             for j in range(2):

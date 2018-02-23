@@ -4041,17 +4041,12 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
                     merged_normed_h5f.copy_root_attrs_from_normed(in_h5f, fn, 'MergeNormed_H5f')
-                    print( 'npointsubblock_missed_add = ',merged_normed_h5f.h5f.attrs['npointsubblock_missed_add'] ,'\n')
-                    print( 'mean = ',merged_normed_h5f.h5f.attrs['npointsubblock_missed_add']/merged_normed_h5f.h5f.attrs['count'] ,'\n')
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 else:
                     for attr in in_h5f.attrs:
                         if attr in GlobalSubBaseBLOCK.meta_names:
                             merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
                             if attr == 'npointsubblock_missed_add':
                                 print( 'npointsubblock_missed_add = ',merged_normed_h5f.h5f.attrs[attr] ,'\n')
-                    print( 'mean = ',merged_normed_h5f.h5f.attrs['npointsubblock_missed_add']/merged_normed_h5f.h5f.attrs['count'] ,'\n')
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
                     if 'rootb_split_idxmap' in in_h5f:
                         for attr in in_h5f['rootb_split_idxmap'].attrs:
