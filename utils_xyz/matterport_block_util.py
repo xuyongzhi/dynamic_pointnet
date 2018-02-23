@@ -425,7 +425,7 @@ class Matterport3D_Prepare():
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             #if TMPDEBUG:
-            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
+            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*9.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -535,10 +535,8 @@ class Matterport3D_Prepare():
 
 
     def GenObj_RawH5f(self,house_name):
-        house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-        house_rawh5f_dir = house_h5f_dir+'/rawh5f'
-        file_name = house_rawh5f_dir+'/region5.rh5'
-        #file_name = '/DS/Matterport3D/Matterport3D_H5F/v1/scans/YFuZgdQ5vWj/rawh5f/region18.rh5'
+        house_h5f_dir = self.scans_h5f_dir+'/rawh5f'+'/%s'%(house_name)
+        file_name = house_h5f_dir+'/region9.rh5'
         xyz_cut_rate= [0,0,0.9]
         with h5py.File(file_name,'r') as h5f:
             rawh5f = Raw_H5f(h5f,file_name)
@@ -583,7 +581,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls):
-    MultiProcess = 0
+    MultiProcess = 5
     matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -591,7 +589,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

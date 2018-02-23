@@ -8,6 +8,7 @@ import numpy as np
 NETCONFIG = {}
 NETCONFIG['loss_weight'] = False
 NETCONFIG['set_center_weight'] = False
+NETCONFIG['max_global_sample_rate'] = 5
 
 
 #-------------------------------------------------------------------------------
@@ -28,7 +29,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.6,1.2]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.6,1.2]).astype(np.float)
-        nsubblock_candis =       np.array([544,56, 24]).astype(np.int32)
+        nsubblock_candis =       np.array([544, 64, 24]).astype(np.int32)
         npoint_subblock_candis = np.array([60,  16,  8]).astype(np.int32)
 
     elif config_flag == '2C1':
