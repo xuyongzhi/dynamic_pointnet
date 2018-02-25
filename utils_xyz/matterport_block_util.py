@@ -221,7 +221,7 @@ class Matterport3D_Prepare():
 
     matterport3D_root_dir = '/DS/Matterport3D/Matterport3D_Whole'
     matterport3D_extracted_dir = '/DS/Matterport3D/Matterport3D_Whole_extracted'
-    matterport3D_h5f_dir = '/DS/Matterport3D/Matterport3D_H5F'
+    matterport3D_h5f_dir = DATA_DIR + '/Matterport3D_H5F'
 
     def __init__(self):
         self.scans_name = scans_name = '/v1/scans'
@@ -582,7 +582,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls):
-    MultiProcess = 5
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -590,7 +590,7 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

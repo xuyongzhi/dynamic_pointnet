@@ -8,7 +8,7 @@
 train_script=train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
-maxepoch=601
+maxepoch=501
 learning_rate=0.01
 feed_label_elements="label_category-label_instance"
 all_fn_globs='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/1'
@@ -33,8 +33,8 @@ run_train()
 }
 
 multip_feed=0
-finetune=0
-model_epoch=599
+finetune=1
+model_epoch=600
 
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'
 #feed_data_elements='xyz_1norm_file-color_1norm'
