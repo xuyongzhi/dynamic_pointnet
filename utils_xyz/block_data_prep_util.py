@@ -211,9 +211,7 @@ def index_in_sorted(sorted_vector,values):
         if index<sorted_vector.size and  sorted_vector[index] == values[j]:
             indexs_valid.append( index )
     indexs_valid = np.array(indexs_valid)
-    if values[0] == 18370 and indexs_valid.size>2:
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        pass
+    assert indexs_valid.size <= values.size
     #assert indexs.size==0 or np.max(indexs) < sorted_vector.size, 'err in index_in_sorted'
     return indexs_valid
 
