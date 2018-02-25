@@ -73,12 +73,10 @@ try:
 except:
     pass
 if IS_GEN_PLY:
-    #FLAGS.feed_data_elements = 'xyz-color_1norm'
-    #FLAGS.feed_data_elements = 'xyz_1norm_block-color_1norm'
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 99
-    FLAGS.batch_size = 1
+    FLAGS.model_epoch = 495
+    #FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
@@ -125,7 +123,7 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
-FLAGS.decay_step = 50 * net_provider.train_num_blocks
+FLAGS.decay_step = 70 * net_provider.train_num_blocks
 DECAY_STEP = FLAGS.decay_step
 # ------------------------------------------------------------------------------
 try:
@@ -318,7 +316,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 5 == 0) or epoch == MAX_EPOCH-1:
+                if (epoch > 0 and epoch % 5 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -465,7 +463,7 @@ def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, p
     #color_flags = ['raw_color']
     #color_flags = ['gt_color']
     position = 'xyz_midnorm_block'
-    position = 'xyz_1norm_block'
+    #position = 'xyz_1norm_block'
     position = 'xyz'
     if position!='xyz':
         assert BATCH_SIZE == 1

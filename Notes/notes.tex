@@ -105,4 +105,24 @@ stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\_32-32\_12-0d2\_0d6-0d
 3. xyz-color is only a bit better than xyz \par
 4. xyzmid-color is much better than xyz-color \par
 5. \textbf{xyzmid-color is normally much better than xyz-xyzmid-color ???} \par
+
+\subsection{model}
+batch size: 50 \par
+data: xyz\_midnorm\_block-color\_1norm \par
+epoch\_num = 600 \par
+sampling \& grouping: stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-600\_64\_24-60\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 \par
+\begin{center}
+	\begin{tabular}{|c | c c |} 
+		\hline
+		model  & acc & loss \\
+		\hline
+		3A & 0.909 & 0.248 \\ [0.5ex] 
+		\hline
+		3AG & 0.913 & 0.231 \\ [0.5ex] 
+		\hline
+		4AG & 0.912 & 0.232 \\ [0.5ex] 
+		\hline	
+	\end{tabular}
+\end{center}
+
 \end{document}

@@ -62,7 +62,7 @@ def get_sa_module_config(model_flag):
     mlps = []
     if model_flag=='1A' or model_flag=='1AG':
         #mlps.append( [64,64,128,128,512,1024] )
-        mlps.append( [64,64,64,128,1024] )
+        mlps.append( [64,64,64,128,512] )
     elif model_flag=='2A' or model_flag=='2AG':
         mlps.append( [32,64,64,128] )
         mlps.append( [128,128,256,512] )
