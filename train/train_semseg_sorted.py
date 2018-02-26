@@ -27,10 +27,11 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = False
+IS_GEN_PLY = True
 Is_REPORT_PRED = IS_GEN_PLY
 ISNoEval = True
 LOG_TYPE = 'simple'
+#LOG_TYPE = 'complex'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
@@ -75,8 +76,8 @@ except:
 if IS_GEN_PLY:
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 495
-    #FLAGS.batch_size = 1
+    FLAGS.model_epoch = 500
+    FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
@@ -418,8 +419,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
         if IS_GEN_PLY and batch_idx<10:
+            '''
+            lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
+            gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
+            '''
             color_flags = ['gt_color']
-            gen_ply( batch_idx, cur_data[:,:,0:3], color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_rawdata')
+            #gen_ply( batch_idx, cur_data[:,:,0:3], color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_rawdata')
             #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
             for lk in range( len(ops['l_xyz']) ):
                 pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
@@ -436,7 +441,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 gen_ply( batch_idx, flat_xyz, color_flags, name_meta = '_flatxyz'+str(lk))
                 missed_b_num = np.sum( flatten_bidxmap[...,0,1] < 0 )
                 print('missed_b_num:', missed_b_num)
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         if Is_REPORT_PRED:
             pred_fn = LOG_DIR+'/train_pred_log.txt'
@@ -446,6 +451,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         accuracy_sum += accuracy_batch
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
+        #print('batch %d acc %f'%(batch_idx,accuracy_batch))
         if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%50==0):
             if LOG_TYPE == 'complex':
                 pred_val = np.argmax(pred_val, 2)
@@ -477,7 +483,7 @@ def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, p
         create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category  )
         create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_predcolor'%(batch_idx)+name_meta+'.ply', pred_val )
         err_idxs = cur_label_category != pred_val
-        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_predcolor'%(batch_idx)+name_meta+'.ply', pred_val[err_idxs] )
+        #create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_predcolor'%(batch_idx)+name_meta+'.ply', pred_val[err_idxs] )
         create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category[err_idxs] )
 
     if 'raw_color' in color_flags:

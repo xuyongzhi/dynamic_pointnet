@@ -44,7 +44,7 @@ from configs import get_gsbb_config, NETCONFIG
 import magic
 
 DEBUGTMP=True
-ENABLECHECK = False
+ENABLECHECK = True
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -285,7 +285,7 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb['Aim_b_index'] = False and ENABLECHECK
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
     IsCheck_gsbb['all_base_included'] = False and ENABLECHECK
-    IsCheck_gsbb['gen_ply_aimbxyz'] = False and ENABLECHECK
+    IsCheck_gsbb['gen_ply_gsbb'] = False and ENABLECHECK
 
     global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
     para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
@@ -779,12 +779,14 @@ class GlobalSubBaseBLOCK():
         flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
         #-----------------------------------------------------------------------
         # check by visulization
-        if self.IsCheck_gsbb['gen_ply_aimbxyz']:
+        if self.IsCheck_gsbb['gen_ply_gsbb']:
+            # rawdata ~ sg_basexyz_0 ->(gp) -> sg_aimbxyz_0 ! sg_basebxyz_1 ->(gp) sg_aimbxyz_1 ~ sg_basebxyz_2 ->(gp) sg_aimbxyz_2
+            # sg_basebxyz_2 -flat> flat_xyz_2,  sg_basebxyz_1 -flat> flat_xyz_1, sg_basebxyz_0 -flat> flat_xyz_0
             sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
             for aim_b_index in range( aim_nsubblock ):
                 aim_bid = sorted_aimbids_fixed[aim_b_index]
                 sg_aimb_xyzs[aim_b_index,:] = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_cascadeid%d.ply'%(cascade_id) )
+            create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
 
             sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
             for aim_b_index in range( aim_nsubblock ):
@@ -796,13 +798,13 @@ class GlobalSubBaseBLOCK():
                     else:
                         base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
                         sg_baseb_xyzs[aim_b_index,pi,:] = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-            create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_cascadeid%d.ply'%(cascade_id) )
+            create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
 
             flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
             for i in range( flat_xyzs.shape[0] ):
                 flat_idx = flatten_bidxmap_fixed[i,0,0:2]
                 flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
-            create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_cascadeid%d.ply'%(cascade_id) )
+            create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
             if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
