@@ -27,9 +27,9 @@ from ply_util import create_ply_matterport, test_box
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = True
+IS_GEN_PLY = False
 Is_REPORT_PRED = IS_GEN_PLY
-ISNoEval = True
+ISNoEval = False
 LOG_TYPE = 'simple'
 #LOG_TYPE = 'complex'
 
@@ -565,8 +565,6 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        if FLAGS.datafeed_type == 'Pr_Normed_H5f':
-            cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
         summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:

@@ -483,7 +483,8 @@ class Matterport3D_Prepare():
         if format == '.nh5':
             plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
             #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-32_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+            #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-32_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+            bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
             nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
             formats = ['.nh5','.bxmh5']
             for j in range(2):
@@ -641,7 +642,7 @@ def parse_house_ls():
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
