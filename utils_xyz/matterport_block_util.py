@@ -203,7 +203,7 @@ def GenPyramidSortedFlie(fn):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_pyh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -424,8 +424,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            if TMPDEBUG:
-                file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
+            #if TMPDEBUG:
+            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -637,13 +637,12 @@ def parse_house(house_names_ls):
         matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
-    scans_name = '/v1/scans'
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
-    scans_name_abs = Matterport3D_Prepare.matterport3D_root_dir + scans_name
+    scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
     #house_names = all_house_names
 
