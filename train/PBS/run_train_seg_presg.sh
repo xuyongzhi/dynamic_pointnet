@@ -47,5 +47,5 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
 
 #run_train $model_flag $batch_size $feed_data_elements $multip_feed $finetune
 
-run_train '1AG' 32  $feed_data_elements 0 $multip_feed $finetune $model_epoch
-#run_train $1 $2 $3 $4  $multip_feed $finetune $model_epoch
+#run_train '1AG' 32  $feed_data_elements 0 $multip_feed $finetune $model_epoch
+run_train $1 $2 $3 $4  $multip_feed $finetune $model_epoch
