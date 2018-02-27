@@ -1159,15 +1159,8 @@ class GlobalSubBaseBLOCK():
             if 'is_intact_bmh5' not in h5f.attrs:
                 return False,""
             IsIntact = h5f.attrs['is_intact_bmh5'] == 1
-            print('bmh5 file intact:',file_name)
+            if IsIntact: print('bmh5 file intact:',file_name)
             return IsIntact,""
-
-      #      attrs_to_check = ['num_group','cascade_idstr_ls']
-      #      for attrs in attrs_to_check:
-      #          if attrs not in h5f.attrs:
-      #              return False, "%s not in %s"%(attrs,f_format)
-      #  return True,""
-
 
     @staticmethod
     def get_scope_of_bids(bids,attrs):
@@ -1194,6 +1187,9 @@ class GlobalSubBaseBLOCK():
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
         if larger_stride[-1]==-1 and larger_step[-1]==-1:
             assert new_block_dims_N[-1]==1
+        if DEBUGTMP and new_block_dims_N[-1]==0:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
@@ -1684,6 +1680,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             h5fattrs['block_stride'] = block_stride
             Sorted_H5f.set_whole_scene_stride_step(h5fattrs)
             h5fattrs['block_dims_N'] = np.ceil( (xyz_scope_aligned - h5fattrs['block_step']) / h5fattrs['block_stride'] + 1 ).astype(np.int64)
+            h5fattrs['block_dims_N'] = np.maximum( h5fattrs['block_dims_N'], np.array([1,1,1]) )
+
         h5fattrs['xyz_min_aligned'] = xyz_min_aligned
         h5fattrs['xyz_max_aligned'] = xyz_max_aligned
         h5fattrs['xyz_scope_aligned'] = xyz_scope_aligned
