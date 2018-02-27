@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = False
+TMPDEBUG = True
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -424,8 +424,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            #if TMPDEBUG:
-            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*0.sh5') )
+            if TMPDEBUG:
+                file_list = glob.glob( os.path.join(house_sh5f_dir, '*region4.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -492,7 +492,12 @@ class Matterport3D_Prepare():
             base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/' + nh5_folder_names[j] + '/'
             if flag == 'region':
                 file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
-                file_N[j] = len(file_list)
+                # cal void file N
+                void_f_N = 0
+                for fn in file_list:
+                    _,ck_str = Normed_H5f.check_nh5_intact( fn )
+                    void_f_N += ck_str == 'void file'
+                file_N[j] = len(file_list) - void_f_N
                 if j==1 and file_N[1] != file_N[0]:
                     print(' bxmap file N (%d) != pl file N(%d). skip merging bxmap%s'%(file_N[1], file_N[0], region_h5f_path ) )
                     return
@@ -501,7 +506,7 @@ class Matterport3D_Prepare():
                 merged_file_name = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
+                void_f_N = MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
 
 
     def GenObj_RawH5f(self,house_name):
@@ -551,7 +556,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls):
-    MultiProcess = 0
+    MultiProcess = 7
     matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -566,7 +571,7 @@ def parse_house(house_names_ls):
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    #operations  = ['GenPyramid' , 'MergeNormed_region']
+    operations  = ['GenPyramid' , 'MergeNormed_region']
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
@@ -615,8 +620,6 @@ def parse_house_ls():
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
     house_names = all_house_names
-    house_names = ['2n8kARJN3HM', 'B6ByNegPMKs']
-    house_names = ['2n8kARJN3HM']
 
     house_names.sort()
 

@@ -2784,6 +2784,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             self.save_pl_nh5( pl_nh5_filename, gsbb_write, self, IsShowSummaryFinished)
 
+        IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_nh5_filename )
+        if ck_str == 'void file':
+            print('void file, skip generating bxmh5: %s'%(pl_nh5_filename))
+            return
+
         #-----------------------------------------------------------------------
         t2 = time.time()
         # save bmap file
@@ -4041,10 +4046,12 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
         os.makedirs( os.path.dirname(merged_filename) )
     print('start generating merged file: %s'%(merged_filename))
     with h5py.File(merged_filename,'w') as merged_h5f:
+        void_f_N = 0
         for k,fn in enumerate(in_filename_ls):
             print('merging %s'%(fn))
             with h5py.File(fn,'r') as in_h5f:
                 if 'intact_void_file' in in_h5f.attrs:
+                    void_f_N += 1
                     continue
                 if k == 0:
                     merged_normed_h5f = Normed_H5f(merged_h5f,merged_filename,in_h5f.attrs['datasource_name'])
@@ -4069,6 +4076,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
         if IsShowSummaryFinished:
             merged_normed_h5f.show_summary_info()
         print('merged h5f OK: %s'%(merged_filename))
+        return void_f_N
 
 def Write_all_file_accuracies(normed_h5f_file_list=None,out_path=None,pre_out_fn=''):
     if normed_h5f_file_list == None:
