@@ -482,15 +482,20 @@ class Matterport3D_Prepare():
         scans_name_ = self.scans_name.replace('/','_')[1:]
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
         #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-32_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
+        file_N = [0,0]
         for j in range(2):
             region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
             base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/' + nh5_folder_names[j] + '/'
             if flag == 'region':
                 file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
+                file_N[j] = len(file_list)
+                if j==1 and file_N[1] != file_N[0]:
+                    print(' bxmap file N (%d) != pl file N(%d). skip merging bxmap%s'%(file_N[1], file_N[0], region_h5f_path ) )
+                    return
                 assert len(file_list) > 0, "no file matches %s"%(region_h5f_path + '/*' +  formats[j])
                 merged_path = base_path
                 merged_file_name = merged_path + house_name+formats[j]
@@ -561,7 +566,7 @@ def parse_house(house_names_ls):
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    operations  = ['GenPyramid' , 'MergeNormed_region']
+    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
@@ -610,6 +615,7 @@ def parse_house_ls():
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
     house_names = all_house_names
+    house_names = ['2n8kARJN3HM', 'B6ByNegPMKs']
 
     house_names.sort()
 

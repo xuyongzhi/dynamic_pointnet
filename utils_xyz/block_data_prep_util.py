@@ -3400,6 +3400,7 @@ class Normed_H5f():
     @staticmethod
     def get_bidxmaps(bxmh5_fn, start_block,end_block):
         with h5py.File(bxmh5_fn,'r') as h5f:
+            assert h5f['bidxmaps_flatten'].shape[0] >= end_block
             flatten_bidxmaps = h5f['bidxmaps_flatten'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
@@ -3624,7 +3625,10 @@ class Normed_H5f():
             rootb_nums = []
             for i in range(rootb_split_idxmap.shape[0]):
                 rootb_num = index_in_sorted( rootb_split_idxmap[i,:,0]==-1, np.array([1]) )
-                assert rootb_num.size == 1
+                if not rootb_num.size == 1:
+                    print('rootb_num:',rootb_num)
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    assert False, "rootb_num err"
                 rootb_nums.append(rootb_num)
             rootb_num = np.sum( rootb_nums )
             return rootb_num
@@ -4024,6 +4028,10 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
     if len(in_filename_ls) == 0:
         print('no .nh5/.prh5 file in the list')
         return
+    for k,fn in enumerate(in_filename_ls):
+        if not Normed_H5f.check_nh5_intact( fn )[0]:
+            print('Abort merging. file not intact: %s'%(fn))
+            return
     if not Always_CreateNew:
         IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
         if IsIntact:

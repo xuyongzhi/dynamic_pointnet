@@ -12,8 +12,8 @@ maxepoch=501
 learning_rate=0.01
 feed_label_elements="label_category-label_instance"
 #       *******************************************************************
-all_fn_globs='v1/each_hosue/stride_0d1_step_0d1_pl_nh5_1d6_2/'
-bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-32_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+all_fn_globs='v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
+bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
 eval_fnglob_or_rate=0.5
 # *****************************************************************************
 #all_fn_globs='v1/small_test/stride_0d1_step_0d1_pl_nh5_1d6_2/'

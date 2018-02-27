@@ -24,6 +24,7 @@ DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 
+DEBUGTMP = True
 
 #-------------------------------------------------------------------------------
 # provider for training and testing
@@ -62,16 +63,18 @@ class Net_Provider():
             open_type = 'a' # need to write pred labels
         else:
             open_type = 'r'
+        train_file_list, train_bxmh5_fls = self.get_bxmh5_fn_ls( train_file_list )
+        eval_file_list, eval_bxmh5_fls = self.get_bxmh5_fn_ls( eval_file_list )
         self.train_file_N = train_file_N = len(train_file_list)
         self.eval_file_N = eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.normed_h5f_file_list =  normed_h5f_file_list = train_file_list + eval_file_list
+        self.bxmh5_fn_ls = train_bxmh5_fls + eval_bxmh5_fls
         if len(normed_h5f_file_list) > 6:
             print('WARING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(normed_h5f_file_list)))
         #-----------------------------------------------------------------------
         # open each file as a Normed_H5f class instance
         self.norm_h5f_L = []
-        self.bxmh5_fn_ls = []
         # self.g_block_idxs: within the whole train/test dataset  (several files)
         #     record the start/end row idx  of each file to help search data from all files
         #     [ [start_global_row_idxs,end_global__idxs] ]
@@ -95,10 +98,6 @@ class Net_Provider():
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
                 self.g_block_idxs[i+1,0] = self.g_block_idxs[i,1]
-
-            bxmh5_fn = self.get_bxmh5_fn(fn)
-            assert(os.path.exists(bxmh5_fn)), "not exist: %s"%(bxmh5_fn)
-            self.bxmh5_fn_ls.append( bxmh5_fn )
 
         t_end_global_blockid = time.time()
         print('global block id reading finished, t=%f ms'%(1000.0*(t_end_global_blockid-t_start_global_blockid)))
@@ -143,9 +142,26 @@ class Net_Provider():
 
         print('Net_Provider init t: %f ms\n\n'%(1000*(time.time()-t_init0)))
 
-    def get_bxmh5_fn( self, pl_prh5_fn ):
-        house_name = os.path.splitext( os.path.basename(pl_prh5_fn) )[0]
-        pl_config_dir_name = os.path.dirname(pl_prh5_fn)
+    def get_bxmh5_fn_ls( self, plnh5_fn_ls ):
+        bxmh5_fn_ls = []
+        plnh5_fn_ls_new  = []
+        for plnh5_fn in plnh5_fn_ls:
+            bxmh5_fn = self.get_bxmh5_fn( plnh5_fn )
+            if os.path.exists( bxmh5_fn ):
+                # check shapes match with each other
+                with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+                    with h5py.File( plnh5_fn, 'r' ) as plnh5f:
+                        if bxmh5f['bidxmaps_flatten'].shape[0] == plnh5f['data'].shape[0]:
+                            bxmh5_fn_ls.append( bxmh5_fn )
+                            plnh5_fn_ls_new.append( plnh5_fn )
+                        else:
+                            print('bxmh5(%d) and plnh5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flatten'].shape[0], plnh5f['data'].shape[0],plnh5_fn ))
+                            assert False
+        return plnh5_fn_ls_new, bxmh5_fn_ls
+
+    def get_bxmh5_fn( self, plnh5_fn ):
+        house_name = os.path.splitext( os.path.basename(plnh5_fn) )[0]
+        pl_config_dir_name = os.path.dirname(plnh5_fn)
         pl_config_name = os.path.basename(pl_config_dir_name)
         each_house_dirname = os.path.dirname( pl_config_dir_name )
         bxmh5_dirname = os.path.join( each_house_dirname, self.bxmh5_folder_name )
@@ -350,11 +366,6 @@ class Net_Provider():
             # label_i: [batch_size,npoint_block,label_nchannels]
             sg_bidxmaps, flatten_bidxmaps = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
-            #elif self.InputType == 'Sorted_H5f':
-            #    data_i,label_i = self.norm_h5f_L[f_idx].get_batch_of_larger_block(
-            #                    start,end, new_feed_data_elements,self.feed_label_elements )
-                # data_i: [batch_size,nsubblock,npoint_subblock,data_nchannels]
-                # label_i: [batch_size,nsubblock,npoint_subblock,label_nchannels]
             assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
             # get xyz_mid
@@ -647,5 +658,22 @@ def main_NormedH5f():
     print(cur_smp_weights[0,0:3,:])
 
 
+def check_bxmap_pl_shape_match():
+    bxmap_path = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6/2n8kARJN3HM'
+    pl_path = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/2n8kARJN3HM'
+    pl_fn_ls = glob.glob( pl_path + '/*.nh5' )
+    for pl_fn in pl_fn_ls:
+        base_fn = os.path.splitext( os.path.basename( pl_fn ) )[0] + '.bxmh5'
+        bxmap_fn = bxmap_path + '/' + base_fn
+        if not os.path.exists(bxmap_fn):
+            print('%s not exist'%(bxmap_fn))
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        with h5py.File( bxmap_fn, 'r' ) as bxmf:
+          with h5py.File( pl_fn, 'r' ) as plf:
+            if bxmf['bidxmaps_flatten'].shape[0] != plf['data'].shape[0]:
+                print(pl_fn)
+                print('shape mathch err')
+
 if __name__=='__main__':
-    main_NormedH5f()
+    #main_NormedH5f()
+    check_bxmap_pl_shape_match()
