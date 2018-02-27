@@ -2623,7 +2623,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         if len( global_block_datas )==0:
             # all void points
-            return np.array([]),None,None
+            return np.array([]),None,None,None,None
 
         global_block_datas = np.concatenate(global_block_datas,axis=0).astype( np.float32 )
         global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )

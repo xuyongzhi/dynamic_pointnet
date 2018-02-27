@@ -551,7 +551,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls):
-    MultiProcess = 7
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
@@ -616,6 +616,7 @@ def parse_house_ls():
     all_house_names = os.listdir(scans_name_abs)
     house_names = all_house_names
     house_names = ['2n8kARJN3HM', 'B6ByNegPMKs']
+    house_names = ['2n8kARJN3HM']
 
     house_names.sort()
 
