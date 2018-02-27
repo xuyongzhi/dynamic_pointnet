@@ -125,4 +125,26 @@ sampling \& grouping: stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-600
 	\end{tabular}
 \end{center}
 
+batch size: 32 \par
+data: xyz\_midnorm\_block-color\_1norm \par
+sampling \& grouping: stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn6-2048\_256\_64-32\_32\_16-0d2\_0d6\_1d2-0d1\_0d3\_0d6 \par
+matterport3d  \par
+feed\_data\_elements:['xyz\_midnorm\_block', 'color\_1norm']  \par
+feed\_label\_elements:['label\_category', 'label\_instance']  \par
+train data shape: [  362 12800     6]  \par  
+test data shape: [  384 12800     6] \par
+max epoch = 500
+\begin{center}
+	\begin{tabular}{|c | c c |} 
+		\hline
+		model  & acc & loss \\
+		\hline
+		1AG & 0.944/0.431 & 0.161/4.633 \\ [0.5ex] 
+		\hline
+		
+		4AG & 0.835/0.401 & 0.520/3.644 \\ [0.5ex] 
+		\hline	
+	\end{tabular}
+\end{center}
+
 \end{document}

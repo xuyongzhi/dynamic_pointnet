@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = True
+TMPDEBUG = False
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -477,7 +477,7 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self,house_name,stride,step,numpoint_block ,format, flag = 'region'):
+    def MergeNormed(self,house_name,numpoint_block ,format, flag = 'region'):
         house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
         scans_name_ = self.scans_name.replace('/','_')[1:]
         if format == '.nh5':
@@ -592,13 +592,14 @@ def parse_house(house_names_ls):
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
-    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
+    operations  = ['GenPyramid' , 'MergeNormed_region']
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
@@ -642,7 +643,7 @@ def parse_house_ls():
     house_names = ['17DRP5sb8fy']
     #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)

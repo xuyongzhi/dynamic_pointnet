@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  23 FEB 2018 22:38
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  27 FEB 2018 10:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -229,8 +229,14 @@ Overfull \hbox (28.98978pt too wide) in paragraph at lines 113--113
 0[]1d6[]2[]fmn3-600[]64[]24-
  []
 
+
+Overfull \hbox (38.9898pt too wide) in paragraph at lines 130--130
+[]\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
+0[]1d6[]2[]fmn6-2048[]256[]64-
+ []
+
 [3 <./images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png> <./i
-mages/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>]
+mages/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>] [4]
 (./notes.aux) ) 
 Here is how much of TeX's memory you used:
  1471 strings out of 494931
@@ -246,10 +252,10 @@ fb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texli
 ve/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb>
-Output written on notes.pdf (4 pages, 395920 bytes).
+Output written on notes.pdf (5 pages, 397360 bytes).
 PDF statistics:
- 54 PDF objects out of 1000 (max. 8388607)
- 29 compressed objects within 1 object stream
+ 57 PDF objects out of 1000 (max. 8388607)
+ 31 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  31 words of extra memory for PDF output out of 10000 (max. 10000000)
 
