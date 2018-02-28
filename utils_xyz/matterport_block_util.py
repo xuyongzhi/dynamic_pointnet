@@ -657,13 +657,13 @@ def parse_house_ls():
     #operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    #operations  = ['MergeNormed_house']
+    operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    operations  = ['GenPyramid' , 'MergeNormed_region']
+    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):

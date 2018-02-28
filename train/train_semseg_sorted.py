@@ -30,7 +30,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
 Is_REPORT_PRED = IS_GEN_PLY
-ISNoEval = False
+ISNoEval = True
 LOG_TYPE = 'simple'
 #LOG_TYPE = 'complex'
 
@@ -462,7 +462,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
             else:
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,accuracy = accuracy_sum/(batch_idx+1))
-        if batch_idx == 2:
+        if batch_idx == 100:
             os.system('nvidia-smi')
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr

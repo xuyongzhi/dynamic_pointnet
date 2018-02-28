@@ -146,7 +146,7 @@ class Net_Provider():
         bxmh5_fn_ls = []
         plnh5_fn_ls_new  = []
         for plnh5_fn in plnh5_fn_ls:
-            bxmh5_fn = self.get_bxmh5_fn( plnh5_fn )
+            bxmh5_fn = self.get_bxmh5_fn_1( plnh5_fn )
             if os.path.exists( bxmh5_fn ):
                 # check shapes match with each other
                 with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
@@ -157,6 +157,8 @@ class Net_Provider():
                         else:
                             print('bxmh5(%d) and plnh5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flatten'].shape[0], plnh5f['data'].shape[0],plnh5_fn ))
                             assert False
+            else:
+                print( 'not exist: %s'%(bxmh5_fn) )
         return plnh5_fn_ls_new, bxmh5_fn_ls
 
     def get_bxmh5_fn( self, plnh5_fn ):
@@ -166,6 +168,15 @@ class Net_Provider():
         each_house_dirname = os.path.dirname( pl_config_dir_name )
         bxmh5_dirname = os.path.join( each_house_dirname, self.bxmh5_folder_name )
         bxmh5_fn = os.path.join( bxmh5_dirname, house_name + '.bxmh5' )
+        return bxmh5_fn
+
+    def get_bxmh5_fn_1( self, plnh5_fn ):
+        fn1 = os.path.dirname(os.path.dirname( os.path.dirname(plnh5_fn) ))
+        tmp = plnh5_fn.split( os.sep )
+        tmp[-2] = self.bxmh5_folder_name
+        #tmp[-3] = self.bxmh5_folder_name
+        base_fn = os.path.splitext('/'+os.path.join( *tmp ))[0]
+        bxmh5_fn = base_fn+'.bxmh5'
         return bxmh5_fn
 
     def get_data_label_shape_info(self):
@@ -250,7 +261,7 @@ class Net_Provider():
 
             fn_globs.append(fn_glob)
         assert len(all_file_list)!=0,"no file in %s"%(fn_globs)
-        assert len(all_file_list)!=1,"only one file, should > 1 to seperate as train and test"
+        #assert len(all_file_list)!=1,"only one file, should > 1 to seperate as train and test"
         return all_file_list
 
     def split_train_eval_file_list(self,all_file_list,eval_fnglob_or_rate=None):
@@ -274,6 +285,8 @@ class Net_Provider():
             m = int(n*(1-eval_fnglob_or_rate))
             train_file_list = all_file_list[0:m]
             eval_file_list = all_file_list[m:n]
+        if len(eval_file_list) == 0:
+            eval_file_list = [train_file_list[0]]
 
         log_str = '\ntrain file list (n=%d) = \n%s\n\n'%(len(train_file_list),train_file_list[-2:])
         log_str += 'eval file list (n=%d) = \n%s\n\n'%(len(eval_file_list),eval_file_list[-2:])
