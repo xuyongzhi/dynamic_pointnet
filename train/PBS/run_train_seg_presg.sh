@@ -9,7 +9,7 @@ train_script=../train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
 maxepoch=501
-learning_rate=0.01
+learning_rate=0.005
 feed_label_elements="label_category-label_instance"
 
 # *****************************************************************************
@@ -38,9 +38,9 @@ run_train()
   python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu
 }
 
-multip_feed=1
+multip_feed=0
 finetune=0
-model_epoch=1101
+model_epoch=40
 
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'
 #feed_data_elements='xyz_1norm_file-color_1norm'

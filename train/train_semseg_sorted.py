@@ -125,7 +125,7 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
-FLAGS.decay_step = 70 * net_provider.train_num_blocks
+FLAGS.decay_step = 20 * net_provider.train_num_blocks
 DECAY_STEP = FLAGS.decay_step
 # ------------------------------------------------------------------------------
 try:
@@ -303,6 +303,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
+            log_string('learning_rate: %f'%( sess.run(learning_rate) ))
             sys.stdout.flush()
             if train_feed_buf_q == None:
                 net_provider.update_train_eval_shuffled_idx()
@@ -453,7 +454,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         #print('batch %d acc %f'%(batch_idx,accuracy_batch))
-        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%50==0):
+        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             if LOG_TYPE == 'complex':
                 pred_val = np.argmax(pred_val, 2)
                 total_seen += (BATCH_SIZE*NUM_POINT)
@@ -461,7 +462,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
             else:
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,accuracy = accuracy_sum/(batch_idx+1))
-        if batch_idx == 200:
+        if batch_idx == 2:
             os.system('nvidia-smi')
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr

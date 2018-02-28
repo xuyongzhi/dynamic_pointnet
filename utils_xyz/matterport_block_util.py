@@ -480,31 +480,38 @@ class Matterport3D_Prepare():
     def MergeNormed(self, flag, house_name=None, house_group_num=5 ):
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
         #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
-        file_N = [0,0]
+        pl_base_fn_ls = []
         for j in range(2):
             if flag == 'region':
-                region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
-                base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
                 # cal void file N
-                void_f_N = 0
-                for fn in file_list:
-                    _,ck_str = Normed_H5f.check_nh5_intact( fn )
-                    void_f_N += ck_str == 'void file'
-                file_N[j] = len(file_list) - void_f_N
-                if j==1 and file_N[1] != file_N[0]:
-                    print(' bxmap file N (%d) != pl file N(%d). skip merging bxmap%s'%(file_N[1], file_N[0], region_h5f_path ) )
-                    return
-                assert len(file_list) > 0, "no file matches %s"%(region_h5f_path + '/*' +  formats[j])
+                if j==0:
+                    region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
+                    base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
+                    file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
+                    file_list.sort()
+                    nonvoid_fls = []
+                    for fn in file_list:
+                        is_intact, ck_str = Normed_H5f.check_nh5_intact( fn )
+                        assert is_intact
+                        if ck_str != 'void file':
+                            nonvoid_fls.append( fn )
+                            pl_base_fn_ls.append( os.path.splitext( os.path.basename(fn) )[0] )
+                elif j==1:
+                    nonvoid_fls = [ self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name + '/' + base_name for base_name in pl_base_fn_ls ]
+                    for fn in nonvoid_fls:
+                        if not os.path.exists( fn ):
+                            print('\n  ! ! ! Abort merging, not exist: %s'%(fn))
+                            return
+                assert len( nonvoid_fls )  > 0, "no file matches %s"%(region_h5f_path + '/*' +  formats[j])
                 merged_path = base_path
                 merged_file_name = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
+                MergeNormed_H5f(nonvoid_fls, merged_file_name,IsShowSummaryFinished=True)
 
             elif flag == 'house':
                 assert house_name == None
