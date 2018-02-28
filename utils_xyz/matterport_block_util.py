@@ -487,27 +487,30 @@ class Matterport3D_Prepare():
         pl_base_fn_ls = []
         for j in range(2):
             if flag == 'region':
+                merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
                 # cal void file N
                 if j==0:
                     region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
-                    base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
                     file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
                     file_list.sort()
                     nonvoid_fls = []
                     for fn in file_list:
                         is_intact, ck_str = Normed_H5f.check_nh5_intact( fn )
-                        assert is_intact
+                        if not is_intact:
+                            print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[j], fn))
+                            return
                         if ck_str != 'void file':
                             nonvoid_fls.append( fn )
                             pl_base_fn_ls.append( os.path.splitext( os.path.basename(fn) )[0] )
                 elif j==1:
-                    nonvoid_fls = [ self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name + '/' + base_name for base_name in pl_base_fn_ls ]
+                    nonvoid_fls = [ self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name + '/' + base_name + formats[j] for base_name in pl_base_fn_ls ]
                     for fn in nonvoid_fls:
                         if not os.path.exists( fn ):
-                            print('\n  ! ! ! Abort merging, not exist: %s'%(fn))
+                            print('\n  ! ! ! Abort merging %s, not exist: %s'%(house_name,fn+formats[j]))
                             return
-                assert len( nonvoid_fls )  > 0, "no file matches %s"%(region_h5f_path + '/*' +  formats[j])
-                merged_path = base_path
+                if len( nonvoid_fls )  == 0:
+                    print(  "no file, skip %s"%( house_name ) )
+                    return
                 merged_file_name = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
@@ -639,7 +642,6 @@ def parse_house(house_names_ls, operations):
 
 def parse_house_ls():
     house_names = ['17DRP5sb8fy']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r']
     house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
@@ -655,13 +657,13 @@ def parse_house_ls():
     #operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    #operations  = ['GenPyramid' , 'MergeNormed_region']
+    operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):

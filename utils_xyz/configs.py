@@ -13,7 +13,7 @@ NETCONFIG['max_global_sample_rate'] = 5
 
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3B2'
+_gsbb_config = '3B1'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( config_flag = _gsbb_config ):
