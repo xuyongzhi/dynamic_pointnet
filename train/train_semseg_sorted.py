@@ -24,7 +24,7 @@ from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -403,13 +403,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
         #if DEBUG_MULTIFEED: continue
-
-        print(batch_idx)
-        if DEBUG_TMP and cur_sg_bidxmaps.shape[0]!=25:
-            print('err: cur_sg_bidxmaps.shape:',cur_sg_bidxmaps.shape)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            pass
-        continue
 
         t1 = time.time()
         if type(cur_data) == type(None):

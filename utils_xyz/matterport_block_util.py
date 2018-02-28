@@ -477,7 +477,7 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self, flag = 'region', house_name=None, house_group_num=5 ):
+    def MergeNormed(self, flag, house_name=None, house_group_num=5 ):
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
         #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
         bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
@@ -587,23 +587,10 @@ class Matterport3D_Prepare():
         gsbb_load.show_all()
 
 
-def parse_house(house_names_ls):
+def parse_house(house_names_ls, operations):
     MultiProcess = 7
     matterport3d_prepare = Matterport3D_Prepare()
 
-    operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
-    operations  = ['ParseRaw']
-    operations  = ['SortRaw']
-    #operations  = ['GenPyramid']
-    #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
-    #operations  = ['GenObj_SortedH5f']
-    #operations  = ['GenObj_RawH5f']
-    #operations  = ['GenObj_NormedH5f']
-    #operations  = ['pr_sample_rate']
-
-    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
@@ -652,15 +639,30 @@ def parse_house_ls():
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
     house_names = all_house_names
-
     house_names.sort()
+
+
+    operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
+    operations  = ['ParseRaw']
+    operations  = ['SortRaw']
+    #operations  = ['GenPyramid']
+    #operations  = ['GenPyramid','GenObj_NormedH5f']
+    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_house']
+    #operations  = ['GenObj_SortedH5f']
+    #operations  = ['GenObj_RawH5f']
+    #operations  = ['GenObj_NormedH5f']
+    #operations  = ['pr_sample_rate']
+
+    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):
         #if i>50: continue
         house_names_i = house_names[i:min(i+group_n,len(house_names))]
         print('\nstart parsing houses %s  %d-%d/%d\n'%(house_names_i,i,i+len(house_names_i),len(house_names)))
-        parse_house(house_names_i)
+        parse_house(house_names_i, operations)
+        if operations==['MergeNormed_house']: break
 
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
