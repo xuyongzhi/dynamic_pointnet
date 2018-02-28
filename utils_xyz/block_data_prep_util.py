@@ -3644,7 +3644,7 @@ class Normed_H5f():
                 summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
 
             base_sample_num = attrs['sample_num']
-            summary += '\nsampling meta for sample_num=%d'%( base_sample_num )
+            summary += '\nsampling meta for sample_num=%d\n'%( base_sample_num )
             attrs = self.h5f['rootb_split_idxmap'].attrs
             rootb_split_idxmap = self.h5f['rootb_split_idxmap']
             global_b_num = rootb_split_idxmap.shape[0]
@@ -4058,8 +4058,6 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                     for attr in in_h5f.attrs:
                         if attr in GlobalSubBaseBLOCK.meta_names:
                             merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
-                            if attr == 'npointsubblock_missed_add':
-                                print( 'npointsubblock_missed_add = ',merged_normed_h5f.h5f.attrs[attr] ,'\n')
 
                     if 'rootb_split_idxmap' in in_h5f:
                         for attr in in_h5f['rootb_split_idxmap'].attrs:

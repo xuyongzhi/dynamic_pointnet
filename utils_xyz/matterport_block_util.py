@@ -477,9 +477,7 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def MergeNormed(self,house_name, flag = 'region'):
-        house_h5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-        scans_name_ = self.scans_name.replace('/','_')[1:]
+    def MergeNormed(self, flag = 'region', house_name=None, house_group_num=5 ):
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
         #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
         bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
@@ -488,9 +486,9 @@ class Matterport3D_Prepare():
         formats = ['.nh5','.bxmh5']
         file_N = [0,0]
         for j in range(2):
-            region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
-            base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_hosue/' + nh5_folder_names[j] + '/'
             if flag == 'region':
+                region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
+                base_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
                 file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
                 # cal void file N
                 void_f_N = 0
@@ -506,7 +504,41 @@ class Matterport3D_Prepare():
                 merged_file_name = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                void_f_N = MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
+                MergeNormed_H5f(file_list,merged_file_name,IsShowSummaryFinished=True)
+
+            elif flag == 'house':
+                assert house_name == None
+                house_h5f_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j]
+                fn_ls = glob.glob( house_h5f_path + '/*' + formats[j] )
+                fn_ls.sort()
+                #house_name_ls = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls ]
+                #bm_fn_ls = [ os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[1] + '/' + house_name + formats[1]  for house_name  in house_name_ls]
+                #assert len(pl_fn_ls) == len(bm_fn_ls)
+
+                for k in range( 0, len(fn_ls), house_group_num ):
+                    fn_ls_k = fn_ls[k: min( (k+house_group_num),len(fn_ls) ) ]
+                    house_name_ls_k = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls_k ]
+                    merged_house_name = ''
+                    for i,hn in enumerate( house_name_ls_k ):
+                        merged_house_name += hn[0:3]
+                        if i != len(house_name_ls_k)-1:
+                            merged_house_name += '_'
+                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j] + '/'
+                    if j==1:
+                        merged_fn_pl = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[0] + '/' + merged_house_name + formats[0]
+                        if not os.path.exists( merged_fn_pl ):
+                            print('abort because not exist: %s'%(merged_fn_pl))
+                            continue
+                    merged_fn = merged_path + merged_house_name + formats[j]
+                    if not os.path.exists(merged_path):
+                        os.makedirs(merged_path)
+                    MergeNormed_H5f( fn_ls_k, merged_fn, IsShowSummaryFinished=True)
+
+        def get_bxmh5_fl( plnh5_fls, bxmh5_folder_name ):
+            bxmh5_fls = []
+            plnh5_fls_new = []
+            for plnh5_fn in plnh5_fls:
+                f
 
 
     def GenObj_RawH5f(self,house_name):
@@ -565,13 +597,13 @@ def parse_house(house_names_ls):
     #operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    #operations  = ['MergeNormed_house']
+    operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    operations  = ['GenPyramid' , 'MergeNormed_region']
+    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
@@ -600,9 +632,9 @@ def parse_house(house_names_ls):
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
     if 'MergeNormed_region' in operations:
         for house_name in house_names_ls:
-            matterport3d_prepare.MergeNormed(house_name, 'region')
+            matterport3d_prepare.MergeNormed('region', house_name=house_name)
     if 'MergeNormed_house' in operations:
-        matterport3d_prepare.MergeNormed(house_names_ls[0],new_stride,new_step,numpoint_block,'.nh5','house')
+        matterport3d_prepare.MergeNormed('house')
     if 'GenObj_RawH5f' in operations:
         for house_name in house_names_ls:
             matterport3d_prepare.GenObj_RawH5f(house_name)
