@@ -485,64 +485,92 @@ class Matterport3D_Prepare():
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
         pl_base_fn_ls = []
-        for j in range(2):
-            if flag == 'region':
-                merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                # cal void file N
-                if j==0:
-                    region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name
-                    file_list = glob.glob( region_h5f_path + '/*' +  formats[j] )
-                    file_list.sort()
-                    nonvoid_fls = []
-                    for fn in file_list:
-                        is_intact, ck_str = Normed_H5f.check_nh5_intact( fn )
-                        if not is_intact:
-                            print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[j], fn))
-                            return
-                        if ck_str != 'void file':
-                            nonvoid_fls.append( fn )
-                            pl_base_fn_ls.append( os.path.splitext( os.path.basename(fn) )[0] )
-                elif j==1:
-                    nonvoid_fls = [ self.scans_h5f_dir + '/' + nh5_folder_names[j] + '/' + house_name + '/' + base_name + formats[j] for base_name in pl_base_fn_ls ]
-                    for fn in nonvoid_fls:
-                        if not os.path.exists( fn ):
-                            print('\n  ! ! ! Abort merging %s, not exist: %s'%(house_name,fn+formats[j]))
-                            return
-                if len( nonvoid_fls )  == 0:
-                    print(  "no file, skip %s"%( house_name ) )
+
+        if flag == 'region':
+            pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0] + '/' + house_name
+            plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
+            plfn_ls.sort()
+            nonvoid_plfn_ls = []
+            bxmh5_fn_ls = []
+            for pl_fn in plfn_ls:
+                is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
+                if not is_intact:
+                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
+                    continue
+                if ck_str == 'void file':
+                    print('void file: %s'%(pl_fn))
+                    continue
+                region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
+                bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + house_name + '/' + region_name + formats[1]
+                if not os.path.exists( bxmh5_fn ):
+                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
                     return
+                with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
+                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                        return
+                    else:
+                        print('shape match check ok: %s'%(region_name))
+                nonvoid_plfn_ls.append( pl_fn )
+                bxmh5_fn_ls.append( bxmh5_fn )
+            if len( nonvoid_plfn_ls )  == 0:
+                print(  "no file, skip %s"%( house_name ) )
+                return
+            fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
+
+            for j in range(2):
+                merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
                 merged_file_name = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f(nonvoid_fls, merged_file_name,IsShowSummaryFinished=True)
+                MergeNormed_H5f( fn_ls[j], merged_file_name, IsShowSummaryFinished=True)
 
-            elif flag == 'house':
-                assert house_name == None
-                house_h5f_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j]
-                fn_ls = glob.glob( house_h5f_path + '/*' + formats[j] )
-                fn_ls.sort()
-                #house_name_ls = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls ]
-                #bm_fn_ls = [ os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[1] + '/' + house_name + formats[1]  for house_name  in house_name_ls]
-                #assert len(pl_fn_ls) == len(bm_fn_ls)
+        elif flag == 'house':
+            assert house_name == None
+            house_h5f_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[0]
+            pl_fn_ls = glob.glob( house_h5f_path + '/*' + formats[0] )
+            pl_fn_ls.sort()
+            for pl_fn in pl_fn_ls:
+                is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
+                assert is_intact, "not intact: %s"%(pl_fn)
+            print('all %d houses intact'%(len(pl_fn_ls)))
 
-                for k in range( 0, len(fn_ls), house_group_num ):
-                    fn_ls_k = fn_ls[k: min( (k+house_group_num),len(fn_ls) ) ]
-                    house_name_ls_k = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls_k ]
+            for k in range( 0, len(pl_fn_ls), house_group_num ):
+                end = min( (k+house_group_num),len(pl_fn_ls) )
+                pl_fn_ls_k = pl_fn_ls[k : end ]
+                bxmh5_fn_ls_k = []
+                for pl_fn in pl_fn_ls_k:
+                    house_name =  os.path.splitext(os.path.basename( pl_fn ))[0]
+                    bxmh5_fn =  os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[1] + '/' + house_name + formats[1]
+                    if not os.path.exists(bxmh5_fn):
+                        print('Abort merging %d-%d, not exist: %s'%(k, end, bxmh5_fn))
+                        return
+                    with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+                        if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
+                            print('Abort merging %d-%d, data shape (%d) != bidxmaps_flatten shape (%d): %s'%( k, end, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                            return
+                        else:
+                            print('shape match check ok: %s'%(house_name))
+                    bxmh5_fn_ls_k.append( bxmh5_fn )
+                fn_ls_k = [ pl_fn_ls_k, bxmh5_fn_ls_k ]
+
+                for j in range(2):
+                    house_name_ls_k = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls_k[j] ]
                     merged_house_name = ''
                     for i,hn in enumerate( house_name_ls_k ):
                         merged_house_name += hn[0:3]
                         if i != len(house_name_ls_k)-1:
                             merged_house_name += '_'
-                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j] + '/'
                     if j==1:
                         merged_fn_pl = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[0] + '/' + merged_house_name + formats[0]
                         if not os.path.exists( merged_fn_pl ):
                             print('abort because not exist: %s'%(merged_fn_pl))
                             continue
+                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j] + '/' + merged_house_name + formats[j]
                     merged_fn = merged_path + merged_house_name + formats[j]
                     if not os.path.exists(merged_path):
                         os.makedirs(merged_path)
-                    MergeNormed_H5f( fn_ls_k, merged_fn, IsShowSummaryFinished=True)
+                    MergeNormed_H5f( fn_ls_k[j], merged_fn, IsShowSummaryFinished=True)
 
         def get_bxmh5_fl( plnh5_fls, bxmh5_folder_name ):
             bxmh5_fls = []
