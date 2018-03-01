@@ -517,13 +517,21 @@ class Matterport3D_Prepare():
                 print(  "no file, skip %s"%( house_name ) )
                 return
             fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
+            merged_file_names = ['','']
 
             for j in range(2):
                 merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                merged_file_name = merged_path + house_name+formats[j]
+                merged_file_names[j] = merged_path + house_name+formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f( fn_ls[j], merged_file_name, IsShowSummaryFinished=True)
+                MergeNormed_H5f( fn_ls[j], merged_file_names[j], IsShowSummaryFinished=True)
+            # check after merged
+            with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
+                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                else:
+                    #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
+                    pass
 
         elif flag == 'house':
             assert house_name == None
@@ -554,6 +562,7 @@ class Matterport3D_Prepare():
                     bxmh5_fn_ls_k.append( bxmh5_fn )
                 fn_ls_k = [ pl_fn_ls_k, bxmh5_fn_ls_k ]
 
+                merged_fns = ['','']
                 for j in range(2):
                     house_name_ls_k = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls_k[j] ]
                     merged_house_name = ''
@@ -567,10 +576,17 @@ class Matterport3D_Prepare():
                             print('abort because not exist: %s'%(merged_fn_pl))
                             continue
                     merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j] + '/' + merged_house_name + formats[j]
-                    merged_fn = merged_path + merged_house_name + formats[j]
+                    merged_fns[j] = merged_path + merged_house_name + formats[j]
                     if not os.path.exists(merged_path):
                         os.makedirs(merged_path)
-                    MergeNormed_H5f( fn_ls_k[j], merged_fn, IsShowSummaryFinished=True)
+                    MergeNormed_H5f( fn_ls_k[j], merged_fns[j], IsShowSummaryFinished=True)
+                # check after merged
+                with h5py.File( merged_fns[0], 'r' ) as plh5f, h5py.File( merged_fns[1], 'r' ) as bxmh5f:
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
+                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                    else:
+                        #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
+                        pass
 
         def get_bxmh5_fl( plnh5_fls, bxmh5_folder_name ):
             bxmh5_fls = []
