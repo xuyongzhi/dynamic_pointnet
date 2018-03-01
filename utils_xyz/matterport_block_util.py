@@ -17,7 +17,7 @@ import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
 TMPDEBUG = False
-
+SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'scannet_data'
@@ -446,7 +446,7 @@ class Matterport3D_Prepare():
                     success_fns.append(results.get(timeout=0.1))
             except:
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
-            print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
+            print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
     def Norm(self,base_stride,base_step,numpoint_block,MultiProcess=0):
       #  base_stride = [2,2,-1]
@@ -498,7 +498,7 @@ class Matterport3D_Prepare():
                     print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
                     continue
                 if ck_str == 'void file':
-                    print('void file: %s'%(pl_fn))
+                    if not SHOWONLYERR: print('void file: %s'%(pl_fn))
                     continue
                 region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
                 bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + house_name + '/' + region_name + formats[1]
@@ -510,7 +510,8 @@ class Matterport3D_Prepare():
                         print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
                         return
                     else:
-                        print('shape match check ok: %s'%(region_name))
+                        #print('shape match check ok: %s'%(region_name))
+                        pass
                 nonvoid_plfn_ls.append( pl_fn )
                 bxmh5_fn_ls.append( bxmh5_fn )
             if len( nonvoid_plfn_ls )  == 0:
@@ -528,7 +529,7 @@ class Matterport3D_Prepare():
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_file_names[0],merged_file_names[1]) )
                 else:
                     #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
                     pass
@@ -583,16 +584,10 @@ class Matterport3D_Prepare():
                 # check after merged
                 with h5py.File( merged_fns[0], 'r' ) as plh5f, h5py.File( merged_fns[1], 'r' ) as bxmh5f:
                     if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_fns[0],merged_fns[1]) )
                     else:
                         #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
                         pass
-
-        def get_bxmh5_fl( plnh5_fls, bxmh5_folder_name ):
-            bxmh5_fls = []
-            plnh5_fls_new = []
-            for plnh5_fn in plnh5_fls:
-                f
 
 
     def GenObj_RawH5f(self,house_name):
@@ -694,7 +689,6 @@ def parse_house_ls():
     house_names = all_house_names
     house_names.sort()
 
-
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
@@ -707,7 +701,7 @@ def parse_house_ls():
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    #operations  = ['GenPyramid' , 'MergeNormed_region']
+    operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):
