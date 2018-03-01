@@ -60,46 +60,62 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
     mlps = []
-    if model_flag=='1A' or model_flag=='1AG':
+    if model_flag=='1a' or model_flag=='1aG':
         #mlps.append( [64,64,128,128,512,1024] )
         mlps.append( [64,64,64,128,512] )
-    elif model_flag=='2A' or model_flag=='2AG':
+    elif model_flag=='1b' or model_flag=='1bG':
+        mlps.append( [64,64,64,128,512] )
+    elif model_flag=='2a' or model_flag=='2aG':
         mlps.append( [32,64,64,128] )
         mlps.append( [128,128,256,512] )
-    elif model_flag=='3A' or model_flag=='3AG':
+    elif model_flag=='3a' or model_flag=='3aG':
         mlps.append( [32,32,64] )
         mlps.append( [64,128,256] )
         mlps.append( [256,256,512] )
-    elif model_flag=='4AG':
+    elif model_flag=='4aG':
         mlps.append( [32,32,64] )
         mlps.append( [64,64,128] )
         mlps.append( [128,128,256] )
         mlps.append( [256,256,512] )
+    elif model_flag=='4bG':
+        mlps.append( [32,32,64,64,128,256] )
+        mlps.append( [256,256,512] )
+        mlps.append( [512,512,512] )
+        mlps.append( [512,512,512] )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
 
     mlp2s = []
-    if model_flag=='1A' or model_flag=='1AG':
+    if model_flag=='1a' or model_flag=='1aG':
+        mlp2s.append( [512,256,128] )
+    elif model_flag=='1b' or model_flag=='1bG' or model_flag=='4bG':
         mlp2s.append( [512,256,128] )
     for k in range(cascade_num):
         mlp2s.append(None )
     return mlps,mlp2s
 def get_fp_module_config( model_flag ):
     mlps_fp = []
-    if model_flag=='1A' or model_flag=='1AG':
+    if model_flag=='1a' or model_flag=='1aG':
         mlps_fp.append( [512,256,128] )
-    if model_flag=='2A' or model_flag=='2AG':
+    elif model_flag=='1b' or model_flag=='1bG':
+        mlps_fp.append( [512,256,128] )
+    elif model_flag=='2a' or model_flag=='2aG':
         mlps_fp.append( [256,128,128] )
         mlps_fp.append( [512,256,256] )
-    elif model_flag=='3A' or model_flag=='3AG':
+    elif model_flag=='3a' or model_flag=='3aG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
-    elif model_flag=='4AG':
+    elif model_flag=='4aG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [384,256] )
         mlps_fp.append( [512,384] ) # for l_points[3-4]
+    elif model_flag=='4bG':
+        mlps_fp.append( [512,256,256,128] )
+        mlps_fp.append( [512,512] )
+        mlps_fp.append( [512,512] )
+        mlps_fp.append( [512,512] ) # for l_points[3-4]
 
     return mlps_fp
 

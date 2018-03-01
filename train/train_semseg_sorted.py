@@ -30,7 +30,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 IS_GEN_PLY = False
 Is_REPORT_PRED = IS_GEN_PLY
-ISNoEval = True
+ISNoEval = False
 LOG_TYPE = 'simple'
 #LOG_TYPE = 'complex'
 
@@ -70,6 +70,8 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
+Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
+Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
     FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
 except:
@@ -77,16 +79,15 @@ except:
 if IS_GEN_PLY:
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
-    FLAGS.model_epoch = 500
-    FLAGS.batch_size = 1
+    FLAGS.model_epoch = 420
+    #if 'xyz' not in Feed_Data_Elements:
+    #    FLAGS.batch_size = 1
 
 #FLAGS.finetune = True
 #FLAGS.model_epoch = 699
 ##FLAGS.learning_rate = 0.001
 #FLAGS.max_epoch = 201
 #-------------------------------------------------------------------------------
-feed_data_elements = FLAGS.feed_data_elements.split('-')
-feed_label_elements = FLAGS.feed_label_elements.split('-')
 if FLAGS.model_type == 'fds':
     from pointnet2_sem_seg import  get_model,get_loss
     import pdb; pdb.set_trace()
@@ -111,8 +112,8 @@ net_provider = Net_Provider(
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
                             only_evaluate = FLAGS.only_evaluate,
-                            feed_data_elements=feed_data_elements,
-                            feed_label_elements=feed_label_elements)
+                            feed_data_elements=Feed_Data_Elements,
+                            feed_label_elements=Feed_Label_Elements)
 
 NUM_POINT = net_provider.global_num_point
 NUM_DATA_ELES = net_provider.data_num_eles
@@ -125,8 +126,10 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
-FLAGS.decay_step = 20 * net_provider.train_num_blocks
+FLAGS.decay_step = 50 * net_provider.train_num_blocks
 DECAY_STEP = FLAGS.decay_step
+if TRAIN_FILE_N < 2:
+    FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
@@ -425,22 +428,24 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
             gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
             '''
+            if 'xyz' in Feed_Data_Elements: bn = BATCH_SIZE
+            else: bn = 1
             color_flags = ['gt_color']
-            #gen_ply( batch_idx, cur_data[:,:,0:3], color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_rawdata')
+            #gen_ply( batch_idx, cur_data[0:bn,:,0:3], color_flags,  cur_label[0:bn], np.argmax(pred_val,2)[0:bn], cur_data[0:bn],name_meta = '_rawdata')
             #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
             for lk in range( len(ops['l_xyz']) ):
                 pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
                 if lk == 0:
                     color_flags = ['gt_color']
-                    gen_ply( batch_idx,pl_display, color_flags,  cur_label, np.argmax(pred_val,2), cur_data,name_meta = '_lxyz0')
+                    gen_ply( batch_idx, pl_display[0:bn,...], color_flags,  cur_label[0:bn,...], np.argmax(pred_val,2)[0:bn], cur_data[0:bn,...],name_meta = '_lxyz0')
                 else:
                     color_flags = ['no_color']
-                    gen_ply( batch_idx, pl_display, color_flags,  name_meta = '_lxyz'+str(lk))
+                    gen_ply( batch_idx, pl_display[0:bn,...], color_flags,  name_meta = '_lxyz'+str(lk))
             for lk in range( len(ops['grouped_xyz']) ):
                 grouped_xyz, flat_xyz, flatten_bidxmap = sess.run( [ops['grouped_xyz'][lk], ops['flat_xyz'][lk], ops['flatten_bidxmap'][lk] ], feed_dict=feed_dict )
                 color_flags = ['no_color']
-                gen_ply( batch_idx, grouped_xyz, color_flags, name_meta = '_gpxyz'+str(lk))
-                gen_ply( batch_idx, flat_xyz, color_flags, name_meta = '_flatxyz'+str(lk))
+                gen_ply( batch_idx, grouped_xyz[0:bn,...], color_flags, name_meta = '_gpxyz'+str(lk))
+                gen_ply( batch_idx, flat_xyz[0:bn,...], color_flags, name_meta = '_flatxyz'+str(lk))
                 missed_b_num = np.sum( flatten_bidxmap[...,0,1] < 0 )
                 print('missed_b_num:', missed_b_num)
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -468,13 +473,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     return train_logstr
 
 def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None, name_meta = ''):
-    #color_flags = ['raw_color']
-    #color_flags = ['gt_color']
-    position = 'xyz_midnorm_block'
-    #position = 'xyz_1norm_block'
-    position = 'xyz'
-    if position!='xyz':
-        assert BATCH_SIZE == 1
+    if 'xyz' in Feed_Data_Elements:
+        position = 'xyz'
+    elif 'xyz_midnorm_block' in Feed_Data_Elements:
+        position = 'xyz_midnorm_block'
+
     if 'no_color' in color_flags:
         cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
         create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_nocolor'%(batch_idx)+name_meta+'.ply' )

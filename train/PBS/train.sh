@@ -1,3 +1,12 @@
  
-feed_data_elements='xyz_midnorm_block-color_1norm' 
-./run_train_seg_presg.sh 1AG 30 $feed_data_elements 0
+#feed_data_elements='xyz_midnorm_block-color_1norm' 
+feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
+./run_train_seg_presg.sh 1aG 30 $feed_data_elements 0
+
+
+
+
+
+# 1aG 1bG 30 10.6G
+# 4aG 30 9G 
+# 4bG 25 9G 
