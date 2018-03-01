@@ -577,7 +577,7 @@ class Matterport3D_Prepare():
                             print('abort because not exist: %s'%(merged_fn_pl))
                             continue
                     merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j]
-                    merged_fns[j] = merged_path + merged_house_name + '/' + formats[j]
+                    merged_fns[j] = merged_path + '/'+ merged_house_name + formats[j]
                     if not os.path.exists(merged_path):
                         os.makedirs(merged_path)
                     MergeNormed_H5f( fn_ls_k[j], merged_fns[j], IsShowSummaryFinished=True)
@@ -701,7 +701,7 @@ def parse_house_ls():
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    operations  = ['GenPyramid' , 'MergeNormed_region']
+    #operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):
