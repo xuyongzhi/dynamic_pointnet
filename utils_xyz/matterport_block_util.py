@@ -531,7 +531,7 @@ class Matterport3D_Prepare():
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
                     print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_file_names[0],merged_file_names[1]) )
                 else:
-                    #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
+                    print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
 
         elif flag == 'house':
@@ -576,8 +576,8 @@ class Matterport3D_Prepare():
                         if not os.path.exists( merged_fn_pl ):
                             print('abort because not exist: %s'%(merged_fn_pl))
                             continue
-                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j] + '/' + merged_house_name + formats[j]
-                    merged_fns[j] = merged_path + merged_house_name + formats[j]
+                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j]
+                    merged_fns[j] = merged_path + merged_house_name + '/' + formats[j]
                     if not os.path.exists(merged_path):
                         os.makedirs(merged_path)
                     MergeNormed_H5f( fn_ls_k[j], merged_fns[j], IsShowSummaryFinished=True)
