@@ -13,15 +13,15 @@ learning_rate=0.005
 feed_label_elements="label_category-label_instance"
 
 # *****************************************************************************
-#all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
-##bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
-#bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-#eval_fnglob_or_rate='759_7y3_819_82s_8WU'
-# *****************************************************************************
-all_fn_globs='v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/1pXnuDYAj8r'
+all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
 #bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
 bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-eval_fnglob_or_rate=0
+eval_fnglob_or_rate=0.2
+# *****************************************************************************
+#all_fn_globs='v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/1pXnuDYAj8r'
+##bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
+#bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+#eval_fnglob_or_rate=0
 # *****************************************************************************
 #all_fn_globs='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/17DRP5sb8fy/'
 ##bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
@@ -45,7 +45,7 @@ run_train()
   python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu
 }
 
-multip_feed=0
+multip_feed=1
 finetune=0
 model_epoch=40
 
