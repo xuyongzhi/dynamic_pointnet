@@ -43,12 +43,14 @@ run_train()
   multip_feed=$5
   finetune=$6
   model_epoch=$7
-  python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu
+  only_evaluate=$8
+  python $train_script --model_flag $model_flag  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu --only_evaluate $only_evaluate
 }
 
-multip_feed=1
-finetune=0
-model_epoch=420
+multip_feed=0
+finetune=1
+model_epoch=60
+only_evaluate=0
 
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'
 #feed_data_elements='xyz_1norm_file-color_1norm'
@@ -61,4 +63,4 @@ model_epoch=420
 #run_train $model_flag $batch_size $feed_data_elements $multip_feed $finetune
 
 #run_train '1AG' 32  $feed_data_elements 0 $multip_feed $finetune $model_epoch
-run_train $1 $2 $3 $4  $multip_feed $finetune $model_epoch
+run_train $1 $2 $3 $4  $multip_feed $finetune $model_epoch $only_evaluate

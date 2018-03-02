@@ -56,7 +56,7 @@ parser.add_argument('--decay_step', type=int, default=300000, help='Decay step f
 parser.add_argument('--decay_rate', type=float, default=0.8, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
-parser.add_argument('--only_evaluate',action='store_true',help='do not train')
+parser.add_argument('--only_evaluate',type=int,help='do not train')
 parser.add_argument('--finetune',type=int,default=0,help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
@@ -67,6 +67,7 @@ parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiPr
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
+FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
 
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
@@ -236,6 +237,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(category_labels_pl))
+            accuracy_block = tf.reduce_sum(tf.cast(correct, tf.float32),axis=1) / float(NUM_POINT)
             accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
             tf.summary.scalar('accuracy', accuracy)
 
@@ -281,7 +283,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                'train_op': train_op,
                'merged': merged,
                'step': global_step,
-               'accuracy':accuracy}
+               'accuracy':accuracy,
+               'accuracy_block':accuracy_block }
         ops['pointclouds_pl'] = pointclouds_pl
         ops['labels_pl'] = labels_pl
         ops['smpws_pl'] = smpws_pl
@@ -322,7 +325,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch > 0 and epoch % 5 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -331,10 +334,13 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             #print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
 
-def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP = None,total_seen=None,accuracy=None):
+def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP = None,total_seen=None,all_accuracy=None):
 
-    if accuracy != None:
-        ave_whole_acc = accuracy
+    if type(all_accuracy) != type(None):
+        all_accuracy = all_accuracy[0:batch_idx+1]
+        ave_whole_acc = all_accuracy.mean()
+        cur_batch_acc = all_accuracy[-1,:].mean()
+        acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0]
     else:
         ave_whole_acc,class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
                                     c_TP_FN_FP,total_seen)
@@ -345,9 +351,10 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
         t_per_block_str = np.array2string(t_per_block*1000,formatter={'float_kind':lambda x: "%0.1f"%x})
     else:
         t_per_block_str = "no-t"
-    log_str += '%s [%d - %d] \t t_block(d,c):%s\tloss: %0.3f \tacc: %0.3f' % \
-            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc )
-    if accuracy == None:
+    log_str += '%s [%d - %d] \t t_block(d,c):%s\tloss: %0.3f \tacc: %0.3f-%0.3f' % \
+            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc, cur_batch_acc )
+    log_str += ' acc histgram: %s'%( np.array2string( acc_histg,precision=3 ) )
+    if type(all_accuracy) == type(None):
         if SimpleFlag >0:
             log_str += ave_acc_str
         if  SimpleFlag >1:
@@ -369,7 +376,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
     total_seen = 0.0001
     loss_sum = 0.0
-    accuracy_sum = 0.0
+    all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     print('total batch num = ',num_batches)
@@ -387,7 +394,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         if train_feed_buf_q == None:
             IsShuffleIdx = epoch%2 != 0
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -419,7 +426,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy']],
+        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block']],
                                     feed_dict=feed_dict )
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
@@ -455,7 +462,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
             EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
 
         loss_sum += loss_val
-        accuracy_sum += accuracy_batch
+        all_accuracy[batch_idx,:] = accuracy_batch
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         #print('batch %d acc %f'%(batch_idx,accuracy_batch))
@@ -466,7 +473,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label[...,CATEGORY_LABEL_IDX])
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
             else:
-                train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,accuracy = accuracy_sum/(batch_idx+1))
+                train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
         if batch_idx == 100:
             os.system('nvidia-smi')
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
@@ -509,7 +516,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     is_training = False
     total_seen = 0.00001
     loss_sum = 0.0
-    accuracy_sum = 0.0
+    all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
@@ -536,7 +543,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(start_idx,end_idx,False)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_eval_batch(start_idx,end_idx,False)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -576,7 +583,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
             test_writer.add_summary(summary, step)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
-        accuracy_sum += accuracy_batch
+        all_accuracy[batch_idx,:] = accuracy_batch
         loss_sum += loss_val
         if batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0):
             if LOG_TYPE == 'complex':
@@ -586,14 +593,14 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
                 #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
                 eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
             else:
-                eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,accuracy = accuracy_sum/(batch_idx+1))
+                eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
 
     #if FLAGS.only_evaluate:
     #    obj_dump_dir = os.path.join(FLAGS.log_dir,'obj_dump')
     #    net_provider.gen_gt_pred_objs(FLAGS.visu,obj_dump_dir)
     #    net_provider.write_file_accuracies(FLAGS.log_dir)
     #    print('\nobj out path:'+obj_dump_dir)
-    print('eval epoch %d finished'%(epoch))
+    #print('eval epoch %d finished'%(epoch))
     return eval_logstr
 
 
@@ -633,9 +640,9 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
