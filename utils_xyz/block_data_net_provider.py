@@ -280,6 +280,7 @@ class Net_Provider():
                 else:
                     train_file_list.append(fn)
         elif type(eval_fnglob_or_rate) == float:
+            all_file_list.sort()
             # split by number
             n = len(all_file_list)
             m = int(n*(1-eval_fnglob_or_rate))

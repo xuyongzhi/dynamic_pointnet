@@ -127,7 +127,7 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
-FLAGS.decay_step = 50 * net_provider.train_num_blocks
+FLAGS.decay_step = 30 * net_provider.train_num_blocks
 DECAY_STEP = FLAGS.decay_step
 if TRAIN_FILE_N < 2:
     FLAGS.multip_feed = False
