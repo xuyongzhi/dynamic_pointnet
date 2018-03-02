@@ -340,7 +340,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
         all_accuracy = all_accuracy[0:batch_idx+1]
         ave_whole_acc = all_accuracy.mean()
         cur_batch_acc = all_accuracy[-1,:].mean()
-        acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0]
+        acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
         ave_whole_acc,class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
                                     c_TP_FN_FP,total_seen)
