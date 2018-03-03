@@ -106,6 +106,26 @@ stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\_32-32\_12-0d2\_0d6-0d
 4. xyzmid-color is much better than xyz-color \par
 5. \textbf{xyzmid-color is normally much better than xyz-xyzmid-color ???} \par
 
+\begin{center}
+	\centering \def\arraystretch{1.5} \small
+	\begin{tabular}{|p{1cm} |p{2cm} | p{4cm} || p{2cm} p{1cm} |} 
+		\hline
+		\multicolumn{5}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
+		\multicolumn{5}{|c|}{17D\_1LX\_1pX\_29h\_2az}\\
+		\hline
+		model & batch size\par num batches & data elements & epoch-acc & loss \\
+		\hline
+		1aG & 30/1083 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.947 & 0.166 \\  [0.5ex]
+		\hline
+		1aG & 30/1083 & 'xyz\_midnorm\_block', 'color\_1norm'& 200-0.783 \par 500-0.791 & 0.697 \par 0.664 \\  [0.5ex]
+		\hline
+		\multicolumn{5}{|l|}{ \shortstack[l]{Conclusion:\\ 
+				1: nxnynz helps a lot 
+				} }  \\
+		\hline
+	\end{tabular}
+\end{center}
+
 \subsection{model}
 batch size: 50 \par
 data: xyz\_midnorm\_block-color\_1norm \par

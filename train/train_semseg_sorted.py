@@ -53,7 +53,7 @@ parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial l
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
-parser.add_argument('--decay_rate', type=float, default=0.8, help='Decay rate for lr decay [default: 0.5]')
+parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
 parser.add_argument('--only_evaluate',type=int,help='do not train')
@@ -68,7 +68,6 @@ FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
-
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
@@ -77,6 +76,9 @@ try:
     FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
 except:
     pass
+if FLAGS.eval_fnglob_or_rate == 0:
+    ISNoEval=True
+    print('no eval')
 if IS_GEN_PLY:
     FLAGS.max_epoch = 1
     FLAGS.finetune = True
@@ -148,7 +150,7 @@ else:
     log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
     FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]
+                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
@@ -164,7 +166,7 @@ LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
-BN_DECAY_DECAY_RATE = 0.6
+BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 
@@ -184,11 +186,11 @@ def log_string(out_str):
     LOG_FOUT.flush()
     print(out_str)
 # log key parameters
-log_string('\n\nkey parameters')
-log_string( 'batch size: %d'%(BATCH_SIZE) )
-log_string( 'data: %s'%(FLAGS.feed_data_elements) )
+log_string('\n\nkey parameters:')
+#log_string( 'data: %s'%(FLAGS.feed_data_elements) )
 log_string( 'model: %s'%(FLAGS.model_flag) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
+log_string( 'batch size: %d'%(BATCH_SIZE) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
@@ -351,7 +353,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
         t_per_block_str = np.array2string(t_per_block*1000,formatter={'float_kind':lambda x: "%0.1f"%x})
     else:
         t_per_block_str = "no-t"
-    log_str += '%s [%d - %d] \t t_block(d,c):%s\tloss: %0.3f \tacc: %0.3f-%0.3f' % \
+    log_str += '%s [%d - %d]  t_block(d,c):%s  loss: %0.3f  acc: %0.3f-%0.3f' % \
             ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc, cur_batch_acc )
     log_str += ' acc histgram: %s'%( np.array2string( acc_histg,precision=3 ) )
     if type(all_accuracy) == type(None):
@@ -516,7 +518,6 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     is_training = False
     total_seen = 0.00001
     loss_sum = 0.0
-    all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
@@ -526,6 +527,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         num_batches = num_blocks // BATCH_SIZE
         #num_batches = limit_eval_num_batches(epoch,num_batches)
         if DEBUG_SMALLDATA: num_batches = min(num_batches,LIMIT_MAX_NUM_BATCHES['test'])
+        all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
             return ''
