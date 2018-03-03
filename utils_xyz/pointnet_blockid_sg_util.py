@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp, mlp2, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -87,7 +87,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
 
         new_points = grouped_points
         # [32, 32, 64]
-        for i, num_out_channel in enumerate(mlp):
+        for i, num_out_channel in enumerate(mlps_0):
             new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
@@ -110,7 +110,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
                 dists = tf.norm(grouped_xyz,axis=-1,ord=2,keep_dims=True)
                 exp_dists = tf.exp(-dists * 5)
                 weights = exp_dists/tf.reduce_sum(exp_dists,axis=2,keep_dims=True) # (batch_size, npoint, nsample, 1)
-                new_points *= weights # (batch_size, npoint, nsample, mlp[-1])
+                new_points *= weights # (batch_size, npoint, nsample, mlps_0[-1])
                 new_points = tf.reduce_sum(new_points, axis=2, keep_dims=True)
         elif pooling=='max':
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
@@ -124,8 +124,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
         if IsShowModel:
             print('after %s pooling, new_points:%s'%( pooling, shape_str([new_points])))
 
-        if mlp2 is None: mlp2 = []
-        for i, num_out_channel in enumerate(mlp2):
+        for i, num_out_channel in enumerate(mlps_0s_1):
             new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
@@ -133,7 +132,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
             if IsShowModel:
                 print('point encoder2 %d, new_points:%s'%(i, shape_str([new_points])))
         # (2, 512, 1, 64)
-        new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlp2[-1])
+        new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlps_0s_1[-1])
 
         if IsShowModel:
             print('pointnet_sa_module return\n new_xyz: %s\n new_points:%s\n\n'%(shape_str([new_xyz]),shape_str([new_points])))
@@ -142,7 +141,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp,
         return new_xyz, new_points, root_point_features, grouped_xyz
 
 
-def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_training, bn_decay, scope, bn=True, debug=None ):
+def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -155,12 +154,12 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
                     [:,:,0]: aim_b_index
                     [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
                     [:,:,2]: index_distance
-        mlp: [256,256]
+        mlps_fp: [256,256]
     Output:
         new_points1: (2, 256, 256)
     '''
     IsShowModel = True
-    IsDebug = True
+    IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
     with tf.variable_scope(scope) as sc:
@@ -193,11 +192,20 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlp, is_t
             flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
             points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
-        new_points1 = tf.concat(values=[points1,mapped_points2],axis=-1)
+        new_points1 = points1
         new_points1 = tf.expand_dims(new_points1,1)
-        if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
+        for i, num_out_channel in enumerate(mlps_e1):
+            new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
+                                        padding='VALID', stride=[1,1],
+                                        bn=bn, is_training=is_training,
+                                        scope='conv_encoder1_%d'%(i), bn_decay=bn_decay)
+            if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
 
-        for i, num_out_channel in enumerate(mlp):
+        mapped_points2 = tf.expand_dims(mapped_points2,1)
+        new_points1 = tf.concat(values=[new_points1,mapped_points2],axis=-1)
+        if IsShowModel: print('after concat new_points1:%s'%(shape_str([new_points1])))
+
+        for i, num_out_channel in enumerate(mlps_fp):
             new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,

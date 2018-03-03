@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -q gpupascal
-#PBS -l walltime=24:00:00
+#PBS -l walltime=12:00:00
 #PBS -l mem=16GB
 #PBS -l jobfs=0GB
 #PBS -l ngpus=1
@@ -19,4 +19,5 @@ module list
  
 #feed_data_elements='xyz_midnorm_block-color_1norm' 
 feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
-./run_train_seg_presg_1.sh 1aG 30 $feed_data_elements 0 -> out_1aG30n.log 
+#./run_train_seg_presg.sh 1aG 30 $feed_data_elements 0 -> out_1aG30n.log 
+./run_train_seg_presg.sh 1bG 27 $feed_data_elements 0 -> out_1bG27n.log 

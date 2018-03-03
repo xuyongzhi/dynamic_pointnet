@@ -9,7 +9,6 @@ import numpy as np
 import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 
-
 def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
         '''
             flatten_bidxmaps: (2, 26368, 2)
@@ -59,46 +58,58 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
 
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
-    mlps = []
+    mlps_0 = []
     if model_flag=='1a' or model_flag=='1aG':
-        #mlps.append( [64,64,128,128,512,1024] )
-        mlps.append( [64,64,64,128,512] )
+        #mlps_0.append( [64,64,128,128,512,1024] )
+        mlps_0.append( [64,64,64,128,512] )
     elif model_flag=='1b' or model_flag=='1bG':
-        mlps.append( [64,64,64,128,512] )
+        mlps_0.append( [32, 64,64,128,128,256,512] )
     elif model_flag=='2a' or model_flag=='2aG':
-        mlps.append( [32,64,64,128] )
-        mlps.append( [128,128,256,512] )
+        mlps_0.append( [32,64,64,128] )
+        mlps_0.append( [128,128,256,512] )
     elif model_flag=='3a' or model_flag=='3aG':
-        mlps.append( [32,32,64] )
-        mlps.append( [64,128,256] )
-        mlps.append( [256,256,512] )
+        mlps_0.append( [32,32,64] )
+        mlps_0.append( [64,128,256] )
+        mlps_0.append( [256,256,512] )
     elif model_flag=='4aG':
-        mlps.append( [32,32,64] )
-        mlps.append( [64,64,128] )
-        mlps.append( [128,128,256] )
-        mlps.append( [256,256,512] )
+        mlps_0.append( [32,32,64] )
+        mlps_0.append( [64,64,128] )
+        mlps_0.append( [128,128,256] )
+        mlps_0.append( [256,256,512] )
     elif model_flag=='4bG':
-        mlps.append( [32,32,64,64,128,256] )
-        mlps.append( [256,256,512] )
-        mlps.append( [512,512,512] )
-        mlps.append( [512,512,512] )
+        mlps_0.append( [32,32,64,64,128,256] )
+        mlps_0.append( [256,256,512] )
+        mlps_0.append( [512,512,512] )
+        mlps_0.append( [512,512,512] )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
 
-    mlp2s = []
+    mlps_1 = []
     if model_flag=='1a' or model_flag=='1aG':
-        mlp2s.append( [512,256,128] )
+        mlps_1.append( [512,256,128] )
     elif model_flag=='1b' or model_flag=='1bG' or model_flag=='4bG':
-        mlp2s.append( [512,256,128] )
-    for k in range(cascade_num):
-        mlp2s.append(None )
-    return mlps,mlp2s
+        mlps_1.append( [512, 512, 512] )
+        mlps_1.append( [] )
+    else:
+        for k in range(cascade_num):
+            mlps_1.append( [] )
+
+    return mlps_0, mlps_1
 def get_fp_module_config( model_flag ):
+    cascade_num = int(model_flag[0])
+    mlps_e1 = []
+    if model_flag=='1b' or model_flag=='1bG' or model_flag=='4bG':
+        #mlps_e1.append( [128] )
+        mlps_e1.append( [] )
+    else:
+        for k in range(cascade_num):
+            mlps_e1.append( [] )
+
     mlps_fp = []
     if model_flag=='1a' or model_flag=='1aG':
         mlps_fp.append( [512,256,128] )
     elif model_flag=='1b' or model_flag=='1bG':
-        mlps_fp.append( [512,256,128] )
+        mlps_fp.append( [512, 256,  128, 128, 128] )
     elif model_flag=='2a' or model_flag=='2aG':
         mlps_fp.append( [256,128,128] )
         mlps_fp.append( [512,256,256] )
@@ -117,7 +128,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] ) # for l_points[3-4]
 
-    return mlps_fp
+    return mlps_e1, mlps_fp
 
 def shape_str(tensor_ls):
     shape_str = ''
@@ -156,7 +167,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
         out: (N,n1,n2,class)
     """
     IsShowModel = True
-    IsDebug = True
+    IsDebug = False
     if 'G' in model_flag:
         IsAddGlobalLayer = True
     else:
@@ -168,12 +179,12 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
 
     cascade_num = int(model_flag[0])
     assert cascade_num <= sg_bm_extract_idx.shape[0]+(1*IsAddGlobalLayer)  # sg_bm_extract_idx do not include the global step
-    mlps,mlp2s = get_sa_module_config(model_flag)
+    mlps_0, mlps_1 = get_sa_module_config(model_flag)
     l_points = []                       # size = l_points+1
     l_points.append( rawdata )
     l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
+    debug = {}
     if IsDebug:
-        debug = {}
         debug['l_xyz'] = []
         debug['l_xyz'].append( l_xyz )
         debug['grouped_xyz'] = []
@@ -191,7 +202,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
             end = sg_bm_extract_idx[k+1]
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps[k], mlp2s[k], is_training=is_training,
+        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps_0[k], mlps_1[k], is_training=is_training,
                                                         bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
@@ -207,7 +218,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     end_points['l0_points'] = l_points[0]
 
     # Feature Propagation layers
-    mlps_fp = get_fp_module_config( model_flag )
+    mlps_e1, mlps_fp = get_fp_module_config( model_flag )
     for i in range(cascade_num):
         k = cascade_num-1-i
         if IsAddGlobalLayer and k==cascade_num-1:
@@ -218,7 +229,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
             start = flatten_bm_extract_idx[k]
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
-        l_points[k] = pointnet_fp_module( k, l_points[k], l_points[k+1], flatten_bidxmaps_k, mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
+        l_points[k] = pointnet_fp_module( k, l_points[k], l_points[k+1], flatten_bidxmaps_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 

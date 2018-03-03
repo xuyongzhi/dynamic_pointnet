@@ -279,6 +279,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             sess.add_tensor_filter("has_inf_or_nan",tf_debug.has_inf_or_nan)
 
+
         ops = {'is_training_pl': is_training_pl,
                'pred': pred,
                'loss': loss,
@@ -298,6 +299,10 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             ops['grouped_xyz'] = debug['grouped_xyz']
             ops['flat_xyz'] = debug['flat_xyz']
             ops['flatten_bidxmap'] = debug['flatten_bidxmap']
+
+        from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
+        max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
+        ops['max_memory_usage'] = max_memory_usage
 
         if FLAGS.finetune:
             saver.restore(sess,MODEL_PATH)
@@ -428,8 +433,9 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        summary, step, _, loss_val, pred_val, accuracy_batch = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block']],
+        summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
+
 
         cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
         if IS_GEN_PLY and batch_idx<10:
@@ -476,8 +482,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
             else:
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
-        if batch_idx == 100:
+
+        if epoch==0 and batch_idx == 1:
+            log_string( 'memory usage: %0.3f G'%(1.0*max_memory_usage/1e9))
             os.system('nvidia-smi')
+
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr
 
