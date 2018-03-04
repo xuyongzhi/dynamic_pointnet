@@ -590,7 +590,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
 
-        summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy']],
+        summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy_block']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
@@ -598,7 +598,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
 
         all_accuracy[batch_idx,:] = accuracy_batch
         loss_sum += loss_val
-        if batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0):
+        if batch_idx == num_batches-1 or (batch_idx%20==0):
             if LOG_TYPE == 'complex':
                 pred_logits = np.argmax(pred_val, 2)
                 total_seen += (BATCH_SIZE*NUM_POINT)

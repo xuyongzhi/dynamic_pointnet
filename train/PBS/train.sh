@@ -1,7 +1,8 @@
  
-feed_data_elements='xyz_midnorm_block-color_1norm' 
-#feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
-./run_train_seg_presg.sh 1bG 25 $feed_data_elements 1
+#feed_data_elements='xyz_midnorm_block-color_1norm' 
+feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
+./run_train_seg_presg.sh 1aG 30 $feed_data_elements 0
+#./run_train_seg_presg.sh 1bG 25 $feed_data_elements 0
 
 
 

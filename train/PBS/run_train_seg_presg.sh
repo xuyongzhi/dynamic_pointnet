@@ -50,8 +50,8 @@ run_train()
 }
 
 multip_feed=1
-finetune=0
-model_epoch=310
+finetune=1
+model_epoch=30
 only_evaluate=0
 
 #feed_data_elements='xyz_1norm_file-xyz_midnorm_block'

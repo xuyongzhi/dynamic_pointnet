@@ -108,7 +108,7 @@ stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\_32-32\_12-0d2\_0d6-0d
 
 \begin{center}
 	\centering \def\arraystretch{1.5} \small
-	\begin{tabular}{|p{1cm} |p{1.5cm} | p{1cm} | p{7cm} || p{1.5cm} p{1cm}|} 
+	\begin{tabular}{|p{1cm} |p{1.5cm} | p{1.5cm} | p{7cm} || p{1.5cm} p{1cm}|} 
 		\hline
 		\multicolumn{6}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
 		\multicolumn{6}{|c|}{17D\_1LX\_1pX\_29h\_2az}\\
@@ -116,20 +116,26 @@ stride\_0d1\_step\_0d1\_bmap\_nh5\_2048\_0d5\_1\_fmn1-160\_32-32\_12-0d2\_0d6-0d
 		model & batch size\par batch num& lr\par ds & data elements & epoch-acc & loss \\
 		\hline
 		1aG & 30/1083 & 0.003 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.947 & 0.166 \\  [0.5ex]
-		\hline
-		1aG & 30/19755 & 0.02 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 87-0.616 & 1.375 \\  [0.5ex]
-		\hline
+		\hline		
 		1aG & 30/1083 & 0.01  & 'xyz\_midnorm\_block', 'color\_1norm'& 200-0.783 \par 500-0.791 & 0.697 \par 0.664 \\  [0.5ex]
-		\hline
-		1aG & 30/19755 & 0.02 & 'xyz\_midnorm\_block', 'color\_1norm'& 560-0.562 & 0.162  \\  [0.5ex]
-		\hline
+		\hline		
+		1aG & 30/1083 & 0.003/30 \par 300-0.00012 & 'xyz\_midnorm\_block', 'color\_1norm'& 200-0.903 \par 300-0.921 &  0.306 \par 0.245 \\  [0.5ex]
+		\hline\hline
+		
+		1bG & 25/1083 & 0.003-30 \par 100-3e-4 \par 300-4e-5 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 100-0.914 \par 200-0.957 \par 300-0.966 & 0.277 \par 0.141 \par 0.109 \\  [0.5ex]
+		\hline	
 		1bG & 25/1083 & 0.02 & 'xyz\_midnorm\_block', 'color\_1norm'& 200-0.655 \par 300-0.718 & 1.169 \par 0.930 \\  [0.5ex]
 		\hline
 		1bG & 25/1083 & 0.02 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.772 \par 300-0.823 & 0.780 \par 0.583 \\  [0.5ex]
+		\hline \hline
+		1aG & 30/19755 & 0.02 & 'xyz\_midnorm\_block', 'color\_1norm'& 56-0.562 & 0.162  \\  [0.5ex]
+		\hline
+		1aG & 30/19755 & 0.02 \par 127-0.0048& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 87-0.616 \par 127-0.686 & 1.375 \par 1.102 \\  [0.5ex]
 		\hline
 		\multicolumn{6}{|l|}{ \shortstack[l]{Conclusion:\\ 
 				1: nxnynz helps a lot \\
-				2: 1bG is much deeper than 1aG, why worse than 1aG
+				2: 1bG is much deeper than 1aG, why worse than 1aG \\
+				3: learning rate is important, cannot be too large
 				} }  \\
 		\hline
 	\end{tabular}

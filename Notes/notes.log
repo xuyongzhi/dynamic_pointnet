@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  4 MAR 2018 12:07
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  4 MAR 2018 18:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -227,19 +227,24 @@ mages/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>]
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <9> on input line 111.
 
-Overfull \hbox (98.88576pt too wide) in paragraph at lines 111--136
+Underfull \hbox (badness 10000) in paragraph at lines 122--122
+[]\OT1/cmr/m/n/9 300-
+ []
+
+
+Overfull \hbox (113.11214pt too wide) in paragraph at lines 111--142
  [] 
  []
 
 [3 <./images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png> <./i
 mages/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>]
-Overfull \hbox (28.98978pt too wide) in paragraph at lines 142--142
+Overfull \hbox (28.98978pt too wide) in paragraph at lines 148--148
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn3-600[]64[]24-
  []
 
 
-Overfull \hbox (38.9898pt too wide) in paragraph at lines 159--159
+Overfull \hbox (38.9898pt too wide) in paragraph at lines 165--165
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn6-2048[]256[]64-
  []
@@ -248,7 +253,7 @@ Overfull \hbox (38.9898pt too wide) in paragraph at lines 159--159
 Here is how much of TeX's memory you used:
  1478 strings out of 494931
  22724 string characters out of 6180851
- 79979 words of memory out of 5000000
+ 80979 words of memory out of 5000000
  4785 multiletter control sequences out of 15000+600000
  8807 words of font info for 31 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
@@ -260,7 +265,7 @@ cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10
 usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb>
-Output written on notes.pdf (6 pages, 415051 bytes).
+Output written on notes.pdf (6 pages, 415699 bytes).
 PDF statistics:
  64 PDF objects out of 1000 (max. 8388607)
  36 compressed objects within 1 object stream
