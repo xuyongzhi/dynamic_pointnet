@@ -52,7 +52,7 @@ parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
-parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
+parser.add_argument('--decay_epoch_step', type=int, default=30, help='Decay step for lr decay [default: 300000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
@@ -119,7 +119,7 @@ net_provider = Net_Provider(
                             feed_label_elements=Feed_Label_Elements)
 
 NUM_POINT = net_provider.global_num_point
-NUM_DATA_ELES = net_provider.data_num_eles
+NUM_DATA_ELES = net_providerL.data_num_eles
 NUM_CLASSES = net_provider.num_classes
 NUM_LABEL_ELES = net_provider.label_num_eles
 LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
@@ -129,8 +129,7 @@ TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
 MAX_MULTIFEED_NUM = 5
 
-FLAGS.decay_step = 30 * net_provider.train_num_blocks
-DECAY_STEP = FLAGS.decay_step
+DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
@@ -191,6 +190,8 @@ log_string('\n\nkey parameters:')
 log_string( 'model: %s'%(FLAGS.model_flag) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
+log_string( 'learning rate: %d'%(FLAGS.learning_rate) )
+log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
