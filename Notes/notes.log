@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  4 MAR 2018 11:47
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  4 MAR 2018 12:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -227,7 +227,7 @@ mages/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>]
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <9> on input line 111.
 
-Overfull \hbox (86.88577pt too wide) in paragraph at lines 111--136
+Overfull \hbox (98.88576pt too wide) in paragraph at lines 111--136
  [] 
  []
 
@@ -260,7 +260,7 @@ cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10
 usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb>
-Output written on notes.pdf (6 pages, 414962 bytes).
+Output written on notes.pdf (6 pages, 415051 bytes).
 PDF statistics:
  64 PDF objects out of 1000 (max. 8388607)
  36 compressed objects within 1 object stream

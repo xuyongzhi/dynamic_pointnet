@@ -9,7 +9,7 @@ train_script=../train_semseg_sorted.py
 dataset_name=matterport3d
 baselogname=log
 maxepoch=301
-learning_rate=0.005
+learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category-label_instance"
 

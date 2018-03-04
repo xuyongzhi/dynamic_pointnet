@@ -23,6 +23,7 @@ from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
+from time import gmtime, strftime
 
 DEBUG_TMP = False
 ISSUMMARY = True
@@ -49,7 +50,7 @@ parser.add_argument('--max_epoch', type=int, default=200, help='Epoch to run [de
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
-parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_epoch_step', type=int, default=30, help='Decay step for lr decay [default: 300000]')
@@ -119,7 +120,7 @@ net_provider = Net_Provider(
                             feed_label_elements=Feed_Label_Elements)
 
 NUM_POINT = net_provider.global_num_point
-NUM_DATA_ELES = net_providerL.data_num_eles
+NUM_DATA_ELES = net_provider.data_num_eles
 NUM_CLASSES = net_provider.num_classes
 NUM_LABEL_ELES = net_provider.label_num_eles
 LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
@@ -148,7 +149,7 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
-    FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+\
+    FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' +\
                     FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
@@ -190,7 +191,7 @@ log_string('\n\nkey parameters:')
 log_string( 'model: %s'%(FLAGS.model_flag) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
-log_string( 'learning rate: %d'%(FLAGS.learning_rate) )
+log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
 
 def get_learning_rate(global_step):
@@ -316,7 +317,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
-            log_string('**** EPOCH %03d ****' % (epoch))
+            log_string('**** EPOCH %03d ****   %s' % ( epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime()) ))
             log_string('learning_rate: %f'%( sess.run(learning_rate) ))
             sys.stdout.flush()
             if train_feed_buf_q == None:
