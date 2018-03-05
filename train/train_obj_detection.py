@@ -352,10 +352,13 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
-        if batch_idx%80 == 0:
+        if batch_idx%100 == 0:
             print('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
             print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
             #print('the all merged is {}'.format(summary))
+            #log_string('Accuracy is : %0.3f' % (eval_log_str))
+            log_string('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
+            log_string('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_val = np.argmax(pred_class_val, 2)
             loss_sum += loss_val
