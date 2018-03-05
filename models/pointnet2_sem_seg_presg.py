@@ -77,7 +77,7 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [128,128,256] )
         mlps_0.append( [256,256,512] )
     elif model_flag=='4bG':
-        mlps_0.append( [32,32,64,64,128,256] )
+        mlps_0.append( [32,64,64,128,128,256] )
         mlps_0.append( [256,256,512] )
         mlps_0.append( [512,512,512] )
         mlps_0.append( [512,512,512] )
@@ -87,9 +87,13 @@ def get_sa_module_config(model_flag):
     mlps_1 = []
     if model_flag=='1a' or model_flag=='1aG':
         mlps_1.append( [512,256,128] )
-    elif model_flag=='1b' or model_flag=='1bG' or model_flag=='4bG':
+    elif model_flag=='1b' or model_flag=='1bG':
         mlps_1.append( [512, 512, 512] )
-        mlps_1.append( [] )
+    elif model_flag=='4bG':
+        mlps_1.append( [256, 256] )
+        mlps_1.append( [512, 512] )
+        mlps_1.append( [512, 512] )
+        mlps_1.append( [512, 512] )
     else:
         for k in range(cascade_num):
             mlps_1.append( [] )
@@ -98,7 +102,7 @@ def get_sa_module_config(model_flag):
 def get_fp_module_config( model_flag ):
     cascade_num = int(model_flag[0])
     mlps_e1 = []
-    if model_flag=='1b' or model_flag=='1bG' or model_flag=='4bG':
+    if model_flag=='1b' or model_flag=='1bG':
         #mlps_e1.append( [128] )
         mlps_e1.append( [] )
     else:
@@ -123,7 +127,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [384,256] )
         mlps_fp.append( [512,384] ) # for l_points[3-4]
     elif model_flag=='4bG':
-        mlps_fp.append( [512,256,256,128] )
+        mlps_fp.append( [256,256,128,128] )
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] ) # for l_points[3-4]

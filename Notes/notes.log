@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  4 MAR 2018 18:17
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  5 MAR 2018 12:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -23,6 +23,20 @@ File: size10.clo 2014/09/29 v1.4h Standard LaTeX file (size option)
 \belowcaptionskip=\skip42
 \bibindent=\dimen102
 )
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/color.sty
+Package: color 2016/07/10 v1.1e Standard LaTeX Color (DPC)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/color.cfg
+File: color.cfg 2016/01/02 v1.6 sample color configuration
+)
+Package color Info: Driver file: pdftex.def on input line 147.
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def
+File: pdftex.def 2017/06/24 v1.0g Graphics/color driver for pdftex
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/dvipsnam.def
+File: dvipsnam.def 2016/06/17 v3.0m Driver-dependent file (DPC,SPQR)
+))
 (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
 Package: graphicx 2017/06/01 v1.1a Enhanced LaTeX Graphics (DPC,SPQR)
 
@@ -40,28 +54,25 @@ Package: trig 2016/01/03 v1.10 sin cos tan (DPC)
 File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
 Package graphics Info: Driver file: pdftex.def on input line 99.
-
-(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def
-File: pdftex.def 2017/06/24 v1.0g Graphics/color driver for pdftex
-))
+)
 \Gin@req@height=\dimen103
 \Gin@req@width=\dimen104
 )
 (./notes.aux)
 \openout1 = `notes.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 9.
-LaTeX Font Info:    ... okay on input line 9.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 10.
+LaTeX Font Info:    ... okay on input line 10.
 
 (/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -133,16 +144,16 @@ File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <12> on input line 12.
+(Font)              <12> on input line 13.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <8> on input line 12.
+(Font)              <8> on input line 13.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <6> on input line 12.
+(Font)              <6> on input line 13.
 
 [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-Overfull \hbox (10.38972pt too wide) in paragraph at lines 21--21
+Overfull \hbox (10.38972pt too wide) in paragraph at lines 22--22
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]2048
 []0d5[]1[]fmn1-160[]32-
  []
@@ -153,8 +164,8 @@ File: images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png Graphi
 c file (type png)
 <use images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-
-2048-mat.png  used on input line 25. on input line 25.
-Package pdftex.def Info: Requested size: 345.0pt x 94.41681pt on input line 25.
+2048-mat.png  used on input line 26. on input line 26.
+Package pdftex.def Info: Requested size: 345.0pt x 94.41681pt on input line 26.
 
 <images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png, id=11, 15
 22.68875pt x 391.4625pt>
@@ -162,8 +173,8 @@ File: images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png Graph
 ic file (type png)
 <use images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm
--2048-mat.png  used on input line 26. on input line 26.
-Package pdftex.def Info: Requested size: 345.0pt x 88.69049pt on input line 26.
+-2048-mat.png  used on input line 27. on input line 27.
+Package pdftex.def Info: Requested size: 345.0pt x 88.69049pt on input line 27.
 
 <images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png, id=12, 15
 12.65125pt x 473.77pt>
@@ -171,8 +182,8 @@ File: images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png Graph
 ic file (type png)
 <use images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm
--2048-mat.png  used on input line 31. on input line 31.
-Package pdftex.def Info: Requested size: 345.0pt x 108.05392pt on input line 31
+-2048-mat.png  used on input line 32. on input line 32.
+Package pdftex.def Info: Requested size: 345.0pt x 108.05392pt on input line 32
 .
 <images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png, id=13, 1
 508.63625pt x 444.66125pt>
@@ -180,11 +191,11 @@ File: images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png Grap
 hic file (type png)
 <use images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1nor
-m-2048-mat.png  used on input line 32. on input line 32.
-Package pdftex.def Info: Requested size: 345.0pt x 101.68642pt on input line 32
+m-2048-mat.png  used on input line 33. on input line 33.
+Package pdftex.def Info: Requested size: 345.0pt x 101.68642pt on input line 33
 .
 
-LaTeX Warning: `h' float specifier changed to `ht'.
+LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 <images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png, id=14, 15
 07.6325pt x 445.665pt>
@@ -192,8 +203,8 @@ File: images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png Graph
 ic file (type png)
 <use images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm
--2048-mat.png  used on input line 37. on input line 37.
-Package pdftex.def Info: Requested size: 345.0pt x 101.98396pt on input line 37
+-2048-mat.png  used on input line 38. on input line 38.
+Package pdftex.def Info: Requested size: 345.0pt x 101.98396pt on input line 38
 .
 <images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png, id=15, 1
 504.62125pt x 432.61626pt>
@@ -201,60 +212,115 @@ File: images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png Grap
 hic file (type png)
 <use images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>
 Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1nor
-m-2048-mat.png  used on input line 38. on input line 38.
-Package pdftex.def Info: Requested size: 345.0pt x 99.19598pt on input line 38.
+m-2048-mat.png  used on input line 39. on input line 39.
+Package pdftex.def Info: Requested size: 345.0pt x 99.19598pt on input line 39.
 
 
-LaTeX Warning: `h' float specifier changed to `ht'.
+LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 
-Overfull \hbox (13.8842pt too wide) in paragraph at lines 42--42
+Overfull \hbox (13.8842pt too wide) in paragraph at lines 44--44
 []\OT1/cmr/m/n/10 stride[]0d1[]step[]0d1[]bmap[]nh5[]2048[]0d5[]1[]fmn1-160[]32
 -32[]12-0d2[]0d6-0d2[]0d6 
  []
 
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 44.
+(Font)              <7> on input line 46.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <5> on input line 44.
+(Font)              <5> on input line 46.
 [1 <./images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png> <./im
 ages/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png>]
-Overfull \vbox (30.59004pt too high) has occurred while \output is active []
+Overfull \vbox (262.65887pt too high) has occurred while \output is active []
 
 
 [2 <./images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png> <./i
-mages/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>]
-LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <9> on input line 111.
-
-Underfull \hbox (badness 10000) in paragraph at lines 122--122
-[]\OT1/cmr/m/n/9 300-
- []
-
-
-Overfull \hbox (113.11214pt too wide) in paragraph at lines 111--142
- [] 
- []
-
-[3 <./images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png> <./i
-mages/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>]
-Overfull \hbox (28.98978pt too wide) in paragraph at lines 148--148
+mages/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png> <./images/
+acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png> <./images/loss_lo
+g-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>]
+Overfull \hbox (28.98978pt too wide) in paragraph at lines 117--117
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn3-600[]64[]24-
  []
 
 
-Overfull \hbox (38.9898pt too wide) in paragraph at lines 165--165
+Overfull \hbox (38.9898pt too wide) in paragraph at lines 134--134
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn6-2048[]256[]64-
  []
 
-[4] [5] (./notes.aux) ) 
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <9> on input line 157.
+
+Underfull \hbox (badness 10000) in paragraph at lines 164--164
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 166--166
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 168--168
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 170--170
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 172--172
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 174--174
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 176--176
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 179--179
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 182--182
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 186--186
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 188--188
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Overfull \hbox (58.43303pt too wide) in paragraph at lines 157--197
+ [] 
+ []
+
+[3] [4] (./notes.aux) ) 
 Here is how much of TeX's memory you used:
- 1478 strings out of 494931
- 22724 string characters out of 6180851
- 80979 words of memory out of 5000000
- 4785 multiletter control sequences out of 15000+600000
+ 1732 strings out of 494931
+ 26812 string characters out of 6180851
+ 91293 words of memory out of 5000000
+ 5031 multiletter control sequences out of 15000+600000
  8807 words of font info for 31 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  41i,10n,25p,272b,241s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -265,10 +331,10 @@ cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10
 usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb>
-Output written on notes.pdf (6 pages, 415699 bytes).
+Output written on notes.pdf (5 pages, 417536 bytes).
 PDF statistics:
- 64 PDF objects out of 1000 (max. 8388607)
- 36 compressed objects within 1 object stream
+ 61 PDF objects out of 1000 (max. 8388607)
+ 34 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  31 words of extra memory for PDF output out of 10000 (max. 10000000)
 
