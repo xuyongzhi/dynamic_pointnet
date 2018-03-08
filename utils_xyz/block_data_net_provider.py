@@ -286,7 +286,7 @@ class Net_Provider():
             m = int(n*(1-eval_fnglob_or_rate))
             train_file_list = all_file_list[0:m]
             eval_file_list = all_file_list[m:n]
-        if len(eval_file_list) == 0:
+        if len(eval_file_list) == 0 and eval_fnglob_or_rate<0:
             eval_file_list = [train_file_list[0]]
 
         log_str = '\ntrain file list (n=%d) = \n%s\n\n'%(len(train_file_list),train_file_list[-2:])
@@ -356,6 +356,7 @@ class Net_Provider():
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
         fid_start_end = []
+        xyz_mid_ls = []
         for f_idx in range(start_file_idx,end_file_idx+1):
             if f_idx == start_file_idx:
                 start = local_start_idx
@@ -390,6 +391,7 @@ class Net_Provider():
             xyz_max = xyz_i.max( axis=1 )
             xyz_mid = (xyz_min + xyz_max)/2
             xyz_midnorm_block_i = xyz_i - np.expand_dims( xyz_mid,1 )
+            xyz_mid_ls.append( xyz_mid )
 
             if 'xyz' not in self.feed_data_elements:
                 data_i = np.delete( data_i, new_feed_data_ele_idxs['xyz'], 2 )
@@ -425,6 +427,7 @@ class Net_Provider():
         sg_bidxmaps = np.concatenate( sg_bidxmaps_ls,axis=0 )
         flatten_bidxmaps = np.concatenate( flatten_bidxmaps_ls,axis=0 )
 
+        xyz_mid_batches = np.concatenate( xyz_mid_ls, 0 )
         center_mask = np.concatenate(center_mask,0)
 
         # sampling again
@@ -464,7 +467,10 @@ class Net_Provider():
        # print(sg_bidxmaps.shape)
        # print(flatten_bidxmaps.shape)
 
-        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fid_start_end
+        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fid_start_end, xyz_mid_batches
+
+    def get_fn_from_fid(self,fid):
+        return self.normed_h5f_file_list[ fid ]
 
     def get_center_mask(self,f_idx, xyz_midnorm, edge_rate=0.1):
         # true for center, false for edge
@@ -483,21 +489,24 @@ class Net_Provider():
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
         fid_start_end_ls = []
+        xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i,fid_start_end_i = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             data_batches.append(data_i)
             label_batches.append(label_i)
             sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
+            xyz_mid_ls.append( xyz_mid_i )
         data_batches = np.concatenate(data_batches,axis=0)
         label_batches = np.concatenate(label_batches,axis=0)
         sample_weights = np.concatenate(sample_weights,axis=0)
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
         fid_start_end = np.concatenate(fid_start_end_ls,0)
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps,fid_start_end
+        xyz_mid_batches = n.concatenate( xyz_mid_ls,0 )
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps,fid_start_end, xyz_mid_batches
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'

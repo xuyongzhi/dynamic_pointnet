@@ -94,13 +94,40 @@ def test_box( pl_xyz=None ):
 
     gen_box_pl( '/tmp/box_pl.ply',box_xyz, pl_xyz )
 
-def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
+def cut_xyz( xyz, cut_threshold = [1,1,0.9] ):
+    xyz = np.reshape( xyz,[-1,xyz.shape[-1]] )
+    cut_threshold = np.array( cut_threshold )
+    xyz_min = np.amin( xyz[:,0:3], 0 )
+    xyz_max = np.amax( xyz[:,0:3], 0 )
+    xyz_scope = xyz_max - xyz_min
+    xyz_cut = xyz_min + xyz_scope * cut_threshold
+    tmp = xyz[:,0:3] <= xyz_cut
+    is_keep = np.array( [True]*xyz.shape[0] )
+    for i in range(xyz.shape[0]):
+        is_keep[i] = tmp[i].all()
+    xyz_new = xyz[is_keep,:]
+    return xyz_new, is_keep
+
+def create_ply( xyz0, ply_fn, label=None, label2color=None, box=None, cut_threshold=[1,1,1] ):
   #  assert xyz.ndim == 3    # (num_block,num_point,3)
   #  assert label.ndim == 2  # (num_block,num_point)
+    print(ply_fn)
     folder = os.path.dirname(ply_fn)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    xyz = np.reshape( xyz,(-1,xyz.shape[-1]) )
+    new_xyz_ls = []
+    is_keep_ls = []
+    is_cut = xyz0.ndim >= 3
+    if is_cut:
+        for i in range( xyz0.shape[0] ):
+            new_xyz_i, is_keep_i = cut_xyz( xyz0[i])
+            new_xyz_ls.append( new_xyz_i )
+            is_keep_ls.append( is_keep_i )
+        xyz = np.concatenate( new_xyz_ls, 0 )
+        is_keep = np.concatenate( is_keep_ls, 0 )
+    else:
+        xyz = xyz0
+
     if xyz.shape[-1] == 3 and type(label) != type(None) and label2color!=None:
         label2color_ls = []
         for i in range(len(label2color)):
@@ -108,15 +135,20 @@ def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
         label2colors = np.concatenate( label2color_ls,0 )
         color = np.take( label2colors,label,axis=0 )
         color = np.reshape( color,(-1,3) )
+        if is_cut:
+            color = color[is_keep,:]
         xyz = np.concatenate([xyz,color],-1)
     if xyz.shape[-1] == 3:
         vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f8'), ('y', 'f8'),('z', 'f8')])
         for i in range(xyz.shape[0]):
             vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2] )
-    if xyz.shape[-1] == 6:
+    elif xyz.shape[-1] == 6:
         vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f8'), ('y', 'f8'),('z', 'f8'),('red','u1'),('green','u1'),('blue','u1')])
         for i in range(xyz.shape[0]):
             vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2],xyz[i,3],xyz[i,4],xyz[i,5] )
+    else:
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
 
     el_vertex = PlyElement.describe(vertex,'vertex')
     PlyData([el_vertex],text=True).write(ply_fn)
@@ -124,8 +156,8 @@ def create_ply( xyz, ply_fn, label=None, label2color=None, box=None ):
     print('save ply file: %s'%(ply_fn))
 
 
-def create_ply_matterport( xyz, ply_fn, label=None):
-    create_ply( xyz,ply_fn,label,MatterportMeta['label2color'] )
+def create_ply_matterport( xyz, ply_fn, label=None, cut_threshold=[1,1,1]):
+    create_ply( xyz,ply_fn, label = label, label2color = MatterportMeta['label2color'], cut_threshold=cut_threshold )
 
 if __name__ == '__main__':
     #test_plyfile()

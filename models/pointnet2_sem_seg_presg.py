@@ -165,13 +165,12 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, 1, nearest_block_num, 1] )
     return flatten_bidxmap_global
 
-def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None):
+def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
     """
     IsShowModel = True
-    IsDebug = False
     if 'G' in model_flag:
         IsAddGlobalLayer = True
     else:

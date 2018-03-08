@@ -29,8 +29,6 @@ DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-IS_GEN_PLY = False
-Is_REPORT_PRED = IS_GEN_PLY
 ISNoEval = False
 LOG_TYPE = 'simple'
 #LOG_TYPE = 'complex'
@@ -64,11 +62,15 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
+parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
+IS_GEN_PLY = False and FLAGS.only_evaluate
+Is_REPORT_PRED = IS_GEN_PLY
+assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
@@ -80,17 +82,6 @@ except:
 if FLAGS.eval_fnglob_or_rate == 0:
     ISNoEval=True
     print('no eval')
-if IS_GEN_PLY:
-    FLAGS.max_epoch = 1
-    FLAGS.finetune = True
-    FLAGS.model_epoch = 420
-    #if 'xyz' not in Feed_Data_Elements:
-    #    FLAGS.batch_size = 1
-
-#FLAGS.finetune = True
-#FLAGS.model_epoch = 699
-##FLAGS.learning_rate = 0.001
-#FLAGS.max_epoch = 201
 #-------------------------------------------------------------------------------
 if FLAGS.model_type == 'fds':
     from pointnet2_sem_seg import  get_model,get_loss
@@ -149,8 +140,9 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
-    FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' +\
-                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
+    if not FLAGS.finetune:
+        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
+                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
@@ -158,10 +150,15 @@ LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/semseg_result/fusion_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
 os.system('cp %s/train_semseg_sorted.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
+log_fn = os.path.join(LOG_DIR, log_name)
+if FLAGS.finetune or FLAGS.only_evaluate:
+    assert os.path.exists( MODEL_PATH+'.meta' ),"Finetune, but model mote exists: %s"%(MODEL_PATH+'.meta')
 if FLAGS.finetune:
-    LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
+    assert os.path.exists( log_fn ),"Finetune, but log not exists: %s"%(log_fn)
+    LOG_FOUT = open( log_fn, 'a')
+    LOG_FOUT.write('\n\nFinetune\n')
 else:
-    LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
+    LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
@@ -232,18 +229,18 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Get model and loss
             if FLAGS.model_type == 'fds':
-                pred,end_points = get_model( pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
+                pred,end_points = get_model( pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay)
+                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(category_labels_pl))
-            accuracy_block = tf.reduce_sum(tf.cast(correct, tf.float32),axis=1) / float(NUM_POINT)
-            accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
-            tf.summary.scalar('accuracy', accuracy)
+            accuracy_block = tf.reduce_mean(tf.cast(correct, tf.float32),axis=1)
+            #accuracy = tf.reduce_mean( accuracy_block )
+            #tf.summary.scalar('accuracy', accuracy)
 
             # Get training operator
             learning_rate = get_learning_rate(global_step)
@@ -288,7 +285,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                'train_op': train_op,
                'merged': merged,
                'step': global_step,
-               'accuracy':accuracy,
                'accuracy_block':accuracy_block }
         ops['pointclouds_pl'] = pointclouds_pl
         ops['labels_pl'] = labels_pl
@@ -318,7 +314,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
             log_string('**** EPOCH %03d ****   %s' % ( epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime()) ))
-            log_string('learning_rate: %f'%( sess.run(learning_rate) ))
+            log_string('learning_rate: %f,   IsShuffleIdx: %s'%( sess.run(learning_rate), get_shuffle_flag(epoch) ))
             sys.stdout.flush()
             if train_feed_buf_q == None:
                 net_provider.update_train_eval_shuffled_idx()
@@ -348,6 +344,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
     if type(all_accuracy) != type(None):
         all_accuracy = all_accuracy[0:batch_idx+1]
         ave_whole_acc = all_accuracy.mean()
+        std_whole_acc = all_accuracy.std()
         cur_batch_acc = all_accuracy[-1,:].mean()
         acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
@@ -360,8 +357,8 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
         t_per_block_str = np.array2string(t_per_block*1000,formatter={'float_kind':lambda x: "%0.1f"%x})
     else:
         t_per_block_str = "no-t"
-    log_str += '%s [%d - %d]  t_block(d,c):%s  loss: %0.3f  acc: %0.3f-%0.3f' % \
-            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc, cur_batch_acc )
+    log_str += '%s[%d-%d] t(d,c):%s loss: %0.3f acc: %0.3f-%0.3f' % \
+            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc, std_whole_acc )
     log_str += ' acc histgram: %s'%( np.array2string( acc_histg,precision=3 ) )
     if type(all_accuracy) == type(None):
         if SimpleFlag >0:
@@ -402,8 +399,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if train_feed_buf_q == None:
-            IsShuffleIdx = epoch%2 != 0
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+            IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -438,45 +435,14 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
 
-
-        cur_label, = sess.run( [ops['labels_pl']], feed_dict=feed_dict )
-        if IS_GEN_PLY and batch_idx<10:
-            '''
-            lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
-            gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
-            '''
-            if 'xyz' in Feed_Data_Elements: bn = BATCH_SIZE
-            else: bn = 1
-            color_flags = ['gt_color']
-            #gen_ply( batch_idx, cur_data[0:bn,:,0:3], color_flags,  cur_label[0:bn], np.argmax(pred_val,2)[0:bn], cur_data[0:bn],name_meta = '_rawdata')
-            #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
-            for lk in range( len(ops['l_xyz']) ):
-                pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
-                if lk == 0:
-                    color_flags = ['gt_color']
-                    gen_ply( batch_idx, pl_display[0:bn,...], color_flags,  cur_label[0:bn,...], np.argmax(pred_val,2)[0:bn], cur_data[0:bn,...],name_meta = '_lxyz0')
-                else:
-                    color_flags = ['no_color']
-                    gen_ply( batch_idx, pl_display[0:bn,...], color_flags,  name_meta = '_lxyz'+str(lk))
-            for lk in range( len(ops['grouped_xyz']) ):
-                grouped_xyz, flat_xyz, flatten_bidxmap = sess.run( [ops['grouped_xyz'][lk], ops['flat_xyz'][lk], ops['flatten_bidxmap'][lk] ], feed_dict=feed_dict )
-                color_flags = ['no_color']
-                gen_ply( batch_idx, grouped_xyz[0:bn,...], color_flags, name_meta = '_gpxyz'+str(lk))
-                gen_ply( batch_idx, flat_xyz[0:bn,...], color_flags, name_meta = '_flatxyz'+str(lk))
-                missed_b_num = np.sum( flatten_bidxmap[...,0,1] < 0 )
-                print('missed_b_num:', missed_b_num)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
-        if Is_REPORT_PRED:
-            pred_fn = LOG_DIR+'/train_pred_log.txt'
-            EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
+        #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
 
         loss_sum += loss_val
         all_accuracy[batch_idx,:] = accuracy_batch
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
         #print('batch %d acc %f'%(batch_idx,accuracy_batch))
-        if batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
+        if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             if LOG_TYPE == 'complex':
                 pred_val = np.argmax(pred_val, 2)
                 total_seen += (BATCH_SIZE*NUM_POINT)
@@ -492,7 +458,65 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr
 
-def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None, name_meta = ''):
+def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end ):
+    if IS_GEN_PLY and batch_idx<1 and epoch==1+FLAGS.model_epoch:
+        '''
+        lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
+        gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
+        '''
+        if fid_start_end.shape[0] > 1:
+            print('batch %d involves more than one file, skip generating ply'%(batch_idx))
+            return
+        fid_start_end = fid_start_end[0]
+        fn = net_provider.get_fn_from_fid( fid_start_end[0] )
+        fn_base = os.path.splitext(os.path.basename(fn))[0]
+
+        b0 = 0
+        b1 = min(BATCH_SIZE,BATCH_SIZE)
+
+        b0 = 1
+        b1 = min(b0+1,BATCH_SIZE)
+
+        def plyfn(name_meta):
+            ply_folder = LOG_DIR + '/ply'
+            if not os.path.exists(ply_folder):
+                os.makedirs( ply_folder )
+            return ply_folder+'/%s_%d_%d-%s_a%0d_'%( fn_base, fid_start_end[1]+b0, fid_start_end[1]+b1, name_meta, accuracy_batch[batch_idx]*1000)
+
+        color_flags = ['gt_color']
+        cur_xyz_mid = np.expand_dims( cur_xyz_mid, 1 )
+        #gen_ply( plyfn(rawdata), cur_data[b0:b1,:,0:3], accuracy_batch,  color_flags,  cur_label[b0:b1], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1] )
+        #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
+
+        for lk in range( len(ops['grouped_xyz']) ):
+            grouped_xyz, flat_xyz, flatten_bidxmap = sess.run( [ops['grouped_xyz'][lk], ops['flat_xyz'][lk], ops['flatten_bidxmap'][lk] ], feed_dict=feed_dict )
+            if 'xyz_midnorm_block' in Feed_Data_Elements:
+                grouped_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += np.expand_dims( cur_xyz_mid,1 )
+                flat_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
+            color_flags = ['no_color']
+            gen_ply( plyfn('gpxyz'+str(lk)), grouped_xyz[b0:b1,...], accuracy_batch,  color_flags)
+            gen_ply( plyfn('flatxyz'+str(lk)), flat_xyz[b0:b1,...], accuracy_batch,  color_flags )
+            missed_b_num = np.sum( flatten_bidxmap[...,0,1] < 0 )
+            print('missed_b_num:', missed_b_num)
+
+        for lk in range( len(ops['l_xyz']) ):
+            pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
+            if 'xyz_midnorm_block' in Feed_Data_Elements:
+                pl_display[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
+            if lk == 0:
+                color_flags = ['gt_color','raw_color']
+                if 'xyz_midnorm_block' in Feed_Data_Elements:
+                    cur_data[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
+                gen_ply( plyfn('lxyz0'), pl_display[b0:b1,...], accuracy_batch,  color_flags,  cur_label[b0:b1,...], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1,...] )
+            else:
+                color_flags = ['no_color']
+                gen_ply( plyfn('lxyz'+str(lk)), pl_display[b0:b1,...], accuracy_batch,  color_flags )
+    if Is_REPORT_PRED:
+        pred_fn = LOG_DIR+'/train_pred_log.txt'
+        EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
+
+def gen_ply( ply_fn, pl_display, accuracy_batch, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None):
+    cut_threshold=[1,1,0.85]
     if 'xyz' in Feed_Data_Elements:
         position = 'xyz'
     elif 'xyz_midnorm_block' in Feed_Data_Elements:
@@ -500,24 +524,20 @@ def gen_ply(batch_idx, pl_display, color_flags = ['gt_color'], cur_label=None, p
 
     if 'no_color' in color_flags:
         cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
-        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_nocolor'%(batch_idx)+name_meta+'.ply' )
+        create_ply_matterport( cur_xyz, ply_fn + 'nocolor.ply', cut_threshold = cut_threshold )
 
     if 'gt_color' in color_flags:
         cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
         cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
-        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category  )
-        create_ply_matterport( cur_xyz, LOG_DIR+'/train_%d_predcolor'%(batch_idx)+name_meta+'.ply', pred_val )
+        create_ply_matterport( cur_xyz, ply_fn + 'gtcolor.ply', cur_label_category , cut_threshold = cut_threshold )
+        create_ply_matterport( cur_xyz, ply_fn + 'predcolor.ply', pred_val, cut_threshold = cut_threshold )
         err_idxs = cur_label_category != pred_val
-        #create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_predcolor'%(batch_idx)+name_meta+'.ply', pred_val[err_idxs] )
-        create_ply_matterport( cur_xyz[err_idxs], LOG_DIR+'/train_%d_err_gtcolor'%(batch_idx)+name_meta+'.ply', cur_label_category[err_idxs] )
+        create_ply_matterport( cur_xyz[err_idxs], ply_fn + 'err_gtcolor.ply', label = cur_label_category[err_idxs], cut_threshold = cut_threshold )
 
     if 'raw_color' in color_flags:
-        cur_xyz_color = pl_display[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
-        cur_xyz_color[...,[3,4,5]] *= 255
-        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_%d_rawcolor'%(batch_idx)+'.ply' )
         cur_xyz_color = raw_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
         cur_xyz_color[...,[3,4,5]] *= 255
-        create_ply_matterport( cur_xyz_color, LOG_DIR+'/train_grouped_%d_rawcolor'%(batch_idx)+'.ply' )
+        create_ply_matterport( cur_xyz_color, ply_fn + 'rawcolor.ply', cut_threshold = cut_threshold )
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:
@@ -532,7 +552,6 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
-
     num_blocks = net_provider.eval_num_blocks
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
@@ -556,7 +575,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_eval_batch(start_idx,end_idx,False)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -592,6 +611,10 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
 
         summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy_block']],
                                       feed_dict=feed_dict)
+
+        if not FLAGS.multip_feed:
+            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
+
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
@@ -617,6 +640,10 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     return eval_logstr
 
 
+def get_shuffle_flag(epoch):
+    IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
+    return IsShuffleIdx
+
 def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, multi_feed_flags, lock, limit_max_train_num_batches=None):
     with tf.device('/cpu:%d'%(cpu_id)):
         max_buf_size = 10
@@ -640,10 +667,9 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     break
                 if DEBUG_MULTIFEED: print('%s, cpuid=%d, epoch=%d, read_OK_epoch=%d, waiting for computation and reading in other threads finished'%(train_or_test, cpu_id,epoch, multi_feed_flags['read_OK_epoch'].value))
                 time.sleep(3)
-            IsShuffleIdx = epoch%3 == 0
+            IsShuffleIdx = get_shuffle_flag(epoch)
             #IsShuffleIdx = False
             if cpu_id==0:
-                log_string('epoch %d train IsShuffleIdx: %s'%(epoch,IsShuffleIdx))
                 if IsShuffleIdx: net_provider.update_train_eval_shuffled_idx()
 
             batch_idx = -1 + batch_idx_start
@@ -653,9 +679,9 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
