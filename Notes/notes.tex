@@ -3,6 +3,13 @@
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{hyperref}
+\hypersetup{
+	citecolor=black,
+	filecolor=black,
+	linkcolor=black,
+	urlcolor=black
+}
 \graphicspath{ {images/} }
 
 \title{Dynamic sampling pointnet notes}
@@ -10,10 +17,11 @@
 \date{Feb 2018}
 
 \begin{document}
-%\tableofcontents{}
 \begin{titlepage}
 \maketitle
 \end{titlepage}	
+
+\tableofcontents{}
 
 \section{Quick notes for important events while using one file to test}
 \subsection{batch size}
@@ -161,7 +169,7 @@ max epoch = 500
 		\multicolumn{5}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
 		\multicolumn{5}{|c|}{17D\_1LX\_1pX\_29h\_2az}\\
 		\hline
-		model & batch size\par batch num& lr\par ds & data elements & epoch-acc mean-std \par train/eval \\
+		model & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-acc mean-std \par train/eval \\
 		\hline
 		1aG & 30/1083 & 0.003 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.947  \\  [0.5ex]
 		\hline		
@@ -192,6 +200,15 @@ max epoch = 500
 		\hline
 		1aG & 30/19755 & 0.02 \par 127-0.00483& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 87-0.616 \par 127-0.686 \\  [0.5ex]
 		\hline
+		\hline
+		1bG & 25/18737 & 0.001 \par N& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 24-0.682/0.509 \par 70-0.858/0.509\\  [0.5ex]
+		\hline
+		1bG & 25/18737 & 0.001 \par Y& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 24-0.738/0.573 \par 70-0.876/0.563 \par \colorbox{Yellow}{90-0.897}/0.561\\  [0.5ex]
+		\hline
+		4bG & 25/18737 & 0.001 \par Y& 'xyz\_midnorm\_block', 'nxnynz'& 24-0.576/0.545 \\  [0.5ex]
+		\hline
+		4bG & 25/18737 & 0.001 \par Y& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 24-0.594/0.569 \\  [0.5ex]
+		\hline
 		\multicolumn{5}{|l|}{ \shortstack[l]{Conclusion:\\ 
 				1: nxnynz helps a lot \\
 				2: 1bG is much deeper than 1aG, why worse than 1aG \\
@@ -202,6 +219,7 @@ max epoch = 500
 \end{center}
 
 \subsection{Semantic segmentation expamples}
+\subsubsection{good: 1083, train, 0.946}
 model: 1bG \par
 sampling \& grouping: \par stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 \par
 batch size: 25 \par
@@ -212,9 +230,7 @@ feed\_data\_elements:['xyz\_midnorm\_block', 'color\_1norm', 'nxnynz']  \par
 feed\_label\_elements:['label\_category', 'label\_instance']  \par
 train data shape: [ 1083 12800     9] \par
 
-
-
-\begin{figure}[h]
+\begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png}
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png}
@@ -233,7 +249,7 @@ train data shape: [ 1083 12800     9] \par
 	\caption{17DRP5sb8fy\_1\_2\_a946}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png}
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png}
@@ -252,4 +268,27 @@ train data shape: [ 1083 12800     9] \par
 	\caption{17DRP5sb8fy\_0\_25\_a946}
 \end{figure}
 
+\subsubsection{bad: 18737,eval 0.071}
+model: 1bG \par
+sampling \& grouping: stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 \par
+batch size: 25 \par
+learning rate: 0.001000 \par
+decay\_epoch\_step: 50 \par
+epoch 0 train IsShuffleIdx: True  \par
+epoch 0 train IsShuffleIdx: True  \par
+matterport3d  \par
+feed\_data\_elements:['xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'] \par 
+feed\_label\_elements:['label\_category', 'label\_instance']  \par
+train data shape: [18737 12800     9]    \par
+test data shape: [ 4172 12800     9] \par
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png}
+	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png}
+	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png}
+	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png}
+	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png}
+	\caption{qoi\_r1Q\_r47\_rPc\_rqf\_2\_3\_a0d071 (raw,gt,pred,err,crt)}
+\end{figure}
 \end{document}

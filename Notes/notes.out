@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Quick notes for important events while using one file to test}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{batch size}{section.1}% 2
+\BOOKMARK [3][-]{subsubsection.1.1.1}{bs=27 vs bs=81}{subsection.1.1}% 3
+\BOOKMARK [2][-]{subsection.1.2}{feed elements}{section.1}% 4
+\BOOKMARK [2][-]{subsection.1.3}{model}{section.1}% 5
+\BOOKMARK [2][-]{subsection.1.4}{integration}{section.1}% 6
+\BOOKMARK [2][-]{subsection.1.5}{Semantic segmentation expamples}{section.1}% 7
+\BOOKMARK [3][-]{subsubsection.1.5.1}{good: 1083, train, 0.946}{subsection.1.5}% 8
+\BOOKMARK [3][-]{subsubsection.1.5.2}{bad: 18737,eval 0.071}{subsection.1.5}% 9

@@ -1,0 +1,9 @@
+\contentsline {section}{\numberline {1}Quick notes for important events while using one file to test}{1}{section.1}
+\contentsline {subsection}{\numberline {1.1}batch size}{1}{subsection.1.1}
+\contentsline {subsubsection}{\numberline {1.1.1}bs=27 vs bs=81}{1}{subsubsection.1.1.1}
+\contentsline {subsection}{\numberline {1.2}feed elements}{2}{subsection.1.2}
+\contentsline {subsection}{\numberline {1.3}model}{3}{subsection.1.3}
+\contentsline {subsection}{\numberline {1.4}integration}{4}{subsection.1.4}
+\contentsline {subsection}{\numberline {1.5}Semantic segmentation expamples}{6}{subsection.1.5}
+\contentsline {subsubsection}{\numberline {1.5.1}good: 1083, train, 0.946}{6}{subsubsection.1.5.1}
+\contentsline {subsubsection}{\numberline {1.5.2}bad: 18737,eval 0.071}{6}{subsubsection.1.5.2}
