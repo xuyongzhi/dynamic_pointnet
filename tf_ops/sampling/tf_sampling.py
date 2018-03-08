@@ -62,7 +62,7 @@ if __name__=='__main__':
     import numpy as np
     np.random.seed(100)
     triangles=np.random.rand(1,5,3,3).astype('float32')
-    with tf.device('/cpu:0'):
+    with tf.device('/gpu:0'):
         inp=tf.constant(triangles)
         tria=inp[:,:,0,:]
         trib=inp[:,:,1,:]

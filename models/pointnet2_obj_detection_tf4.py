@@ -159,14 +159,15 @@ def get_loss(batch_size, pred_class, pred_box, gt_box, smpw, xyz):
 
     classification_loss = tf.losses.sparse_softmax_cross_entropy(labels = output_gt_class, logits= pred_class, weights=1.0)
     # classification_loss = tf.losses.sparse_softmax_cross_entropy(labels=tf.to_int32(pred_class[:,:,0:1]), logits= pred_class, weights=1.0) # just for test
-    regression_loss = _smooth_l1(cfg.TRAIN.SIGMA, pred_box, output_box_targets, output_box_inside_weights, output_box_outside_weights )
+    regression_loss, loss_details = _smooth_l1(cfg.TRAIN.SIGMA, pred_box, output_box_targets, output_box_inside_weights, output_box_outside_weights )
     all_loss = tf.add(classification_loss, tf.multiply(cfg.TRAIN.LAMBDA, regression_loss))
 
 
     tf.summary.scalar('classification loss', classification_loss)
     tf.summary.scalar('regression loss', regression_loss)
+    tf.summary.tensor_summary('loss_details',loss_details)
 
-    return all_loss, classification_loss, regression_loss, pred_prob
+    return all_loss, classification_loss, regression_loss, loss_details, pred_prob
 
 
 def region_proposal_loss(pred_class, pred_box, gt_box, smpw, xyz):
@@ -357,7 +358,9 @@ def _smooth_l1(sigma ,box_pred, box_targets, box_inside_weights, box_outside_wei
     # outside_mul =  box_outside_weights*smooth_l1_result
     loss_reg = tf.reduce_mean(tf.reduce_sum(outside_mul, [1,2]))
 
-    return loss_reg
+    loss_details = tf.reduce_mean(tf.reduce_sum(outside_mul,1),0)
+
+    return loss_reg, loss_details
 
 
 

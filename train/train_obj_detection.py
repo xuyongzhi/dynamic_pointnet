@@ -103,13 +103,16 @@ if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp %s/models/pointnet2_obj_detection_tf4.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
 os.system('cp %s/config/config.py %s' % (ROOT_DIR,LOG_DIR))
 os.system('cp %s/train_obj_detection.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
+
+acc_name = 'accuracy.txt'
 if FLAGS.finetune:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
+    LOG_FOUT_FUSION = open(os.path.join(LOG_DIR, acc_name), 'a')
 else:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
-#LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
-acc_name = 'accuracy.txt'
-LOG_FOUT_FUSION = open(os.path.join(LOG_DIR, acc_name), 'a')
+    LOG_FOUT_FUSION = open(os.path.join(LOG_DIR, acc_name), 'w')
+
+LOG_FOUT_FUSION.write(str(FLAGS)+'\n\n')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
@@ -177,8 +180,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # Get model and loss
             end_points, pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss, classification_loss, regression_loss, pred_prob = get_loss(BATCH_SIZE,pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
+            loss, classification_loss, regression_loss, loss_details, pred_prob = get_loss(BATCH_SIZE,pred_class, pred_box, labels_pl,smpws_pl, xyz_pl)
             tf.summary.scalar('loss', loss)
+            #tf.summary.scalar('loss_details',loss_details)
 
             #correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
             #accuracy = tf.reduce_sum(tf.cast(correct, tf.float32)) / float(BATCH_SIZE*NUM_POINT)
@@ -226,6 +230,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'loss': loss,
                'classification_loss':classification_loss,
                'regression_loss':regression_loss,
+               'loss_details':loss_details,
                'pred_prob':pred_prob,
                'train_op': train_op,
                'merged': merged,
@@ -272,6 +277,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # if epoch == MAX_EPOCH -1:
             LOG_FOUT_FUSION.write('batch_id:'+str(epoch)+', accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
+            LOG_FOUT_FUSION.flush()
             log_string('Accuracy is : %0.3f' % (eval_log_str))
 
 
@@ -343,11 +349,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
-                summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss']],
+                summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val, loss_details_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss'], ops['loss_details']],
                                             feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss']],
+            summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val, loss_details_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss'], ops['loss_details']],
                                         feed_dict=feed_dict)
 
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
@@ -355,10 +361,14 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if batch_idx%100 == 0:
             print('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
             print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
+            print('the details of loss value, dx:{},dy:{},dz:{},dl:{},dw:{},dh:{},dtheta:{}'.format(\
+                                               loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4], loss_details_val[5], loss_details_val[6]))
             #print('the all merged is {}'.format(summary))
             #log_string('Accuracy is : %0.3f' % (eval_log_str))
             log_string('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
             log_string('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
+            log_string('the details of loss value, dx:{},dy:{},dz:{},dl:{},dw:{},dh:{},dtheta:{}'.format(\
+                                               loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4], loss_details_val[5], loss_details_val[6]))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_val = np.argmax(pred_class_val, 2)
             loss_sum += loss_val
@@ -372,7 +382,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:
-        num_batches = min(num_batches,31)
+        num_batches = min(num_batches,num_batches)
+        #num_batches = min(num_batches,31)
     return num_batches
 
 def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
@@ -425,7 +436,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                      ops['labels_pl']: label_data,
                      ops['is_training_pl']: is_training,
                      ops['smpws_pl']: cur_smp_weights }
-        summary, step, loss_val, pred_class_val, pred_prob_val, pred_box_val, xyz_pl, classification_loss_val, regression_loss_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_prob'], ops['pred_box'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss']],
+        summary, step, loss_val, pred_class_val, pred_prob_val, pred_box_val, xyz_pl, classification_loss_val, regression_loss_val, loss_details_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_prob'], ops['pred_box'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss'], ops['loss_details']],
                                       feed_dict=feed_dict)
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
@@ -446,6 +457,9 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         if batch_idx%40 == 0:
             print('the test batch is {}, the loss value is {}'.format(batch_idx, loss_val))
             print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
+            print('the details of loss value, dx:{},dy:{},dz:{},dl:{},dw:{},dh:{},dtheta:{}'.format(\
+                                          loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4], loss_details_val[5], loss_details_val[6]))
+
     ## estimate the all detection results
     # format of all_pred_boxes: l, w, h, theta, x, y, z, score
     # format of gt_boxes: type, l, w, h, theta, x, y, z
@@ -614,3 +628,4 @@ if __name__ == "__main__":
         main()
         #train_eval(None,None)
         LOG_FOUT.close()
+        LOG_FOUT_FUSION.close()
