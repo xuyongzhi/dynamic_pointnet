@@ -16,15 +16,18 @@ def nan_to_num( arr ):
 
 class EvaluationMetrics():
     @staticmethod
-    def get_class_accuracy(c_TP_FN_FP,total_num,class_ls=None,IsIncludeAveClass=True,dataset_name='matterport3d'):
+    def get_class_accuracy(c_TP_FN_FP, numpoint_block, class_ls=None, IsIncludeAveClass=True, dataset_name='matterport3d'):
+        '''
+            c_TP_FN_FP: [num_batch, batch_size,num_class]
+        '''
         c_TP_FN_FP = c_TP_FN_FP.astype(np.float)
         TP = c_TP_FN_FP[...,0]  # [batch_size,class]
         FN = c_TP_FN_FP[...,1]
         FP = c_TP_FN_FP[...,2]
-        total_num = total_num*1.0
-        batch_size = c_TP_FN_FP.shape[0]
-        numpoint_block = total_num/batch_size
-        block_acc = np.sum(TP,1)/numpoint_block
+        num_batch = c_TP_FN_FP.shape[0]
+        batch_size = c_TP_FN_FP.shape[1]
+        total_num = numpoint_block * batch_size * num_batch
+        block_acc = np.sum(TP,-1)/numpoint_block
         ave_block_acc = np.sum(block_acc)/batch_size
         std_block_acc = np.std( block_acc )
         block_acc_histg = np.histogram( block_acc, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / block_acc.size
@@ -41,12 +44,11 @@ class EvaluationMetrics():
         ave_class_num_weighted['IOU'] = np.sum( IOU*normed_real_TP )
 
         # class ave accuracy: do not include non point block
-        class_non_zero_bn = np.sum(real_Pos!=0,0)
-        class_precision = nan_to_num( np.sum(precision,0)/class_non_zero_bn )
-        class_recall = nan_to_num( np.sum(recall,0)/class_non_zero_bn )
-        class_IOU = nan_to_num( np.sum(IOU,0)/class_non_zero_bn )
+        class_non_zero_bn = np.sum( np.sum(real_Pos!=0,0),0 )
+        class_precision = nan_to_num( np.sum(np.sum(precision,0),0)/class_non_zero_bn )
+        class_recall = nan_to_num( np.sum(np.sum(recall,0),0)/class_non_zero_bn )
+        class_IOU = nan_to_num( np.sum(np.sum(IOU,0),0)/class_non_zero_bn )
 
-        non_zero_bn = np.sum(real_Pos!=0)
         ave_class = {}
         ave_class['pre'] = pos_mean(class_precision)
         ave_class['recall'] = pos_mean(class_recall)
@@ -75,11 +77,11 @@ class EvaluationMetrics():
         class_acc_str += 'class_pre: '+getstr(class_precision)+'\n'
         class_acc_str += 'class_rec: '+getstr(class_recall)+'\n'
         class_acc_str += 'class_IOU: '+getstr(class_IOU)+'\n'
-        class_acc_str += 'number(K): '+getstr(np.trunc(np.sum(real_Pos,0)/1000.0),str_format='%d,') + '\n'
+        class_acc_str += 'number(K): '+getstr(np.trunc(np.sum(np.sum(real_Pos,0),0)/1000.0),str_format='%d,') + '\n'
         #class_acc_str += 'class  id: '+getstr(np.arange(precision.shape[1]),str_format='%d,') + '\n'
         if dataset_name == 'matterport3d':
             label2class = MatterportMeta['label2class']
-            class_name_ls = [label2class[label][0:5] for label in np.arange(precision.shape[1])]
+            class_name_ls = [label2class[label][0:5] for label in np.arange(precision.shape[-1])]
         class_acc_str += 'classname: '+getstr( class_name_ls ,str_format='%s,')
         return ave_block_acc, std_block_acc, block_acc_histg,  class_acc_str,ave_class_acc_str
 

@@ -25,7 +25,7 @@ import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -338,7 +338,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             #print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
 
-def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,total_seen=None,all_accuracy=None):
+def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoint_block=None,all_accuracy=None):
     if type(all_accuracy) != type(None):
         all_accuracy = all_accuracy[0:batch_idx+1]
         ave_block_acc = all_accuracy.mean()
@@ -347,8 +347,8 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,total_s
         block_acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
         ave_block_acc, std_block_acc, block_acc_histg, class_acc_str, ave_acc_str = EvaluationMetrics.get_class_accuracy(
-                                    c_TP_FN_FP,total_seen)
-    log_str = ''
+                                    c_TP_FN_FP,numpoint_block )
+    log_str = '\n'
     if len(t_batch_ls)>0:
         t_per_batch = np.mean(np.concatenate(t_batch_ls,axis=1),axis=1)
         t_per_block = t_per_batch / BATCH_SIZE
@@ -364,7 +364,6 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,total_s
             log_str += '\n' + ave_acc_str
         if  SimpleFlag >1:
             log_str += '\n' + class_acc_str
-    log_str += '\n'
     log_string(log_str)
     return log_str
 
@@ -385,7 +384,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     else:
         num_batches = None
 
-    total_seen = 0.0001
+    num_log_batch = 0
     loss_sum = 0.0
     all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
     c_TP_FN_FP = np.zeros(shape=(BATCH_SIZE,NUM_CLASSES,3))
@@ -448,12 +447,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         if ISSUMMARY: train_writer.add_summary(summary, step)
         if is_complex_log(epoch, batch_idx):
             pred_logits = np.argmax(pred_val, 2)
-            total_seen += (BATCH_SIZE*NUM_POINT)
-            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            c_TP_FN_FP[num_log_batch,:] = EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            num_log_batch += 1
         if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
             if is_complex_log(epoch, batch_idx):
-                train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
+                train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT )
 
         if epoch==0 and batch_idx == 1:
             log_string( 'memory usage: %0.3f G'%(1.0*max_memory_usage/1e9))
@@ -573,9 +572,8 @@ def limit_eval_num_batches(epoch,num_batches):
 def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_feed_flags, lock):
     """ ops: dict mapping from string to tf ops """
     is_training = False
-    total_seen = 0.00001
+    num_log_batch = 0
     loss_sum = 0.0
-    c_TP_FN_FP = np.zeros(shape=(BATCH_SIZE,NUM_CLASSES,3))
 
     log_string('----')
     num_blocks = net_provider.eval_num_blocks
@@ -584,10 +582,12 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         #num_batches = limit_eval_num_batches(epoch,num_batches)
         if DEBUG_SMALLDATA: num_batches = min(num_batches,LIMIT_MAX_NUM_BATCHES['test'])
         all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
+        c_TP_FN_FP = np.zeros(shape=(num_batches,BATCH_SIZE,NUM_CLASSES,3))
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
             return ''
     else:
+        assert False
         num_batches = None
 
     eval_logstr = ''
@@ -647,24 +647,17 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         loss_sum += loss_val
         if is_complex_log(epoch, batch_idx):
             pred_logits = np.argmax(pred_val, 2)
-            total_seen += (BATCH_SIZE*NUM_POINT)
-            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            c_TP_FN_FP[num_log_batch,:] += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            num_log_batch += 1
         if batch_idx == num_batches-1 or (batch_idx%20==0):
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
             if is_complex_log(epoch, batch_idx):
                 #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
-                eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
+                eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT)
 
         if IS_GEN_PLY and not FLAGS.multip_feed:
             gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
             return
-
-    #if FLAGS.only_evaluate:
-    #    obj_dump_dir = os.path.join(FLAGS.log_dir,'obj_dump')
-    #    net_provider.gen_gt_pred_objs(FLAGS.visu,obj_dump_dir)
-    #    net_provider.write_file_accuracies(FLAGS.log_dir)
-    #    print('\nobj out path:'+obj_dump_dir)
-    #print('eval epoch %d finished'%(epoch))
     return eval_logstr
 
 
