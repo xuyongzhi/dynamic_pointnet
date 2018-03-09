@@ -1,5 +1,5 @@
 multip_feed=0
-finetune=1
+finetune=0
 model_epoch=300
 only_evaluate=1
 ShuffleFlag='Y'

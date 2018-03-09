@@ -6,45 +6,65 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta
 
+def pos_mean(arr, axis=None):
+    return np.sum( arr, axis ) / np.sum( arr>0, axis )
+
+def nan_to_num( arr ):
+    is_nan = np.isnan(arr)
+    arr = np.nan_to_num(arr) - is_nan*1e-7
+    return arr
+
 class EvaluationMetrics():
     @staticmethod
-    def get_class_accuracy(c_TP_FN_FP,total_num,class_ls=None,IsIncludeAveClass=False):
+    def get_class_accuracy(c_TP_FN_FP,total_num,class_ls=None,IsIncludeAveClass=True,dataset_name='matterport3d'):
         c_TP_FN_FP = c_TP_FN_FP.astype(np.float)
-        TP = c_TP_FN_FP[0]
-        FN = c_TP_FN_FP[1]
-        FP = c_TP_FN_FP[2]
+        TP = c_TP_FN_FP[...,0]  # [batch_size,class]
+        FN = c_TP_FN_FP[...,1]
+        FP = c_TP_FN_FP[...,2]
         total_num = total_num*1.0
-        ave_whole_acc = np.sum(TP)/total_num
+        batch_size = c_TP_FN_FP.shape[0]
+        numpoint_block = total_num/batch_size
+        block_acc = np.sum(TP,1)/numpoint_block
+        ave_block_acc = np.sum(block_acc)/batch_size
+        std_block_acc = np.std( block_acc )
+        block_acc_histg = np.histogram( block_acc, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / block_acc.size
 
         precision = np.nan_to_num(TP/(TP+FP))
         recall = np.nan_to_num(TP/(TP+FN))
         IOU = np.nan_to_num(TP/(TP+FN+FP))
-        # class ave accuracy
-        ave_class = {}
-        ave_class['pre'] = np.mean(precision)
-        ave_class['recall'] = np.mean(recall)
-        ave_class['IOU'] = np.mean(IOU)
         # class num weighted ave
         real_Pos = TP+FN
         normed_real_TP = real_Pos/np.sum(real_Pos)
         ave_class_num_weighted = {}
         ave_class_num_weighted['pre'] = np.sum( precision*normed_real_TP )
-        ave_class_num_weighted['recall'] = np.sum( recall*normed_real_TP )  # is equal to ave_whole_acc
+        ave_class_num_weighted['recall'] = np.sum( recall*normed_real_TP )  # is equal to ave_block_acc
         ave_class_num_weighted['IOU'] = np.sum( IOU*normed_real_TP )
+
+        # class ave accuracy: do not include non point block
+        class_non_zero_bn = np.sum(real_Pos!=0,0)
+        class_precision = nan_to_num( np.sum(precision,0)/class_non_zero_bn )
+        class_recall = nan_to_num( np.sum(recall,0)/class_non_zero_bn )
+        class_IOU = nan_to_num( np.sum(IOU,0)/class_non_zero_bn )
+
+        non_zero_bn = np.sum(real_Pos!=0)
+        ave_class = {}
+        ave_class['pre'] = pos_mean(class_precision)
+        ave_class['recall'] = pos_mean(class_recall)
+        ave_class['IOU'] = pos_mean(class_IOU)
 
         # gen str
         delim = '' # ','
-        def getstr(array,mean=None,str_format='%0.3g'):
-            if mean!=None:
-                mean_str = '%9s'%(str_format%mean) + delim
-            else:
-                mean_str = '%9s'%('  ')
-                if delim != '': mean_str = mean_str + ' '
+        def getstr(array,str_format='%0.2f,'):
+            #if mean!=None:
+            #    mean_str = '%5s'%(str_format%mean) + delim
+            #else:
+            #    mean_str = '%5s'%('  ')
+            #    if delim != '': mean_str = mean_str + ' '
+            return  delim.join(['%6s'%(str_format%v) for v in array])
 
-            return mean_str + delim.join(['%9s'%(str_format%v) for v in array])
-        ave_class_acc_str = 'weighted class pre/rec/IOU: %0.3f  %0.3f  %0.3f  N=%fM  whole points average:  %0.3f'% \
+        ave_class_acc_str = 'weighted class pre/rec/IOU: %0.3f  %0.3f  %0.3f  N=%fM  points ave/std:  %0.3f  %0.3f'% \
             ( ave_class_num_weighted['pre'], ave_class_num_weighted['recall'],
-             ave_class_num_weighted['IOU'],total_num/1000000.0, ave_whole_acc)
+             ave_class_num_weighted['IOU'],total_num/1000000.0, ave_block_acc, std_block_acc)
         if IsIncludeAveClass:
             ave_class_acc_str += '\nclass ave pre/rec/IOU : %0.3f/ %0.3f/ %0.3f' %(
                         ave_class['pre'],ave_class['recall'],ave_class['IOU'])
@@ -52,23 +72,29 @@ class EvaluationMetrics():
             class_acc_str = ave_class_acc_str + '\n\t       average'+delim  + delim.join(['%9s'%c for c in class_ls])+'\n'
         else:
             class_acc_str = ''
-        class_acc_str += 'class_pre:   '+getstr(precision,ave_class_num_weighted['pre'])+'\n'
-        class_acc_str += 'class_rec:   '+getstr(recall,ave_class_num_weighted['recall'])+'\n'
-        class_acc_str += 'class_IOU:   '+getstr(IOU,ave_class_num_weighted['IOU'])+'\n'
-        class_acc_str += 'number(K):   '+getstr(np.trunc(real_Pos/1000.0),str_format='%d')
-        return ave_whole_acc, class_acc_str,ave_class_acc_str
+        class_acc_str += 'class_pre: '+getstr(class_precision)+'\n'
+        class_acc_str += 'class_rec: '+getstr(class_recall)+'\n'
+        class_acc_str += 'class_IOU: '+getstr(class_IOU)+'\n'
+        class_acc_str += 'number(K): '+getstr(np.trunc(np.sum(real_Pos,0)/1000.0),str_format='%d,') + '\n'
+        #class_acc_str += 'class  id: '+getstr(np.arange(precision.shape[1]),str_format='%d,') + '\n'
+        if dataset_name == 'matterport3d':
+            label2class = MatterportMeta['label2class']
+            class_name_ls = [label2class[label][0:5] for label in np.arange(precision.shape[1])]
+        class_acc_str += 'classname: '+getstr( class_name_ls ,str_format='%s,')
+        return ave_block_acc, std_block_acc, block_acc_histg,  class_acc_str,ave_class_acc_str
 
     @staticmethod
     def get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label):
         assert pred_val.shape == cur_label.shape
-        c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
+        batch_size = pred_val.shape[0]
+        c_TP_FN_FP = np.zeros(shape=(batch_size,NUM_CLASSES,3))
         for i in range(pred_val.shape[0]):
             for j in range(pred_val.shape[1]):
                 p = pred_val[i,j]
                 l = cur_label[i,j]
-                c_TP_FN_FP[0,l] += p==l
-                c_TP_FN_FP[1,l] += p!=l
-                c_TP_FN_FP[2,p] += p!=l
+                c_TP_FN_FP[i,l,0] += p==l
+                c_TP_FN_FP[i,l,1] += p!=l
+                c_TP_FN_FP[i,p,2] += p!=l
         return c_TP_FN_FP
 
     @staticmethod

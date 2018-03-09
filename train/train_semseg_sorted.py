@@ -25,13 +25,11 @@ import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
 
-DEBUG_TMP = False
+DEBUG_TMP = True
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 ISNoEval = False
-LOG_TYPE = 'simple'
-#LOG_TYPE = 'complex'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
@@ -68,7 +66,7 @@ FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
-IS_GEN_PLY = True and FLAGS.only_evaluate
+IS_GEN_PLY = False and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
@@ -340,16 +338,15 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             #print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
 
-def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP = None,total_seen=None,all_accuracy=None):
-
+def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,total_seen=None,all_accuracy=None):
     if type(all_accuracy) != type(None):
         all_accuracy = all_accuracy[0:batch_idx+1]
-        ave_whole_acc = all_accuracy.mean()
-        std_whole_acc = all_accuracy.std()
-        cur_batch_acc = all_accuracy[-1,:].mean()
-        acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
+        ave_block_acc = all_accuracy.mean()
+        std_block_acc = all_accuracy.std()
+        #cur_batch_acc = all_accuracy[-1,:].mean()
+        block_acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
-        ave_whole_acc,class_acc_str,ave_acc_str = EvaluationMetrics.get_class_accuracy(
+        ave_block_acc, std_block_acc, block_acc_histg, class_acc_str, ave_acc_str = EvaluationMetrics.get_class_accuracy(
                                     c_TP_FN_FP,total_seen)
     log_str = ''
     if len(t_batch_ls)>0:
@@ -359,15 +356,22 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls,SimpleFlag = 0,c_TP_FN_FP 
     else:
         t_per_block_str = "no-t"
     log_str += '%s[%d-%d] t(d,c):%s loss: %0.3f acc: %0.3f-%0.3f' % \
-            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_whole_acc, std_whole_acc )
-    log_str += ' acc histgram: %s'%( np.array2string( acc_histg,precision=3 ) )
+            ( tot,epoch,batch_idx,t_per_block_str,loss_batch,ave_block_acc, std_block_acc )
+    log_str += ' acc histgram: %s'%( np.array2string( block_acc_histg,precision=3 ) )
+    SimpleFlag = 2
     if type(all_accuracy) == type(None):
         if SimpleFlag >0:
-            log_str += ave_acc_str
+            log_str += '\n' + ave_acc_str
         if  SimpleFlag >1:
-            log_str += class_acc_str
+            log_str += '\n' + class_acc_str
+    log_str += '\n'
     log_string(log_str)
     return log_str
+
+def is_complex_log( epoch, batch_idx ):
+    return True
+    log_complex = FLAGS.only_evaluate or (epoch % 10 ==0 and epoch>0) and (batch_idx%5 == 0)
+    return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):
     """ ops: dict mapping from string to tf ops """
@@ -384,7 +388,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     total_seen = 0.0001
     loss_sum = 0.0
     all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
-    c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
+    c_TP_FN_FP = np.zeros(shape=(BATCH_SIZE,NUM_CLASSES,3))
 
     print('total batch num = ',num_batches)
     batch_idx = -1
@@ -442,15 +446,14 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         all_accuracy[batch_idx,:] = accuracy_batch
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
-        #print('batch %d acc %f'%(batch_idx,accuracy_batch))
+        if is_complex_log(epoch, batch_idx):
+            pred_logits = np.argmax(pred_val, 2)
+            total_seen += (BATCH_SIZE*NUM_POINT)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
         if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
-            if LOG_TYPE == 'complex':
-                pred_val = np.argmax(pred_val, 2)
-                total_seen += (BATCH_SIZE*NUM_POINT)
-                c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_val,cur_label[...,CATEGORY_LABEL_IDX])
+            train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
+            if is_complex_log(epoch, batch_idx):
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
-            else:
-                train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
 
         if epoch==0 and batch_idx == 1:
             log_string( 'memory usage: %0.3f G'%(1.0*max_memory_usage/1e9))
@@ -572,7 +575,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     is_training = False
     total_seen = 0.00001
     loss_sum = 0.0
-    c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
+    c_TP_FN_FP = np.zeros(shape=(BATCH_SIZE,NUM_CLASSES,3))
 
     log_string('----')
     num_blocks = net_provider.eval_num_blocks
@@ -637,19 +640,20 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
 
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
-        t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
+        t2 = time.time()
+        t_batch_ls.append( np.reshape(np.array([t1-t0,t2 - t1]),(2,1)) )
 
         all_accuracy[batch_idx,:] = accuracy_batch
         loss_sum += loss_val
+        if is_complex_log(epoch, batch_idx):
+            pred_logits = np.argmax(pred_val, 2)
+            total_seen += (BATCH_SIZE*NUM_POINT)
+            c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
         if batch_idx == num_batches-1 or (batch_idx%20==0):
-            if LOG_TYPE == 'complex':
-                pred_logits = np.argmax(pred_val, 2)
-                total_seen += (BATCH_SIZE*NUM_POINT)
-                c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
+            if is_complex_log(epoch, batch_idx):
                 #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
                 eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP,total_seen = total_seen)
-            else:
-                eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
 
         if IS_GEN_PLY and not FLAGS.multip_feed:
             gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
