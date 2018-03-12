@@ -18,7 +18,7 @@ class EvaluationMetrics():
     @staticmethod
     def get_class_accuracy(c_TP_FN_FP, numpoint_block, class_ls=None, IsIncludeAveClass=True, dataset_name='matterport3d'):
         '''
-            c_TP_FN_FP: [num_batch, batch_size,num_class]
+            c_TP_FN_FP: [num_batch, batch_size,num_class,3]
         '''
         c_TP_FN_FP = c_TP_FN_FP.astype(np.float)
         TP = c_TP_FN_FP[...,0]  # [batch_size,class]
@@ -28,7 +28,7 @@ class EvaluationMetrics():
         batch_size = c_TP_FN_FP.shape[1]
         total_num = numpoint_block * batch_size * num_batch
         block_acc = np.sum(TP,-1)/numpoint_block
-        ave_block_acc = np.sum(block_acc)/batch_size
+        ave_block_acc = np.mean(block_acc)
         std_block_acc = np.std( block_acc )
         block_acc_histg = np.histogram( block_acc, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / block_acc.size
 

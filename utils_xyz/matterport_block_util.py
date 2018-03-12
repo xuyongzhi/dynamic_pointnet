@@ -20,8 +20,6 @@ TMPDEBUG = False
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
-DATA_SOURCE= 'scannet_data'
-SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
 def zip_extract(ply_item_name,zipf,house_dir_extracted):
     '''

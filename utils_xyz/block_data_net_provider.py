@@ -280,12 +280,22 @@ class Net_Provider():
                 else:
                     train_file_list.append(fn)
         elif type(eval_fnglob_or_rate) == float:
+            if eval_fnglob_or_rate<0:
+                inverse = True
+                eval_fnglob_or_rate=-eval_fnglob_or_rate
+            else:
+                inverse = False
             all_file_list.sort()
             # split by number
             n = len(all_file_list)
             m = int(n*(1-eval_fnglob_or_rate))
-            train_file_list = all_file_list[0:m]
-            eval_file_list = all_file_list[m:n]
+            if not inverse:
+                train_file_list = all_file_list[0:m]
+                eval_file_list = all_file_list[m:n]
+            else:
+                eval_file_list = all_file_list[0:m]
+                train_file_list = all_file_list[m:n]
+
         if len(eval_file_list) == 0 and eval_fnglob_or_rate<0:
             eval_file_list = [train_file_list[0]]
 

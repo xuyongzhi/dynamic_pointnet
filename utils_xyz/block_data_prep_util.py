@@ -1328,8 +1328,8 @@ class Raw_H5f():
     '''
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
-    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32,'label':np.int32 }
-    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1,'label':1}
+    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32 }
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1}
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
         self.h5f = raw_h5_f
         if datasource_name == None:
@@ -1432,7 +1432,10 @@ class Raw_H5f():
 
         with open(obj_file_name,'w') as out_obj_file:
             xyz_dset = self.xyz_dset
-            color_dset = self.color_dset
+            if 'color' in self.h5f:
+                color_dset = self.color_dset
+            else:
+                IsLabelColor = True
             label_category_dset = self.label_category_dset
 
             if xyz_cut_rate != None:
@@ -1451,9 +1454,11 @@ class Raw_H5f():
                 end = min(k+row_step,row_N)
                 xyz_buf_k = xyz_dset[k:end,:]
 
-
-                color_buf_k = color_dset[k:end,:]
-                buf_k = np.hstack((xyz_buf_k,color_buf_k))
+                if 'color' in self.h5f:
+                    color_buf_k = color_dset[k:end,:]
+                    buf_k = np.hstack((xyz_buf_k,color_buf_k))
+                else:
+                    buf_k = xyz_buf_k
                 label_k = label_category_dset[k:end,0]
                 for j in range(0,buf_k.shape[0]):
                     is_cut_this_point = False
@@ -1472,7 +1477,7 @@ class Raw_H5f():
                         + '\t'.join( ['%d'%(d) for d in  buf_k[j,3:6]]) + '\n'
                     else:
                         label = label_k[j]
-                        label_color = Normed_H5f.g_label2color[label]
+                        label_color = Normed_H5f.g_label2color_dic[self.h5f.attrs['datasource_name']][label]
                         str_j = 'v   ' + '\t'.join( ['%0.5f'%(d) for d in  buf_k[j,0:3]]) + '  \t'\
                         + '\t'.join( ['%d'%(d) for d in  label_color ]) + '\n'
                     out_obj_file.write(str_j)
@@ -1811,7 +1816,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return block_k
 
     def xyz_to_block_index(self,xyz_k):
-        return Sorted_H5f.xyz_to_block_index_( xyz_K, self.h5f.attrs )
+        return Sorted_H5f.xyz_to_block_index_( xyz_k, self.h5f.attrs )
 
     @staticmethod
     def ixyz_to_block_index_(i_xyz,attrs):
@@ -3148,7 +3153,7 @@ class Sort_RawH5f():
         else:
             block_ks = np.zeros(raw_buf.shape[0],np.int64)
             for j in range(raw_buf.shape[0]):
-                block_ks[j] = self.s_h5f.xyz_to_block_index(raw_buf[j,0:3])
+                block_ks[j] = self.s_h5f.xyz_to_block_index(raw_buf[j,0:3])[0]
 
         #t1 = time.time()
         for i in range(raw_buf.shape[0]):
@@ -3184,7 +3189,7 @@ class Sort_RawH5f():
 
     def get_block_index_subbuf(self,sub_buf_xyz,block_ks,i_start):
         for i in range(sub_buf_xyz.shape[0]):
-            block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])
+            block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])[0]
 
 
 

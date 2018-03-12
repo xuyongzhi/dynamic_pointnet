@@ -134,6 +134,8 @@ except:
 if FLAGS.only_evaluate:
     MAX_EPOCH = 1
     log_name = 'log_test.txt'
+    if type(FLAGS.eval_fnglob_or_rate)==float and FLAGS.eval_fnglob_or_rate<0:
+        log_name = 'log_test_of_train_data.txt'
 else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_train.txt'
