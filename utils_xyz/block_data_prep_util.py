@@ -2805,8 +2805,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             Sorted_H5f.save_bxmap_h5f( bmap_nh5_filename, gsbb_write, self, pl_nh5_filename, bmap_meta_filename )
         t3 = time.time()
+        scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
+        area = scope[0] * scope[1]
         if t3 - t0 > 1:
-            print('\t save bmh5 t:%f  save pl_nh5 t: %f, save bxmap_h5 t: %f'%(t1-t0, t2-t1, t3-t2))
+            print('\tper square meters save bmh5 t:%f  save pl_nh5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0)/area, (t2-t1)/area, (t3-t2)/area, area ))
 
     def save_pl_nh5(self, pl_nh5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
@@ -3068,6 +3070,7 @@ class Sort_RawH5f():
         The whole scene is a group. Each block is one dataset in the group.
         The block attrs represents the field.
         '''
+        t0 = time.time()
         IsIntact,_ = Raw_H5f.check_rh5_intact(file_name)
         if not IsIntact:
             print('Abandon sorting, rh5 not intact:'%(file_name))
@@ -3143,7 +3146,11 @@ class Sort_RawH5f():
                 self.s_h5f.h5f.attrs['is_intact'] = 1
                 if self.IsShowInfoFinished:
                     self.s_h5f.show_summary_info()
-        print('sorted OK: %s'%(blocked_file_name))
+
+                scope = self.raw_h5f.xyz_scope
+                area = scope[0] * scope[1]
+                t = (time.time() - t0) / area
+                print('sorted OK: %s  per 1 square meters t: %f'%(blocked_file_name,t))
 
     def sort_buf(self,raw_buf,buf_start_k,sorted_buf_dic):
         #t0 = time.time()
