@@ -15,7 +15,7 @@ import multiprocessing as mp
 import itertools
 import pickle
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'Scannet_H5F'
@@ -208,15 +208,15 @@ def main(split):
         MultiProcess = 0
         scanet_prep = Scannet_Prepare(split)
 
-        scanet_prep.Load_Raw_Scannet_Pickle()
+        #scanet_prep.Load_Raw_Scannet_Pickle()
         #scanet_prep.GenObj_RawH5f(0,3)
         base_step_stride = [0.1,0.1,0.1]
-        scanet_prep.SortRaw( base_step_stride, MultiProcess )
+        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
         scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        scanet_prep.MergeNormed()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main('test')
-    main('train')
+    main('test')
+    #main('train')
