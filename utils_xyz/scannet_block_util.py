@@ -205,7 +205,7 @@ class Scannet_Prepare():
 
 def main(split):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 6
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
