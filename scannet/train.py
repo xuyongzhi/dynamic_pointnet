@@ -23,7 +23,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'data_prep'))
 import scannet_dataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
+parser.add_argument('--gpu', type=int, default=1, help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet2_sem_seg', help='Model name [default: model]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=8192, help='Point Number [default: 8192]')
@@ -52,8 +52,8 @@ MODEL = importlib.import_module(FLAGS.model) # import network module
 MODEL_FILE = os.path.join(BASE_DIR, FLAGS.model+'.py')
 LOG_DIR = FLAGS.log_dir
 if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
-os.system('cp train.py %s' % (LOG_DIR)) # bkp of train procedure
+#os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
+#os.system('cp train.py %s' % (LOG_DIR)) # bkp of train procedure
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS)+'\n')
 
@@ -114,7 +114,7 @@ def train():
             print "--- Get model and loss"
             # Get model and loss
             pred, end_points = MODEL.get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
-            loss = MODEL.get_loss(pred, labels_pl, smpws_pl, end_points)
+            loss = MODEL.get_loss(pred, labels_pl, smpws_pl )
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(labels_pl))
@@ -230,10 +230,11 @@ def train_one_epoch(sess, ops, train_writer):
         end_idx = (batch_idx+1) * BATCH_SIZE
         batch_data, batch_label, batch_smpw = get_batch_wdp(TRAIN_DATASET, train_idxs, start_idx, end_idx)
         # Augment batched point clouds by rotation
-	aug_data = provider.rotate_point_cloud_z(batch_data)
+        #aug_data = provider.rotate_point_cloud_z(batch_data)
+        aug_data = batch_data
         feed_dict = {ops['pointclouds_pl']: aug_data,
                      ops['labels_pl']: batch_label,
-		     ops['smpws_pl']:batch_smpw,
+		             ops['smpws_pl']:batch_smpw,
                      ops['is_training_pl']: is_training,}
         summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
             ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
