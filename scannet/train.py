@@ -281,7 +281,8 @@ def eval_one_epoch(sess, ops, test_writer):
         end_idx = (batch_idx+1) * BATCH_SIZE
         batch_data, batch_label, batch_smpw = get_batch(TEST_DATASET, test_idxs, start_idx, end_idx)
 
-	aug_data = provider.rotate_point_cloud_z(batch_data)
+        #aug_data = provider.rotate_point_cloud_z(batch_data)
+        aug_data = batch_data
 
         feed_dict = {ops['pointclouds_pl']: aug_data,
                      ops['labels_pl']: batch_label,
