@@ -1,0 +1,6 @@
+*.pyc
+*.swp
+*.ropeproject
+data
+train_res
+log
