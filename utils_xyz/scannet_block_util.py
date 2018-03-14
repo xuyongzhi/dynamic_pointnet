@@ -1,4 +1,4 @@
-#xyz
+# xyz
 from __future__ import print_function
 import pdb, traceback
 import os
@@ -73,9 +73,11 @@ class Scannet_Prepare():
 
             print('%d scans for file:\n %s'%(len(semantic_labels_list),file_name))
             for n in range(len(semantic_labels_list)):
-                if TMPDEBUG and n>0: break
                 # write one RawH5f file for one scane
                 rawh5f_fn = os.path.join(rawh5f_dir,self.split+'_%d.rh5'%(n))
+                if Raw_H5f.check_rh5_intact( rawh5f_fn ):
+                    print('rh5 intact: %s'%(rawh5f_fn))
+                    continue
                 num_points = semantic_labels_list[n].shape[0]
                 with h5py.File(rawh5f_fn,'w') as h5f:
                     raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
@@ -205,13 +207,13 @@ class Scannet_Prepare():
 
 def main(split):
         t0 = time.time()
-        MultiProcess = 6
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare(split)
 
-        #scanet_prep.Load_Raw_Scannet_Pickle()
+        scanet_prep.Load_Raw_Scannet_Pickle()
         #scanet_prep.GenObj_RawH5f(0,3)
         base_step_stride = [0.1,0.1,0.1]
-        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
+        scanet_prep.SortRaw( base_step_stride, MultiProcess )
         scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         scanet_prep.MergeNormed()
         print('split = %s'%(split))

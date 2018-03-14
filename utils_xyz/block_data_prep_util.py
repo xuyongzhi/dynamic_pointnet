@@ -43,7 +43,7 @@ import csv,pickle
 from configs import get_gsbb_config, NETCONFIG
 import magic
 
-SHOWONLYERR = True
+SHOW_ONLY_ERR = False
 DEBUGTMP=True
 ENABLECHECK = True
 START_T = time.time()
@@ -1161,7 +1161,7 @@ class GlobalSubBaseBLOCK():
                 return False,""
             IsIntact = h5f.attrs['is_intact_bmh5'] == 1
             if IsIntact:
-               if not SHOWONLYERR:  print('bmh5 file intact:',file_name)
+               if not SHOW_ONLY_ERR:  print('bmh5 file intact:',file_name)
             return IsIntact,""
 
     @staticmethod
@@ -2785,13 +2785,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if cur_global_num_point != gsbb_write.global_num_point:
                 Sorted_H5f.add_new_sample_num_in_plnh5( pl_nh5_filename, gsbb_write )
             else:
-                if not SHOWONLYERR: print('pyh5 intact: %s'%(pl_nh5_filename))
+                if not SHOW_ONLY_ERR: print('pyh5 intact: %s'%(pl_nh5_filename))
         else:
             self.save_pl_nh5( pl_nh5_filename, gsbb_write, self, IsShowSummaryFinished)
 
         IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_nh5_filename )
         if ck_str == 'void file':
-            if not SHOWONLYERR: print('void file, skip generating bxmh5: %s'%(pl_nh5_filename))
+            if not SHOW_ONLY_ERR: print('void file, skip generating bxmh5: %s'%(pl_nh5_filename))
             return
 
         #-----------------------------------------------------------------------
@@ -2801,7 +2801,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         bmap_meta_filename = os.path.join(out_folder_bmap,region_name+'.txt')
         IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bmap_nh5_filename )
         if (not Always_CreateNew_bxmh5) and  IsIntact_nh5_bmap:
-            if not SHOWONLYERR: print('bxmh5 intact: %s'%(bmap_nh5_filename))
+            if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bmap_nh5_filename))
         else:
             Sorted_H5f.save_bxmap_h5f( bmap_nh5_filename, gsbb_write, self, pl_nh5_filename, bmap_meta_filename )
         t3 = time.time()
@@ -3085,7 +3085,7 @@ class Sort_RawH5f():
 
         IsIntact,_ = Sorted_H5f.check_sh5_intact(blocked_file_name)
         if IsIntact:
-            if not SHOWONLYERR: print('sh5 file intact: %s'%(blocked_file_name))
+            if not SHOW_ONLY_ERR: print('sh5 file intact: %s'%(blocked_file_name))
             return
 
         print('start sorting file to blocks: %s'%file_name)
@@ -4053,7 +4053,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
     if not Always_CreateNew:
         IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
         if IsIntact:
-            if not SHOWONLYERR: print('nh5/prh5 file intact: %s'%(merged_filename))
+            if not SHOW_ONLY_ERR: print('nh5/prh5 file intact: %s'%(merged_filename))
             return
     if not os.path.exists( os.path.dirname(merged_filename) ):
         os.makedirs( os.path.dirname(merged_filename) )
