@@ -501,7 +501,7 @@ class Matterport3D_Prepare():
                 region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
                 bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + house_name + '/' + region_name + formats[1]
                 if not os.path.exists( bxmh5_fn ):
-                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
+                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], bxmh5_fn))
                     return
                 with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                     if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:

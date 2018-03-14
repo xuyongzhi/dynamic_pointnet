@@ -19,7 +19,7 @@ from configs import NETCONFIG
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'scannet_data')
+DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'Scannet_H5F')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
@@ -515,7 +515,7 @@ class Net_Provider():
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
         fid_start_end = np.concatenate(fid_start_end_ls,0)
-        xyz_mid_batches = n.concatenate( xyz_mid_ls,0 )
+        xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
         return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps,fid_start_end, xyz_mid_batches
 
     def update_train_eval_shuffled_idx(self):

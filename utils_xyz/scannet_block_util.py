@@ -150,52 +150,56 @@ class Scannet_Prepare():
 
     def MergeNormed(self):
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2'
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
         pl_base_fn_ls = []
-        if True:
-            pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0] + '/' + self.split
-            plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
-            plfn_ls.sort()
-            nonvoid_plfn_ls = []
-            bxmh5_fn_ls = []
-            for pl_fn in plfn_ls:
-                is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
-                if not is_intact:
-                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
-                    continue
-                if ck_str == 'void file':
-                    if not SHOWONLYERR: print('void file: %s'%(pl_fn))
-                    continue
-                region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
-                bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + self.split + '/' + region_name + formats[1]
-                if not os.path.exists( bxmh5_fn ):
-                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
-                    return
-                with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
-                        return
-                    else:
-                        #print('shape match check ok: %s'%(region_name))
-                        pass
-                nonvoid_plfn_ls.append( pl_fn )
-                bxmh5_fn_ls.append( bxmh5_fn )
-            if len( nonvoid_plfn_ls )  == 0:
-                print(  "no file, skip %s"%( house_name ) )
+        pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0] + '/' + self.split
+        plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
+        plfn_ls.sort()
+        nonvoid_plfn_ls = []
+        bxmh5_fn_ls = []
+        for pl_fn in plfn_ls:
+            is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
+            region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
+            if not is_intact:
+                print(' ! ! ! Abort merging %s not intact: %s'%(self.split+formats[0], pl_fn))
+                continue
+            if ck_str == 'void file':
+                print('void file: %s'%(pl_fn))
+                continue
+            bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + self.split + '/' + region_name + formats[1]
+            if not os.path.exists( bxmh5_fn ):
+                print(' ! ! ! Abort merging %s not intact: %s'%(self.split+formats[0], bxmh5_fn))
                 return
-            fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
+            with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
+                    print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                    return
+                else:
+                    #print('shape match check ok: %s'%(region_name))
+                    pass
+            nonvoid_plfn_ls.append( pl_fn )
+            bxmh5_fn_ls.append( bxmh5_fn )
+        if len( nonvoid_plfn_ls )  == 0:
+            print(  "no file, skip %s"% (self.split ) )
+            return
+        fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
+
+        if self.split=='train':
+            group_n = int(len(nonvoid_plfn_ls) /4)
+        else:
+            group_n = 1
+        for k in range( 0, len(nonvoid_plfn_ls),group_n ):
+            end = min( k+group_n, len(nonvoid_plfn_ls) )
             merged_file_names = ['','']
 
             for j in range(2):
                 merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                merged_file_names[j] = merged_path + self.split+formats[j]
+                merged_file_names[j] = merged_path + self.split + '_' + str(k)  + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f( fn_ls[j], merged_file_names[j], IsShowSummaryFinished=True)
+                MergeNormed_H5f( fn_ls[j][k:end], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
@@ -204,21 +208,27 @@ class Scannet_Prepare():
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
 
+    def GenObj_NormedH5f(self):
+        file_name = '/home/z/Research/dynamic_pointnet/data/Scannet_H5F/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/train/train_0.nh5'
+        with h5py.File(file_name,'r') as h5f:
+            normedh5f = Normed_H5f(h5f,file_name)
+            normedh5f.gen_gt_pred_obj_examples()
 
 def main(split):
         t0 = time.time()
         MultiProcess = 0
         scanet_prep = Scannet_Prepare(split)
 
-        scanet_prep.Load_Raw_Scannet_Pickle()
-        #scanet_prep.GenObj_RawH5f(0,3)
+        #scanet_prep.Load_Raw_Scannet_Pickle()
+        #scanet_prep.GenObj_RawH5f(100,110)
         base_step_stride = [0.1,0.1,0.1]
-        scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         scanet_prep.MergeNormed()
+        #scanet_prep.GenObj_NormedH5f()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    main('test')
-    #main('train')
+    #main('test')
+    main('train')

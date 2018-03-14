@@ -1425,12 +1425,14 @@ class Raw_H5f():
             obj_folder = os.path.join(folder_path,base_fn)
             print('obj_folder:',obj_folder)
             obj_file_name = os.path.join(obj_folder,base_fn+'.obj')
+            obj_file_name_nocolor = os.path.join(obj_folder,base_fn+'_xyz.obj')
             if not os.path.exists(obj_folder):
                 os.makedirs(obj_folder)
             print('automatic obj file name: %s'%(obj_file_name))
 
 
         with open(obj_file_name,'w') as out_obj_file:
+          with open(obj_file_name_nocolor,'w') as xyz_obj_file:
             xyz_dset = self.xyz_dset
             if 'color' in self.h5f:
                 color_dset = self.color_dset
@@ -1480,7 +1482,9 @@ class Raw_H5f():
                         label_color = Normed_H5f.g_label2color_dic[self.h5f.attrs['datasource_name']][label]
                         str_j = 'v   ' + '\t'.join( ['%0.5f'%(d) for d in  buf_k[j,0:3]]) + '  \t'\
                         + '\t'.join( ['%d'%(d) for d in  label_color ]) + '\n'
+                    nocolor_str_j = 'v   ' + '\t'.join( ['%0.5f'%(d) for d in  buf_k[j,0:3]]) + '  \n'
                     out_obj_file.write(str_j)
+                    xyz_obj_file.write(nocolor_str_j)
 
                 rate = int(100.0 * end / row_N)
                 e = row_step / row_N
@@ -3979,8 +3983,11 @@ class Normed_H5f():
                     if block_id != None and block_id != j:
                         continue
                     xyz_block = raw_xyz_set[j,...]
-                    label_gt = np.reshape( self.labels_set[j,...],(-1,3)  )[:,self.label_ele_idxs['label_category'][0]]
-                    color_block = (np.reshape( self.data_set[...,self.data_set.attrs['color_1norm']],(-1,3) )*255).astype(np.uint8)
+                    label_gt = np.reshape( self.labels_set[j,...],(-1,self.labels_set.shape[-1])  )[:,self.label_ele_idxs['label_category'][0]]
+                    if 'color_1norm' in self.data_set.attrs: hascolor = True
+                    else: hascolor = False
+                    if hascolor:
+                        color_block = (np.reshape( self.data_set[...,self.data_set.attrs['color_1norm']],(-1,3) )*255).astype(np.uint8)
                     if self.pred_logits_set.shape[0] !=0 and  j < self.pred_logits_set.shape[0]:
                         IsGenPred = True
                         label_pred = np.reshape( self.pred_logits_set[j,:], (-1,3) )[:,self.label_ele_idxs['label_category'][0]]
@@ -4007,13 +4014,17 @@ class Normed_H5f():
                         color_gt = self.label2color( label_gt[i] )
                         str_xyz = 'v ' + ' '.join( ['%0.3f'%(d) for d in  xyz_block[i,:] ])
                         str_xyz = str_xyz + ' \t'
-                        str_raw_color = ' '.join( ['%d'%(d) for d in  color_block[i,:]]) + '\n'
+                        if hascolor:
+                            str_raw_color = ' '.join( ['%d'%(d) for d in  color_block[i,:]]) + '\n'
                         str_color_gt = ' '.join( ['%d'%(d) for d in  color_gt]) + '\n'
                         str_gt = str_xyz + str_color_gt
 
                         if show_categaries == None or label_gt[i] in show_categaries:
                             raw_f.write(str_xyz+'\n')
-                            raw_colored_f.write(str_xyz+str_raw_color)
+                            if hascolor:
+                                raw_colored_f.write(str_xyz+str_raw_color)
+                            else:
+                                raw_colored_f.write(str_xyz)
                             gt_f.write( str_gt )
 
                         if IsGenPred and label_pred[i] in self.g_label2color:

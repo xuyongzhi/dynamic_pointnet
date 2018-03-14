@@ -389,7 +389,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     num_log_batch = 0
     loss_sum = 0.0
     all_accuracy = np.zeros(shape=(num_batches,BATCH_SIZE),dtype=np.float32)
-    c_TP_FN_FP = np.zeros(shape=(BATCH_SIZE,NUM_CLASSES,3))
+    c_TP_FN_FP = np.zeros(shape=(num_batches,BATCH_SIZE,NUM_CLASSES,3))
 
     print('total batch num = ',num_batches)
     batch_idx = -1
@@ -649,7 +649,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         loss_sum += loss_val
         if is_complex_log(epoch, batch_idx):
             pred_logits = np.argmax(pred_val, 2)
-            c_TP_FN_FP[num_log_batch,:] += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
+            c_TP_FN_FP[num_log_batch,:] = EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
             num_log_batch += 1
         if batch_idx == num_batches-1 or (batch_idx%20==0):
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
