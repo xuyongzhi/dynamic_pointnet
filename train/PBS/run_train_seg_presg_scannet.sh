@@ -6,7 +6,7 @@
 #***********
 
 train_script=../train_semseg_sorted.py
-dataset_name=scannet
+dataset_name='scannet'
 maxepoch=301
 learning_rate=0.001
 decay_epoch_step=40

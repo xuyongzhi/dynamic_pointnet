@@ -86,17 +86,17 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
                     cascade_id, shape_str([xyz]), shape_str([grouped_xyz]), shape_str([new_xyz]), shape_str([grouped_points]), nsample))
 
         new_points = grouped_points
-        # [32, 32, 64]
-        for i, num_out_channel in enumerate(mlps_0):
-            new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv%d'%(i), bn_decay=bn_decay)
-            if IsShowModel:
-                print('point encoder1 %d, new_points:%s'%(i, shape_str([new_points])))
-            # (2, 512, 128, 32)
-            # (2, 512, 128, 32)
-            # (2, 512, 128, 64)
+
+        if 'growth_rate'in mlps_0:
+            new_points = tf.dense_net( new_points, dense_config, IsShowModel )
+        else:
+            for i, num_out_channel in enumerate(mlps_0):
+                new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv%d'%(i), bn_decay=bn_decay)
+                if IsShowModel:
+                    print('point encoder1 %d, new_points:%s'%(i, shape_str([new_points])))
 
         if cascade_id == 0:
             root_point_features = new_points
@@ -215,3 +215,8 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));
         #if IsShowModel:  import pdb; pdb.set_trace()
     return new_points1
+
+
+
+
+

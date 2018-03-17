@@ -81,6 +81,16 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [256,256,512] )
         mlps_0.append( [512,512,512] )
         mlps_0.append( [512,512,512] )
+
+    elif model_flag=='dense1a':
+        dense_config = {}
+        dense_config['initial_feature_num'] = 20
+        dense_config['num_block'] = 1
+        dense_config['growth_rate'] = 16
+        dense_config['layers_per_block'] = 5
+        dense_config['transition_feature_rate'] = 1
+        dense_config['keep_prob'] = 0.3
+        mlps_0.append( dense_config )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
 
