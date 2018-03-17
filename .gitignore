@@ -3,4 +3,4 @@
 *.ropeproject
 data
 train_res
-log
+log*
