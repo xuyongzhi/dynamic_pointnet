@@ -6,8 +6,6 @@ import numpy as np
 
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
-NETCONFIG['loss_weight'] = True
-NETCONFIG['set_center_weight'] = False
 NETCONFIG['max_global_sample_rate'] = 5
 
 

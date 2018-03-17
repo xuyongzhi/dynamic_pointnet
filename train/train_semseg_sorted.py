@@ -24,6 +24,7 @@ from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
+from configs import NETCONFIG
 
 DEBUG_TMP = False
 ISSUMMARY = True
@@ -61,6 +62,7 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
+parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -99,7 +101,10 @@ DECAY_RATE = FLAGS.decay_rate
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+net_configs = {}
+net_configs['loss_weight'] = FLAGS.loss_weight
 net_provider = Net_Provider(
+                            net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
                             all_filename_glob=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
@@ -141,7 +146,8 @@ else:
     log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
+        nwl_str = '-'+FLAGS.loss_weight + 'lw-'
+        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)

@@ -14,7 +14,6 @@ import multiprocessing as mp
 import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
-from configs import NETCONFIG
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -46,11 +45,11 @@ class Net_Provider():
     # provider with train_start_idx and test_start_idx
 
 
-    def __init__(self, dataset_name,all_filename_glob,eval_fnglob_or_rate, bxmh5_folder_name,\
+    def __init__(self, net_configs, dataset_name,all_filename_glob,eval_fnglob_or_rate, bxmh5_folder_name,\
                  only_evaluate,feed_data_elements, feed_label_elements, num_point_block = None, \
                  train_num_block_rate=1,eval_num_block_rate=1 ):
         t_init0 = time.time()
-
+        self.net_configs = net_configs
         self.bxmh5_folder_name = bxmh5_folder_name
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
@@ -460,10 +459,17 @@ class Net_Provider():
             sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
         sample_weights = np.concatenate(sample_weights,axis=-1).astype( np.float32 )
 
-        if NETCONFIG['set_center_weight']:
-            sample_weights *= center_mask
-        if not NETCONFIG['loss_weight']:
+        if self.net_configs['loss_weight'] == 'E': # Equal
             sample_weights = np.ones_like(sample_weights)
+        elif self.net_configs['loss_weight'] == 'N': # Number
+            sample_weights = sample_weights
+        elif self.net_configs['loss_weight'] == 'C': # Center
+            sample_weights = np.ones_like(sample_weights) * center_mask
+        elif self.net_configs['loss_weight'] == 'CN':
+            sample_weights = sample_weights * center_mask
+        else:
+            assert False
+
         fid_start_end = np.concatenate( fid_start_end,0 )
 
      #   print('\nin global')

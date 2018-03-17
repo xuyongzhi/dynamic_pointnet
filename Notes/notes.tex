@@ -221,12 +221,16 @@ max epoch = 500
 \subsection{integration: scannet}
 \begin{center}
 	\centering \def\arraystretch{1.5} \small
-	\begin{tabular}{|p{1cm} |p{1.5cm} | p{2cm} | p{3.5cm} || p{4cm}|} 
+	\begin{tabular}{|p{1cm} |p{1cm} |p{1.5cm} | p{2cm} | p{3.5cm} || p{4cm}|} 
 		\hline
-		\multicolumn{5}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
-		\multicolumn{5}{|c|}{17D\_1LX\_1pX\_29h\_2az}\\
+		\multicolumn{6}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-256\_48\_16-56\_8\_8-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
+		\multicolumn{6}{|c|}{ scannet train }\\
 		\hline
-		model & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-acc mean-std \par train/eval \\
+		model & loss: E,N,C & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-point ac-class ac \par train/eval \\
+		\hline
+		1bG & E & 25/12887\par Y & 0.001\par 40 & xyzmid & 23-0.732-0.326/0.664-0.260\\
+		\hline
+		1bG & N & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.733-0.390/0.666-0.252\\
 		\hline
 	\end{tabular}
 \end{center}
