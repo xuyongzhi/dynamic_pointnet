@@ -82,14 +82,14 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [512,512,512] )
         mlps_0.append( [512,512,512] )
 
-    elif model_flag=='dense1a':
+    elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
-        dense_config['initial_feature_num'] = 20
         dense_config['num_block'] = 1
-        dense_config['growth_rate'] = 16
+        dense_config['growth_rate'] = 32
+        dense_config['initial_feature_num'] = int(dense_config['growth_rate']*1.5)
         dense_config['layers_per_block'] = 5
         dense_config['transition_feature_rate'] = 1
-        dense_config['keep_prob'] = 0.3
+        dense_config['keep_prob'] = 0.5
         mlps_0.append( dense_config )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
@@ -99,6 +99,14 @@ def get_sa_module_config(model_flag):
         mlps_1.append( [512,256,128] )
     elif model_flag=='1b' or model_flag=='1bG':
         mlps_1.append( [512, 512, 512] )
+    elif model_flag=='1DSa' or model_flag=='1DSaG':
+        dense_config = {}
+        dense_config['num_block'] = 1
+        dense_config['growth_rate'] = 32
+        dense_config['layers_per_block'] = 2
+        dense_config['transition_feature_rate'] = 1
+        dense_config['keep_prob'] = 0.5
+        mlps_1.append( dense_config )
     elif model_flag=='4bG':
         mlps_1.append( [256, 256] )
         mlps_1.append( [512, 512] )
@@ -109,6 +117,7 @@ def get_sa_module_config(model_flag):
             mlps_1.append( [] )
 
     return mlps_0, mlps_1
+
 def get_fp_module_config( model_flag ):
     cascade_num = int(model_flag[0])
     mlps_e1 = []
@@ -120,7 +129,7 @@ def get_fp_module_config( model_flag ):
             mlps_e1.append( [] )
 
     mlps_fp = []
-    if model_flag=='1a' or model_flag=='1aG':
+    if model_flag=='1a' or model_flag=='1aG' or model_flag=='1DSa' or model_flag=='1DSaG':
         mlps_fp.append( [512,256,128] )
     elif model_flag=='1b' or model_flag=='1bG':
         mlps_fp.append( [512, 256,  128, 128, 128] )
@@ -141,6 +150,16 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] ) # for l_points[3-4]
+    #elif model_flag=='1DSa' or model_flag=='1DSaG':
+    #    dense_config = {}
+    #    dense_config['num_block'] = 1
+    #    dense_config['growth_rate'] = 24
+    #    dense_config['layers_per_block'] = 4
+    #    dense_config['transition_feature_rate'] = 1
+    #    dense_config['keep_prob'] = 0.5
+    #    mlps_fp.append( dense_config )
+    else:
+        assert False, "model flag %s not exist"%(model_flag)
 
     return mlps_e1, mlps_fp
 
@@ -247,7 +266,7 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
     # FC layers
-    net = tf_util.conv1d(l_points[0], mlps_fp[0][-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')

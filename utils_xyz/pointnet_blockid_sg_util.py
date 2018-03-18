@@ -88,7 +88,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         new_points = grouped_points
 
         if 'growth_rate'in mlps_0:
-            new_points = tf.dense_net( new_points, dense_config, IsShowModel )
+            new_points = tf_util.dense_net( new_points, mlps_0, bn, is_training, bn_decay, scope = 'dense_cascade_%d_point_encoder'%(cascade_id) , is_show_model = IsShowModel )
         else:
             for i, num_out_channel in enumerate(mlps_0):
                 new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
@@ -124,13 +124,17 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         if IsShowModel:
             print('after %s pooling, new_points:%s'%( pooling, shape_str([new_points])))
 
-        for i, num_out_channel in enumerate(mlps_0s_1):
-            new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv_post_%d'%(i), bn_decay=bn_decay)
-            if IsShowModel:
-                print('point encoder2 %d, new_points:%s'%(i, shape_str([new_points])))
+
+        if 'growth_rate'in mlps_0s_1:
+            new_points = tf_util.dense_net( new_points, mlps_0s_1, bn, is_training, bn_decay, scope = 'dense_cascade_%d_block_encoder'%(cascade_id) , is_show_model = IsShowModel )
+        else:
+            for i, num_out_channel in enumerate(mlps_0s_1):
+                new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv_post_%d'%(i), bn_decay=bn_decay)
+                if IsShowModel:
+                    print('point encoder2 %d, new_points:%s'%(i, shape_str([new_points])))
         # (2, 512, 1, 64)
         new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlps_0s_1[-1])
 
@@ -194,23 +198,29 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
 
         new_points1 = points1
         new_points1 = tf.expand_dims(new_points1,1)
-        for i, num_out_channel in enumerate(mlps_e1):
-            new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv_encoder1_%d'%(i), bn_decay=bn_decay)
-            if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
+        if 'growth_rate'in mlps_e1:
+            new_points1 = tf_util.dense_net( new_points1, mlps_e1, bn, is_training, bn_decay, scope = 'dense_cascade_%d_fp'%(cascade_id) , is_show_model = IsShowModel )
+        else:
+            for i, num_out_channel in enumerate(mlps_e1):
+                new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv_encoder1_%d'%(i), bn_decay=bn_decay)
+                if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
 
         mapped_points2 = tf.expand_dims(mapped_points2,1)
         new_points1 = tf.concat(values=[new_points1,mapped_points2],axis=-1)
         if IsShowModel: print('after concat new_points1:%s'%(shape_str([new_points1])))
 
-        for i, num_out_channel in enumerate(mlps_fp):
-            new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv%d'%(i), bn_decay=bn_decay)
-            if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
+        if 'growth_rate'in mlps_fp:
+            new_points1 = tf_util.dense_net( new_points1, mlps_fp, bn, is_training, bn_decay, scope = 'dense_cascade_%d_fp'%(cascade_id) , is_show_model = IsShowModel )
+        else:
+            for i, num_out_channel in enumerate(mlps_fp):
+                new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv%d'%(i), bn_decay=bn_decay)
+                if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
         new_points1 = tf.squeeze(new_points1,[1]) # (2, 256, 256)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));
         #if IsShowModel:  import pdb; pdb.set_trace()

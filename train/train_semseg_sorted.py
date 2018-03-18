@@ -30,7 +30,7 @@ DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-ISNoEval = False
+ISNoEval = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')

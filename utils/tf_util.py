@@ -7,6 +7,20 @@ Date: November 2017
 import numpy as np
 import tensorflow as tf
 
+
+def shape_str(tensor_ls):
+    if type(tensor_ls) != list:
+        tensor_ls = [tensor_ls]
+    shape_str = ''
+    for i in range(len(tensor_ls)):
+        if tensor_ls[i] == None:
+            shape_str += '\t None'
+        else:
+            shape_str += '\t' + str( [s.value for s in tensor_ls[i].shape] )
+        if i < len(tensor_ls)-1:
+            shape_str += '\n'
+    return shape_str
+
 def _variable_on_cpu(name, shape, initializer, use_fp16=False):
   """Helper to create a Variable stored on CPU memory.
   Args:
@@ -205,8 +219,9 @@ def conv2d_(inputs,
     Variable tensor
   """
   with tf.variable_scope(scope) as sc:
+      outputs = inputs
       if bn:
-        outputs = batch_norm_for_conv2d(inputs, is_training,
+        outputs = batch_norm_for_conv2d(outputs, is_training,
                                         bn_decay=bn_decay, scope='bn')
       if activation_fn is not None:
         outputs = activation_fn(outputs)
@@ -644,7 +659,7 @@ def dropout(inputs,
     return outputs
 
 
-def dense_net( inputs, dense_config, is_show_model ):
+def dense_net( inputs, dense_config, bn, is_training, bn_decay, activation_fn=tf.nn.relu, scope='dense_net', is_show_model = False ):
     assert 'growth_rate' in dense_config
     assert 'layers_per_block' in dense_config
     assert 'keep_prob' in dense_config # 0.9
@@ -652,25 +667,43 @@ def dense_net( inputs, dense_config, is_show_model ):
     if dense_config['num_block'] > 1:
         assert 'transition_feature_rate' in dense_config # 1
 
-    if 'initial_feature_num' in dense_config:
-        outputs = conv2d_(inputs, dense_config['initial_feature_num'], [1,1],
-                                    padding='VALID', stride=[1,1],
-                                    bn=False, is_training=is_training,
-                                    scope='conv initial', bn_decay=bn_decay, activation_fn=None)
-    for b in range( dense_config['num_block'] ):
-        # add layer to a block
-        for i in range( dense_config['layers_per_block'] ):
-            output_bi = tf_util.conv2d_(outputs, dense_config['growth_rate'], [1,1],
+    with tf.variable_scope(scope):
+        if is_show_model:
+            print('%s \ninputs:\t%s'%(scope, shape_str(inputs)))
+        if 'initial_feature_num' in dense_config:
+            outputs = conv2d_(inputs, dense_config['initial_feature_num'], [1,1],
                                         padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv b%d l%d'%(b,i), bn_decay=bn_decay)
-            output_bi = tf_util.dropout( output_bi, is_training, scope='conv b%d l%d'%(b,i), keep_prob=dense_config['keep_prob'] )
-            outputs = tf.concat( [outputs,output_bi],-1 )
-        # trainsition layer
-        if b != dense_config['num_block']-1:
-            feature_num = int( outputs.get_shape()[-1].value * dense_config['transition_feature_rate'])
-            outputs = tf_util.conv2d(outputs, feature_num, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=is_training,
-                                        scope='conv transition%d'%(b), bn_decay=bn_decay)
+                                        bn=False, is_training=is_training,
+                                        scope='conv_initial', bn_decay=bn_decay, activation_fn=None)
+            if is_show_model:
+                print('initial conv: \t%s'%( shape_str(outputs)))
+        else:
+            outputs = inputs
+        for b in range( dense_config['num_block'] ):
+            # add layer to a block
+            for i in range( dense_config['layers_per_block'] ):
+                output_bi = conv2d_(outputs, dense_config['growth_rate'], [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv_b%d_l%d'%(b,i), bn_decay=bn_decay, activation_fn=activation_fn)
+                output_bi = dropout( output_bi, is_training, scope='drop_b%d_l%d'%(b,i), keep_prob=dense_config['keep_prob'] )
+                outputs = tf.concat( [outputs,output_bi],-1 )
+                if is_show_model:
+                    print('b%d l%d conv: \t%s \t%s'%(b,i, shape_str(output_bi), shape_str(outputs)))
+            # trainsition layer: not exist in last block
+            if b != dense_config['num_block']-1:
+                feature_num = int( outputs.get_shape()[-1].value * dense_config['transition_feature_rate'])
+                outputs = conv2d_(outputs, feature_num, [1,1],
+                                            padding='VALID', stride=[1,1],
+                                            bn=bn, is_training=is_training,
+                                            scope='conv_transition%d'%(b), bn_decay=bn_decay, activation_fn=activation_fn)
+                outputs = dropout( outputs, is_training, scope='drop_transi_b%d'%(b), keep_prob=dense_config['keep_prob'] )
+                if is_show_model:
+                    print('b%d transi conv: \t%s'%(b,shape_str(outputs)))
+        if bn:
+            outputs = batch_norm_for_conv2d(outputs, is_training,
+                                            bn_decay=bn_decay, scope='bn')
+        if activation_fn is not None:
+            outputs = activation_fn(outputs)
+
     return outputs

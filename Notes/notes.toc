@@ -8,3 +8,5 @@
 \contentsline {subsection}{\numberline {1.6}Semantic segmentation expamples}{6}{subsection.1.6}
 \contentsline {subsubsection}{\numberline {1.6.1}good: 1083, train, 0.946}{6}{subsubsection.1.6.1}
 \contentsline {subsubsection}{\numberline {1.6.2}bad: 18737,eval 0.071}{6}{subsubsection.1.6.2}
+\contentsline {subsection}{\numberline {1.7}point++}{7}{subsection.1.7}
+\contentsline {subsubsection}{\numberline {1.7.1}scannet seg}{7}{subsubsection.1.7.1}
