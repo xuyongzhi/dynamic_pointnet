@@ -49,6 +49,6 @@ set #1: (radius=0.3, 0.6, 1.0, 1.8),(nsample= 32, 16, 16, 8), thresh=0.7, acc_38
 set #2: (radius=0.3, 0.6, 1.0, 1.8, 2.2), (nsample = 32, 16, 16, 8, 8), thresh=0.6, batchsize = 5
 
 ### Some issues
-* the unblanced ratio of positive and negative samples.  * 
-Solutions: 1. to find the more positive samples by leasing the positive_ratio; 2. to using the Focal loss function. 3. Reduce the batch size.
+* the unblanced ratio of positive and negative samples.  
+  Solutions: 1. to find the more positive samples by leasing the positive_ratio; 2. to using the Focal loss function. 3. Reduce the batch size.
 
