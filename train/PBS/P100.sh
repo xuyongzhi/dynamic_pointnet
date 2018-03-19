@@ -18,6 +18,6 @@ module load  tensorflow/1.4-cudnn6.0-python2.7
 module list
  
 #feed_data_elements='xyz_midnorm_block-color_1norm' 
-feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
-#./run_train_seg_presg.sh 1aG 30 $feed_data_elements 0 -> out_1aG30n.log 
-./run_train_seg_presg.sh 1bG 25 $feed_data_elements 0 -> out_1bG25n.log 
+#feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
+feed_data_elements='xyz_midnorm_block' 
+./run_train_seg_presg_scan.sh 1bG 25 0 $feed_data_elements 'E' -> out_scan_1bG.log

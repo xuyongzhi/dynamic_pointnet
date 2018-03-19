@@ -173,7 +173,14 @@ max epoch = 500
 		\hline
 		1aG & 30/60 & 0.005 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 250-0.981  \\  [0.5ex]
 		\hline
-		1DSaG & 30/60 & 0.001-40 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.914-0.775  \\  [0.5ex]
+		1DSaG & 30/60 & 0.001-40 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.914-0.775  \\  \hline
+		1DSaG & 30/60 & 0.001-40 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.914-0.775  \\  [0.5ex] \hline
+		1DSaG \par kp0.5& 30/60 & 0.001-80\par 300-3e-4 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.942-0.842  \\  [0.5ex] \hline
+		1DSaG \par kp0.2& 30/60 & 0.001-80\par 300-3e-4 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.928-0.797  \\  [0.5ex] \hline
+		1DSaG \par kp0.5& 30/60 & 0.005-80\par 300-1.7e-3 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.970-0.916  \\  [0.5ex] \hline
+		1DSaG \par kp0.2& 30/60 & 0.005-80\par 300-1.7e-3 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.966-0.924  \\  [0.5ex] \hline
+		1DSaG \par kp0.8& 30/60 & 0.005-80\par 300-1.7e-3 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 300-0.976-0.933 \par 500-0.984-0.954 \\  [0.5ex] \hline
+		
 		
 		\hline\hline
 		1aG & 30/1083 & 0.003 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.947  \\  [0.5ex]
@@ -233,10 +240,11 @@ max epoch = 500
 		\hline
 		model & loss: E,N,C & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-point ac-class ac \par train/eval \\
 		\hline
-		1bG & E & 25/12887\par Y & 0.001\par 40 & xyzmid & 23-0.732-0.326/0.664-0.260\\
-		\hline
-		1bG & N & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.733-0.390/0.666-0.252\\
-		\hline
+		1bG & E & 25/12887\par Y & 0.001\par 40 & xyzmid & 23-0.732-0.326/0.664-0.260 \par 25-0.746-0.340/0.669-0.273\\ \hline
+		1bG & N & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.733-0.390/0.666-0.252\\ \hline
+		1bG & C & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.703-0.356/0.655-0.252\\ \hline
+		1bG & CN & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.681-0.366/0.611-0.237\\ \hline
+		
 		4bG & CN & 25/2998-3521\par Y & 0.001\par 40 & xyzmid & 142-0.726-0.445/0.625-0.242\\
 		\hline
 		4bG & E & 25/2998-3521\par Y & 0.001\par 40 & xyzmid & 145-0.792-0.506/0.656-0.257\\

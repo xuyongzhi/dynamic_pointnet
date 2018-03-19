@@ -450,17 +450,18 @@ class Net_Provider():
 
         # for each label, there is a weight. For all weight, when the point is
         # at edge, the weight is set to 0
-        sample_weights = []
-        for k in range(num_label_eles):
-            if k == self.feed_label_ele_idxs['label_category'][0]:
-                sample_weights_k = np.take(self.labels_weights[:,k],label_batches[...,k])
-            else:
-                sample_weights_k = np.ones_like(label_batches[...,k])
-            sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
-        sample_weights = np.concatenate(sample_weights,axis=-1).astype( np.float32 )
+        if self.net_configs['loss_weight'] != 'E': # Equal
+            sample_weights = []
+            for k in range(num_label_eles):
+                if k == self.feed_label_ele_idxs['label_category'][0]:
+                    sample_weights_k = np.take(self.labels_weights[:,k],label_batches[...,k])
+                else:
+                    sample_weights_k = np.ones_like(label_batches[...,k])
+                sample_weights.append( np.expand_dims(sample_weights_k,axis=-1) )
+            sample_weights = np.concatenate(sample_weights,axis=-1).astype( np.float32 )
 
         if self.net_configs['loss_weight'] == 'E': # Equal
-            sample_weights = np.ones_like(sample_weights)
+            sample_weights = np.ones_like(label_batches)
         elif self.net_configs['loss_weight'] == 'N': # Number
             sample_weights = sample_weights
         elif self.net_configs['loss_weight'] == 'C': # Center

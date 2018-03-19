@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  18 MAR 2018 23:39
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  19 MAR 2018 17:47
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -387,7 +387,22 @@ Underfull \hbox (badness 10000) in paragraph at lines 176--176
  []
 
 
+Underfull \hbox (badness 10000) in paragraph at lines 177--177
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 178--178
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
 Underfull \hbox (badness 10000) in paragraph at lines 179--179
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 180--180
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
@@ -397,7 +412,12 @@ Underfull \hbox (badness 10000) in paragraph at lines 181--181
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 183--183
+Underfull \hbox (badness 10000) in paragraph at lines 182--182
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 186--186
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
@@ -412,7 +432,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 190--190
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 192--192
+Underfull \hbox (badness 10000) in paragraph at lines 195--195
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
@@ -422,12 +442,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 197--197
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 200--200
-[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 202--202
+Underfull \hbox (badness 10000) in paragraph at lines 199--199
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
@@ -437,7 +452,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 204--204
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 206--206
+Underfull \hbox (badness 10000) in paragraph at lines 207--207
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
@@ -457,47 +472,62 @@ Underfull \hbox (badness 10000) in paragraph at lines 213--213
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 215--215
+Underfull \hbox (badness 10000) in paragraph at lines 216--216
 []\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
  []
 
 
-Overfull \hbox (58.43303pt too wide) in paragraph at lines 167--224
+Underfull \hbox (badness 10000) in paragraph at lines 218--218
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 220--220
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 222--222
+[]\OT1/cmr/m/n/9 'xyz[]midnorm[]block',
+ []
+
+
+Overfull \hbox (58.43303pt too wide) in paragraph at lines 167--231
  [] 
  []
 
 [4]
-Overfull \vbox (209.44937pt too high) has occurred while \output is active []
+Overfull \vbox (379.18672pt too high) has occurred while \output is active []
 
 
 [5]
-Underfull \hbox (badness 10000) in paragraph at lines 234--234
+Underfull \hbox (badness 10000) in paragraph at lines 241--241
 []\OT1/cmr/m/n/9 loss:
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 240--240
+Underfull \hbox (badness 10000) in paragraph at lines 248--248
 []\OT1/cmr/m/n/9 25/2998-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 242--242
+Underfull \hbox (badness 10000) in paragraph at lines 250--250
 []\OT1/cmr/m/n/9 25/2998-
  []
 
 
-Overfull \hbox (98.88577pt too wide) in paragraph at lines 229--245
+Overfull \hbox (98.88577pt too wide) in paragraph at lines 236--253
  [] 
  []
 
 
-Overfull \hbox (29.30917pt too wide) in paragraph at lines 250--250
+Overfull \hbox (29.30917pt too wide) in paragraph at lines 258--258
 \OT1/cmr/m/n/10 log: log-model[]1bG-gsbb[]3B1-bs25-lr1-ds[]30-xyz[]midnorm[]blo
 ck-color[]1norm-nxnynz-
  []
 
 
-Overfull \hbox (30.52869pt too wide) in paragraph at lines 252--252
+Overfull \hbox (30.52869pt too wide) in paragraph at lines 260--260
 []\OT1/cmr/m/n/10 stride[]0d1[]step[]0d1[]bmap[]nh5[]12800[]1d6[]2[]fmn3-512[]6
 4[]24-48[]16[]12-0d2[]0d6[]1d2-
  []
@@ -512,9 +542,9 @@ ng)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png  
-used on input line 264. on input line 264.
+used on input line 272. on input line 272.
 Package pdftex.def Info: Requested size: 169.0519pt x 151.63243pt on input line
- 264.
+ 272.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png, id=113, 910.40125pt x 77
 5.89874pt>
@@ -525,9 +555,9 @@ ng)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png  
-used on input line 268. on input line 268.
+used on input line 276. on input line 276.
 Package pdftex.def Info: Requested size: 169.0519pt x 144.07178pt on input line
- 268.
+ 276.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png, id=114, 836.12375pt x 791
 .95876pt>
@@ -538,9 +568,9 @@ g)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png  u
-sed on input line 272. on input line 272.
-Package pdftex.def Info: Requested size: 172.5pt x 163.37976pt on input line 27
-2.
+sed on input line 280. on input line 280.
+Package pdftex.def Info: Requested size: 172.5pt x 163.37976pt on input line 28
+0.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png, id=115, 826.08624pt x 7
 46.79pt>
@@ -551,9 +581,9 @@ png)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png 
- used on input line 276. on input line 276.
+ used on input line 284. on input line 284.
 Package pdftex.def Info: Requested size: 169.0519pt x 152.81946pt on input line
- 276.
+ 284.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png, id=116, 837.1275pt x 837
 .1275pt>
@@ -564,11 +594,11 @@ ng)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png  
-used on input line 280. on input line 280.
+used on input line 288. on input line 288.
 Package pdftex.def Info: Requested size: 172.5pt x 172.49362pt on input line 28
-0.
+8.
 
-LaTeX Warning: Float too large for page by 12.50581pt on input line 284.
+LaTeX Warning: Float too large for page by 12.50581pt on input line 292.
 
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
@@ -583,9 +613,9 @@ png)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png 
- used on input line 289. on input line 289.
-Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 28
-9.
+ used on input line 297. on input line 297.
+Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 29
+7.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png, id=118, 1148.29pt x 828
 .09375pt>
@@ -596,9 +626,9 @@ png)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png 
- used on input line 293. on input line 293.
+ used on input line 301. on input line 301.
 Package pdftex.def Info: Requested size: 169.0519pt x 121.90901pt on input line
- 293.
+ 301.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png, id=119, 1120.9378pt x 70
 0.11563pt>
@@ -609,9 +639,9 @@ ng)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png  
-used on input line 297. on input line 297.
-Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 29
-7.
+used on input line 305. on input line 305.
+Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 30
+5.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png, id=120, 1120.9378pt x 
 700.11563pt>
@@ -622,9 +652,9 @@ File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png
-  used on input line 301. on input line 301.
+  used on input line 309. on input line 309.
 Package pdftex.def Info: Requested size: 169.0519pt x 105.579pt on input line 3
-01.
+09.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
 -nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png, id=121, 1173.38374pt x 
 836.12375pt>
@@ -635,14 +665,14 @@ png)
 norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_m
 idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png 
- used on input line 305. on input line 305.
-Package pdftex.def Info: Requested size: 172.5pt x 122.91254pt on input line 30
-5.
+ used on input line 313. on input line 313.
+Package pdftex.def Info: Requested size: 172.5pt x 122.91254pt on input line 31
+3.
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 
-Overfull \hbox (28.98978pt too wide) in paragraph at lines 313--313
+Overfull \hbox (28.98978pt too wide) in paragraph at lines 321--321
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn3-512[]64[]24-
  []
@@ -658,9 +688,9 @@ e (type png)
 lor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-
 xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_ra
-w00.png  used on input line 327. on input line 327.
+w00.png  used on input line 335. on input line 335.
 Package pdftex.def Info: Requested size: 169.0519pt x 126.98854pt on input line
- 327.
+ 335.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png, id=128, 865.2325
 pt x 675.52374pt>
@@ -671,9 +701,9 @@ olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png Graphic file
 lor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-
 xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt
-00.png  used on input line 328. on input line 328.
+00.png  used on input line 336. on input line 336.
 Package pdftex.def Info: Requested size: 169.0519pt x 131.97913pt on input line
- 328.
+ 336.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png, id=129, 1039.6
 3406pt x 714.41907pt>
@@ -684,9 +714,9 @@ le (type png)
 lor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-
 xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pr
-ed00.png  used on input line 329. on input line 329.
+ed00.png  used on input line 337. on input line 337.
 Package pdftex.def Info: Requested size: 169.0519pt x 116.16258pt on input line
- 329.
+ 337.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png, id=130, 
 911.405pt x 718.685pt>
@@ -697,9 +727,9 @@ hic file (type png)
 lor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-
 xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0
-d071_err00.png  used on input line 330. on input line 330.
+d071_err00.png  used on input line 338. on input line 338.
 Package pdftex.def Info: Requested size: 169.0519pt x 133.30556pt on input line
- 330.
+ 338.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png, id=131, 
 889.3225pt x 498.86375pt>
@@ -710,19 +740,19 @@ hic file (type png)
 lor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png>
 Package pdftex.def Info: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-
 xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0
-d071_crt00.png  used on input line 331. on input line 331.
+d071_crt00.png  used on input line 339. on input line 339.
 Package pdftex.def Info: Requested size: 169.0519pt x 94.82315pt on input line 
-331.
+339.
 
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 
-Overfull \hbox (46.43304pt too wide) in paragraph at lines 341--352
+Overfull \hbox (46.43304pt too wide) in paragraph at lines 349--360
  [] 
  []
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 354.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 362.
 [7] [8 <./images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-co
 lor_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png> <./images/ply_l
 og-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800
@@ -751,18 +781,18 @@ s_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_
 rqf_2_3_a0d071_err00.png> <./images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-S
 f_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_
 3_a0d071_crt00.png>]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 354.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 362.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 354.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 354.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 362.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 362.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: 1A42AC74281A21AFECBD5414F4021071;859.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 354.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 362.
  ) 
 Here is how much of TeX's memory you used:
  6507 strings out of 494931
  110373 string characters out of 6180851
- 196188 words of memory out of 5000000
+ 201188 words of memory out of 5000000
  9732 multiletter control sequences out of 15000+600000
  8807 words of font info for 31 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
@@ -774,7 +804,7 @@ ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/tex
 mf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texmf-dist/fonts/
 type1/public/amsfonts/cm/cmr9.pfb>
-Output written on notes.pdf (11 pages, 2097498 bytes).
+Output written on notes.pdf (11 pages, 2098416 bytes).
 PDF statistics:
  184 PDF objects out of 1000 (max. 8388607)
  135 compressed objects within 2 object streams

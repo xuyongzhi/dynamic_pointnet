@@ -29,8 +29,8 @@ from configs import NETCONFIG
 DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
-DEBUG_SMALLDATA=False
-ISNoEval = True
+DEBUG_SMALLDATA=True
+ISNoEval = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
@@ -146,7 +146,7 @@ else:
     log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
-        nwl_str = '-'+FLAGS.loss_weight + 'lw-'
+        nwl_str = '-'+FLAGS.loss_weight + 'lw'
         FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
@@ -180,8 +180,8 @@ HOSTNAME = socket.gethostname()
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
     LIMIT_MAX_NUM_BATCHES = {}
-    LIMIT_MAX_NUM_BATCHES['train'] = 4
-    LIMIT_MAX_NUM_BATCHES['test'] = 2
+    LIMIT_MAX_NUM_BATCHES['train'] = 60
+    LIMIT_MAX_NUM_BATCHES['test'] = 60
 
 START_TIME = time.time()
 
@@ -260,7 +260,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             train_op = optimizer.minimize(loss, global_step=global_step)
 
             # Add ops to save and restore all the variables.
-            saver = tf.train.Saver(max_to_keep=50)
+            saver = tf.train.Saver(max_to_keep=20)
 
         # Create a session
         config = tf.ConfigProto()
@@ -337,7 +337,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 5 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -375,9 +375,8 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     log_string(log_str)
     return log_str
 
-def is_complex_log( epoch, batch_idx ):
-    return True
-    log_complex = FLAGS.only_evaluate or (epoch % 10 ==0 and epoch>0) and (batch_idx%5 == 0)
+def is_complex_log( epoch, batch_idx, num_batches ):
+    log_complex = FLAGS.only_evaluate or (epoch % 20 ==0 and epoch>0) and (batch_idx%5 == 0 or batch_idx==num_batches-1)
     return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):
@@ -446,20 +445,21 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
+        t2 = time.time()
 
         #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
 
         loss_sum += loss_val
         all_accuracy[batch_idx,:] = accuracy_batch
-        t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
         if ISSUMMARY: train_writer.add_summary(summary, step)
-        if is_complex_log(epoch, batch_idx):
+        if is_complex_log(epoch, batch_idx, num_batches):
             pred_logits = np.argmax(pred_val, 2)
             c_TP_FN_FP[num_log_batch,:] = EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
             num_log_batch += 1
+        t_batch_ls.append( np.reshape(np.array([t1-t0, t2-t1, time.time() - t2]),(3,1)) )
         if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
-            if is_complex_log(epoch, batch_idx):
+            if is_complex_log(epoch, batch_idx, num_batches):
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT )
 
         if epoch==0 and batch_idx == 1:
@@ -649,17 +649,17 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
         t2 = time.time()
-        t_batch_ls.append( np.reshape(np.array([t1-t0,t2 - t1]),(2,1)) )
 
         all_accuracy[batch_idx,:] = accuracy_batch
         loss_sum += loss_val
-        if is_complex_log(epoch, batch_idx):
+        if is_complex_log(epoch, batch_idx, num_batches):
             pred_logits = np.argmax(pred_val, 2)
             c_TP_FN_FP[num_log_batch,:] = EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label[...,CATEGORY_LABEL_IDX])
             num_log_batch += 1
+        t_batch_ls.append( np.reshape(np.array([t1-t0, t2-t1, time.time() - t2]),(3,1)) )
         if batch_idx == num_batches-1 or (batch_idx%20==0):
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy )
-            if is_complex_log(epoch, batch_idx):
+            if is_complex_log(epoch, batch_idx, num_batches):
                 #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
                 eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT)
 
