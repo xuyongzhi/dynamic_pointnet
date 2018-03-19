@@ -89,7 +89,7 @@ def get_sa_module_config(model_flag):
         dense_config['initial_feature_num'] = int(dense_config['growth_rate']*1.5)
         dense_config['layers_per_block'] = 5
         dense_config['transition_feature_rate'] = 1
-        dense_config['keep_prob'] = 0.8
+        dense_config['keep_prob'] = 0.3
         mlps_0.append( dense_config )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
@@ -105,7 +105,7 @@ def get_sa_module_config(model_flag):
         dense_config['growth_rate'] = 32
         dense_config['layers_per_block'] = 2
         dense_config['transition_feature_rate'] = 1
-        dense_config['keep_prob'] = 0.8
+        dense_config['keep_prob'] = 0.3
         mlps_1.append( dense_config )
     elif model_flag=='4bG':
         mlps_1.append( [256, 256] )

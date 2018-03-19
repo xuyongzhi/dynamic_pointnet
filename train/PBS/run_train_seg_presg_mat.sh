@@ -8,7 +8,7 @@
 train_script=../train_semseg_sorted.py
 dataset_name=matterport3d
 maxepoch=501
-learning_rate=0.005
+learning_rate=0.002
 decay_epoch_step=80
 feed_label_elements="label_category-label_instance"
 
@@ -27,9 +27,10 @@ all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
 bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
 eval_fnglob_or_rate=0.16
 # *****************************************************************************
-all_fn_globs='v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/17DRP5sb8fy,v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/Pm6F8kyY3z2'
-bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-eval_fnglob_or_rate='Pm6F8kyY3z2'
+#all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/17D_1LX_1pX_29h_2az,v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/zsNo4HB9uLZ'
+##all_fn_globs='v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/17DRP5sb8fy,v1/each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/Pm6F8kyY3z2'
+#bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+#eval_fnglob_or_rate='zsNo4HB9uLZ'
 # *****************************************************************************
 
 run_train()
