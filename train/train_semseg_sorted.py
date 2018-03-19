@@ -29,7 +29,7 @@ from configs import NETCONFIG
 DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
-DEBUG_SMALLDATA=True
+DEBUG_SMALLDATA=False
 ISNoEval = False
 
 parser = argparse.ArgumentParser()
