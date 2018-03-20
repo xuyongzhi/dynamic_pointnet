@@ -31,7 +31,7 @@ DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-ISNoEval = False
+ISNoEval = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
@@ -64,7 +64,7 @@ parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--input_drop_min', type=float, default=0.1, help='random input drop minimum')
+parser.add_argument('--input_drop_min', type=float, default=0.3, help='random input drop minimum')
 parser.add_argument('--input_drop_max', type=float, default=1.0, help='random input drop maxmum')
 
 FLAGS = parser.parse_args()
@@ -244,13 +244,13 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # input drop out
             if FLAGS.input_drop_min >= FLAGS.input_drop_max:
-                input_drop_mask = None
+                input_drop_mask = tf.zeros([])
                 print('no input dropout')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
-                input_drop_mask = tf.ones( [BATCH_SIZE, 1, cas0_point_num, 1], tf.float32 )
-                input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.input_drop_min, maxval=FLAGS.input_drop_max )
-                input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob )
+                input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
+            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.input_drop_min, maxval=FLAGS.input_drop_max )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
 
             # Get model and loss
             if FLAGS.model_type == 'fds':
@@ -259,8 +259,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
                 pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, input_drop_mask=input_drop_mask, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
-                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS, input_drop_mask)
+                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
 
             tf.summary.scalar('loss', loss)
 

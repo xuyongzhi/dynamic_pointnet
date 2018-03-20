@@ -4,9 +4,10 @@
 \BOOKMARK [2][-]{subsection.1.2}{feed elements}{section.1}% 4
 \BOOKMARK [2][-]{subsection.1.3}{model}{section.1}% 5
 \BOOKMARK [2][-]{subsection.1.4}{integration: matterport3d}{section.1}% 6
-\BOOKMARK [2][-]{subsection.1.5}{integration: scannet}{section.1}% 7
-\BOOKMARK [2][-]{subsection.1.6}{Semantic segmentation expamples}{section.1}% 8
-\BOOKMARK [3][-]{subsubsection.1.6.1}{good: 1083, train, 0.946}{subsection.1.6}% 9
-\BOOKMARK [3][-]{subsubsection.1.6.2}{bad: 18737,eval 0.071}{subsection.1.6}% 10
-\BOOKMARK [2][-]{subsection.1.7}{point++}{section.1}% 11
-\BOOKMARK [3][-]{subsubsection.1.7.1}{scannet seg}{subsection.1.7}% 12
+\BOOKMARK [2][-]{subsection.1.5}{multi scale in 60}{section.1}% 7
+\BOOKMARK [2][-]{subsection.1.6}{integration: scannet}{section.1}% 8
+\BOOKMARK [2][-]{subsection.1.7}{Semantic segmentation expamples}{section.1}% 9
+\BOOKMARK [3][-]{subsubsection.1.7.1}{good: 1083, train, 0.946}{subsection.1.7}% 10
+\BOOKMARK [3][-]{subsubsection.1.7.2}{bad: 18737,eval 0.071}{subsection.1.7}% 11
+\BOOKMARK [2][-]{subsection.1.8}{point++}{section.1}% 12
+\BOOKMARK [3][-]{subsubsection.1.8.1}{scannet seg}{subsection.1.8}% 13

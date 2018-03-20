@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, is_training, input_drop_mask, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -45,6 +45,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
     '''
     IsShowModel = True
     with tf.variable_scope(scope) as sc:
+        if cascade_id==0:
+            input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
 
         if IsExtraGlobalLayer:
             #if cascade_id == 0:
@@ -52,6 +54,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             #    xyz = points[...,0:3]
             grouped_xyz = tf.expand_dims( xyz,axis=1 )
             grouped_points = tf.expand_dims(points,axis=1)
+            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
+                grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
         #elif cascade_id == 0:
         #    # already grouped, no need to group
         #    assert len(xyz.shape) == 4
@@ -73,6 +77,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
 
             grouped_xyz = tf.gather_nd(xyz,bidmap_concat)
             grouped_points = tf.gather_nd(points,bidmap_concat)
+            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
+                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )
             # use the average position as new xyz
 
             if use_xyz:
@@ -100,8 +106,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
 
         if cascade_id == 0:
             root_point_features = new_points
-            if input_drop_mask!=None:
-                new_points = tf.multiply( new_points, input_drop_mask )
+            if len(input_drop_mask.get_shape()) != 0:
+                new_points = tf.multiply( new_points, grouped_indrop_mask )
         else:
             root_point_features = None
 
@@ -155,8 +161,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
     Input:
         points1 (cascade_id=2): (2, 256, 256)
         points2 (cascade_id=3): (2, 64, 512)
-        flatten_bidxmap: (B,256,self.flatbxmap_max_nearest_num,3)
-                     N: base_bid_index
+        flatten_bidxmap: (B,num_point,self.flatbxmap_max_nearest_num,3)
                     [:,:,0]: aim_b_index
                     [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
                     [:,:,2]: index_distance
@@ -181,10 +186,25 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
         batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
         point1_num = flatten_bidxmap.get_shape()[1].value
         batch_idx = tf.tile( batch_idx,[1, point1_num ,1] ) # (2, 256, 1)
-        flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
 
+        flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
         flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
         mapped_points2 = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+
+
+
+        num_neighbour = 3
+        assert num_neighbour <= flatten_bidxmap.shape[2].value
+        mapped_points2 = []
+        for j in range( num_neighbour ):
+            flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,j,0:1]  # (2, 256, 1)
+            flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
+            mapped_points2_j = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+            index_distance = flatten_bidxmap[:,:,j,2:3]  # (2, 256, 1)
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            mapped_points2.append( mapped_points2_j )
+
+
 
         if IsDebug:
             debug['flatten_bidxmap'].append( flatten_bidxmap )

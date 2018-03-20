@@ -238,6 +238,17 @@ max epoch = 500
 	\end{longtable}
 \end{center}
 
+\subsection{multi scale in 60}
+\begin{tabular}{|p{10cm}|p{3cm}|}
+	\hline
+	configuration & epoch-train point acc-class acc \\
+	\hline
+	model\_1aG-gsbb\_3B1-bs25-xyz\_midnorm\_block-color\_1norm-nxnynz-12800-mat60 & 50-0.904\par 100-0.955\par 200-0.967\par 257-0.977\\
+	\hline
+	model\_4bG-Elw-gsbb\_3B1-bs20-lr2-ds\_80-Sf\_Y-xyz\_midnorm\_block-color\_1norm-nxnynz-12800-mat\_60 & 200-0.860-0.824 \par 300-0.870-0.839\\
+	\hline
+\end{tabular}
+
 \subsection{integration: scannet}
 \begin{center}
 	\centering \def\arraystretch{1.5} \small
@@ -252,7 +263,8 @@ max epoch = 500
 		1bG & N & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.733-0.390/0.666-0.252\\ \hline
 		1bG & C & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.703-0.356/0.655-0.252\\ \hline
 		1bG & CN & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.681-0.366/0.611-0.237\\ \hline
-		1DSaG & E \par idp9& 30/12887\par Y & 0.003\par 80 & xyzmid & 40-0.738-0.376/\colorbox{yellow}{0.513}-0.228\\ \hline
+		1DSaG & E \par idp9& 30/12887\par Y & 0.003\par 80 & xyzmid & 40-0.738-0.376/0.513-0.228 \par 90-0.832/0.496\\ \hline
+		
 		
 		\hline\hline
 		1bG & E & 25/13091\par train\_300\par Y & 0.002\par 80 & xyzmid & 60-0.765-0.389/0.700-0.252\\ \hline
