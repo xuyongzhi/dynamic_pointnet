@@ -6,3 +6,4 @@
 ### How to use them
 1. Changing the dataset path in `kitti_data_prep.py` to generate h5f file.
 2. Calling `kitti_data_net_provider.py` to read point cloud and labels in generated h5f file, and pass it to neural network.
+3. 
