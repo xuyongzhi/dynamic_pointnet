@@ -194,7 +194,7 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, 1, nearest_block_num, 1] )
     return flatten_bidxmap_global
 
-def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None, IsDebug=False):
+def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, input_drop_mask,  bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
@@ -234,7 +234,8 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
             end = sg_bm_extract_idx[k+1]
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps_0[k], mlps_1[k], is_training=is_training,
+        if k>0: input_drop_mask = None # save memory
+        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps_0[k], mlps_1[k], is_training=is_training, input_drop_mask=input_drop_mask,
                                                         bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
@@ -277,13 +278,16 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
 
     return net, end_points, debug
 
-def get_loss(pred, label, smpw, label_eles_idx ):
+def get_loss(pred, label, smpw, label_eles_idx, input_drop_mask ):
     """ pred: BxNxC,
         label: BxN,
 	smpw: BxN """
     category_idx = label_eles_idx['label_category'][0]
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
+    if input_drop_mask != None:
+        input_drop_mask = tf.squeeze( input_drop_mask,[1,3] )
+        smpw_category = smpw_category * input_drop_mask
 
     #classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred)
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)

@@ -8,7 +8,7 @@
 train_script=../train_semseg_sorted.py
 dataset_name=scannet
 maxepoch=501
-learning_rate=0.002
+learning_rate=0.003
 decay_epoch_step=80
 feed_label_elements="label_category"
 
@@ -24,7 +24,7 @@ baselogname=log
 all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
 bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2'
 eval_fnglob_or_rate='test'
-eval_fnglob_or_rate='train_300'
+#eval_fnglob_or_rate='train_300'
 # *****************************************************************************
 
 run_train()

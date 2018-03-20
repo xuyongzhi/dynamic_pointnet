@@ -24,7 +24,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, is_training, input_drop_mask, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -100,6 +100,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
 
         if cascade_id == 0:
             root_point_features = new_points
+            if input_drop_mask!=None:
+                new_points = tf.multiply( new_points, input_drop_mask )
         else:
             root_point_features = None
 

@@ -17,6 +17,7 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'scannet'))
+import tf_util
 import provider
 import get_dataset
 from evaluation import EvaluationMetrics
@@ -26,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
 from configs import NETCONFIG
 
-DEBUG_TMP = False
+DEBUG_TMP = True
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -63,6 +64,8 @@ parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
+parser.add_argument('--input_drop_min', type=float, default=0.1, help='random input drop minimum')
+parser.add_argument('--input_drop_max', type=float, default=1.0, help='random input drop maxmum')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -147,7 +150,9 @@ else:
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ 'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
+        input_dropout_str = '-idp'+str(int((FLAGS.input_drop_max - FLAGS.input_drop_min)*10))
+        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+                        'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
@@ -234,14 +239,26 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             bn_decay = get_bn_decay(global_step)
             tf.summary.scalar('bn_decay', bn_decay)
 
+            # input drop out
+            if FLAGS.input_drop_min >= FLAGS.input_drop_max:
+                input_drop_mask = None
+                print('no input dropout')
+            else:
+                cas0_point_num = pointclouds_pl.get_shape()[1].value
+                input_drop_mask = tf.ones( [BATCH_SIZE, 1, cas0_point_num, 1], tf.float32 )
+                input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.input_drop_min, maxval=FLAGS.input_drop_max )
+                input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob )
+
             # Get model and loss
             if FLAGS.model_type == 'fds':
                 pred,end_points = get_model( pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl, sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
-                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS)
+                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, input_drop_mask=input_drop_mask, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS, input_drop_mask)
+
             tf.summary.scalar('loss', loss)
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(category_labels_pl))
@@ -298,6 +315,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['smpws_pl'] = smpws_pl
         ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+        if DEBUG_TMP:
+            ops['input_keep_prob'] = input_keep_prob
+
         if 'l_xyz' in debug:
             ops['l_xyz'] = debug['l_xyz']
         if 'grouped_xyz' in debug:
