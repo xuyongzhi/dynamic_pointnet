@@ -27,7 +27,7 @@ from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
 from configs import NETCONFIG
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -266,8 +266,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             correct = tf.equal(tf.argmax(pred, 2), tf.to_int64(category_labels_pl))
             accuracy_block = tf.reduce_mean(tf.cast(correct, tf.float32),axis=1)
-            #accuracy = tf.reduce_mean( accuracy_block )
-            #tf.summary.scalar('accuracy', accuracy)
+            accuracy = tf.reduce_mean( accuracy_block )
+            tf.summary.scalar('accuracy', accuracy)
 
             # Get training operator
             learning_rate = get_learning_rate(global_step)
