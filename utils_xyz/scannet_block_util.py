@@ -223,8 +223,8 @@ def main(split):
         #scanet_prep.GenObj_RawH5f(100,110)
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))

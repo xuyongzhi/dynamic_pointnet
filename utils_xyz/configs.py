@@ -45,6 +45,7 @@ def get_gsbb_config( config_flag = _gsbb_config ):
         npoint_subblock_candis = np.array([48,  32, 16]).astype(np.int32)
 
     elif config_flag == '3B3':
+        # for scannet
         # _12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2
         global_stride = np.array([1.6,1.6,-1]).astype(np.float)
         global_step = np.array([2.0,2.0,-1]).astype(np.float)

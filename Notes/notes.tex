@@ -4,6 +4,8 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{float}
 \hypersetup{
 	citecolor=black,
 	filecolor=black,
@@ -164,7 +166,7 @@ max epoch = 500
 \subsection{integration: matterport3d}
 \begin{center}
 	\centering \def\arraystretch{1.5} \small
-	\begin{tabular}{|p{1cm} |p{1.5cm} | p{2cm} | p{3.5cm} || p{4cm}|} 
+	\begin{longtable}{|p{1cm} |p{1.5cm} | p{2cm} | p{3.5cm} || p{4cm}|} 
 		\hline
 		\multicolumn{5}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-512\_64\_24-48\_16\_12-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
 		\multicolumn{5}{|c|}{17D\_1LX\_1pX\_29h\_2az}\\
@@ -201,7 +203,9 @@ max epoch = 500
 		1bG & 25/1083 & 0.001 & 'xyz'& 200-0.772 \par 90-0.553-0.210  \\  [0.5ex]
 		\hline \hline
 		
-		4bG & 25/1083 & 0.001-30 \par 100-3e-4 \par 200-1e-4 \par 300-4e-5& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 100-0.752 \par 200-0.816 \par 300-0.832  \\  [0.5ex]
+		4bG & 25/1083 & 0.001-30 \par 100-3e-4 \par 200-1e-4 \par 300-4e-5& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 100-0.752 \par 200-0.816 \par 300-0.832  \\  [0.5ex] \hline2
+		
+		1DSaG & 30/1083 & 0.002-80 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.930-0.830/0.450 \par 460-0.952-0.881/0.471 \\  [0.5ex] \hline
 		
 		\hline \hline
 		1aG & 30/19755 & 0.001-30 \par 50-7e-4 \par 100-3e-4& 'xyz\_midnorm\_block', 'color\_1norm','nxnynz'& 50-0.752/0.580 \par 100-0.843/0.574 (\colorbox{Yellow}{NoShuf}) \par 102-0.806/0.570 (\colorbox{Yellow}{Shufle})   \\  [0.5ex]
@@ -221,30 +225,45 @@ max epoch = 500
 		\hline
 		4bG & 25/18737 & 0.001 \par Y& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 24-0.594/0.569 \\  [0.5ex]
 		\hline
+		1DSaG & 30/18737 & 0.002-80 \par Y& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 20-0.688-0.394/0.428-0.224 \par 36-0.742/0.395 \\  [0.5ex]
+		\hline
+		1DSaG & 30/18737 & 0.007-80 \par Y& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 20-0.725-0.453/0.435-0.206 \par 38-0.783/0.396 \\  [0.5ex]
+		\hline
 		\multicolumn{5}{|l|}{ \shortstack[l]{Conclusion:\\ 
 				1: nxnynz helps a lot \\
 				2: 1bG is much deeper than 1aG, why worse than 1aG \\
 				3: learning rate is important, cannot be too large
 		} }  \\
 		\hline
-	\end{tabular}
+	\end{longtable}
 \end{center}
 
 \subsection{integration: scannet}
 \begin{center}
 	\centering \def\arraystretch{1.5} \small
-	\begin{tabular}{|p{1cm} |p{1cm} |p{1.5cm} | p{2cm} | p{3.5cm} || p{4cm}|} 
+	\begin{tabular}{|p{1cm} |p{1cm} |p{1.5cm} | p{2cm} | p{2cm} || p{5cm}|} 
 		\hline
 		\multicolumn{6}{|c|}{stride\_0d1\_step\_0d1\_bmap\_nh5\_12800\_1d6\_2\_fmn3-256\_48\_16-56\_8\_8-0d2\_0d6\_1d2-0d2\_0d6\_1d2 }\\
 		\multicolumn{6}{|c|}{ scannet train }\\
 		\hline
-		model & loss: E,N,C & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-point ac-class ac \par train/eval \\
+		model & loss: E,N,C \par input drop (No) & batch size\par batch num \par shuffle& lr\par ds & data elements & epoch-point ac-class ac \par train/eval \\
 		\hline
-		1bG & E & 25/12887\par Y & 0.001\par 40 & xyzmid & 23-0.732-0.326/0.664-0.260 \par 25-0.746-0.340/0.669-0.273\\ \hline
+		1bG & E & 25/12887\par test \par Y & 0.001\par 40 & xyzmid & 23-0.732-0.326/0.664-0.260 \par 25-0.746-0.340/0.669-0.273\\ \hline
 		1bG & N & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.733-0.390/0.666-0.252\\ \hline
 		1bG & C & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.703-0.356/0.655-0.252\\ \hline
 		1bG & CN & 25/12887\par Y & 0.001\par 40 & xyzmid & 25-0.681-0.366/0.611-0.237\\ \hline
+		1DSaG & E \par idp9& 30/12887\par Y & 0.003\par 80 & xyzmid & 40-0.738-0.376/\colorbox{yellow}{0.513}-0.228\\ \hline
 		
+		\hline\hline
+		1bG & E & 25/13091\par train\_300\par Y & 0.002\par 80 & xyzmid & 60-0.765-0.389/0.700-0.252\\ \hline
+		1bG & E & 25/13091\par Y & 0.003\par 80 & xyzmid & 10-0.646/0.689 \par 60-0.753-0.349/0.691-0.234 \par  100-0.833-0.480/0.672-0.261\\ \hline
+		1bG & CN & 25/13091\par Y & 0.002\par 80 & xyzmid & 60-0.738-0.409/0.670-0.237\\ \hline
+		1bG & E \par idp9 & 25/13091\par Y & 0.003\par 80 & xyzmid & 10-0.641/0.585 \par 16-0.646/0.633\\ \hline
+		1DSaG & E & 30/13091\par Y & 0.003\par 80 & xyzmid & 40-0.794-0.456/0.420-0.154 \par 100-0.872-0.602/0.417-0.153\\ \hline
+		
+		\multicolumn{6}{|p{12.5cm}|}{ Conclusion:\par		 }  \\
+		
+		\hline\hline
 		4bG & CN & 25/2998-3521\par Y & 0.001\par 40 & xyzmid & 142-0.726-0.445/0.625-0.242\\
 		\hline
 		4bG & E & 25/2998-3521\par Y & 0.001\par 40 & xyzmid & 145-0.792-0.506/0.656-0.257\\
@@ -266,7 +285,7 @@ feed\_data\_elements:['xyz\_midnorm\_block', 'color\_1norm', 'nxnynz']  \par
 feed\_label\_elements:['label\_category', 'label\_instance']  \par
 train data shape: [ 1083 12800     9] \par
 
-\begin{figure}[h!]
+\begin{figure}[H]
 	\centering
 	\begin{subfigure}[h]{0.49\textwidth}
 	\includegraphics[width=\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png}
@@ -291,7 +310,7 @@ train data shape: [ 1083 12800     9] \par
 	\caption{17DRP5sb8fy\_1\_2\_a946}
 \end{figure}
 
-\begin{figure}[h!]
+\begin{figure}[H]
 	\centering
 	\begin{subfigure}[h]{0.5\textwidth}
 	\includegraphics[width=\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png}
@@ -330,7 +349,7 @@ feed\_label\_elements:['label\_category', 'label\_instance']  \par
 train data shape: [18737 12800     9]    \par
 test data shape: [ 4172 12800     9] \par
 
-\begin{figure}[h!]
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png}
 	\includegraphics[width=0.49\textwidth]{ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png}

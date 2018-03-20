@@ -150,7 +150,10 @@ else:
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
-        input_dropout_str = '-idp'+str(int((FLAGS.input_drop_max - FLAGS.input_drop_min)*10))
+        if FLAGS.input_drop_max - FLAGS.input_drop_min >0:
+            input_dropout_str = '-idp'+str(int((FLAGS.input_drop_max - FLAGS.input_drop_min)*10))
+        else:
+            input_dropout_str = ''
         FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
