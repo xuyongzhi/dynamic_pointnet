@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = False
+TMPDEBUG = True
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -195,15 +195,16 @@ def NormSortedSampledFlie(fn):
 def GenPyramidSortedFlie(fn):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        Always_CreateNew_pyh5 = False
+        Always_CreateNew_plh5 = False
         Always_CreateNew_bmh5 = False
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
-            Always_CreateNew_pyh5 = False
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_plh5 = False
+            Always_CreateNew_bxmh5 = True
 
-        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
+        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
+                                            IsGenPly = True)
     return fn
 
 class Matterport3D_Prepare():
@@ -422,8 +423,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            #if TMPDEBUG:
-            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*region34.sh5') )
+            if TMPDEBUG:
+                file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -604,6 +605,7 @@ class Matterport3D_Prepare():
             sortedh5f = Sorted_H5f(h5f,file_name)
             sortedh5f.gen_file_obj(IsLabelColor=False)
 
+
     def GenObj_NormedH5f(self):
         file_name = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5_0d5_1/17DRP5sb8fy/region0.nh5'
         with h5py.File(file_name,'r') as h5f:
@@ -635,7 +637,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls, operations):
-    MultiProcess = 7
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare()
 
 
@@ -679,21 +681,21 @@ def parse_house(house_names_ls, operations):
 
 def parse_house_ls():
     house_names = ['17DRP5sb8fy']
-    house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
     all_house_names = os.listdir(scans_name_abs)
-    house_names = all_house_names
+    #house_names = all_house_names
     house_names.sort()
 
     operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
-    #operations  = ['GenPyramid']
+    operations  = ['GenPyramid']
     #operations  = ['GenPyramid','GenObj_NormedH5f']
     #operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -708,6 +710,19 @@ def parse_house_ls():
         print('\nstart parsing houses %s  %d-%d/%d\n'%(house_names_i,i,i+len(house_names_i),len(house_names)))
         parse_house(house_names_i, operations)
         if operations==['MergeNormed_house']: break
+
+def GenPly_BidMap():
+    bmh5_name = 'stride_0d1_step_0d1_bmh5-1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
+    bxmh5_name = 'stride_0d1_step_0d1_bmap_nh5-12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
+    nh5_fn = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/17DRP5sb8fy/region0.nh5'
+    region_name = os.path.splitext( os.path.basename(nh5_fn) )[0]
+    house_name = os.path.basename( os.path.dirname( nh5_fn ))
+    scans_path = os.path.dirname( os.path.dirname( os.path.dirname(nh5_fn) ) )
+    bxmh5_fn = '%s/%s/%s/%s.bxmh5'%( scans_path, bxmh5_name, house_name, region_name )
+    bmh5_fn = '%s/%s/%s/%s.bmh5'%( scans_path, bmh5_name, house_name, region_name )
+    gsbb = GlobalSubBaseBLOCK(bmh5_fn = bmh5_fn)
+    gsbb.gen_bxmap_ply( nh5_fn, bxmh5_fn )
+    #gsbb.gen_bmap_ply( nh5_fn )
 
 def show_summary():
     matterport3d_prepare = Matterport3D_Prepare()
@@ -724,6 +739,7 @@ if __name__ == '__main__':
     #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
+    #GenPly_BidMap()
 
 
 

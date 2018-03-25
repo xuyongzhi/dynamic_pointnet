@@ -64,7 +64,7 @@ parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--input_drop_min', type=float, default=0.3, help='random input drop minimum')
+parser.add_argument('--input_drop_min', type=float, default=1.3, help='random input drop minimum')
 parser.add_argument('--input_drop_max', type=float, default=1.0, help='random input drop maxmum')
 
 FLAGS = parser.parse_args()
@@ -231,7 +231,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         with tf.device('/gpu:'+str(GPU_INDEX)):
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
             flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
-            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -259,7 +259,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
                 pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
 
             tf.summary.scalar('loss', loss)
@@ -318,6 +318,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['smpws_pl'] = smpws_pl
         ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
+        ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
 
@@ -464,7 +465,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['labels_pl']] = cur_label
         feed_dict[ops['smpws_pl']] = cur_smp_weights
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps[...,0:2]
+        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_flatten_bidxmaps[...,2:3]
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
@@ -664,7 +666,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         feed_dict[ops['labels_pl']] = cur_label
         feed_dict[ops['smpws_pl']] = cur_smp_weights
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps[...,0:2]
+        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_flatten_bidxmaps[...,2:3]
 
         summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy_block']],
                                       feed_dict=feed_dict)

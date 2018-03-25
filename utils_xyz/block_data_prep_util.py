@@ -35,7 +35,7 @@ import glob
 import time
 import multiprocessing as mp
 import itertools
-from ply_util import create_ply_matterport
+import ply_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
@@ -204,6 +204,8 @@ def random_choice(org_vector,sample_N,random_sampl_pro=None, keeporder=True, onl
     return sampled_vector
 
 def index_in_sorted(sorted_vector,values):
+    if values.ndim==0:
+        values = np.array([values])
     assert values.ndim<=1 and sorted_vector.ndim==1
     #values_valid = values[np.isin(values,sorted_vector)]
     indexs = np.searchsorted(sorted_vector,values)
@@ -279,9 +281,8 @@ class GlobalSubBaseBLOCK():
                     [:,:,2]: index_distance
     '''
     settings = {}
-    settings['fix_bmap_method_cascade0'] = 'random'
-    settings['fix_bmap_method_others'] = 'random'
-    settings['is_mv_cutted_aimb'] = False
+    settings['fix_bmap_method_cascade0'] = 'num_order' # 'random'
+    settings['fix_bmap_method_others'] = 'num_order' # 'random'
     IsCheck_gsbb = {}
     IsCheck_gsbb['Aim_b_index'] = False and ENABLECHECK
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
@@ -303,16 +304,24 @@ class GlobalSubBaseBLOCK():
 
     def load_para_from_file( self, bmh5_fn ):
         f_format = os.path.splitext(bmh5_fn)[-1]
-        if f_format == '.bmh5':
-            IsIntact,s = GlobalSubBaseBLOCK.check_bmh5_intact( bmh5_fn )
-            assert IsIntact, s
-        else:
-            IsIntact,s = Normed_H5f.check_nh5_intact( bmh5_fn )
-            assert IsIntact, s
+        assert f_format == '.bmh5', f_format
+        IsIntact,s = GlobalSubBaseBLOCK.check_bmh5_intact( bmh5_fn )
+        assert IsIntact, s
         with h5py.File( bmh5_fn,'r' ) as h5f:
-            for ele_name in self.para_names + self.meta_names + self.root_para_names:
+            #for ele_name in self.para_names + self.meta_names + self.root_para_names:
+            for ele_name in self.para_names + self.root_para_names:
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
 
+    def load_para_from_bxmh5( self, bxmh5_fn ):
+        # only when called by MergeNormed_H5f() -> merged_normed_h5f.copy_root_attrs_from_normed()
+        f_format = os.path.splitext(bxmh5_fn)[-1]
+        assert f_format == '.bxmh5'
+        IsIntact,s = Normed_H5f.check_nh5_intact( bxmh5_fn )
+        assert IsIntact, s
+        with h5py.File( bxmh5_fn,'r' ) as h5f:
+            for ele_name in self.para_names + self.meta_names + self.root_para_names:
+                setattr( self,ele_name, h5f.attrs[ele_name]  )
+        self.update_parameters()
 
     def load_para_from_rootsh5( self ):
         IsIntact,s = Sorted_H5f.check_sh5_intact( self.root_s_h5f_fn )
@@ -397,9 +406,9 @@ class GlobalSubBaseBLOCK():
             if hasattr( self, ele_name ):
                 aim_attrs[ele_name] = getattr( self,ele_name )
 
-    def write_paras_in_txt(self, bmap_meta_filename=None):
-        if bmap_meta_filename == None:
-            bmap_meta_filename = os.path.splitext(self.bmh5_fn)[0]+'.txt'
+    def write_paras_in_txt(self, bxmh5_fn ):
+        assert os.path.splitext( bxmh5_fn )[1] == '.bxmh5'
+        bmap_meta_filename = os.path.splitext( bxmh5_fn )[0]+'.txt'
         with open( bmap_meta_filename,'w' ) as bmap_meta_f:
             par_str = 'global parameters:\n'
             for ele_name in self.para_names:
@@ -462,6 +471,8 @@ class GlobalSubBaseBLOCK():
             flag_str += my_str(s)
             if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
+        if not OnlyGlobal:
+            flag_str += '-' + self.gsbb_config
         return flag_str
 
     def get_block_sample_shape(self,cascade_id):
@@ -549,6 +560,10 @@ class GlobalSubBaseBLOCK():
 
     @staticmethod
     def point_index_to_rootbid( rootb_split_idxmap, point_index, rootb_index_search_start=0 ):
+        '''
+         The original info in bmh5 file is: rootbid -> point_index
+         Here to get the inverse
+        '''
         last_point_index = 0
         for rootb_index in range(rootb_index_search_start, rootb_split_idxmap.shape[0]):
             if rootb_split_idxmap[rootb_index,0] < 0: break
@@ -716,12 +731,9 @@ class GlobalSubBaseBLOCK():
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
                     pass
                 aim_bids = allaimbids_in_base_dic[base_bid]
-                aim_ixyzs = []
-                for aim_bid in aim_bids:
-                    aim_ixyzs.append( Sorted_H5f.block_index_to_ixyz_( aim_bid, aim_attrs ) )
                 if IsRecordTime: tt2 = time.time()
                 # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
-                around_aimbidx_dis,sr_count = GlobalSubBaseBLOCK.get_around_bid( aim_ixyzs, aim_attrs, valid_sorted_aimbids, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
+                around_aimbidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( aim_bids, aim_attrs, valid_sorted_aimbids, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
                 sr_counts[baseb_index] += sr_count
                 for k in range( around_aimbidx_dis.shape[0] ):
                     flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],0,around_aimbidx_dis[k,1] ]
@@ -786,8 +798,8 @@ class GlobalSubBaseBLOCK():
             sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
             for aim_b_index in range( aim_nsubblock ):
                 aim_bid = sorted_aimbids_fixed[aim_b_index]
-                sg_aimb_xyzs[aim_b_index,:] = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
+                sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
 
             sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
             for aim_b_index in range( aim_nsubblock ):
@@ -798,14 +810,14 @@ class GlobalSubBaseBLOCK():
                         sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
                     else:
                         base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
-                        sg_baseb_xyzs[aim_b_index,pi,:] = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-            create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
+                        sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
+            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
 
             flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
             for i in range( flat_xyzs.shape[0] ):
                 flat_idx = flatten_bidxmap_fixed[i,0,0:2]
                 flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
-            create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
+            ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
             if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
@@ -816,9 +828,12 @@ class GlobalSubBaseBLOCK():
         bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num[0],0 )
         bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
         npointsubblock_mean = np.mean(base_block_num_ls)
-        sample_rate =  aim_npoint_subblock  / npointsubblock_mean
-        npointsubblock_missed = aim_npoint_subblock - npointsubblock_mean
-        bxmap_meta['npointsubblock_missed_add'] = np.array( [[ npointsubblock_mean, min(0, npointsubblock_missed), max(0, npointsubblock_missed) ]] )
+
+        dif = aim_npoint_subblock - np.array(base_block_num_ls)
+        miss = np.sum( dif * (dif<0) ) * 1.0 / aim_nsubblock
+        add = np.sum( dif * (dif>0) ) * 1.0 / aim_nsubblock
+        bxmap_meta['npointsubblock_missed_add'] = np.array( [[ npointsubblock_mean, miss, add ]] )
+
         bxmap_meta['npoint_subblock_std'] = np.array( [np.std(baseb_num)] )
         if len(around_aimb_dis) > 0:
             bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )
@@ -842,10 +857,51 @@ class GlobalSubBaseBLOCK():
             flatten_bidxmap[baseb_index,:,2] = weight
 
     @staticmethod
-    def get_around_bid( ixyzs, attrs, valid_bids, max_need_num ):
+    def get_around_bid_multibase( bids_ls, attrs, valid_bids, max_need_num, max_search_dis=1 ):
+        '''
+        Inputs:
+            bids_ls: len=b, [i]:shape=(n,)  n is flexible
+        Outputs:
+            ar_bidx_dis_ls: len=b, [i]:shape=(p,2) [:,[b_index, index_distance]]
+                        p=0~max_need_num
+            sr_count_ls: len=b, [i]:scale, search time
+        '''
+        ar_bidx_dis_ls = []
+        sr_count_ls = []
+        for bids in bids_ls:
+            ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( bids, attrs, valid_bids, max_need_num, max_search_dis )
+            ar_bidx_dis_ls.append( ar_bidx_dis )
+            sr_count_ls.append( sr_count )
+        return ar_bidx_dis_ls, sr_count_ls
+
+    @staticmethod
+    def get_around_bid_1base( bids, attrs, valid_bids, max_need_num, max_search_dis=1 ):
+        '''
+        NOTE!!!: the return distance is index distance, not meters
+        Search the max_need_num neighbor blocks of the n input bids.
+        max_need_num is the total required neighbor blocks of all the n input bids, because they are belong to aimbids of the same basebid.
+        Inputs:
+            bids: shape=(n,)
+            valid_bids: shape=(m,)
+            max_need_num: scalar
+        Outputs:
+            ar_bidx_dis: shape=(p,2) [:,[b_index, index_distance]]
+                        p=0~max_need_num
+            sr_count: scale, search time
+        '''
+
+        #ixyzs = []
+        #for bid in bids:
+        #    ixyzs.append( np.expand_dims( Sorted_H5f.block_index_to_ixyz_( bid, attrs ), 0 ) )
+        #ixyzs = np.concatenate( ixyzs,0 )
+        ixyzs = Sorted_H5f.block_index_to_ixyz_( np.array(bids), attrs )
+        if ixyzs.ndim==1:
+            ixyzs = np.expand_dims( ixyzs,0 )
+
         IsRecordTime = False
         if IsRecordTime: t0 = time.time()
         ar_bidx_dis = []
+        ar_bids = []
         ar_ixyzs = []
         block_dims_N = attrs['block_dims_N']
         offset_ls = []
@@ -856,9 +912,10 @@ class GlobalSubBaseBLOCK():
         offset_ls.append( np.array( [ [1,1,1],[-1,-1,-1] ] ) )
         sr_offsets0 = np.concatenate( offset_ls, 0 )
         sr_count = 0
-        for step in [1]:
+        for step in range( 1,max_search_dis+1 ):
             sr_offsets = sr_offsets0 * step
-            for ixyz in ixyzs:
+            for k in range( ixyzs.shape[0] ):
+                ixyz = ixyzs[k,:]
                 if len(ar_bidx_dis) >= max_need_num: break
                 for i in range(sr_offsets.shape[0]):
                     ixyz_sr = np.copy(ixyz)
@@ -866,12 +923,14 @@ class GlobalSubBaseBLOCK():
                     sr_count += 1
                     if (ixyz_sr >= 0).all() and (ixyz_sr < block_dims_N).all():
                         bid = Sorted_H5f.ixyz_to_block_index_( ixyz_sr,attrs )
-                        if (bid not in ar_bidx_dis):
-                            if  isin_sorted( valid_bids, bid ):
-                                b_index = index_in_sorted( valid_bids, np.array([bid]) )
+                        if (not np.isin(bid,bids)) and isin_sorted( valid_bids, bid ):
+                            b_index = index_in_sorted( valid_bids, np.array([bid]) )
+                            if (bid not in ar_bids):
                                 dis = np.linalg.norm( ixyz - ixyz_sr )
                                 ar_bidx_dis.append( [b_index[0], dis] )
                                 ar_ixyzs.append( ixyz_sr )
+                                ar_bids.append( bid )
+                                #print( 'sr_count=%d, find new bid=%d, bindex=%d, dis=%s'%(sr_count, bid, b_index, dis) )
                                 if len(ar_bidx_dis) >= max_need_num: break
         ar_bidx_dis = np.array( ar_bidx_dis )
         if IsRecordTime:
@@ -1092,18 +1151,34 @@ class GlobalSubBaseBLOCK():
 
     def save_bmap_between_dif_stride_step(self):
         '''
-        bmh5f structure:
+        bmh5: structure:
             for each cascde_id, create a group. eg cascade_id='root' grp_name='root-stride_0d1_step_0d1'
             In each grp,
                 1) create a dataset: "all_sorted_aimbids", shape=all_sorted_larger_aimbids.shape
                 2) for each new_bid, create a dataset: str(new_bid), shape=(len(base_ids),) blockid_map_dset[...] = base_ids
 
+        bmh5 example:
+            elements in h5f:
+                [u'BASE_stride_0d1_step_0d1-AIM_stride-1d6-step-2', u'BASE_stride_0d1_step_0d1-AIM_stride_0d2_step_0d2',
+                 u'BASE_stride_0d2_step_0d2-AIM_stride_0d6_step_0d6', u'BASE_stride_0d6_step_0d6-AIM_stride_1d1_step_1d1', u'root-stride_0d1_step_0d1']
+            elements in h5f.attrs:
+                [u'is_intact_bmh5', u'max_global_num_point', u'global_num_point', u'global_stride', u'global_step', u'sub_block_stride_candis', u'sub_block_step_candis',
+                u'nsubblock_candis', u'npoint_subblock_candis', u'gsbb_config', u'flatbxmap_max_nearest_num', u'flatbxmap_max_dis', u'padding', u'root_block_stride', u'root_block_step']
+            elements in  h5f['root-stride_0d1_step_0d1']:
+                [u'all_sorted_aimbids']
+                * h5f['root-stride_0d1_step_0d1']['all_sorted_aimbids'].shape: (10929,)
+            elements in h5f['BASE_stride_0d1_step_0d1-AIM_stride_0d2_step_0d2']:
+                [u'aim', u'all_sorted_aimbids', u'base']
+                * group 'aim' contains 3017 dataset with names as str(aim_bid), each dataset is a one dimension array, storing all the basebids inside this aim block.
+                * group 'base' contains 10929 dataset with names as str(base_bid), each dataset is a one dimension array, storing all the aimbids containing this base block.
         '''
         assert self.mode == 'write'
         folder = os.path.dirname(self.bmh5_fn)
         if not os.path.exists( folder ):
             os.makedirs( folder )
         print('start writing %s'%(self.bmh5_fn))
+        # the elements required to draw block
+        wanted_attr_eles = ['block_dims_N','block_step','block_stride','xyz_min_aligned']
         with h5py.File(self.bmh5_fn,'w') as h5f:
             h5f.attrs['is_intact_bmh5'] = 0
             self.write_paras_in_h5fattrs( h5f.attrs )
@@ -1129,6 +1204,9 @@ class GlobalSubBaseBLOCK():
                 group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
+                for ele in wanted_attr_eles:
+                    grp.attrs[ele] = cascade_attrs[cascade_id][ele]
+                    print( ele,':\t', grp.attrs[ele] )
                 all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_aimbids.shape,dtype=np.int32  )
                 all_sorted_aimbids_dset[...] = all_sorted_larger_aimbids
                 if not cascade_id == 'root':
@@ -1260,63 +1338,177 @@ class GlobalSubBaseBLOCK():
         else:
             fix_bmap_method = GlobalSubBaseBLOCK.settings['fix_bmap_method_others']
 
-        if fix_bmap_method == 'random' :
-            choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
-            kept_aim_bids = all_sorted_aimbids[choice]
-            cut_aim_bids = [ bid for bid in all_sorted_aimbids if bid not in kept_aim_bids ]
-        elif fix_bmap_method == 'point_num_sort' :
-            org_aim_b_num = len(all_sorted_aimbids)
-            assert org_aim_b_num > nsubblock
-            base_b_num = np.zeros(shape=(org_aim_b_num)).astype(np.uint32)
-            for i in range(org_aim_b_num):
-                base_b_num[i] = len(all_base_bids_in_aim_dic[all_sorted_aimbids[i]])
-            sort_aim_indices = np.argsort(base_b_num)
-            cut_aim_indices = sort_aim_indices[0:org_aim_b_num-nsubblock]
-            cut_aim_bids = all_sorted_aimbids[cut_aim_indices]
-            kept_aim_indices = sort_aim_indices[org_aim_b_num-nsubblock:sort_aim_indices.size]
-            kept_aim_bids = np.sort(all_sorted_aimbids[kept_aim_indices])
+        IsCheck_fix_lost = False
+        if IsCheck_fix_lost:
+            org_baseb_num = 0
+            for baseb_ls in all_base_bids_in_aim_dic.values():
+                org_baseb_num += len(baseb_ls)
 
         all_base_bids_in_aim_dic_fixed = all_base_bids_in_aim_dic
-        if GlobalSubBaseBLOCK.settings['is_mv_cutted_aimb']:
-            for cut_aim_bid in cut_aim_bids:
-                # in order not to lost the cutted aim_bid, append all base_bids of each cutted aim_bids to nearest aim_bid
-                dis = np.zeros(shape=(nsubblock))+1000.0
-                for j,aim_bid_search in enumerate(kept_aim_bids):
-                    dis[j] = Sorted_H5f.get_block_dis_( aim_bid_search,cut_aim_bid,aim_attrs )
-                mindis_indice = np.argmin(dis)
-                mindis_aimbid = kept_aim_bids[mindis_indice]
-                all_base_bids_in_aim_dic_fixed[mindis_aimbid] = np.concatenate([ all_base_bids_in_aim_dic[mindis_aimbid], all_base_bids_in_aim_dic[cut_aim_bid] ] )
+        if fix_bmap_method == 'random':
+            choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
+            kept_aim_bids = all_sorted_aimbids[choice]
+            cropped_aim_bids = [ bid for bid in all_sorted_aimbids if bid not in kept_aim_bids ]
 
-        for cut_aim_bid in cut_aim_bids:
-            del all_base_bids_in_aim_dic_fixed[cut_aim_bid]
+            # merge base_bids of each cropped aim b to closest aim b
+            ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_multibase( cropped_aim_bids, aim_attrs, kept_aim_bids, max_need_num=3, max_search_dis=2 )
+            for i in range( len(cropped_aim_bids) ):
+                cropped_aim_bid = cropped_aim_bids[i]
+                if ar_bidx_dis[i].shape[0]==0:
+                    # cannot find a neighbor
+                    print('no neighbor for %d'%(cropped_aim_bid))
+                    continue
+                ar_aimb_indexes = ar_bidx_dis[i][:,0].astype(np.int32)
+                baseb_nums = [len(all_base_bids_in_aim_dic_fixed[kept_aim_bids[aimb_index]]) for aimb_index in ar_aimb_indexes ]
+                j = np.argmin( np.array(baseb_nums) )
+                ar_aimb_index = int(ar_bidx_dis[i][j,0])
+                ar_aim_bid = kept_aim_bids[ ar_aimb_index ]
+
+
+                #all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] )
+
+                #print( 'crop\n',all_base_bids_in_aim_dic_fixed[cropped_aim_bid] )
+                #print( 'ar\n',all_base_bids_in_aim_dic_fixed[ar_aim_bid] )
+                # save the larger one
+                if len( all_base_bids_in_aim_dic_fixed[cropped_aim_bid] ) >= len( all_base_bids_in_aim_dic_fixed[ar_aim_bid] ):
+                    #print('crop:',cropped_aim_bids[i])
+                    #print('kept:',kept_aim_bids[ ar_aimb_index ])
+                    cropped_aim_bids[i] = ar_aim_bid
+                    kept_aim_bids[ ar_aimb_index ] = cropped_aim_bid
+                    all_base_bids_in_aim_dic_fixed[cropped_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[cropped_aim_bid], all_base_bids_in_aim_dic_fixed[ar_aim_bid ]] )
+                    #print('crop:',cropped_aim_bids[i])
+                    #print('kept:',kept_aim_bids[ ar_aimb_index ])
+                else:
+                    all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] )
+                #print( 'crop\n',all_base_bids_in_aim_dic_fixed[cropped_aim_bid] )
+                #print( 'ar\n',all_base_bids_in_aim_dic_fixed[ar_aim_bid] )
+                #print('ar_aim_bid:', ar_aim_bid)
+
+            for cut_aim_bid in cropped_aim_bids:
+                del all_base_bids_in_aim_dic_fixed[cut_aim_bid]
+
+        elif fix_bmap_method == 'num_order':
+            # merge sub_blocks in order from the ones with less base_blocks
+            def get_baseb_num_ls( all_sorted_aimbids ):
+                org_aim_b_num = all_sorted_aimbids.shape[0]
+                assert org_aim_b_num >= nsubblock
+                base_b_num = np.zeros(shape=(org_aim_b_num)).astype(np.uint32)
+                for i in range(org_aim_b_num):
+                    base_b_num[i] = len(all_base_bids_in_aim_dic_fixed[all_sorted_aimbids[i]])
+                return base_b_num
+            base_b_num = get_baseb_num_ls( all_sorted_aimbids )
+            sort_aim_indices = np.argsort(base_b_num)
+
+            n_delb = 0
+            cropped_aim_bids = [ all_sorted_aimbids[j] for j in sort_aim_indices ]
+            for cropped_aim_bid in cropped_aim_bids:
+                ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( cropped_aim_bid, aim_attrs, all_sorted_aimbids, max_need_num=3, max_search_dis=1 )
+                if ar_bidx_dis.shape[0]==0:
+                    # cannot find a neighbor
+                    #print('no neighbor for %d'%(cropped_aim_bid))
+                    continue
+                ar_aimb_indexes = ar_bidx_dis[:,0].astype(np.int32)
+                baseb_nums = [len(all_base_bids_in_aim_dic_fixed[all_sorted_aimbids[aimb_index]]) for aimb_index in ar_aimb_indexes ]
+                m = np.argmin( np.array(baseb_nums) )
+                ar_aimb_index = int(ar_bidx_dis[m,0])
+                ar_aim_bid = all_sorted_aimbids[ ar_aimb_index ]
+                all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] )
+                del all_base_bids_in_aim_dic_fixed[cropped_aim_bid]
+                j = index_in_sorted( all_sorted_aimbids, cropped_aim_bid )
+                assert all_sorted_aimbids[j] == cropped_aim_bid
+                all_sorted_aimbids = np.delete( all_sorted_aimbids, j )
+                if all_sorted_aimbids.shape[0] <= nsubblock:
+                    break
+            kept_aim_bids = all_sorted_aimbids
+            #base_b_num_1 = get_baseb_num_ls( all_sorted_aimbids )
+
+        else:
+            assert False
+
+        # check lost base b
+        if IsCheck_fix_lost:
+            fixed_baseb_num = 0
+            for baseb_ls in all_base_bids_in_aim_dic_fixed.values():
+                fixed_baseb_num += len(baseb_ls)
+            lost_b_num = org_baseb_num -  fixed_baseb_num
+            print('lost_b_num:',lost_b_num)
+
         return kept_aim_bids, all_base_bids_in_aim_dic_fixed
 
-    def gen_sg_ply( self, sg_all_bidxmaps, pl_xyz,bmap_nh5_filename ):
+    def gen_bmap_ply( self, nh5_fn ):
+        assert self.mode=='load'
+        IsIntact_nh5, ck_str = Normed_H5f.check_nh5_intact( nh5_fn )
+        IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
+        if not (IsIntact_nh5 and IsIntact_bmh5):
+            return
+        print('start gen ply for %s'%(self.bmh5_fn))
+        region_name = os.path.splitext( os.path.basename(self.bmh5_fn) )[0]
+        house_path = os.path.dirname(self.bmh5_fn)
+        ply_path = '%s/ply'%(house_path)
+        if not os.path.exists(ply_path):
+            os.makedirs(ply_path)
+
+        with h5py.File( self.bmh5_fn, 'r' ) as bmh5f:
+          with h5py.File( nh5_fn, 'r' ) as nh5f:
+            pl_xyz = nh5f['data'][...,0:3]
+            for cascade_id in self.cascade_id_ls:
+                group_name = self.get_cascade_grp_name(cascade_id)
+                grp = bmh5f[group_name]
+                all_sorted_aimbids = grp['all_sorted_aimbids'][:]
+                attrs = grp.attrs
+                bxyz_center, bxyz_min, bxyz_max = Sorted_H5f.block_index_to_xyz_( all_sorted_aimbids, attrs )
+
+                ply_fn = '%s/bmap_%s_cascade_%s.ply'%(ply_path, region_name, cascade_id)
+                ply_util.gen_box_norotation( ply_fn, bxyz_min, bxyz_max )
+
+    def gen_bxmap_ply( self, nh5_fn, bxmh5_fn ):
         ''' Still not right '''
-        print('start gen ply for %s'%(bmap_nh5_filename))
-        for cascade_id in range(self.cascade_num):
-            start = self.sg_bidxmaps_extract_idx[cascade_id]
-            end = self.sg_bidxmaps_extract_idx[cascade_id+1]
-            sg_bidxmap_i1 = sg_all_bidxmaps[:,start[0]:end[0], 0:end[1] ]
-            sg_bidxmap_i1 = np.expand_dims( np.expand_dims(sg_bidxmap_i1,-1), -1 )
-            sg_bidxmap_i1 = np.tile( sg_bidxmap_i1, [1,1,1,3,1] )
+        IsIntact_nh5_bxmap,ck_str = Normed_H5f.check_nh5_intact( bxmh5_fn )
+        IsIntact_nh5, ck_str = Normed_H5f.check_nh5_intact( nh5_fn )
+        IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
+        if not (IsIntact_nh5_bxmap and IsIntact_nh5 and IsIntact_bmh5):
+            return
+        print('start gen ply for %s'%(bxmh5_fn))
+        with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+         with h5py.File( self.bmh5_fn, 'r' ) as bmh5f:
+          with h5py.File( nh5_fn, 'r' ) as nh5f:
+            pl_xyz = nh5f['data'][...,0:3]
+            sg_all_bidxmaps = bxmh5f['bidxmaps_sample_group']
 
-            sg_bidxmap_i0 = np.arange( pl_xyz.shape[0] ).reshape([-1,1,1,1,1])
-            sg_bidxmap_i0 = np.tile( sg_bidxmap_i0, [1,sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2], sg_bidxmap_i1.shape[3],1] )
-            sg_bidxmap_i2 = np.arange( pl_xyz.shape[2] ).reshape([1,1,1,-1,1])
-            sg_bidxmap_i2 = np.tile( sg_bidxmap_i2, [sg_bidxmap_i1.shape[0], sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2],1,1] )
+            region_name = os.path.splitext( os.path.basename( bxmh5_fn ) )[0]
+            house_path = os.path.dirname( bxmh5_fn )
+            ply_path = '%s/ply'%(house_path)
+            if not os.path.exists(ply_path):
+                os.makedirs(ply_path)
 
-            sg_bidxmap_i = np.concatenate( [sg_bidxmap_i0, sg_bidxmap_i1, sg_bidxmap_i2], -1 )
-            sg_xyz = np.zeros(shape=( sg_bidxmap_i.shape[0:4] ))
-            for i in range( sg_bidxmap_i.shape[0] ):
-                for j in range( sg_bidxmap_i.shape[1] ):
-                    for k in range( sg_bidxmap_i.shape[2] ):
-                        for r in range( sg_bidxmap_i.shape[3] ):
-                            idxs = sg_bidxmap_i[i,j,k,r]
-                            sg_xyz[i,j,k,r] = pl_xyz[idxs[0],idxs[1],idxs[2]]
-            ply_fn= os.path.splitext(bmap_nh5_filename)[0] + '_cascade_' + str(cascade_id) + '.ply'
-            print('cascade_id %d sg_xyz: %s'%( cascade_id, sg_xyz.shape ))
-            create_ply_matterport( sg_xyz[0], ply_fn )
+            pl_xyz_grps = []
+            pl_xyz_grps.append( pl_xyz )
+
+            for cascade_id in range(self.cascade_num):
+                start = self.sg_bidxmaps_extract_idx[cascade_id]
+                end = self.sg_bidxmaps_extract_idx[cascade_id+1]
+                sg_bidxmap_i1_ = sg_all_bidxmaps[:,start[0]:end[0], 0:end[1] ]
+                batch_size, nsubblock, npoint_subblock = sg_bidxmap_i1_.shape
+
+                sg_pl = np.zeros([batch_size,nsubblock,npoint_subblock,3])
+                for b in range( batch_size ):
+                    pl_batch = np.zeros( [nsubblock,npoint_subblock,3] )
+                    for i in range(nsubblock):
+                        pl_subb = np.zeros( [npoint_subblock,3] )
+                        for j in range( npoint_subblock ):
+                            k = sg_bidxmap_i1_[b,i,j]
+                            pl_subb[j,:] = pl_xyz_grps[cascade_id][b, k, :]
+                        pl_batch[i,...] = pl_subb
+                    sg_pl[b,...] = pl_batch
+                pl_xyz_grps.append( sg_pl.mean(2) )
+
+                ply_fn = '%s/bxmap_%s_cascade_%d.ply'%(ply_path, region_name, cascade_id)
+                ply_util.create_ply_matterport( sg_pl, ply_fn )
+
+                ply_fn = '%s/input_%s_cascade_%d.ply'%(ply_path, region_name, cascade_id)
+                ply_util.create_ply_matterport( pl_xyz_grps[cascade_id], ply_fn )
+
+                print('cascade_id %d sg_xyz: %s'%( cascade_id, sg_pl.shape ))
 
 gsbb_empty =  GlobalSubBaseBLOCK()
 
@@ -1576,7 +1768,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     IsCheck_sh5f['bid_mapping'] = False and ENABLECHECK
     IsCheck_sh5f['bid_scope'] = False and ENABLECHECK
     IsCheck_sh5f['index_to_ixyz'] = False and ENABLECHECK
-    IsCheck_sh5f['gen_ply_all_bidxmap'] = False and ENABLECHECK
 
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_material']
@@ -1773,12 +1964,43 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def block_index_to_xyz_(block_k,attrs):
         ixyz = Sorted_H5f.block_index_to_ixyz_( block_k,attrs )
-        xyz = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
-        return xyz
+        xyz_center, xyz_min, xyz_max = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
+        return xyz_center, xyz_min, xyz_max
     def block_index_to_ixyz(self,block_k):
         return Sorted_H5f.block_index_to_ixyz_(block_k,self.h5f.attrs)
     @staticmethod
     def block_index_to_ixyz_(block_k, attrs):
+        '''
+        block_k: shape=(n,)
+        i_xyz: shape=(n,3)
+        '''
+        block_k = np.array(block_k)
+        if block_k.ndim == 0:
+            block_k = np.array([block_k])
+            input_scalar = True
+        else:
+            input_scalar = False
+        i_xyz = np.zeros( block_k.shape+(3,),np.int64)
+        assert 'block_dims_N' in attrs
+        block_dims_N = attrs['block_dims_N']
+        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+            if block_k.max() >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
+                assert False, "input bid %d exceed limit"%(block_k)
+        i_xyz[:,2] = block_k % block_dims_N[2]
+        k = block_k / block_dims_N[2]
+        i_xyz[:,1] = k % block_dims_N[1]
+        k =  k / block_dims_N[1]
+        i_xyz[:,0] = k % block_dims_N[0]
+
+        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+            bid_tocheck = Sorted_H5f.ixyz_to_block_index_( i_xyz, attrs )
+            assert np.sum(bid_tocheck - block_k)==0
+        if input_scalar:
+            i_xyz = np.squeeze( i_xyz,0 )
+        return i_xyz
+    @staticmethod
+    def old__block_index_to_ixyz_(block_k, attrs):
+        assert block_k.size == 1
         i_xyz = np.zeros(3,np.int64)
         assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
@@ -1799,15 +2021,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def get_block_dis_(bid0,bid1,attrs):
         ixyz0 = Sorted_H5f.block_index_to_ixyz_(bid0,attrs)
         ixyz1 = Sorted_H5f.block_index_to_ixyz_(bid1,attrs)
-        xyz0 = Sorted_H5f.ixyz_to_xyz( ixyz0,attrs )
-        xyz1 = Sorted_H5f.ixyz_to_xyz( ixyz1,attrs )
+        xyz0,_,_ = Sorted_H5f.ixyz_to_xyz( ixyz0,attrs )
+        xyz1,_,_ = Sorted_H5f.ixyz_to_xyz( ixyz1,attrs )
         dis = np.linalg.norm(xyz1-xyz0)
         return dis
 
     @staticmethod
     def ixyz_to_xyz( ixyz, attrs ):
-        xyz =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned'] + attrs['block_step']*0.5
-        return xyz
+        xyz_min =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned']
+        xyz_center = xyz_min + attrs['block_step']*0.5
+        xyz_max = xyz_min + attrs['block_step']
+        return xyz_center, xyz_min, xyz_max
     @staticmethod
     def xyz_to_ixyz( xyz, attrs ):
         ixyz =  (xyz - attrs['xyz_min_aligned'] - attrs['block_step']*0.5) / attrs['block_stride']
@@ -2749,7 +2973,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             IsIntact = h5f.attrs['is_intact_sgfh5'] == 1
             return IsIntact,"is_intact_sgfh5=1"
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_pyh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False):
+    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False):
         '''
         save by global block
         '''
@@ -2761,8 +2985,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         house_name = os.path.basename(house_dir_name)
         rootsort_dirname = os.path.dirname(house_dir_name)
 
-        out_folder_pl = rootsort_dirname + '_pl_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False ) + '/' + house_name
-        out_folder_bmap = rootsort_dirname + '_bmap_nh5_' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
+        out_folder_pl = rootsort_dirname + '_pl_nh5-' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False ) + '/' + house_name
+        out_folder_bmap = rootsort_dirname + '_bmap_nh5-' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
 
         if not os.path.exists(out_folder_pl):
             os.makedirs(out_folder_pl)
@@ -2781,9 +3005,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         t1 = time.time()
         #-----------------------------------------------------------------------
         pl_nh5_filename = os.path.join(out_folder_pl,region_name+'.nh5')
-        gsbb_write = GlobalSubBaseBLOCK(self.h5f,self.file_name)
         IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_nh5_filename )
-        if (not Always_CreateNew_pyh5) and IsIntact_pl_nh5:
+        if (not Always_CreateNew_plh5) and IsIntact_pl_nh5:
             with h5py.File( pl_nh5_filename,'r' ) as plh5f:
                 cur_global_num_point = plh5f.attrs['sample_num']
             if cur_global_num_point != gsbb_write.global_num_point:
@@ -2800,19 +3023,22 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         #-----------------------------------------------------------------------
         t2 = time.time()
-        # save bmap file
-        bmap_nh5_filename = os.path.join(out_folder_bmap,region_name+'.bxmh5')
-        bmap_meta_filename = os.path.join(out_folder_bmap,region_name+'.txt')
-        IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bmap_nh5_filename )
+        # save bxmap file
+        bxmh5_fn = os.path.join(out_folder_bmap,region_name+'.bxmh5')
+        IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bxmh5_fn )
         if (not Always_CreateNew_bxmh5) and  IsIntact_nh5_bmap:
-            if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bmap_nh5_filename))
+            if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bxmh5_fn))
         else:
-            Sorted_H5f.save_bxmap_h5f( bmap_nh5_filename, gsbb_write, self, pl_nh5_filename, bmap_meta_filename )
+            Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_nh5_filename )
         t3 = time.time()
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
         if t3 - t0 > 1:
             print('\tper square meters save bmh5 t:%f  save pl_nh5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0)/area, (t2-t1)/area, (t3-t2)/area, area ))
+
+        # gen ply
+        if IsGenPly:
+            gsbb_write.gen_bxmap_ply( pl_nh5_filename, bxmh5_fn )
 
     def save_pl_nh5(self, pl_nh5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
@@ -2922,16 +3148,16 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         print('finish adding global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_nh5_filename) )
 
     @staticmethod
-    def save_bxmap_h5f(bmap_nh5_filename, gsbb_write, S_H5f, pl_nh5_filename, bmap_meta_filename):
-        print( 'start writing bxmap h5f: %s'%(bmap_nh5_filename))
-        with h5py.File(pl_nh5_filename,'r') as pl_nh5f, h5py.File(bmap_nh5_filename,'w') as bmap_h5f:
+    def save_bxmap_h5f(bxmh5_fn, gsbb_write, S_H5f, pl_nh5_filename ):
+        print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
+        with h5py.File(pl_nh5_filename,'r') as pl_nh5f, h5py.File(bxmh5_fn,'w') as bmap_h5f:
             if gsbb_write.global_num_point == pl_nh5f.attrs['sample_num']:
                 rootb_split_idxmap = pl_nh5f['rootb_split_idxmap']
             else:
                 rootb_split_idxmap = pl_nh5f[str(gsbb_write.global_num_point)+'-rootb_split_idxmap']
             global_block_num = rootb_split_idxmap.shape[0]
 
-            bmap_nh5f = Normed_H5f(bmap_h5f,bmap_nh5_filename,S_H5f.h5f.attrs['datasource_name'])
+            bmap_nh5f = Normed_H5f(bmap_h5f,bxmh5_fn,S_H5f.h5f.attrs['datasource_name'])
             bmap_nh5f.create_bidxmap_dsets( gsbb_write )
 
             sg_all_bidxmaps = []
@@ -2956,12 +3182,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
             gsbb_write.write_paras_in_h5fattrs( bmap_nh5f.h5f.attrs )
-            gsbb_write.write_paras_in_txt( bmap_meta_filename )
+            gsbb_write.write_paras_in_txt( bxmh5_fn )
 
             bmap_nh5f.create_done()
-            print('write finish: %s'%(bmap_nh5_filename))
-            if Sorted_H5f.IsCheck_sh5f['gen_ply_all_bidxmap']:
-                gsbb_write.gen_sg_ply( sg_all_bidxmaps, pl_nh5f['data'][...,0:3],bmap_nh5_filename )
+            print('write finish: %s'%(bxmh5_fn))
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
         feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
@@ -3482,11 +3706,11 @@ class Normed_H5f():
         # - org_row_index when sortedh5f IS_CHECK=True
         self.create_dsets()
 
-    def copy_root_attrs_from_normed(self,h5f_normed, in_bmh5_fn=None, flag=None):
+    def copy_root_attrs_from_normed(self,h5f_normed, in_bxmh5_fn=None, flag=None):
         if 'data' in h5f_normed:
             self.copy_root_attrs_from_normed_plnh5( h5f_normed, flag )
         elif 'bidxmaps_flatten' in h5f_normed:
-            self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bmh5_fn, flag )
+            self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bxmh5_fn, flag )
 
     def copy_root_attrs_from_normed_plnh5(self,h5f_normed,flag=None):
        # attrs_candis=['datasource_name','element_names','total_block_N',
@@ -3512,15 +3736,16 @@ class Normed_H5f():
             self.h5f['rootb_split_idxmap'].attrs[attr] = h5f_normed['rootb_split_idxmap'].attrs[attr]
         self.h5f['rootb_split_idxmap'].attrs['valid_num'] = 0
 
-    def copy_root_attrs_from_normed_bxmh5(self,h5f_normed, in_bmh5_fn, flag=None):
+    def copy_root_attrs_from_normed_bxmh5(self,h5f_normed, in_bxmh5_fn, flag=None):
         for attr in h5f_normed.attrs:
             self.h5f.attrs[attr] = h5f_normed.attrs[attr]
             #if attr in GlobalSubBaseBLOCK.meta_names:
             #    self.h5f.attrs[attr] = h5f_normed.attrs[attr] * 0
             #print(attr,h5f_normed.attrs[attr])
         self.h5f.attrs['is_intact_nh5'] = 0
-        gsbb_load = GlobalSubBaseBLOCK( bmh5_fn = in_bmh5_fn )
-        self.create_bidxmap_dsets(gsbb_load)
+        gsbb_empty = GlobalSubBaseBLOCK( )
+        gsbb_empty.load_para_from_bxmh5( in_bxmh5_fn )
+        self.create_bidxmap_dsets(gsbb_empty)
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
@@ -3765,8 +3990,9 @@ class Normed_H5f():
         if 'data' in self.h5f:
             self.write_summary()
         elif 'bidxmaps_flatten' in self.h5f:
-            gsbb_load = GlobalSubBaseBLOCK( bmh5_fn=self.file_name )
-            gsbb_load.write_paras_in_txt()
+            gsbb_enpty = GlobalSubBaseBLOCK( )
+            gsbb_empty.load_para_from_bxmh5( self.file_name )
+            gsbb_empty.write_paras_in_txt( self.file_name )
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]

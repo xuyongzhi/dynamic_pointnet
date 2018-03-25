@@ -153,7 +153,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         return new_xyz, new_points, root_point_features, grouped_xyz
 
 
-def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
+def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_neighbor_dis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -161,15 +161,16 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
     Input:
         points1 (cascade_id=2): (2, 256, 256)
         points2 (cascade_id=3): (2, 64, 512)
-        flatten_bidxmap: (B,num_point,self.flatbxmap_max_nearest_num,3)
-                    [:,:,0]: aim_b_index
-                    [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
-                    [:,:,2]: index_distance
+        flatten_bidxmap: (B,num_point,self.flatbxmap_max_nearest_num,2)
+                    [:,:,:,0]: aim_b_index
+                    [:,:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
+        fbmap_neighbor_dis: (B,num_point,self.flatbxmap_max_nearest_num,1)
+                    [:,:,:,2]: index_distance
         mlps_fp: [256,256]
     Output:
         new_points1: (2, 256, 256)
     '''
-    IsShowModel = True
+    IsShowModel = False
     IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
@@ -183,28 +184,73 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
             assert len(points1.get_shape()) == 3
             assert flatten_bidxmap.shape[1] == points1.shape[1]
         batch_size = points2.get_shape()[0].value
-        batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
+        batch_idx0 = tf.reshape( tf.range(batch_size),[batch_size,1,1,1] )
         point1_num = flatten_bidxmap.get_shape()[1].value
-        batch_idx = tf.tile( batch_idx,[1, point1_num ,1] ) # (2, 256, 1)
-
-        flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
-        flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
-        mapped_points2 = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
 
 
+        if cascade_id == 0:
+            # convert grouped points1 to flat point features
+            #flatten_bidxmap_aimbidx1 = flatten_bidxmap[:,:,0,0:2]  # (2, 256, 1)
+            #flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
+            #points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
-        num_neighbour = 3
+            num_neighbour0 = 1
+            disw_theta0 = -1.5 # the abs smaller, more smooth
+            assert num_neighbour0 <= flatten_bidxmap.shape[2].value
+            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour0 ,1] ) # (2, 256, 1)
+            flatten_bidxmap_concat1 = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour0,0:2]], axis=-1 )  # [...,[batch_idx,aimb_idx,point_idx_in_aimb] ]
+            points1_nei = tf.gather_nd( points1, flatten_bidxmap_concat1 )
+            if num_neighbour0 > 1:
+                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta0, axis=2 )
+                points1_nei = tf.multiply( points1_nei, dis_weight )
+            points1 = tf.reduce_sum( points1_nei, axis=2 )
+
+        #flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,0,0:1]  # (2, 256, 1)
+        #flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
+        #mapped_points2 = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+
+
+        # use the inverse distance weighted sum of 3 neighboured point features
+        if cascade_id == 0:
+            num_neighbour = 1
+        else:
+            num_neighbour = 1
         assert num_neighbour <= flatten_bidxmap.shape[2].value
-        mapped_points2 = []
-        for j in range( num_neighbour ):
-            flatten_bidxmap_aimbidx = flatten_bidxmap[:,:,j,0:1]  # (2, 256, 1)
-            flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap_aimbidx],axis=-1 ) # (2, 256, 2)
-            mapped_points2_j = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
-            index_distance = flatten_bidxmap[:,:,j,2:3]  # (2, 256, 1)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            mapped_points2.append( mapped_points2_j )
+        neighbor_method = 'A'
+        #-----------------------------------
+        if neighbor_method=='A':
+            batch_idx = tf.tile( batch_idx0,[1, point1_num, 1 ,1] ) # (2, 256, 1)
+            # from distance to weight
+            if num_neighbour>1:
+                disw_theta = -0.5 # the abs smaller, more smooth
+                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta, axis=2 )
+            for i in range(num_neighbour):
+                flatten_bidxmap_aimbidx_concat_i = tf.concat( [batch_idx, flatten_bidxmap[:,:,i:(i+1),0:1]],axis=-1 ) # (2, 256, 2)
+                mapped_points2_nei_i = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat_i) # (2, 256, 512)
+                if num_neighbour>1:
+                    mapped_points2_nei_i = tf.multiply( mapped_points2_nei_i, dis_weight[:,:,i:(i+1),:] )
+                    if i==0:
+                        mapped_points2 = mapped_points2_nei_i
+                    else:
+                        mapped_points2 += mapped_points2_nei_i
+                else:
+                    mapped_points2 = mapped_points2_nei_i
+            mapped_points2 = tf.squeeze( mapped_points2,2 )
+        #-----------------------------------
+        if neighbor_method=='B':
+            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour ,1] ) # (2, 256, 1)
+            flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour,0:1]],axis=-1 ) # (2, 256, 2)
+            mapped_points2_nei = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
+            if num_neighbour>1:
+                disw_theta = -0.7 # the abs smaller, more smooth
+                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta, axis=2 )
+                mapped_points2_nei = tf.multiply( mapped_points2_nei, dis_weight )
+            mapped_points2 = tf.reduce_sum( mapped_points2_nei,2 )
+        #-----------------------------------
 
-
+        if IsDebug:
+            debug['distance_%d'%(cascade_id)] = distance
+            debug['dis_weight_%d'%(cascade_id)] = dis_weight
 
         if IsDebug:
             debug['flatten_bidxmap'].append( flatten_bidxmap )
@@ -212,16 +258,11 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, mlps_e1, 
             flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
             debug['flat_xyz'].append( flat_xyz )
 
-        if cascade_id == 0:
-            # convert grouped points1 to flat point features
-            flatten_bidxmap_aimbidx1 = flatten_bidxmap[:,:,0,0:2]  # (2, 256, 1)
-            flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
-            points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
         new_points1 = points1
         new_points1 = tf.expand_dims(new_points1,1)
         if 'growth_rate'in mlps_e1:
-            new_points1 = tf_util.dense_net( new_points1, mlps_e1, bn, is_training, bn_decay, scope = 'dense_cascade_%d_fp'%(cascade_id) , is_show_model = IsShowModel )
+            new_points1 = tf_util.dense_net( new_points0, mlps_e1, bn, is_training, bn_decay, scope = 'dense_cascade_%d_fp'%(cascade_id) , is_show_model = IsShowModel )
         else:
             for i, num_out_channel in enumerate(mlps_e1):
                 new_points1 = tf_util.conv2d(new_points1, num_out_channel, [1,1],

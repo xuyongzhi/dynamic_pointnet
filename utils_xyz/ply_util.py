@@ -7,8 +7,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 
-
-
 def test_plyfile():
     vertex = np.array([(0, 0, 0), (0,1,0), (1,1,0), (1,0,0),
                         (0, 0, 1), (0,1,1), (1,1,1), (1,0,1)],
@@ -42,34 +40,47 @@ def test_plyfile():
    #         byte_order='>').write('tmp/big_endian_binary.ply')
     print('write tmp/test_ascii.ply')
 
-def gen_box_pl( ply_fn, box_xyzs, pl_xyz ):
-    assert box_xyzs.shape[-1] == 3
-    assert pl_xyz.shape[-1] == 3
-    assert int(box_xyzs.shape[0]) % 8 == 0
 
-    box_xyzs = np.reshape( box_xyzs, (-1,3) )
-    pl_xyz = np.reshape( pl_xyz, (-1,3) )
-    num_box = box_xyzs.shape[0] // 8
-    num_vertex = box_xyzs.shape[0] + pl_xyz.shape[0]
+def gen_box_pl( ply_fn, box_vertexes, pl_xyz=None ):
+    '''
+    box_vertexes:[num_box,8,3]
+    pl_xyz:  [num_point,3]
+    '''
+    assert box_vertexes.ndim == 3
+    assert box_vertexes.shape[1] == 8
+    assert box_vertexes.shape[-1] == 3
+
+    box_vertexes = np.reshape( box_vertexes, (-1,3) )
+    num_box = box_vertexes.shape[0] // 8
+    if type(pl_xyz) != type(None):
+        assert pl_xyz.shape[-1] == 3
+        pl_xyz = np.reshape( pl_xyz, (-1,3) )
+        num_vertex = box_vertexes.shape[0] + pl_xyz.shape[0]
+    else:
+        num_vertex = box_vertexes.shape[0]
     vertex = np.zeros( shape=(num_vertex) ).astype([('x', 'f8'), ('y', 'f8'),('z', 'f8')])
-    for i in range(box_xyzs.shape[0]):
-        vertex[i] = ( box_xyzs[i,0],box_xyzs[i,1],box_xyzs[i,2] )
-    for i in range(pl_xyz.shape[0]):
-        vertex[i+box_xyzs.shape[0]] = ( pl_xyz[i,0],pl_xyz[i,1],pl_xyz[i,2] )
+    for i in range(box_vertexes.shape[0]):
+        vertex[i] = ( box_vertexes[i,0],box_vertexes[i,1],box_vertexes[i,2] )
+
+    if type(pl_xyz) != type(None):
+        for i in range(pl_xyz.shape[0]):
+            vertex[i+box_vertexes.shape[0]] = ( pl_xyz[i,0],pl_xyz[i,1],pl_xyz[i,2] )
+
     el_vertex = PlyElement.describe(vertex,'vertex')
 
-    edge_basic = np.array([(0, 1, 255, 0, 0),
-                     (1, 2, 255, 0, 0),
-                     (2, 3, 255, 0, 0),
-                     (3, 0, 255, 0, 0),
-                     (4, 5, 255, 0, 0),
-                     (5, 6, 255, 0, 0),
-                     (6, 7, 255, 0, 0),
-                     (7, 4, 255, 0, 0),
-                     (0, 4, 255, 0, 0),
-                     (1, 5, 255, 0, 0),
-                     (2, 6, 255, 0, 0),
-                     (3, 7, 255, 0, 0)] )
+    edge_basic = np.array([ (0, 1, 255, 0, 0),
+                            (1, 2, 255, 0, 0),
+                            (2, 3, 255, 0, 0),
+                            (3, 0, 255, 0, 0),
+                            (4, 5, 255, 0, 0),
+                            (5, 6, 255, 0, 0),
+                            (6, 7, 255, 0, 0),
+                            (7, 4, 255, 0, 0),
+                            (0, 4, 255, 0, 0),
+                            (1, 5, 255, 0, 0),
+                            (2, 6, 255, 0, 0),
+                            (3, 7, 255, 0, 0)] )
+    edge_basic[:,2:5] = np.array([0,0,255])
     edge_val = np.concatenate( [edge_basic]*num_box,0 )
     for i in range(num_box):
         edge_val[i*12:(i+1)*12,0:2] += (8*i)
@@ -83,19 +94,60 @@ def gen_box_pl( ply_fn, box_xyzs, pl_xyz ):
     PlyData([el_vertex, el_edge],text=True).write(ply_fn)
     print('write %s ok'%(ply_fn))
 
+def gen_box_8vertexs( bxyz_min, bxyz_max ):
+    '''
+    no rotation!!
+    from block xyz_min and xyz_max, generate eight vertexs in order
+    bxyz_min: [n_box,3]
+    bxyz_max" [n_box,3]
+    '''
+    if bxyz_min.ndim == 1:
+        bxyz_max = np.expand_dims( bxyz_max,0 )
+        bxyz_min = np.expand_dims( bxyz_min,0 )
+
+    dxyz = bxyz_max - bxyz_min
+    dx = dxyz[:,0]
+    dy = dxyz[:,1]
+    dz = dxyz[:,2]
+    if bxyz_min.ndim==1:
+        bxyz_min = np.expand_dims( bxyz_min,0 )
+
+    box_vertexes = np.expand_dims( bxyz_min,1 )
+    box_vertexes = np.tile( box_vertexes,[1,8,1] )
+    box_vertexes[:,1,1] += dy
+    box_vertexes[:,2,0] += dx
+    box_vertexes[:,2,1] += dy
+    box_vertexes[:,3,0] += dx
+
+    box_vertexes[:,4:8,:] = box_vertexes[:,0:4,:] + 0
+    box_vertexes[:,4:8,2] += np.expand_dims( dz,-1 )
+    return box_vertexes
+
+def gen_box_norotation( ply_fn, bxyz_min, bxyz_max ):
+    box_vertexes = gen_box_8vertexs( bxyz_min, bxyz_max )
+    gen_box_pl( ply_fn, box_vertexes )
+
 def test_box( pl_xyz=None ):
-    box_xyz0_a = np.array( [(0,0,0),(0,1,0),(1,1,0),(1,0,0)] )
-    box_xyz0_b = box_xyz0_a + np.array([0,0,1])
-    box_xyz0 = np.concatenate([box_xyz0_a,box_xyz0_b],0)
-    box_xyz1 = box_xyz0 + np.array([0.3,0.3,0])
-    box_xyz = np.concatenate( [box_xyz0,box_xyz1],0 )
+    box_vertex0_a = np.array( [(0,0,0),(0,1,0),(1,1,0),(1,0,0)] )
+    box_vertex0_b = box_vertex0_a + np.array([0,0,1])
+    box_vertex0 = np.concatenate([box_vertex0_a,box_vertex0_b],0)
+    box_vertex0 = np.expand_dims( box_vertex0,0 )
+    box_vertex1 = box_vertex0 + np.array([[0.3,0.3,0]])
+    box_vertexes = np.concatenate( [box_vertex0,box_vertex1],0 )
 
-    #pl_xyz = box_xyz + np.array([-0.3,-0.3,0.2])
 
-    gen_box_pl( '/tmp/box_pl.ply',box_xyz, pl_xyz )
+    bxyz_min = np.array([[0,0,0], [0,3,4]])
+    bxyz_max = np.array([[1,2,1], [1,4,6]])
+    box_vertexes = gen_box_8vertexs( bxyz_min, bxyz_max )
+    pl_xyz = box_vertexes + np.array([-0.2,-0.3,0.2])
 
-def cut_xyz( xyz, cut_threshold = [1,1,0.9] ):
+    gen_box_pl( '/tmp/box_pl.ply',box_vertexes, pl_xyz )
+
+def cut_xyz( xyz, cut_threshold = [1,1,1] ):
     xyz = np.reshape( xyz,[-1,xyz.shape[-1]] )
+    if np.sum(cut_threshold) == 3:
+        is_keep = np.array( [True]*xyz.shape[0] )
+        return xyz, is_keep
     cut_threshold = np.array( cut_threshold )
     xyz_min = np.amin( xyz[:,0:3], 0 )
     xyz_max = np.amax( xyz[:,0:3], 0 )
@@ -120,7 +172,7 @@ def create_ply( xyz0, ply_fn, label=None, label2color=None, box=None, cut_thresh
     is_cut = xyz0.ndim >= 3
     if is_cut:
         for i in range( xyz0.shape[0] ):
-            new_xyz_i, is_keep_i = cut_xyz( xyz0[i])
+            new_xyz_i, is_keep_i = cut_xyz( xyz0[i], cut_threshold )
             new_xyz_ls.append( new_xyz_i )
             is_keep_ls.append( is_keep_i )
         xyz = np.concatenate( new_xyz_ls, 0 )
@@ -163,5 +215,5 @@ if __name__ == '__main__':
     #test_plyfile()
     test_box()
 
-    sg_bidxmap_i0 = np.arange( sg_bidxmap_i1.shape[0] ).reshape([-1,1,1,1])
-    sg_bidxmap_i0 = np.tile( sg_bidxmap_i0, [0,sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2],1] )
+    #sg_bidxmap_i0 = np.arange( sg_bidxmap_i1.shape[0] ).reshape([-1,1,1,1])
+    #sg_bidxmap_i0 = np.tile( sg_bidxmap_i0, [0,sg_bidxmap_i1.shape[1], sg_bidxmap_i1.shape[2],1] )

@@ -35,26 +35,9 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
         labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample + (label_num_ele,))
         smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (label_num_ele,))
         sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
-        flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape,name="flatten_bidxmaps_pl")
-
-        return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl
-
-        #flatten_bidxmap0_concat = get_flatten_bidxmap_concat( flatten_bidxmaps_pl, flatten_bm_extract_idx, 0 )
-        #flat_labels_pl = tf.gather_nd( grouped_labels_pl, flatten_bidxmap0_concat, name="flat_labels_pl")
-        #flat_smpws_pl = tf.gather_nd( grouped_smpws_pl, flatten_bidxmap0_concat)
-        #flat_pointclouds_pl = tf.gather_nd( grouped_pointclouds_pl, flatten_bidxmap0_concat, name="pointclouds")
-
-        #debug={}
-        #debug['flatten_bidxmap0_concat'] = flatten_bidxmap0_concat
-
-        #start = flatten_bm_extract_idx[0]
-        #end = flatten_bm_extract_idx[1]
-        #flatten_bidxmaps_pl_0 = flatten_bidxmaps_pl[ :,start[0]:end[0],: ]
-        #import pdb; pdb.set_trace()
-        ## labels_pl:(2, 10240, 2)   grouped_labels_pl:(2, 512, 6, 2)
-        ## flatten_bidxmaps_pl_0:(2, 10240, 2)
-        #flat_labels_pl, flat_smpws_pl, flat_pointclouds_pl = flatten_grouped_labels(grouped_labels_pl, grouped_smpws_pl, grouped_pointclouds_pl, flatten_bidxmaps_pl_0,"pls")
-        #return grouped_pointclouds_pl, grouped_labels_pl, grouped_smpws_pl,  flat_pointclouds_pl, flat_labels_pl, flat_smpws_pl, sg_bidxmaps_pl, flatten_bidxmaps_pl, flatten_bidxmap0_concat
+        flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(2,),name="flatten_bidxmaps_pl")
+        fbmap_neighbor_dis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_dis_pl")
+        return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl
 
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
@@ -187,14 +170,17 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
                      [:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
                      [:,:,2]: index_distance
     '''
-    tmp = tf.constant(value=[0], shape = [1,1,1,1], dtype=tf.int32)
-    tmp = tf.tile( tmp,[1, nsubblock_last, 1, 1] )
+    #tmp = tf.constant(value=[0], shape = [1,1,1,1], dtype=tf.int32)
+    #tmp = tf.tile( tmp,[1, nsubblock_last, 1, 1] )
+    tmp = tf.zeros( shape=[1, nsubblock_last, 1, 1], dtype=tf.int32 )
     flatten_bidxmap_global = tf.reshape( tf.range( nsubblock_last ),(1,-1,1,1) )
     flatten_bidxmap_global = tf.concat( [tmp, flatten_bidxmap_global, tmp], -1 )
     flatten_bidxmap_global = tf.tile( flatten_bidxmap_global,[batch_size, 1, nearest_block_num, 1] )
-    return flatten_bidxmap_global
 
-def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, flatten_bm_extract_idx, bn_decay=None, IsDebug=False):
+    fbmap_neighbor_dis_global = tf.zeros(shape = [batch_size, nsubblock_last, nearest_block_num, 1], dtype=tf.float32)
+    return flatten_bidxmap_global, fbmap_neighbor_dis_global
+
+def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, fbmap_neighbor_dis, flatten_bm_extract_idx, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
@@ -256,12 +242,13 @@ def get_model(model_flag, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_ex
         if IsAddGlobalLayer and k==cascade_num-1:
             if k==0: nsubblock_last = l_points[k].get_shape()[2].value # l_points[0] is grouped feature
             else: nsubblock_last = l_points[k].get_shape()[1].value  # l_points[0] is flat feature
-            flatten_bidxmaps_k = get_flatten_bidxmap_global( batch_size, nsubblock_last, flatten_bidxmaps.get_shape()[2].value )
+            flatten_bidxmaps_k, fbmap_neighbor_dis_k = get_flatten_bidxmap_global( batch_size, nsubblock_last, flatten_bidxmaps.get_shape()[2].value )
         else:
             start = flatten_bm_extract_idx[k]
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
-        l_points[k] = pointnet_fp_module( k, l_points[k], l_points[k+1], flatten_bidxmaps_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
+            fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
+        l_points[k] = pointnet_fp_module( k, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
