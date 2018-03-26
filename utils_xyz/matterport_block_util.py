@@ -714,7 +714,7 @@ def parse_house_ls():
 def GenPly_BidMap():
     bmh5_name = 'stride_0d1_step_0d1_bmh5-1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
     bxmh5_name = 'stride_0d1_step_0d1_bmap_nh5-12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
-    nh5_fn = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/17DRP5sb8fy/region0.nh5'
+    nh5_fn = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5-1d6_2/17DRP5sb8fy/region0.nh5'
     region_name = os.path.splitext( os.path.basename(nh5_fn) )[0]
     house_name = os.path.basename( os.path.dirname( nh5_fn ))
     scans_path = os.path.dirname( os.path.dirname( os.path.dirname(nh5_fn) ) )
@@ -740,6 +740,4 @@ if __name__ == '__main__':
     #show_bidxmap()
     #show_all_label_colors()
     #GenPly_BidMap()
-
-
 

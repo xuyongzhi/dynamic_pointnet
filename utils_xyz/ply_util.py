@@ -160,9 +160,17 @@ def cut_xyz( xyz, cut_threshold = [1,1,1] ):
     xyz_new = xyz[is_keep,:]
     return xyz_new, is_keep
 
-def create_ply( xyz0, ply_fn, label=None, label2color=None, box=None, cut_threshold=[1,1,1] ):
-  #  assert xyz.ndim == 3    # (num_block,num_point,3)
-  #  assert label.ndim == 2  # (num_block,num_point)
+def create_ply( xyz0, ply_fn, label=None, label2color=None, force_color=None, box=None, cut_threshold=[1,1,1] ):
+    '''
+    xyz0: (num_block,num_point,3) or (num_point,3) or (num_block,num_point,6) or (num_point,6)
+    label: (num_block,num_point) or (num_point)
+    force_color: (3,)
+
+    (1) color in xyz0: xyz0.shape[-]==6,  label=None, label2color=None
+    (2) no color: xyz0.shape[-1]==3, label=None, label2color=None
+    (3) color by label: xyz0.shape[-1]==3,label.shape= (num_block,num_point) or (num_point)
+    (4) set consistent color: xyz0.shape[-1]==3, label=None, label2color=None, force_color=[255,0,0]
+  '''
     print(ply_fn)
     folder = os.path.dirname(ply_fn)
     if not os.path.exists(folder):
@@ -180,17 +188,25 @@ def create_ply( xyz0, ply_fn, label=None, label2color=None, box=None, cut_thresh
     else:
         xyz = xyz0
 
-    if xyz.shape[-1] == 3 and type(label) != type(None) and label2color!=None:
-        label2color_ls = []
-        for i in range(len(label2color)):
-            label2color_ls.append( np.reshape(np.array(label2color[i]),(1,3)) )
-        label2colors = np.concatenate( label2color_ls,0 )
-        color = np.take( label2colors,label,axis=0 )
-        color = np.reshape( color,(-1,3) )
-        if is_cut:
-            color = color[is_keep,:]
-        xyz = np.concatenate([xyz,color],-1)
     if xyz.shape[-1] == 3:
+        if type(label) != type(None) and label2color!=None:
+            #(3) color by label: xyz0.shape[-1]==3,label.shape= (num_block,num_point) or (num_point)
+            label2color_ls = []
+            for i in range(len(label2color)):
+                label2color_ls.append( np.reshape(np.array(label2color[i]),(1,3)) )
+            label2colors = np.concatenate( label2color_ls,0 )
+            color = np.take( label2colors,label,axis=0 )
+            color = np.reshape( color,(-1,3) )
+            if is_cut:
+                color = color[is_keep,:]
+            xyz = np.concatenate([xyz,color],-1)
+        elif type(force_color)!=type(None):
+            #(4) set consistent color: xyz0.shape[-1]==3, label=None, label2color=None, force_color=[255,0,0]
+            color = np.reshape( np.array( force_color ),[1,3] )
+            color = np.tile( color,[xyz.shape[0],1] )
+            xyz = np.concatenate([xyz,color],-1)
+    if xyz.shape[-1] == 3:
+        #(2) no color: xyz0.shape[-1]==3, label=None, label2color=None
         vertex = np.zeros( shape=(xyz.shape[0]) ).astype([('x', 'f8'), ('y', 'f8'),('z', 'f8')])
         for i in range(xyz.shape[0]):
             vertex[i] = ( xyz[i,0],xyz[i,1],xyz[i,2] )
