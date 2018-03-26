@@ -49,6 +49,9 @@ set #1: (radius=0.3, 0.6, 1.0, 1.8),(nsample= 32, 16, 16, 8), thresh=0.7, acc_38
 set #2: (radius=0.3, 0.6, 1.0, 1.8, 2.2), (nsample = 32, 16, 16, 8, 8), thresh=0.6, batchsize = 5
 
 ### Some issues
-* the unblanced ratio of positive and negative samples.  
-  Solutions: 1. to find the more positive samples by leasing the positive_ratio; 2. to using the Focal loss function. 3. Reduce the batch size.
+* the unblanced ratio of positive and negative samples.   
+Solutions: 1. to find the more positive samples by leasing the positive_ratio; 2. to using the Focal loss function. 3. Reduce the batch size. 3. to increase the anchor number is a very good solution.   
+In the last layer, change the bird-view maps into voxel, like image, is useful to find the real proposals, because the points only appear on the surface of object, so it is hard to predict real box with the surface point compared to real central point.  
+the dataset only include round 5000 dataset, so it is easy for network to overfit this small dataset if you train network from scratch. The data augmentation is important to train your network, data augmentation methods:1, perturbation randomly; 2, global scaling; 3, global rotation.
+
 
