@@ -503,8 +503,8 @@ class Matterport3D_Prepare():
                     print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], bxmh5_fn))
                     return
                 with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
                         return
                     else:
                         #print('shape match check ok: %s'%(region_name))
@@ -525,8 +525,8 @@ class Matterport3D_Prepare():
                 MergeNormed_H5f( fn_ls[j], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_file_names[0],merged_file_names[1]) )
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_file_names[0],merged_file_names[1]) )
                 else:
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
@@ -552,8 +552,8 @@ class Matterport3D_Prepare():
                         print('Abort merging %d-%d, not exist: %s'%(k, end, bxmh5_fn))
                         return
                     with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                        if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                            print('Abort merging %d-%d, data shape (%d) != bidxmaps_flatten shape (%d): %s'%( k, end, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                        if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                            print('Abort merging %d-%d, data shape (%d) != bidxmaps_flat shape (%d): %s'%( k, end, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
                             return
                         else:
                             print('shape match check ok: %s'%(house_name))
@@ -580,8 +580,8 @@ class Matterport3D_Prepare():
                     MergeNormed_H5f( fn_ls_k[j], merged_fns[j], IsShowSummaryFinished=True)
                 # check after merged
                 with h5py.File( merged_fns[0], 'r' ) as plh5f, h5py.File( merged_fns[1], 'r' ) as bxmh5f:
-                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_fns[0],merged_fns[1]) )
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_fns[0],merged_fns[1]) )
                     else:
                         #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
                         pass
@@ -635,7 +635,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls, operations):
-    MultiProcess = 6
+    MultiProcess = 0
     matterport3d_prepare = Matterport3D_Prepare()
 
 
@@ -691,7 +691,7 @@ def parse_house_ls():
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

@@ -432,7 +432,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -449,7 +449,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                         bufread_t0 = time.time()
                     time.sleep(0.1)
             #if DEBUG_MULTIFEED: print('get train_feed_buf_q size= %d,  batch_idx=%d'%(train_feed_buf_q.qsize(),batch_idx))
-            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
         #if DEBUG_MULTIFEED: continue
 
@@ -462,8 +462,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['labels_pl']] = cur_label
         feed_dict[ops['smpws_pl']] = cur_smp_weights
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps[...,0:2]
-        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_flatten_bidxmaps[...,2:3]
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
@@ -631,7 +631,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -648,7 +648,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
                 time.sleep(0.2)
             #print('eval_feed_buf_q size= %d'%(eval_feed_buf_q.qsize()))
 
-            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         #if DEBUG_MULTIFEED: continue
@@ -663,8 +663,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         feed_dict[ops['labels_pl']] = cur_label
         feed_dict[ops['smpws_pl']] = cur_smp_weights
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
-        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps[...,0:2]
-        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_flatten_bidxmaps[...,2:3]
+        feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
+        feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
         summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy_block']],
                                       feed_dict=feed_dict)
@@ -731,10 +731,10 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
-                    feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, batch_idx,epoch] )
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                    feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
                         break # all data reading finished

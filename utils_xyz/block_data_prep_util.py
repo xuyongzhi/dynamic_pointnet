@@ -1550,7 +1550,7 @@ class GlobalSubBaseBLOCK():
           with h5py.File( nh5_fn, 'r' ) as nh5f:
             pl_xyz = nh5f['data'][...,0:3]
             sg_all_bidxmaps = bxmh5f['bidxmaps_sample_group']
-            flatten_bidxmaps = bxmh5f['bidxmaps_flatten']
+            flatten_bidxmaps = bxmh5f['bidxmaps_flat']
 
             region_name = os.path.splitext( os.path.basename( bxmh5_fn ) )[0]
             house_path = os.path.dirname( bxmh5_fn )
@@ -3742,11 +3742,12 @@ class Normed_H5f():
     @staticmethod
     def get_bidxmaps(bxmh5_fn, start_block,end_block):
         with h5py.File(bxmh5_fn,'r') as h5f:
-            assert h5f['bidxmaps_flatten'].shape[0] >= end_block
-            flatten_bidxmaps = h5f['bidxmaps_flatten'][start_block:end_block,:]
+            assert h5f['bidxmaps_flat'].shape[0] >= end_block
+            flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
+            fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
-        return  sg_bidxmaps, flatten_bidxmaps
+        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
@@ -3805,8 +3806,10 @@ class Normed_H5f():
     def copy_root_attrs_from_normed(self,h5f_normed, in_bxmh5_fn=None, flag=None):
         if 'data' in h5f_normed:
             self.copy_root_attrs_from_normed_plnh5( h5f_normed, flag )
-        elif 'bidxmaps_flatten' in h5f_normed:
+        elif 'bidxmaps_flat' in h5f_normed:
             self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bxmh5_fn, flag )
+        else:
+            assert False
 
     def copy_root_attrs_from_normed_plnh5(self,h5f_normed,flag=None):
        # attrs_candis=['datasource_name','element_names','total_block_N',
@@ -4090,10 +4093,12 @@ class Normed_H5f():
                 self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
         if 'data' in self.h5f:
             self.write_summary()
-        elif 'bidxmaps_flatten' in self.h5f:
+        elif 'bidxmaps_flat' in self.h5f:
             gsbb_enpty = GlobalSubBaseBLOCK( )
             gsbb_empty.load_para_from_bxmh5( self.file_name )
             gsbb_empty.write_paras_in_txt( self.file_name )
+        else:
+            assert False
     @staticmethod
     def check_nh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]

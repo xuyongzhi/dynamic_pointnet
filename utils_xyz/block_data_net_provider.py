@@ -154,11 +154,11 @@ class Net_Provider():
                 # check shapes match with each other
                 with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                     with h5py.File( plnh5_fn, 'r' ) as plnh5f:
-                        if bxmh5f['bidxmaps_flatten'].shape[0] == plnh5f['data'].shape[0]:
+                        if bxmh5f['bidxmaps_flat'].shape[0] == plnh5f['data'].shape[0]:
                             bxmh5_fn_ls.append( bxmh5_fn )
                             plnh5_fn_ls_new.append( plnh5_fn )
                         else:
-                            print('bxmh5(%d) and plnh5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flatten'].shape[0], plnh5f['data'].shape[0],plnh5_fn ))
+                            print('bxmh5(%d) and plnh5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flat'].shape[0], plnh5f['data'].shape[0],plnh5_fn ))
                             assert False
             else:
                 print( 'not exist: %s'%(bxmh5_fn) )
@@ -216,7 +216,7 @@ class Net_Provider():
 
     def get_data_label_shape_byread(self):
         t0 = time.time()
-        data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
+        data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises = self.get_train_batch(0,min(self.train_num_blocks,32))
         #data_batches,label_batches,_ = self.get_train_batch(0,1)
         self.whole_train_data_shape = np.array(data_batches.shape)
         self.whole_train_data_shape[0] = self.train_num_blocks
@@ -232,7 +232,7 @@ class Net_Provider():
         print('read %d global block t: %f ms\n'%( data_batches.shape[0], 1000*(time.time()-t0)))
 
     def check_bidxmap(self):
-        datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps = self.get_train_batch(0,min(self.train_num_blocks,32))
+        datas,labels,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises = self.get_train_batch(0,min(self.train_num_blocks,32))
 
 
     def get_block_n(self,norm_h5f):
@@ -368,6 +368,7 @@ class Net_Provider():
         center_mask = []
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
+        fmap_neighbor_idis_ls = []
         fid_start_end = []
         xyz_mid_ls = []
         for f_idx in range(start_file_idx,end_file_idx+1):
@@ -394,7 +395,7 @@ class Net_Provider():
             label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
             # data_i: [batch_size,npoint_block,data_nchannels]
             # label_i: [batch_size,npoint_block,label_nchannels]
-            sg_bidxmaps, flatten_bidxmaps = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+            sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
             assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
@@ -431,6 +432,7 @@ class Net_Provider():
             label_ls.append(label_i)
             sg_bidxmaps_ls.append(sg_bidxmaps)
             flatten_bidxmaps_ls.append(flatten_bidxmaps)
+            fmap_neighbor_idis_ls.append(fmap_neighbor_idises )
 
             center_mask_i = self.get_center_mask(f_idx, xyz_midnorm_block_i)
             center_mask.append(center_mask_i)
@@ -439,6 +441,7 @@ class Net_Provider():
         label_batches = np.concatenate(label_ls,0)
         sg_bidxmaps = np.concatenate( sg_bidxmaps_ls,axis=0 )
         flatten_bidxmaps = np.concatenate( flatten_bidxmaps_ls,axis=0 )
+        fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
 
         xyz_mid_batches = np.concatenate( xyz_mid_ls, 0 )
         center_mask = np.concatenate(center_mask,0)
@@ -488,7 +491,7 @@ class Net_Provider():
        # print(sg_bidxmaps.shape)
        # print(flatten_bidxmaps.shape)
 
-        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fid_start_end, xyz_mid_batches
+        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end, xyz_mid_batches
 
     def get_fn_from_fid(self,fid):
         return self.normed_h5f_file_list[ fid ]
@@ -509,12 +512,14 @@ class Net_Provider():
         sample_weights = []
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
+        fmap_neighbor_idis_ls = []
         fid_start_end_ls = []
         xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
+            fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
             data_batches.append(data_i)
             label_batches.append(label_i)
             sample_weights.append(smw_i)
@@ -525,9 +530,10 @@ class Net_Provider():
         sample_weights = np.concatenate(sample_weights,axis=0)
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
+        fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
         fid_start_end = np.concatenate(fid_start_end_ls,0)
         xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps,fid_start_end, xyz_mid_batches
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'
@@ -721,7 +727,7 @@ def check_bxmap_pl_shape_match():
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
         with h5py.File( bxmap_fn, 'r' ) as bxmf:
           with h5py.File( pl_fn, 'r' ) as plf:
-            if bxmf['bidxmaps_flatten'].shape[0] != plf['data'].shape[0]:
+            if bxmf['bidxmaps_flat'].shape[0] != plf['data'].shape[0]:
                 print(pl_fn)
                 print('shape mathch err')
 
