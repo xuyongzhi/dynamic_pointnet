@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = True
+TMPDEBUG = False
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -201,10 +201,10 @@ def GenPyramidSortedFlie(fn):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
-        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
-                                            IsGenPly = True and TMPDEBUG)
+        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True,Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
+                                            IsGenPly = False and TMPDEBUG)
     return fn
 
 class Matterport3D_Prepare():
@@ -691,14 +691,14 @@ def parse_house_ls():
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
     #operations  = ['pr_sample_rate']
 
-    #operations  = ['GenPyramid' , 'MergeNormed_region']
+    operations  = ['GenPyramid' , 'MergeNormed_region']
 
     group_n = 5
     for i in range(0,len(house_names),group_n):

@@ -1563,7 +1563,6 @@ class GlobalSubBaseBLOCK():
                 ply_util.gen_box_norotation( ply_fn, bxyz_min, bxyz_max )
 
     def gen_bxmap_ply( self, nh5_fn, bxmh5_fn ):
-        ''' Still not right '''
         IsIntact_nh5_bxmap,ck_str = Normed_H5f.check_nh5_intact( bxmh5_fn )
         IsIntact_nh5, ck_str = Normed_H5f.check_nh5_intact( nh5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
@@ -1612,14 +1611,12 @@ class GlobalSubBaseBLOCK():
 
                 # gen flatten ply
                 flatten_bidxmap_i = self.extract_flatten_bidxmaps( flatten_bidxmaps, cascade_id )
-                pl_flatten = np.zeros( flatten_bidxmap_i.shape[0:-1] )
+                pl_flatten = np.zeros( flatten_bidxmap_i.shape[0:-2]+(3,) )
                 n_point = flatten_bidxmap_i.shape[1]
                 for b in range( batch_size ):
                     for i in range( n_point ):
-                        # only when index_distance == 0 -> the flatten points
                         # are exactly the base points
-                        aim_b_index, point_index_in_aimb, index_distance  = flatten_bidxmap_i[b,i,0,:]
-                        #if index_distance == 0:
+                        aim_b_index, point_index_in_aimb = flatten_bidxmap_i[b,i,0,:]
                         pl_flatten[b,i,:] = sg_pl[b, aim_b_index, point_index_in_aimb,:]
 
                 ply_fn = '%s/flat_%s_cascade_%d.ply'%(ply_path, region_name, cascade_id)
