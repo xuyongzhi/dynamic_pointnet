@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-x = np.arange(-1e-3,5,1)
+x = np.arange(-1-1e-3,5,1)
 y_inv = 1/x
 
 rates = [1,10,20,30,40,50]

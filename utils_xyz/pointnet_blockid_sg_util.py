@@ -153,7 +153,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         return new_xyz, new_points, root_point_features, grouped_xyz
 
 
-def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_neighbor_dis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
+def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -164,7 +164,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
         flatten_bidxmap: (B,num_point,self.flatbxmap_max_nearest_num,2)
                     [:,:,:,0]: aim_b_index
                     [:,:,:,1]: point_index_in_aimb  (useless when cascade_id>0)
-        fbmap_neighbor_dis: (B,num_point,self.flatbxmap_max_nearest_num,1)
+        fbmap_neighbor_idis: (B,num_point,self.flatbxmap_max_nearest_num,1)
                     [:,:,:,2]: index_distance
         mlps_fp: [256,256]
     Output:
@@ -194,14 +194,14 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
             #flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
             #points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
-            num_neighbour0 = 1
+            num_neighbour0 = 4
             disw_theta0 = -1.5 # the abs smaller, more smooth
             assert num_neighbour0 <= flatten_bidxmap.shape[2].value
             batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour0 ,1] ) # (2, 256, 1)
             flatten_bidxmap_concat1 = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour0,0:2]], axis=-1 )  # [...,[batch_idx,aimb_idx,point_idx_in_aimb] ]
             points1_nei = tf.gather_nd( points1, flatten_bidxmap_concat1 )
             if num_neighbour0 > 1:
-                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta0, axis=2 )
+                dis_weight = tf.nn.softmax( fbmap_neighbor_idis[:,:,0:num_neighbour0,:] * disw_theta0, axis=2 )
                 points1_nei = tf.multiply( points1_nei, dis_weight )
             points1 = tf.reduce_sum( points1_nei, axis=2 )
 
@@ -212,9 +212,9 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
 
         # use the inverse distance weighted sum of 3 neighboured point features
         if cascade_id == 0:
-            num_neighbour = 1
+            num_neighbour = 4
         else:
-            num_neighbour = 1
+            num_neighbour = 4
         assert num_neighbour <= flatten_bidxmap.shape[2].value
         neighbor_method = 'A'
         #-----------------------------------
@@ -223,7 +223,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
             # from distance to weight
             if num_neighbour>1:
                 disw_theta = -0.5 # the abs smaller, more smooth
-                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta, axis=2 )
+                dis_weight = tf.nn.softmax( fbmap_neighbor_idis * disw_theta, axis=2 )
             for i in range(num_neighbour):
                 flatten_bidxmap_aimbidx_concat_i = tf.concat( [batch_idx, flatten_bidxmap[:,:,i:(i+1),0:1]],axis=-1 ) # (2, 256, 2)
                 mapped_points2_nei_i = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat_i) # (2, 256, 512)
@@ -243,7 +243,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
             mapped_points2_nei = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
             if num_neighbour>1:
                 disw_theta = -0.7 # the abs smaller, more smooth
-                dis_weight = tf.nn.softmax( fbmap_neighbor_dis * disw_theta, axis=2 )
+                dis_weight = tf.nn.softmax( fbmap_neighbor_idis * disw_theta, axis=2 )
                 mapped_points2_nei = tf.multiply( mapped_points2_nei, dis_weight )
             mapped_points2 = tf.reduce_sum( mapped_points2_nei,2 )
         #-----------------------------------

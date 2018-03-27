@@ -682,7 +682,7 @@ class GlobalSubBaseBLOCK():
             base_attrs = self.get_new_attrs( cascade_id-1 )
         sg_bidxmap_fixed = np.ones(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32) * (-11)
 
-        flatten_bidxmap = np.ones(shape=(baseb_num, self.flatbxmap_max_nearest_num,3)).astype(np.int32)*(-11)
+        flatten_bidxmap = np.ones(shape=(baseb_num, self.flatbxmap_max_nearest_num,3)).astype(np.float64)*(-11)
         flatten_bidxmap_num = np.zeros( shape=(baseb_num) ).astype(np.int8)
         base_block_num_ls = []
         for aim_b_index in range(aim_nsubblock):
@@ -727,19 +727,19 @@ class GlobalSubBaseBLOCK():
                 base_bid_indexs_missed = [ i for i in base_bid_valid_indexs if i not in base_bid_valid_indexs_fixvalid ]
                 for baseb_index in base_bid_indexs_missed:
                     if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
-                        # exactly containing relationship, index_dis = 0
-                        pointindex_within_subblock = -1 # actually not exist in the aim block, replace by the -1 base block, use -1 to flag missing point
-                        flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index, pointindex_within_subblock,0]
+                        # exactly containing relationship, index_dis = 0.01 to flag missing block
+                        pointindex_within_subblock = 0 # actually not exist in the aim block, replace by the 0th base block
+                        flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index, pointindex_within_subblock,0.01]
                         flatten_bidxmap_num[baseb_index] += 1
         if self.IsCheck_gsbb['Aim_b_index']:
             print('Aim_b_index check OK')
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
-        missed_baseb_num = np.sum( flatten_bidxmap[:,0,1]==-1 )
+        missed_baseb_num = np.sum( flatten_bidxmap[:,0,2]==0.01 )
         baseb_exact_flat_num[0] = missed_baseb_num
         baseb_exact_flat_num[1] -= missed_baseb_num
-        if IsRecordTime: t3 = time.time()
 
+        if IsRecordTime: t3 = time.time()
         #-----------------------------------------------------------------------
         # (3) For the base block that are contained by flatten_bidxmap_num aim
         # blocks which flatten_bidxmap_num is < self.flatbxmap_max_nearest_num.
@@ -3272,7 +3272,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
             bmap_nh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-            bmap_nh5f.append_to_dset('bidxmaps_flatten',all_flatten_bidxmaps)
+            bmap_nh5f.append_to_dset('bidxmaps_flat',all_flatten_bidxmaps[...,0:2].astype(np.int32))
+            bmap_nh5f.append_to_dset('fmap_neighbor_idis',all_flatten_bidxmaps[...,2:3].astype(np.float32))
 
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
@@ -3957,10 +3958,15 @@ class Normed_H5f():
         sg_bidxmap_dset = self.h5f.create_dataset('bidxmaps_sample_group',shape=(total_block_N,)+sg_block_shape, dtype=np.int32,
                             maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
         sg_bidxmap_dset.attrs['valid_num'] = 0
+
         flatten_bidxmap_shape = gsbb_write_or_load.get_flatten_bidxmaps_shape()
-        flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flatten',shape=(total_block_N,)+flatten_bidxmap_shape,dtype=np.int32,
-                            maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape  )
+        flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flat',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(2,),dtype=np.int32,
+                                                       maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(2,)  )
         flatten_bidxmap_dset.attrs['valid_num'] = 0
+
+        fmap_neighbor_idis_dset = self.h5f.create_dataset('fmap_neighbor_idis',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(1,),dtype=np.float32,
+                                                       maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(1,)  )
+        fmap_neighbor_idis_dset.attrs['valid_num'] = 0
 
     def write_summary( self ):
         def get_rootb_num( rootb_split_idxmap ):

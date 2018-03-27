@@ -201,7 +201,7 @@ def GenPyramidSortedFlie(fn):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_bxmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
                                             IsGenPly = False and TMPDEBUG)
@@ -691,7 +691,7 @@ def parse_house_ls():
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

@@ -7,19 +7,19 @@
 
 train_script=../train_semseg_sorted.py
 dataset_name=matterport3d
-maxepoch=301
-learning_rate=0.002
+maxepoch=201
+learning_rate=0.005
 decay_epoch_step=60
 feed_label_elements="label_category-label_instance"
 
 multip_feed=1
-finetune=0
-model_epoch=300
+finetune=1
+model_epoch=200
 only_evaluate=0
 ShuffleFlag='Y'
 #ShuffleFlag='N'
 baselogname=log1
-#baselogname='log-model_4bG-Elw-idp7-gsbb_3B1-bs20-lr2-ds_80-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_60'
+baselogname='log1-model_4bG-Elw-gsbb_3A1-bs20-lr5-ds_60-Sf_Y-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_60'
 # *****************************************************************************
 #all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/17D_1LX_1pX_29h_2az'
 all_fn_globs='v1/merged_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
