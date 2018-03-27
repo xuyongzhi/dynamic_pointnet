@@ -55,7 +55,7 @@ Search with "name:" to find the definition.
 
 SHOW_ONLY_ERR = False
 DEBUGTMP=True
-ENABLECHECK = True
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -697,7 +697,10 @@ class GlobalSubBaseBLOCK():
                 # save the valid base bidxs
                 base_bnum_fixvalid = min( base_bid_valid_indexs.size, aim_npoint_subblock  )
                 base_bid_valid_indexs_fixvalid = sg_bidxmap_fixed[aim_b_index, 0:base_bnum_fixvalid]
-                last_rootb_index = -1
+
+                if self.IsCheck_gsbb['Aim_b_index']:
+                    last_rootb_index = -1
+                    base_bid_valid_indexs_fixvalid = np.sort(base_bid_valid_indexs_fixvalid)
                 for pointindex_within_subblock, baseb_index in enumerate( base_bid_valid_indexs_fixvalid ):
                     if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
                         # exactly containing relationship, so the dis=0
@@ -712,8 +715,13 @@ class GlobalSubBaseBLOCK():
                             base_bid = valid_sorted_basebids[ baseb_index ]
                         aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs, padding=self.padding )
                         if aim_bid not in aim_bids:
-                            print('aim_bid and base_bid not match')
-                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            # may because of block merge
+                            aim_ixyz = Sorted_H5f.block_index_to_ixyz_( aim_bid, aim_attrs )
+                            index_dis = np.min( [ np.linalg.norm(aim_ixyz - aim_ixyz_) for aim_ixyz_ in aim_ixyzs] )
+                            if index_dis >= 3:
+                                print('aim_bid and base_bid not match')
+                                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                                pass
 
                 # save the missed base bidxs
                 base_bid_indexs_missed = [ i for i in base_bid_valid_indexs if i not in base_bid_valid_indexs_fixvalid ]
@@ -723,6 +731,8 @@ class GlobalSubBaseBLOCK():
                         pointindex_within_subblock = -1 # actually not exist in the aim block, replace by the -1 base block, use -1 to flag missing point
                         flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index, pointindex_within_subblock,0]
                         flatten_bidxmap_num[baseb_index] += 1
+        if self.IsCheck_gsbb['Aim_b_index']:
+            print('Aim_b_index check OK')
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
         missed_baseb_num = np.sum( flatten_bidxmap[:,0,1]==-1 )
@@ -853,7 +863,6 @@ class GlobalSubBaseBLOCK():
         aimbnum_missed_add = aim_nsubblock - valid_sorted_aimbids.size
         bxmap_meta['aimbnum_missed_add'] = np.array([[ valid_sorted_aimbids.size, min(0,aimbnum_missed_add), max(0,aimbnum_missed_add) ]])
         bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num,0 )
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
         npointsubblock_mean = np.mean(base_block_num_ls)
 
@@ -1379,7 +1388,7 @@ class GlobalSubBaseBLOCK():
             cropped_aim_bids = [ bid for bid in all_sorted_aimbids if bid not in kept_aim_bids ]
 
             # merge base_bids of each cropped aim b to closest aim b
-            ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_multibase( cropped_aim_bids, aim_attrs, kept_aim_bids, max_need_num=3, max_search_dis=2 )
+            ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_multibase( cropped_aim_bids, aim_attrs, kept_aim_bids, max_need_num=3, max_search_dis=1 )
             for i in range( len(cropped_aim_bids) ):
                 cropped_aim_bid = cropped_aim_bids[i]
                 if ar_bidx_dis[i].shape[0]==0:
@@ -1427,6 +1436,12 @@ class GlobalSubBaseBLOCK():
                 return base_b_num
             loop_n = 0
             while ( all_sorted_aimbids.shape[0] != nsubblock ):
+                if loop_n >= 4:
+                    # randomly select and abandon some
+                    choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
+                    all_sorted_aimbids = all_sorted_aimbids[choice]
+                    break
+
                 loop_n += 1
                 base_b_num = get_baseb_num_ls( all_sorted_aimbids )
                 sort_aim_indices = np.argsort(base_b_num)
@@ -1463,7 +1478,7 @@ class GlobalSubBaseBLOCK():
                         break
                 all_sorted_aimbids = np.sort( np.concatenate( [np.array(kept_aim_bids), all_sorted_aimbids] ) )
             kept_aim_bids = all_sorted_aimbids
-            #print( 'loop_n:', loop_n )
+            print( 'loop_n:', loop_n )
 
             #base_b_num_1 = get_baseb_num_ls( all_sorted_aimbids )
 
