@@ -1478,7 +1478,7 @@ class GlobalSubBaseBLOCK():
                         break
                 all_sorted_aimbids = np.sort( np.concatenate( [np.array(kept_aim_bids), all_sorted_aimbids] ) )
             kept_aim_bids = all_sorted_aimbids
-            print( 'loop_n:', loop_n )
+            #print( 'loop_n:', loop_n )
 
             #base_b_num_1 = get_baseb_num_ls( all_sorted_aimbids )
 
@@ -3077,7 +3077,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         rootsort_dirname = os.path.dirname(house_dir_name)
 
         out_folder_pl = rootsort_dirname + '_pl_nh5-' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False ) + '/' + house_name
-        out_folder_bmap = rootsort_dirname + '_bmap_nh5-' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
+        out_folder_bmap = rootsort_dirname + '_bxmh5-' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
 
         if not os.path.exists(out_folder_pl):
             os.makedirs(out_folder_pl)

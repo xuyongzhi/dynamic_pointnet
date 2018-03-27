@@ -101,7 +101,10 @@ class Net_Provider():
         t_end_global_blockid = time.time()
         print('global block id reading finished, t=%f ms'%(1000.0*(t_end_global_blockid-t_start_global_blockid)))
 
-        self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
+        if train_file_N < file_N:
+            self.eval_global_start_idx = self.g_block_idxs[train_file_N,0]
+        else:
+            self.eval_global_start_idx = self.g_block_idxs[-1,1]
         if train_file_N > 0:
             self.train_num_blocks = self.g_block_idxs[train_file_N-1,1] # = self.eval_global_start_idx
         else: self.train_num_blocks = 0
@@ -131,7 +134,8 @@ class Net_Provider():
             self.eval_global_start_idx += self.eval_num_blocks - new_eval_num_blocks
             self.eval_num_blocks = new_eval_num_blocks
 
-        self.gsbb_load = GlobalSubBaseBLOCK(bmh5_fn=self.bxmh5_fn_ls[0])
+        self.gsbb_load = GlobalSubBaseBLOCK(  )
+        self.gsbb_load.load_para_from_bxmh5( self.bxmh5_fn_ls[0] )
         self.global_num_point = self.gsbb_load.global_num_point
         self.gsbb_config = self.gsbb_load.gsbb_config
         self.get_data_label_shape_info()
@@ -535,12 +539,13 @@ class Net_Provider():
                 train_shuffled_idxs.append( train_shuffled_idx_k )
             self.train_shuffled_idx = np.concatenate( train_shuffled_idxs )
 
-            eval_shuffled_idxs = []
-            for k in range(self.eval_file_N):
-                eval_shuffled_idx_k = np.arange( self.g_block_idxs[k+self.train_file_N,0], self.g_block_idxs[k+self.train_file_N,1] ) - self.train_num_blocks
-                np.random.shuffle(eval_shuffled_idx_k)
-                eval_shuffled_idxs.append( eval_shuffled_idx_k )
-            self.eval_shuffled_idx = np.concatenate( eval_shuffled_idxs )
+            if self.eval_file_N>0:
+                eval_shuffled_idxs = []
+                for k in range(self.eval_file_N):
+                    eval_shuffled_idx_k = np.arange( self.g_block_idxs[k+self.train_file_N,0], self.g_block_idxs[k+self.train_file_N,1] ) - self.train_num_blocks
+                    np.random.shuffle(eval_shuffled_idx_k)
+                    eval_shuffled_idxs.append( eval_shuffled_idx_k )
+                self.eval_shuffled_idx = np.concatenate( eval_shuffled_idxs )
 
         if flag == 'shuffle_within_all':
             self.train_shuffled_idx = np.arange(self.train_num_blocks)

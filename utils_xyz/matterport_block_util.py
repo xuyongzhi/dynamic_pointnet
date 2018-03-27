@@ -16,7 +16,7 @@ import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
 
-TMPDEBUG = True
+TMPDEBUG = False
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
@@ -201,10 +201,10 @@ def GenPyramidSortedFlie(fn):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
-                                            IsGenPly = True)
+                                            IsGenPly = False and TMPDEBUG)
     return fn
 
 class Matterport3D_Prepare():
@@ -477,10 +477,8 @@ class Matterport3D_Prepare():
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
     def MergeNormed(self, flag, house_name=None, house_group_num=5 ):
-        plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-600_64_24-60_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
-        #bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-512_64_24-48_16_12-0d2_0d6_1d2-0d2_0d6_1d2'
+        plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5-1d6_2'
+        bxmh5_folder_name = 'stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
         pl_base_fn_ls = []
@@ -637,7 +635,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls, operations):
-    MultiProcess = 0
+    MultiProcess = 6
     matterport3d_prepare = Matterport3D_Prepare()
 
 
@@ -693,8 +691,7 @@ def parse_house_ls():
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    #operations  = ['GenPyramid','GenObj_NormedH5f']
-    #operations  = ['MergeNormed_region']
+    operations  = ['MergeNormed_region']
     #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']

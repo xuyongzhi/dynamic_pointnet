@@ -31,7 +31,6 @@ DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
-ISNoEval = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_flag', default='2A', help='model flag')
@@ -82,9 +81,7 @@ try:
     FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
 except:
     pass
-if FLAGS.eval_fnglob_or_rate == 0:
-    ISNoEval=True
-    print('no eval')
+ISNoEval = FLAGS.eval_fnglob_or_rate == 0
 #-------------------------------------------------------------------------------
 if FLAGS.model_type == 'fds':
     from pointnet2_sem_seg import  get_model,get_loss
