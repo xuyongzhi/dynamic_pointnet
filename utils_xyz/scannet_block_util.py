@@ -22,23 +22,22 @@ DATA_SOURCE= 'Scannet_H5F'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
 
-
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
     return rawh5_file_ls
 
-def GenPyramidSortedFlie(fn):
+def GenPyramidSortedFlie( fn ):
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
-        Always_CreateNew_pyh5 = False
+        Always_CreateNew_plh5 = False
         Always_CreateNew_bmh5 = False
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = True
-            Always_CreateNew_pyh5 = True
+            Always_CreateNew_plh5 = True
             Always_CreateNew_bxmh5 = True
 
-        sorted_h5f.file_saveas_pyramid_feed(True,Always_CreateNew_pyh5 = Always_CreateNew_pyh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
+        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=False, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
 
 class Scannet_Prepare():
@@ -130,11 +129,12 @@ class Scannet_Prepare():
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
             pool = mp.Pool(MultiProcess)
-        for fn in file_list:
+        for k,fn in enumerate( file_list ):
             if not IsMultiProcess:
                 GenPyramidSortedFlie(fn)
+                print( 'Finish %d / %d files'%( k+1, len(file_list) ))
             else:
-                results = pool.apply_async(GenPyramidSortedFlie,(fn,))
+                results = pool.apply_async(GenPyramidSortedFlie,( fn,))
         if IsMultiProcess:
             pool.close()
             pool.join()
@@ -216,7 +216,7 @@ class Scannet_Prepare():
 
 def main(split):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 2
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
