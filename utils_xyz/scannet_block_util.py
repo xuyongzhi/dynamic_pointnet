@@ -149,8 +149,8 @@ class Scannet_Prepare():
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
     def MergeNormed(self):
-        plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5_1d6_2'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2'
+        plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5-1d6_2'
+        bxmh5_folder_name = 'stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
         pl_base_fn_ls = []
@@ -173,8 +173,8 @@ class Scannet_Prepare():
                 print(' ! ! ! Abort merging %s not intact: %s'%(self.split+formats[0], bxmh5_fn))
                 return
             with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                    print('Abort merging %s \n  data shape (%d) != bidxmaps_flatten shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], pl_fn) )
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                    print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
                     return
                 else:
                     #print('shape match check ok: %s'%(region_name))
@@ -202,8 +202,8 @@ class Scannet_Prepare():
                 MergeNormed_H5f( fn_ls[j][k:end], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flatten'].shape[0]:
-                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flatten shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flatten'].shape[0], merged_file_names[0],merged_file_names[1]) )
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_file_names[0],merged_file_names[1]) )
                 else:
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
@@ -216,15 +216,15 @@ class Scannet_Prepare():
 
 def main(split):
         t0 = time.time()
-        MultiProcess = 2
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
         #scanet_prep.GenObj_RawH5f(100,110)
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
