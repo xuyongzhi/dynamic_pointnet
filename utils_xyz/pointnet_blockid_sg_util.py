@@ -153,7 +153,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         return new_xyz, new_points, root_point_features, grouped_xyz
 
 
-def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
+def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -174,6 +174,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
     IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
+    num_neighbours = [ int(n) for n in num_neighbors ]
     with tf.variable_scope(scope) as sc:
         assert len(flatten_bidxmap.get_shape()) == 4
         if cascade_id == 0:
@@ -194,7 +195,7 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
             #flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
             #points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
-            num_neighbour0 = 4
+            num_neighbour0 = num_neighbours[0]
             disw_theta0 = -1.5 # the abs smaller, more smooth
             assert num_neighbour0 <= flatten_bidxmap.shape[2].value
             batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour0 ,1] ) # (2, 256, 1)
@@ -212,9 +213,9 @@ def pointnet_fp_module( cascade_id, points1, points2, flatten_bidxmap, fbmap_nei
 
         # use the inverse distance weighted sum of 3 neighboured point features
         if cascade_id == 0:
-            num_neighbour = 4
+            num_neighbour = num_neighbours[1]
         else:
-            num_neighbour = 4
+            num_neighbour = num_neighbours[2]
         assert num_neighbour <= flatten_bidxmap.shape[2].value
         neighbor_method = 'A'
         #-----------------------------------

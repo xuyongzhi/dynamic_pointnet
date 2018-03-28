@@ -3,10 +3,8 @@
 feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
 #feed_data_elements='xyz_midnorm_block-nxnynz' 
 
-#./run_train_seg_presg_mat.sh 1aG 30 0 $feed_data_elements E
-./run_train_seg_presg_mat.sh 4bG 15 1 $feed_data_elements E
-
-
-# 5.2  5.03  4.17
-
+./run_train_seg_presg_mat.sh 2aG_144 30 0 $feed_data_elements E
+./run_train_seg_presg_mat.sh 3aG_444 45 0 $feed_data_elements E
+#./run_train_seg_presg_mat.sh 4bG_114 20 1 $feed_data_elements E
+#./run_train_seg_presg_mat.sh 4bG_144 18 1 $feed_data_elements E
 

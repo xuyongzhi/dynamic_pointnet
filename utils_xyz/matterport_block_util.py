@@ -429,9 +429,10 @@ class Matterport3D_Prepare():
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
             pool = mp.Pool(MultiProcess)
-        for fn in file_list:
+        for n,fn in enumerate(file_list):
             if not IsMultiProcess:
                 GenPyramidSortedFlie(fn)
+                print('Finish %d / %d Files'%(n,len(file_list)))
             else:
                 results = pool.apply_async(GenPyramidSortedFlie,(fn,))
         if IsMultiProcess:
@@ -709,8 +710,8 @@ def parse_house_ls():
         if operations==['MergeNormed_house']: break
 
 def GenPly_BidMap():
-    bmh5_name = 'stride_0d1_step_0d1_bmh5-1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
-    bxmh5_name = 'stride_0d1_step_0d1_bmap_nh5-12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2-3B3'
+    bmh5_name='stride_0d1_step_0d1_bmh5-1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
+    bxmh5_name = 'stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
     nh5_fn = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_nh5-1d6_2/17DRP5sb8fy/region0.nh5'
     region_name = os.path.splitext( os.path.basename(nh5_fn) )[0]
     house_name = os.path.basename( os.path.dirname( nh5_fn ))
@@ -732,9 +733,9 @@ def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    parse_house_ls()
+    #parse_house_ls()
     #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
-    #GenPly_BidMap()
+    GenPly_BidMap()
 

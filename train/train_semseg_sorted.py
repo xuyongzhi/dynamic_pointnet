@@ -33,7 +33,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_flag', default='2A', help='model flag')
+parser.add_argument('--modelf_nein', default='2A_144', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/', help='The file name glob for both training and evaluation')
@@ -151,7 +151,7 @@ else:
             input_dropout_str = '-idp'+str(int((FLAGS.input_drop_max - FLAGS.input_drop_min)*10))
         else:
             input_dropout_str = ''
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.model_flag+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
 
@@ -197,7 +197,7 @@ def log_string(out_str):
 # log key parameters
 log_string('\n\nkey parameters:')
 #log_string( 'data: %s'%(FLAGS.feed_data_elements) )
-log_string( 'model: %s'%(FLAGS.model_flag) )
+log_string( 'model: %s'%(FLAGS.modelf_nein) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
@@ -255,7 +255,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 loss = get_loss(pred, labels_pl,smpws_pl)
             elif FLAGS.model_type == 'presg':
                 sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred, end_points, debug = get_model( FLAGS.model_flag, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+                pred, end_points, debug = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
                                                     sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
                 loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
 

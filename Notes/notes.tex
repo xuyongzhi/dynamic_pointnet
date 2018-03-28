@@ -203,6 +203,7 @@ max epoch = 500
 		1bG & 25/1083 & 0.001 & 'xyz'& 200-0.772 \par 90-0.553-0.210  \\  [0.5ex]
 		\hline \hline
 		
+		
 		4bG & 25/1083 & 0.001-30 \par 100-3e-4 \par 200-1e-4 \par 300-4e-5& 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 100-0.752 \par 200-0.816 \par 300-0.832  \\  [0.5ex] \hline2
 		
 		1DSaG & 30/1083 & 0.002-80 & 'xyz\_midnorm\_block', 'color\_1norm', 'nxnynz'& 200-0.930-0.830/0.450 \par 460-0.952-0.881/0.471 \\  [0.5ex] \hline
@@ -240,14 +241,14 @@ max epoch = 500
 \end{center}
 
 
-\subsection{multi scale in 60}
-\begin{tabular}{|p{10cm}|p{3cm}|}
+\subsection{4 scales in 1083}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{2cm}|p{1.5cm}|p{4cm}| }
 	\hline
-	configuration & epoch-train point acc-class acc \\
+	\multicolumn{6}{|p{12cm}|}{nh5: stride\_0d1\_step\_0d1\_pl\_nh5-1d6\_2/17D\_1LX\_1pX\_29h\_2az\par bxmh5: stride\_0d1\_step\_0d1\_bxmh5-12800\_1d6\_2\_fmn4-480\_80\_24-80\_20\_10-0d2\_0d6\_1d2-0d2\_0d6\_1d2-3A1} \\		
 	\hline
-	model\_1aG-gsbb\_3B1-bs25-xyz\_midnorm\_block-color\_1norm-nxnynz-12800-mat60 & 50-0.904\par 100-0.955\par 200-0.967\par 257-0.977\\
+	model & bs/bn& lr-decay & elements & loss weight & epoch-pacc-cacc train/eval \\
 	\hline
-	model\_4bG-Elw-gsbb\_3B1-bs20-lr2-ds\_80-Sf\_Y-xyz\_midnorm\_block-color\_1norm-nxnynz-12800-mat\_60 & 200-0.860-0.824 \par 300-0.870-0.839 \par 900-0.898-0.897\\
+	4bG\_444 & 15/1083 &3-40 & xyz\_midnorm\_block-color\_1norm-nxnynz & E &60-0.729-0.614\par 100-0.857-0.721\par 160-0.920-0.834\par 260-0.952-0.890\par 300-0.958-0.913 \\
 	\hline
 \end{tabular}
 

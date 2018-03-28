@@ -74,7 +74,7 @@ class Scannet_Prepare():
             for n in range(len(semantic_labels_list)):
                 # write one RawH5f file for one scane
                 rawh5f_fn = os.path.join(rawh5f_dir,self.split+'_%d.rh5'%(n))
-                if Raw_H5f.check_rh5_intact( rawh5f_fn ):
+                if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
                     print('rh5 intact: %s'%(rawh5f_fn))
                     continue
                 num_points = semantic_labels_list[n].shape[0]
