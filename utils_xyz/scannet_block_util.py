@@ -189,7 +189,7 @@ class Scannet_Prepare():
         if self.split=='train':
             group_n = int(len(nonvoid_plfn_ls) /4)
         else:
-            group_n = 1
+            group_n = len(nonvoid_plfn_ls)
         for k in range( 0, len(nonvoid_plfn_ls),group_n ):
             end = min( k+group_n, len(nonvoid_plfn_ls) )
             merged_file_names = ['','']
@@ -230,5 +230,5 @@ def main(split):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main('test')
-    main('train')
+    main('test')
+    #main('train')
