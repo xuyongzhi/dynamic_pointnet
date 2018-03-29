@@ -538,12 +538,13 @@ class Net_Provider():
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'
         if flag == 'shuffle_within_each_file':
-            train_shuffled_idxs = []
-            for k in range(self.train_file_N):
-                train_shuffled_idx_k = np.arange( self.g_block_idxs[k,0], self.g_block_idxs[k,1] )
-                np.random.shuffle(train_shuffled_idx_k)
-                train_shuffled_idxs.append( train_shuffled_idx_k )
-            self.train_shuffled_idx = np.concatenate( train_shuffled_idxs )
+            if self.train_file_N>0:
+                train_shuffled_idxs = []
+                for k in range(self.train_file_N):
+                    train_shuffled_idx_k = np.arange( self.g_block_idxs[k,0], self.g_block_idxs[k,1] )
+                    np.random.shuffle(train_shuffled_idx_k)
+                    train_shuffled_idxs.append( train_shuffled_idx_k )
+                self.train_shuffled_idx = np.concatenate( train_shuffled_idxs )
 
             if self.eval_file_N>0:
                 eval_shuffled_idxs = []

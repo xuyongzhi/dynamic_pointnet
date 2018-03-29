@@ -21,10 +21,10 @@ ShuffleFlag='Y'
 baselogname=log
 
 # *****************************************************************************
-all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
-bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2'
-#eval_fnglob_or_rate='test'
-eval_fnglob_or_rate='train_300'
+all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5-1d6_2/'
+bxmh5_folder_name='stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
+eval_fnglob_or_rate='test'
+#eval_fnglob_or_rate='train_300'
 # *****************************************************************************
 
 run_train()

@@ -162,13 +162,13 @@ if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
 os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
 os.system('cp %s/train_semseg_sorted.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
 log_fn = os.path.join(LOG_DIR, log_name)
-if FLAGS.finetune or FLAGS.only_evaluate:
-    assert os.path.exists( MODEL_PATH+'.meta' ),"Finetune, but model mote exists: %s"%(MODEL_PATH+'.meta')
 if FLAGS.finetune:
-    assert not FLAGS.only_evaluate
+    assert os.path.exists( MODEL_PATH+'.meta' ),"Finetune, but model mote exists: %s"%(MODEL_PATH+'.meta')
+if FLAGS.only_evaluate:
+    assert os.path.exists( MODEL_PATH+'.meta' ),"Only evaluate, but model mote exists: %s"%(MODEL_PATH+'.meta')
+if FLAGS.finetune or FLAGS.only_evaluate:
     assert os.path.exists( log_fn ),"Finetune, but log not exists: %s"%(log_fn)
     LOG_FOUT = open( log_fn, 'a')
-    LOG_FOUT.write('\n\nFinetune\n')
 else:
     LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
