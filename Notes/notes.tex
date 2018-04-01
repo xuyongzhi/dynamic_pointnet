@@ -26,6 +26,19 @@
 \tableofcontents{}
 
 \section{Quick notes for important events while using one file to test}
+
+\subsection{over fitting}
+\begin{itemize}
+	\item data augmentation: rotation, different resolution together, different size scale
+	\item combine ShapeNet data
+	\item more powerful network to learn more systematic information:\par
+	1. use large global block size\par
+	2. dynamic sampling
+	\item smaller net
+	
+\end{itemize}
+
+
 \subsection{batch size}
 \subsubsection{bs=27 vs bs=81}
 batch size: 9,27,81 \par
@@ -240,12 +253,12 @@ max epoch = 500
 	\end{longtable}
 \end{center}
 
-\subsection{multi scales \& 1083}
-\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{3cm}|p{1cm}|p{4cm}| }
+\subsection{multi scales \& mat 1083}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{2cm}|p{1cm}|p{6cm}| }
 	\hline
 	\multicolumn{6}{|p{12cm}|}{nh5: stride\_0d1\_step\_0d1\_pl\_nh5-1d6\_2/17D\_1LX\_1pX\_29h\_2az\par bxmh5: stride\_0d1\_step\_0d1\_bxmh5-12800\_1d6\_2\_fmn4-480\_80\_24-80\_20\_10-0d2\_0d6\_1d2-0d2\_0d6\_1d2-3A1} \\		
 	\hline
-	model & bs/bn& lr-decay & elements & loss weight & epoch-pacc-cacc train/eval \\
+	model & bs/bn& lr-decay & elements & loss weight\par in drop & epoch-pacc-cacc train/eval \\
 	\hline
 	4bG\_111 & 20/1083 &2-40 & xyz\_midnorm\_block-color\_1norm-nxnynz & E &110-0.898-0.763\par 160-0.931-0.827 \par 300-0.967-0.915 \\
 	\hline
@@ -260,9 +273,49 @@ max epoch = 500
 	3aG\_444 & 45/1083 &2-40 & xyz\_midnorm\_block-color\_1norm-nxnynz & E &60-0.893-0.737\par 100-0.908-0.786 /par 160-0.934-0.833\par 260-0.950-0.868 /par 300-0.952-0.882 \\
 	\hline
 	2aG\_144 & 30/1083 &2-40 & xyz\_midnorm\_block-color\_1norm-nxnynz & E &60-0.890-0.754\par 100-0.922-0.820 /par 160-0.942-0.858:\par 260-0.957-0.897 /par 300-0.960-0.911 \\
-	\hline
-	
+	\hline	
 \end{tabular}
+
+\subsection{multi scales \& mat 21826}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{2cm}|p{1.5cm}|p{6cm}| }
+	\hline
+	\multicolumn{6}{|p{12cm}|}{nh5: stride\_0d1\_step\_0d1\_pl\_nh5-1d6\_2/ \par bxmh5:  stride\_0d1\_step\_0d1\_bxmh5-12800\_1d6\_2\_fmn4-480\_80\_24-80\_20\_10-0d2\_0d6\_1d2-0d2\_0d6\_1d2-3A1 \par eval: 17D\_1LX\_1pX\_29h\_2az } \\
+	\hline
+	model & bs/bn& lr-decay & elements & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+	4bG\_114 & 20/1080 &1-30 & xyz midnorm\par color\par nxnynz & E\par N &40-0.784-0.545/0.579-0.451 \par 80-0.883-0.699/0.584-0.439 \par 140-0.925-0.795/0.575-0.429 \\
+	\hline
+	4bG\_111 & 20/1080 &2-30 & xyz midnorm\par color\par nxnynz & E\par N &40-0.737-0.489/0.587-0.412\par 80-0.836-0.614/0.582-0.411 \par 95-0.867/0.588 \\
+	\hline 
+	4bG\_144 & 20/1200 &2-30 & xyz midnorm\par color\par nxnynz & E\par N &40-0.761-0.543/0.601-0.416\par 80-0.864-0.693/0.602-0.426 \par 95-0.888/0.597 \\
+	\hline
+	 
+	\multicolumn{6}{|p{12cm}|}{ Conclusion:\par	(1) Nein 114 is better than 111  } \\
+	\hline
+\end{tabular}	
+
+\subsection{multi scales \& scannet 12887}
+\begin{tabular}{|p{1.5cm}|p{1cm}|p{1cm}|p{2cm}|p{1cm}||p{5cm}| }
+	\hline
+	\multicolumn{6}{|p{12cm}|}{nh5: stride\_0d1\_step\_0d1\_pl\_nh5-1d6\_2/ \par bxmh5:  stride\_0d1\_step\_0d1\_bxmh5-12800\_1d6\_2\_fmn4-480\_80\_24-80\_20\_10-0d2\_0d6\_1d2-0d2\_0d6\_1d2-3A1
+	\par eval: test } \\		
+	\hline
+	model & bs/bn& lr-decay & elements & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+	2aG\_144 & 30/420 &2-30 & xyz midnorm & E\par N &40-0.833-0.546/0.686-0.89 \par 100-0.926-0.727/0.683-0.326\\
+	\hline
+	3aG\_144 & 48/260 &2-30 & xyz midnorm & E\par N &40-0.841-0.530/0.668-0.346 \par 100-0.924-0.709/0.673-0.327\par 200-0.949-0.782/0.673-0.332 \par \textbf{300-0.955-0.802/0.671-0.330} \\
+	\hline 
+	4bG\_111 & 22-580 & 2-30 & xyz midnorm & E \par N &60-0.738-0.434/0.706-0.344 \par 100-0.796-0.506/0.699-0.315\par 180-0.863-0.589/0.695-0.308 \\
+	\hline
+	4bG\_111 & 22-580 & 7-30 & xyz midnorm & E \par N &60-0.705-0.378/0.684-0.362 \\
+	\hline
+	4bG\_144 & 18-700 & 2-30 & xyz midnorm & E \par N &40-0.714-0.470/0.6910.433\par 100-0.794-0.481/0.682-0.393\par 160-0.849-0.582/0.676-0.362 \\
+	
+	\hline\hline
+	\multicolumn{6}{|p{12cm}|}{ Conclusion:\par	(1) 3aG is much better than 4bG. Potential reasons:(a) 4bG is too wide and deep, so that needs more time to train. (b) The batch size of 4bG is too small \par (2) nein 144 seems is not better than 111 \par (3)Learning rate 0.002 is better than 0.007 } \\
+	\hline
+\end{tabular}	
 
 \subsection{integration: scannet}
 \begin{center}

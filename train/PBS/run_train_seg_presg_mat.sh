@@ -8,11 +8,11 @@
 train_script=../train_semseg_sorted.py
 dataset_name=matterport3d
 maxepoch=301
-learning_rate=0.002
+learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category-label_instance"
 
-multip_feed=1
+multip_feed=0
 finetune=0
 model_epoch=300
 only_evaluate=0
@@ -38,9 +38,10 @@ run_train()
   batch_size=$2
   gpu=$3
   feed_data_elements=$4
-
   loss_weight=${5}
-  python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight
+  inkp_min=${6}
+
+  python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight --inkp_min $inkp_min
 }
 
-run_train $1 $2 $3 $4  $5
+run_train $1 $2 $3 $4  $5 ${6}

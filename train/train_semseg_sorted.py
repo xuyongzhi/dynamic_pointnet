@@ -63,8 +63,8 @@ parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--input_drop_min', type=float, default=1.3, help='random input drop minimum')
-parser.add_argument('--input_drop_max', type=float, default=1.0, help='random input drop maxmum')
+parser.add_argument('--inkp_min', type=float, default=1.3, help='random input drop minimum')
+parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -147,8 +147,8 @@ else:
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
-        if FLAGS.input_drop_max - FLAGS.input_drop_min >0:
-            input_dropout_str = '-idp'+str(int((FLAGS.input_drop_max - FLAGS.input_drop_min)*10))
+        if FLAGS.inkp_max - FLAGS.inkp_min >0:
+            input_dropout_str = '-idp'+str(int((FLAGS.inkp_max - FLAGS.inkp_min)*10))
         else:
             input_dropout_str = ''
         FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
@@ -240,13 +240,13 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('bn_decay', bn_decay)
 
             # input drop out
-            if FLAGS.input_drop_min >= FLAGS.input_drop_max:
+            if FLAGS.inkp_min >= FLAGS.inkp_max:
                 input_drop_mask = tf.zeros([])
                 print('no input dropout')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.input_drop_min, maxval=FLAGS.input_drop_max )
+            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
             input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
 
             # Get model and loss
@@ -277,7 +277,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             train_op = optimizer.minimize(loss, global_step=global_step)
 
             # Add ops to save and restore all the variables.
-            saver = tf.train.Saver(max_to_keep=20)
+            saver = tf.train.Saver(max_to_keep=10)
 
         # Create a session
         config = tf.ConfigProto()
@@ -358,7 +358,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch > 0 and epoch % 20 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
