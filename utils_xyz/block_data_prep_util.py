@@ -51,6 +51,7 @@ Search with "name:" to find the definition.
     flatten_bidxmap
     sg_bidxmap
     baseb_exact_flat_num
+    global_step
 '''
 
 SHOW_ONLY_ERR = False
@@ -75,7 +76,7 @@ def isin_sorted( a,v ):
 def get_stride_step_name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
-    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]==-1 and block_stride[2]==-1)
+    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
         assert (v*100) % 1 == 0, "v=%s"%(str(v))
@@ -302,9 +303,23 @@ class GlobalSubBaseBLOCK():
     meta_names = ['count','aimbnum_missed_add','baseb_exact_flat_num','after_fix_missed_baseb_num','around_aimb_dis_mean','around_aimb_dis_std','npointsubblock_missed_add','npoint_subblock_std','sr_count']
 
     def load_default_parameters( self ):
-        max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
-        flatbxmap_max_nearest_num, flatbxmap_max_dis, padding  = \
-            get_gsbb_config()
+        #max_global_num_point,global_stride,global_step,global_num_point,sub_block_stride_candis,sub_block_step_candis,nsubblock_candis,npoint_subblock_candis, gsbb_config,\
+        #flatbxmap_max_nearest_num, flatbxmap_max_dis, padding  = \
+        gsbb_config_dic = get_gsbb_config()
+
+        max_global_num_point= gsbb_config_dic['max_global_num_point']
+        global_stride= gsbb_config_dic['global_stride']
+        global_step= gsbb_config_dic['global_step']
+        global_num_point= gsbb_config_dic['global_num_point']
+        sub_block_stride_candis= gsbb_config_dic['sub_block_stride_candis']
+        sub_block_step_candis= gsbb_config_dic['sub_block_step_candis']
+        nsubblock_candis= gsbb_config_dic['nsubblock_candis']
+        npoint_subblock_candis= gsbb_config_dic['npoint_subblock_candis']
+        gsbb_config= gsbb_config_dic['gsbb_config']
+        flatbxmap_max_nearest_num= gsbb_config_dic['flatbxmap_max_nearest_num']
+        flatbxmap_max_dis= gsbb_config_dic['flatbxmap_max_dis']
+        padding= gsbb_config_dic['padding']
+
         for pn in self.para_names:
             setattr( self, pn, eval(pn) )
 
@@ -606,7 +621,7 @@ class GlobalSubBaseBLOCK():
         baseb_exact_flat_num: (4,)  the histogram of the aim block num containing current base block
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
-        IsRecordTime = False and DEBUGTMP
+        IsRecordTime = False
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
@@ -1328,11 +1343,9 @@ class GlobalSubBaseBLOCK():
         '''
         new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
-        if larger_stride[-1]==-1 and larger_step[-1]==-1:
-            assert new_block_dims_N[-1]==1
-        if DEBUGTMP and new_block_dims_N[-1]==0:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            pass
+        for i in range(len(larger_stride)):
+            if larger_stride[i]<0 and larger_step[i]<0:
+                assert new_block_dims_N[i]==1
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
@@ -1968,11 +1981,24 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def set_whole_scene_stride_step(h5fattrs):
+        '''
+        global_step: When gsbb_config_dic['global_step'] <0, the global step is set as whole scene. But the limit is -global_step.
+        '''
         for i in range(0,len(h5fattrs['block_step'])):
-            if h5fattrs['block_step'][i]  == -1:
-                h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
-            if h5fattrs['block_stride'][i]  == -1:
-                h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
+            if h5fattrs['block_step'][i]  <0:
+                assert  h5fattrs['block_stride'][i]  <0
+                if h5fattrs['xyz_scope_aligned'][i] <= -h5fattrs['block_step'][i]:
+                    h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
+                    h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
+                else:
+                    h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
+                    tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
+                    if tmp <=  h5fattrs['block_step'][i]-1:
+                        # use two blocks can totally include whole scene
+                        h5fattrs['block_stride'][i] =  tmp
+                    else:
+                        # when two blocks is not enough, use the fixed stride value
+                        h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
        # get_attrs_str(h5fattrs)
        # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
 
@@ -1987,7 +2013,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         xyz_max_aligned = xyz_max - xyz_max % 0.1 + 0.1
         xyz_scope_aligned =  xyz_max_aligned - xyz_min_aligned
 
-        # step or stride ==-1 means one step/stride the whole scene
+        # step or stride <0 means one step/stride the whole scene
         if 'block_step' in h5fattrs:
             block_step = h5fattrs['block_step']
             block_stride = h5fattrs['block_stride']
@@ -3133,7 +3159,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if ck_str == 'void file':
             if not SHOW_ONLY_ERR: print('void file, skip generating bxmh5: %s'%(pl_nh5_filename))
             return
-
         #-----------------------------------------------------------------------
         t2 = time.time()
         # save bxmap file

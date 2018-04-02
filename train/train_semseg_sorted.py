@@ -70,7 +70,7 @@ FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
-IS_GEN_PLY = False and FLAGS.only_evaluate
+IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
-MAX_MULTIFEED_NUM = 5
+MAX_MULTIFEED_NUM = 3
 
 DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2:
@@ -143,9 +143,9 @@ if FLAGS.only_evaluate:
         log_name = 'log_test_of_train_data.txt'
 else:
     MAX_EPOCH = FLAGS.max_epoch
-    log_name = 'log_train.txt'
     gsbb_config = net_provider.gsbb_config
     if not FLAGS.finetune:
+        log_name = 'log_train.txt'
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
         if FLAGS.inkp_max - FLAGS.inkp_min >0:
             input_dropout_str = '-idp'+str(int((FLAGS.inkp_max - FLAGS.inkp_min)*10))
@@ -154,6 +154,8 @@ else:
         FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
+    else:
+        log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/semseg_result/'+FLAGS.log_dir)
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
@@ -166,11 +168,7 @@ if FLAGS.finetune:
     assert os.path.exists( MODEL_PATH+'.meta' ),"Finetune, but model mote exists: %s"%(MODEL_PATH+'.meta')
 if FLAGS.only_evaluate:
     assert os.path.exists( MODEL_PATH+'.meta' ),"Only evaluate, but model mote exists: %s"%(MODEL_PATH+'.meta')
-if FLAGS.finetune or FLAGS.only_evaluate:
-    assert os.path.exists( log_fn ),"Finetune, but log not exists: %s"%(log_fn)
-    LOG_FOUT = open( log_fn, 'a')
-else:
-    LOG_FOUT = open( log_fn, 'w')
+LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
@@ -496,6 +494,10 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
         gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
         '''
+
+        show_flag = 'least acc'
+        #show_flag = 'all block'
+
         only_global = True
         if fid_start_end.shape[0] > 1:
             print('batch %d involves more than one file, skip generating ply'%(batch_idx))
@@ -504,13 +506,14 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         fn = net_provider.get_fn_from_fid( fid_start_end[0] )
         fn_base = os.path.splitext(os.path.basename(fn))[0]
 
-        show_flag = 'least acc'
         if show_flag == 'all block':
             bs = bn = BATCH_SIZE
             b0_ls = [0]
         else:
-            bs = 1
+            # bn: how many batches to show
             bn = min(3, BATCH_SIZE)
+            bn = min(BATCH_SIZE, BATCH_SIZE)
+            bs = 1
 
             acc_sort = np.argsort( accuracy_batch )
             if show_flag == 'best acc':
@@ -519,12 +522,12 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
                 b0_ls = acc_sort[0:bn]
 
         def plyfn(name_meta, b0, b1):
-            ply_folder = LOG_DIR + '/ply'
-            if not os.path.exists(ply_folder):
-                os.makedirs( ply_folder )
             acc_str = '%0.3f'%(accuracy_batch[b0:b1].mean())
             acc_str = acc_str[2:len(acc_str)]
-            return ply_folder+'/%s_%d_%d-%s_a0d%s_'%( fn_base, fid_start_end[1]+b0, fid_start_end[1]+b1, name_meta, acc_str)
+            ply_folder = LOG_DIR + '/ply/%s_%d_%d_a0d%s/'%(fn_base,  fid_start_end[1]+b0, fid_start_end[1]+b1, acc_str )
+            if not os.path.exists(ply_folder):
+                os.makedirs( ply_folder )
+            return ply_folder + name_meta + '_'
 
         color_flags = ['gt_color']
         cur_xyz_mid = np.expand_dims( cur_xyz_mid, 1 )
@@ -565,7 +568,7 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         print('sorted acc:\n', np.sort(accuracy_batch))
 
         if Is_REPORT_PRED:
-            pred_fn = plyfn('',0,BATCH_SIZE)+'_pred_log.txt'
+            pred_fn = plyfn('',0,BATCH_SIZE)+'pred_log.txt'
             EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
 
 def gen_ply( ply_fn, pl_display, accuracy_batch, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None):
@@ -589,7 +592,7 @@ def gen_ply( ply_fn, pl_display, accuracy_batch, color_flags = ['gt_color'], cur
         correct_idxs = cur_label_category == pred_val
         create_ply_matterport( cur_xyz[correct_idxs], ply_fn + 'crt_gtcolor.ply', label = cur_label_category[correct_idxs], cut_threshold = [1,1,1] )
 
-    if 'raw_color' in color_flags:
+    if 'raw_color' in color_flags and 'color_1norm' in DATA_ELE_IDXS:
         cur_xyz_color = raw_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
         cur_xyz_color[...,[3,4,5]] *= 255
         create_ply_matterport( cur_xyz_color, ply_fn + 'rawcolor.ply', cut_threshold = cut_threshold )
@@ -686,7 +689,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
                 #net_provider.set_pred_label_batch(pred_val,start_idx,end_idx)
                 eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT)
 
-        if IS_GEN_PLY and not FLAGS.multip_feed:
+        if IS_GEN_PLY and not FLAGS.multip_feed and batch_idx==0:
             gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
             return
     return eval_logstr

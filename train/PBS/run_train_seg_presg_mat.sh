@@ -12,7 +12,7 @@ learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category-label_instance"
 
-multip_feed=0
+multip_feed=1
 finetune=0
 model_epoch=300
 only_evaluate=0

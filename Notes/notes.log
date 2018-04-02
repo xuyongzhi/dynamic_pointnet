@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  1 APR 2018 17:31
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.2.22)  2 APR 2018 15:17
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -323,64 +323,70 @@ Overfull \hbox (10.38972pt too wide) in paragraph at lines 47--47
 []0d5[]1[]fmn1-160[]32-
  []
 
-<images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png, id=92, 144
-1.385pt x 394.47375pt>
-File: images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png Graphi
-c file (type png)
-<use images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-
-2048-mat.png  used on input line 51. on input line 51.
+<images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png, 
+id=92, 1441.385pt x 394.47375pt>
+File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.
+png Graphic file (type png)
+<use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.p
+ng>
+Package pdftex.def Info: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-co
+lor_1norm-2048-mat.png  used on input line 51. on input line 51.
 Package pdftex.def Info: Requested size: 345.0pt x 94.41681pt on input line 51.
 
-<images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png, id=94, 15
-22.68875pt x 391.4625pt>
-File: images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png Graph
-ic file (type png)
-<use images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm
--2048-mat.png  used on input line 52. on input line 52.
+<images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png,
+ id=94, 1522.68875pt x 391.4625pt>
+File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat
+.png Graphic file (type png)
+<use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.
+png>
+Package pdftex.def Info: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-c
+olor_1norm-2048-mat.png  used on input line 52. on input line 52.
 Package pdftex.def Info: Requested size: 345.0pt x 88.69049pt on input line 52.
 
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
-<images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png, id=95, 15
-12.65125pt x 473.77pt>
-File: images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png Graph
-ic file (type png)
-<use images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm
--2048-mat.png  used on input line 57. on input line 57.
+<images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png,
+ id=95, 1512.65125pt x 473.77pt>
+File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat
+.png Graphic file (type png)
+<use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.
+png>
+Package pdftex.def Info: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-c
+olor_1norm-2048-mat.png  used on input line 57. on input line 57.
 Package pdftex.def Info: Requested size: 345.0pt x 108.05392pt on input line 57
 .
-<images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png, id=96, 1
-508.63625pt x 444.66125pt>
-File: images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png Grap
-hic file (type png)
-<use images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1nor
-m-2048-mat.png  used on input line 58. on input line 58.
+<images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png
+, id=96, 1508.63625pt x 444.66125pt>
+File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-ma
+t.png Graphic file (type png)
+<use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat
+.png>
+Package pdftex.def Info: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-
+color_1norm-2048-mat.png  used on input line 58. on input line 58.
 Package pdftex.def Info: Requested size: 345.0pt x 101.68642pt on input line 58
 .
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
-<images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png, id=97, 15
-07.6325pt x 445.665pt>
-File: images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png Graph
-ic file (type png)
-<use images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm
--2048-mat.png  used on input line 63. on input line 63.
+<images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png,
+ id=97, 1507.6325pt x 445.665pt>
+File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat
+.png Graphic file (type png)
+<use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.
+png>
+Package pdftex.def Info: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-c
+olor_1norm-2048-mat.png  used on input line 63. on input line 63.
 Package pdftex.def Info: Requested size: 345.0pt x 101.98396pt on input line 63
 .
-<images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png, id=98, 1
-504.62125pt x 432.61626pt>
-File: images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png Grap
-hic file (type png)
-<use images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>
-Package pdftex.def Info: images/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1nor
-m-2048-mat.png  used on input line 64. on input line 64.
+<images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png
+, id=98, 1504.62125pt x 432.61626pt>
+File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-ma
+t.png Graphic file (type png)
+<use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat
+.png>
+Package pdftex.def Info: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-
+color_1norm-2048-mat.png  used on input line 64. on input line 64.
 Package pdftex.def Info: Requested size: 345.0pt x 99.19598pt on input line 64.
 
 
@@ -398,15 +404,17 @@ Overfull \hbox (13.8842pt too wide) in paragraph at lines 69--69
 -32[]12-0d2[]0d6-0d2[]0d6 
  []
 
-[2 <./images/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png> <./im
-ages/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png> <./images/ac
-c_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png> <./images/loss_log-
-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png>]
+[2 <./images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.
+png> <./images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-m
+at.png> <./images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-204
+8-mat.png> <./images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm
+-2048-mat.png>]
 Overfull \vbox (24.14076pt too high) has occurred while \output is active []
 
 
-[3 <./images/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png> <./i
-mages/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png>]
+[3 <./images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat
+.png> <./images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048
+-mat.png>]
 Overfull \hbox (28.98978pt too wide) in paragraph at lines 142--142
 []\OT1/cmr/m/n/10 sampling & group-ing: stride[]0d1[]step[]0d1[]bmap[]nh5[]1280
 0[]1d6[]2[]fmn3-600[]64[]24-
@@ -1010,9 +1018,9 @@ Package rerunfilecheck Info: File `notes.out' has not changed.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 461.
  ) 
 Here is how much of TeX's memory you used:
- 6712 strings out of 494931
- 113211 string characters out of 6180851
- 219335 words of memory out of 5000000
+ 6713 strings out of 494931
+ 113468 string characters out of 6180851
+ 219355 words of memory out of 5000000
  9913 multiletter control sequences out of 15000+600000
  8807 words of font info for 31 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191

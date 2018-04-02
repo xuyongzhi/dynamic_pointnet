@@ -33,12 +33,21 @@ def GenPyramidSortedFlie( fn ):
         Always_CreateNew_bmh5 = False
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
-            Always_CreateNew_bmh5 = True
-            Always_CreateNew_plh5 = True
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bmh5 = False
+            Always_CreateNew_plh5 = False
+            Always_CreateNew_bxmh5 = False
 
-        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=False, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
+        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
+
+
+def GenObj_RawH5f():
+    file_name= '/DS/ScanNet/Scannet_H5F/scans/rawh5/test/test_0.rh5'
+    xyz_cut_rate= [0,0,0.9]
+    xyz_cut_rate= [0,0,0]
+    with h5py.File(file_name,'r') as h5f:
+        rawh5f = Raw_H5f(h5f,file_name)
+        rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
 class Scannet_Prepare():
     '''
@@ -85,13 +94,6 @@ class Scannet_Prepare():
                     raw_h5f.append_to_dset('label_category',semantic_labels_list[n])
                     raw_h5f.create_done()
 
-    def GenObj_RawH5f(self,k0=0,k1=1):
-        for k in range(k0,k1):
-            file_name = self.rawh5f_dir + '/%s_%d.rh5'%( self.split,k )
-            xyz_cut_rate= [0,0,0.9]
-            with h5py.File(file_name,'r') as h5f:
-                rawh5f = Raw_H5f(h5f,file_name)
-                rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
     def SortRaw(self,block_step_xyz,MultiProcess=0):
         t0 = time.time()
@@ -125,6 +127,8 @@ class Scannet_Prepare():
         sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step)) + '/' + self.split
         file_list += glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
+        if TMPDEBUG:
+            file_list = file_list[0:10]
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -220,11 +224,10 @@ def main(split):
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
-        #scanet_prep.GenObj_RawH5f(100,110)
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
@@ -232,3 +235,4 @@ def main(split):
 if __name__ == '__main__':
     main('test')
     #main('train')
+    #GenObj_RawH5f()
