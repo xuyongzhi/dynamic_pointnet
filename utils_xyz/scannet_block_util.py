@@ -14,12 +14,44 @@ import time
 import multiprocessing as mp
 import itertools
 import pickle
+from plyfile import PlyData, PlyElement
 
 TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'Scannet_H5F'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
+
+def parse_scan_ply( ply_fn ):
+    with open( ply_fn, 'r' ) as ply_fo:
+        plydata = PlyData.read( ply_fo )
+        num_ele = len(plydata.elements)
+        num_vertex = plydata['vertex'].count
+        num_face = plydata['face'].count
+        data_vertex = plydata['vertex'].data
+        data_face = plydata['face'].data
+
+        ## face
+        face_vertex_indices = data_face['vertex_indices']
+        face_vertex_indices = np.concatenate(face_vertex_indices,axis=0)
+        face_vertex_indices = np.reshape(face_vertex_indices,[-1,3])
+
+        face_eles = ['vertex_indices']
+        datas_face = {}
+        for e in face_eles:
+            datas_face[e] = np.expand_dims(data_face[e],axis=-1)
+
+
+        ## vertex
+        vertex_eles = ['x','y','z','red','green','blue','alpha']
+        datas_vertex = {}
+        for e in vertex_eles:
+            datas_vertex[e] = np.expand_dims(data_vertex[e],axis=-1)
+        vertex_xyz = np.concatenate([datas_vertex['x'],datas_vertex['y'],datas_vertex['z']],axis=1)
+        vertex_rgb = np.concatenate([datas_vertex['red'],datas_vertex['green'],datas_vertex['blue']],axis=1)
+        vertex_alpha = np.concatenate([datas_vertex['alpha']])
+
+        return vertex_xyz, vertex_rgb
 
 
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
@@ -68,6 +100,21 @@ class Scannet_Prepare():
         self.sorted_path_stride_2_step_4_8192 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192'
         self.sorted_path_stride_2_step_4_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192_normed'
         self.filename_stride_2_step_4_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192_normed.nh5'
+
+    def ParseRaw(self):
+        raw_path = DATA_DIR+'/scannet_raw'
+        scene_name_ls =  glob.glob( raw_path+'/scene*' )
+        scene_name_ls.sort()
+        for scene_name in scene_name_ls:
+            scene_name_base = os.path.basename( scene_name )
+            ply_fn = scene_name + '/%s_vh_clean.ply'%(scene_name_base)
+            segs_fn = scene_name + '/%s_vh_clean.segs.json'%(scene_name_base)
+            aggregation_fn = scene_name + '/%s_vh_clean.aggregation.json'%(scene_name_base)
+
+            vertex_xyz, vertex_rgb = parse_scan_ply( ply_fn )
+
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
 
     def Load_Raw_Scannet_Pickle(self):
         file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(self.split))
@@ -218,21 +265,23 @@ class Scannet_Prepare():
             normedh5f = Normed_H5f(h5f,file_name)
             normedh5f.gen_gt_pred_obj_examples()
 
-def main(split):
+def main(split='test'):
         t0 = time.time()
         MultiProcess = 0
         scanet_prep = Scannet_Prepare(split)
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
+        scanet_prep.ParseRaw()
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
         print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    main('test')
+    main()
+    #main('test')
     #main('train')
     #GenObj_RawH5f()

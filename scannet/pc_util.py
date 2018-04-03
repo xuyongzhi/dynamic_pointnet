@@ -16,7 +16,7 @@ from eulerangles import euler2mat
 import numpy as np
 from plyfile import PlyData, PlyElement
 
- 
+
 # ----------------------------------------
 # Point Cloud/Volume Conversions
 # ----------------------------------------
@@ -148,7 +148,7 @@ def point_cloud_to_volume_v2(points, vsize, radius=1.0, num_sample=128):
                     pc_center = (np.array([i,j,k])+0.5)*voxel - radius
                     #print 'pc center: ', pc_center
                     pc = (pc - pc_center) / voxel # shift and scale
-                    vol[i,j,k,:,:] = pc 
+                    vol[i,j,k,:,:] = pc
                 #print (i,j,k), vol[i,j,k,:,:]
     return vol
 
@@ -257,13 +257,13 @@ def draw_point_cloud(input_points, canvasSize=500, space=200, diameter=25,
     dx = mask[:, 0]
     dy = mask[:, 1]
     dv = disk[disk > 0]
-    
+
     # Order points by z-buffer
     zorder = np.argsort(points[:, 2])
     points = points[zorder, :]
     points[:, 2] = (points[:, 2] - np.min(points[:, 2])) / (np.max(points[:, 2] - np.min(points[:, 2])))
     max_depth = np.max(points[:, 2])
-       
+
     for i in range(points.shape[0]):
         j = points.shape[0] - i - 1
         x = points[j, 0]
@@ -272,18 +272,18 @@ def draw_point_cloud(input_points, canvasSize=500, space=200, diameter=25,
         yc = canvasSize/2 + (y*space)
         xc = int(np.round(xc))
         yc = int(np.round(yc))
-        
+
         px = dx + xc
         py = dy + yc
-        
+
         image[px, py] = image[px, py] * 0.7 + dv * (max_depth - points[j, 2]) * 0.3
-    
+
     image = image / np.max(image)
     return image
 
 def point_cloud_three_views(points):
     """ input points Nx3 numpy array (+y is up direction).
-        return an numpy array gray image of size 500x1500. """ 
+        return an numpy array gray image of size 500x1500. """
     # +y is up direction
     # xrot is azimuth
     # yrot is in-plane

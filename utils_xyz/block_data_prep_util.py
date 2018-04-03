@@ -1343,9 +1343,6 @@ class GlobalSubBaseBLOCK():
         '''
         new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
-        for i in range(len(larger_stride)):
-            if larger_stride[i]<0 and larger_step[i]<0:
-                assert new_block_dims_N[i]==1
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
