@@ -198,7 +198,7 @@ class Scannet_Prepare():
         scene_name_ls =  glob.glob( raw_path+'/scene*' )
         scene_name_ls.sort()
         if TMPDEBUG:
-            scene_name_ls  = scene_name_ls[0:1]
+            scene_name_ls  = scene_name_ls[300:len(scene_name_ls)]
         if MultiProcess < 2:
             for scene_name in scene_name_ls:
                 WriteRawH5f( scene_name, rawh5f_dir )

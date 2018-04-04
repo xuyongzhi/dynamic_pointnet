@@ -6,7 +6,7 @@ import numpy as np
 
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
-NETCONFIG['max_global_sample_rate'] = 5
+NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
 
 #-------------------------------------------------------------------------------
 # gsbb config

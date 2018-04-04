@@ -3986,11 +3986,11 @@ class Normed_H5f():
         rootb_split_idxmap_set.attrs['valid_num'] = 0
 
         # predicted label
-        pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,)+sample_num+(label_eles_num,),\
-                maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
-                chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
-        pred_logits_set.attrs['valid_num'] = 0
-        pred_logits_set[:] = -1
+        #pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,)+sample_num+(label_eles_num,),\
+        #        maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip",\
+        #        chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+        #pred_logits_set.attrs['valid_num'] = 0
+        #pred_logits_set[:] = -1
 
         for ele in self.normed_data_set_elements:
             data_set.attrs[ele] = self.normed_data_ele_idxs[ele]
@@ -4000,7 +4000,7 @@ class Normed_H5f():
         self.data_set = data_set
         self.labels_set = labels_set
         #self.bidxmap_dsets = bidxmap_dsets
-        self.pred_logits_set = pred_logits_set
+        #self.pred_logits_set = pred_logits_set
 
     def create_dsets_new_sample_num( self, new_sample_num ):
         total_block_N = 0
