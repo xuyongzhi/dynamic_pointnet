@@ -5,6 +5,7 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
+sys.path.append(BASE_DIR+'/scannet_meta')
 from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
 from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
@@ -15,12 +16,17 @@ import multiprocessing as mp
 import itertools
 import pickle
 from plyfile import PlyData, PlyElement
+import json
+import scannet_util
 
 TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'Scannet_H5F'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
+
+CLASS_NAMES = scannet_util.g_label_names
+RAW2SCANNET = scannet_util.g_raw2scannet
 
 def parse_scan_ply( ply_fn ):
     with open( ply_fn, 'r' ) as ply_fo:
@@ -41,7 +47,6 @@ def parse_scan_ply( ply_fn ):
         for e in face_eles:
             datas_face[e] = np.expand_dims(data_face[e],axis=-1)
 
-
         ## vertex
         vertex_eles = ['x','y','z','red','green','blue','alpha']
         datas_vertex = {}
@@ -50,9 +55,71 @@ def parse_scan_ply( ply_fn ):
         vertex_xyz = np.concatenate([datas_vertex['x'],datas_vertex['y'],datas_vertex['z']],axis=1)
         vertex_rgb = np.concatenate([datas_vertex['red'],datas_vertex['green'],datas_vertex['blue']],axis=1)
         vertex_alpha = np.concatenate([datas_vertex['alpha']])
+        points = np.concatenate( [vertex_xyz, vertex_rgb], -1 )
 
-        return vertex_xyz, vertex_rgb
+        return points
 
+def parse_mesh_segs( mesh_segs_fn ):
+    with open(mesh_segs_fn,'r') as jsondata:
+        d = json.load(jsondata)
+        mesh_seg = np.array( d['segIndices'] )
+        #print len(mesh_seg)
+    mesh_segid_to_pointid = {}
+    for i in range(mesh_seg.shape[0]):
+        if mesh_seg[i] not in mesh_segid_to_pointid:
+            mesh_segid_to_pointid[mesh_seg[i]] = []
+        mesh_segid_to_pointid[mesh_seg[i]].append(i)
+    return mesh_segid_to_pointid, mesh_seg
+
+def parse_aggregation( aggregation_fn ):
+    with open( aggregation_fn,'r' ) as json_fo:
+        d = json.load( json_fo )
+        ids = []
+        objectIds = []
+        instance_segids = []
+        labels = []
+        for x in d['segGroups']:
+            ids.append(x['id'])
+            objectIds.append(x['objectId'])
+            instance_segids.append(x['segments'])
+            labels.append(x['label'])
+        return instance_segids, labels
+
+def parse_scan_raw( scene_name ):
+    scene_name_base = os.path.basename( scene_name )
+    ply_fn = scene_name + '/%s_vh_clean.ply'%(scene_name_base)
+    mesh_segs_fn = scene_name + '/%s_vh_clean.segs.json'%(scene_name_base)
+    aggregation_fn = scene_name + '/%s_vh_clean.aggregation.json'%(scene_name_base)
+
+    segid_to_pointid, mesh_labels = parse_mesh_segs(mesh_segs_fn)
+    points = parse_scan_ply( ply_fn )
+    instance_segids, labels = parse_aggregation( aggregation_fn )
+
+    # Each instance's points
+    instance_points_list = []
+    instance_labels_list = []
+    semantic_labels_list = []
+    for i in range(len(instance_segids)):
+        segids = instance_segids[i]
+        pointids = []
+        for segid in segids:
+            pointids += segid_to_pointid[segid]
+        instance_points = points[np.array(pointids),:]
+        instance_points_list.append(instance_points)
+        instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)
+        if labels[i] not in RAW2SCANNET:
+            label = 'unannotated'
+        else:
+            label = RAW2SCANNET[labels[i]]
+        label = CLASS_NAMES.index(label)
+        semantic_labels_list.append(np.ones((instance_points.shape[0], 1))*label)
+
+    # Refactor data format
+    scene_points = np.concatenate(instance_points_list, 0)
+    instance_labels = np.concatenate(instance_labels_list, 0)
+    semantic_labels = np.concatenate(semantic_labels_list, 0)
+
+    return scene_points, instance_labels, semantic_labels, mesh_labels
 
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
@@ -74,7 +141,7 @@ def GenPyramidSortedFlie( fn ):
 
 
 def GenObj_RawH5f():
-    file_name= '/DS/ScanNet/Scannet_H5F/scans/rawh5/test/test_0.rh5'
+    file_name = '/home/z/Research/dynamic_pointnet/data/Scannet_H5F/scans/rawh5/test/scene0119_00.rh5'
     xyz_cut_rate= [0,0,0.9]
     xyz_cut_rate= [0,0,0]
     with h5py.File(file_name,'r') as h5f:
@@ -87,34 +154,47 @@ class Scannet_Prepare():
     '''
     scans_h5f_dir = os.path.join( SCANNET_DATA_DIR,'scans' )
 
-    def __init__(self,split='test'):
-        self.split = split
-        self.rawh5f_dir =  self.scans_h5f_dir+'/rawh5/%s'%(split)
+    def __init__(self):
+        self.rawh5f_dir =  self.scans_h5f_dir+'/rawh5'
 
-        self.sorted_path_stride_0d5_step_0d5 = os.path.join(SCANNET_DATA_DIR,'stride_0d5_step_0d5')+'_'+split
-        self.sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split
-        self.sorted_path_stride_1_step_2_8192 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192'
-        self.sorted_path_stride_1_step_2_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192_normed'
-        self.filename_stride_1_step_2_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_'+split+'_8192_normed.nh5'
-        self.sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split
-        self.sorted_path_stride_2_step_4_8192 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192'
-        self.sorted_path_stride_2_step_4_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192_normed'
-        self.filename_stride_2_step_4_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_'+split+'_8192_normed.nh5'
+        self.sorted_path_stride_0d5_step_0d5 = os.path.join(SCANNET_DATA_DIR,'stride_0d5_step_0d5')
+        self.sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')
+        self.sorted_path_stride_1_step_2_8192 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192'
+        self.sorted_path_stride_1_step_2_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192_normed'
+        self.filename_stride_1_step_2_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192_normed.nh5'
+        self.sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')
+        self.sorted_path_stride_2_step_4_8192 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192'
+        self.sorted_path_stride_2_step_4_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed'
+        self.filename_stride_2_step_4_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed.nh5'
 
     def ParseRaw(self):
-        raw_path = DATA_DIR+'/scannet_raw'
+        raw_path = DATA_DIR+'/scannet_data'
+
+        rawh5f_dir = self.rawh5f_dir
+        if not os.path.exists(rawh5f_dir):
+            os.makedirs(rawh5f_dir)
+
         scene_name_ls =  glob.glob( raw_path+'/scene*' )
         scene_name_ls.sort()
         for scene_name in scene_name_ls:
+            # save as rh5
             scene_name_base = os.path.basename( scene_name )
-            ply_fn = scene_name + '/%s_vh_clean.ply'%(scene_name_base)
-            segs_fn = scene_name + '/%s_vh_clean.segs.json'%(scene_name_base)
-            aggregation_fn = scene_name + '/%s_vh_clean.aggregation.json'%(scene_name_base)
+            rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
+            if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+                print('rh5 intact: %s'%(rawh5f_fn))
+                continue
 
-            vertex_xyz, vertex_rgb = parse_scan_ply( ply_fn )
-
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        pass
+            scene_points, instance_labels, semantic_labels, mesh_labels = parse_scan_raw( scene_name )
+            num_points = scene_points.shape[0]
+            with h5py.File(rawh5f_fn,'w') as h5f:
+                raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
+                raw_h5f.set_num_default_row(num_points)
+                raw_h5f.append_to_dset('xyz', scene_points[:,0:3])
+                raw_h5f.append_to_dset('color', scene_points[:,3:6])
+                raw_h5f.append_to_dset('label_category', semantic_labels)
+                raw_h5f.append_to_dset('label_instance', instance_labels)
+                raw_h5f.append_to_dset('label_mesh', mesh_labels)
+                raw_h5f.create_done()
 
     def Load_Raw_Scannet_Pickle(self):
         file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(self.split))
@@ -146,7 +226,7 @@ class Scannet_Prepare():
         t0 = time.time()
         rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
-        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/'+self.split
+        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
@@ -171,7 +251,7 @@ class Scannet_Prepare():
 
     def GenPyramid(self, base_stride, base_step, MultiProcess=0):
         file_list = []
-        sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step)) + '/' + self.split
+        sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list += glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
@@ -205,7 +285,7 @@ class Scannet_Prepare():
         nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
         formats = ['.nh5','.bxmh5']
         pl_base_fn_ls = []
-        pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0] + '/' + self.split
+        pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0]
         plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
         plfn_ls.sort()
         nonvoid_plfn_ls = []
@@ -214,14 +294,14 @@ class Scannet_Prepare():
             is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
             region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
             if not is_intact:
-                print(' ! ! ! Abort merging %s not intact: %s'%(self.split+formats[0], pl_fn))
+                print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], pl_fn))
                 continue
             if ck_str == 'void file':
                 print('void file: %s'%(pl_fn))
                 continue
-            bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + self.split + '/' + region_name + formats[1]
+            bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
-                print(' ! ! ! Abort merging %s not intact: %s'%(self.split+formats[0], bxmh5_fn))
+                print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], bxmh5_fn))
                 return
             with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
@@ -233,21 +313,18 @@ class Scannet_Prepare():
             nonvoid_plfn_ls.append( pl_fn )
             bxmh5_fn_ls.append( bxmh5_fn )
         if len( nonvoid_plfn_ls )  == 0:
-            print(  "no file, skip %s"% (self.split ) )
+            print(  "no file, skip merging" )
             return
         fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
 
-        if self.split=='train':
-            group_n = int(len(nonvoid_plfn_ls) /4)
-        else:
-            group_n = len(nonvoid_plfn_ls)
+        group_n = int(len(nonvoid_plfn_ls) / 5)
         for k in range( 0, len(nonvoid_plfn_ls),group_n ):
             end = min( k+group_n, len(nonvoid_plfn_ls) )
             merged_file_names = ['','']
 
             for j in range(2):
                 merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                merged_file_names[j] = merged_path + self.split + '_' + str(k)  + formats[j]
+                merged_file_names[j] = merged_path + '_' + str(k)  + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
                 MergeNormed_H5f( fn_ls[j][k:end], merged_file_names[j], IsShowSummaryFinished=True)
@@ -265,10 +342,10 @@ class Scannet_Prepare():
             normedh5f = Normed_H5f(h5f,file_name)
             normedh5f.gen_gt_pred_obj_examples()
 
-def main(split='test'):
+def main( ):
         t0 = time.time()
         MultiProcess = 0
-        scanet_prep = Scannet_Prepare(split)
+        scanet_prep = Scannet_Prepare()
 
         #scanet_prep.Load_Raw_Scannet_Pickle()
         scanet_prep.ParseRaw()
@@ -277,7 +354,6 @@ def main(split='test'):
         #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
-        print('split = %s'%(split))
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

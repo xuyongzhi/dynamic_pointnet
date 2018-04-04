@@ -140,42 +140,51 @@ def get_attrs_str(attrs):
 
 def show_h5f_summary_info(h5f):
     root_attrs = [attr for attr in h5f.attrs]
-    print('--------------------------------------------------------------------------')
-    print('The root_attr: ',root_attrs)
-    print(get_attrs_str(h5f.attrs))
+    summary_str = ''
+    summary_str += '--------------------------------------------------------------------------\n'
+    summary_str += 'The root_attr: %s'%(root_attrs) + '\n'
+    summary_str += get_attrs_str(h5f.attrs) + '\n'
 
-    print('\n--------------------------------------------------------------------------')
-    print('The elements in h5f')
+    summary_str += '\n--------------------------------------------------------------------------\n'
+    summary_str += 'The elements in h5f\n'
     def show_dset(dset_name,id):
-        if id>10: return
+        dset_str = ''
+        if id>10: return dset_str
         dset = h5f[dset_name]
-        print('# dataset %d: '%(id),dset_name,'  shape=',dset.shape)
-        if id>6: return
-        print(get_attrs_str(dset.attrs))
+        dset_str += '# dataset %d: %s shape=%s\n'%(id,dset_name,dset.shape)
+        if id>6: return dset_str
+        dset_str += get_attrs_str(dset.attrs) + '\n'
         if len(dset.shape)==2:
-            print(dset[0:min(10,dset.shape[0]),:])
+            dset_str += str( dset[0:min(10,dset.shape[0]),:]) + '\n'
         if len(dset.shape)==3:
-            print(dset[0:min(2,dset.shape[0]),:])
+           dset_str += str( dset[0:min(2,dset.shape[0]),:] ) + '\n'
         elif len(dset.shape)==4:
             var = dset[0:min(1,dset.shape[0]),0,0:min(2,dset.shape[2]),:]
-            print(np.array2string(var,formatter={'float_kind':lambda var:"%0.2f"%var}))
-        print('\n')
+            dset_str += np.array2string(var,formatter={'float_kind':lambda var:"%0.2f"%var}) + '\n'
+        dset_str += '\n'
+        return dset_str
+
     def show_root_ele(ele_name,id):
+        root_ele_str = ''
         ele = h5f[ele_name]
         if type(ele) == h5py._hl.group.Group:
-            print('The group: %s'%(ele_name))
-            print(get_attrs_str(ele.attrs))
+            root_ele_str += 'The group: %s'%(ele_name) + '\n'
+            root_ele_str += get_attrs_str(ele.attrs) + '\n'
             for dset_name in ele:
-                show_dset(ele_name+'/'+dset_name,id)
+                root_ele_str += show_dset(ele_name+'/'+dset_name,id)
         else:
-            show_dset(ele_name,id)
+            root_ele_str += show_dset(ele_name,id)
+        return root_ele_str
+
     k = -1
     for k, ele_name in enumerate(h5f):
         if ele_name == 'xyz':
-            show_dset(ele_name,k)
+            summary_str += show_dset(ele_name,k)
             continue
-        show_root_ele(ele_name,k)
-    print('%d datasets totally'%(k+1))
+        summary_str += show_root_ele(ele_name,k)
+    summary_str += '%d datasets totally'%(k+1)+'\n'
+    print( summary_str )
+    return summary_str
 
 def get_sample_choice(org_N,sample_N,random_sampl_pro=None):
     '''
@@ -1643,8 +1652,8 @@ class Raw_H5f():
     '''
     file_flag = 'RAW_H5F'
     h5_num_row_1M = 50*1000
-    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32 }
-    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1}
+    dtypes = { 'xyz':np.float32, 'nxnynz':np.float32, 'intensity':np.int32, 'color':np.uint8,'label_category':np.uint32,'label_instance':np.int32,'label_material':np.int32, 'label_mesh':np.int32 }
+    num_channels = {'xyz':3,'nxnynz':3,'intensity':1,'color':3,'label_category':1,'label_instance':1,'label_material':1,'label_mesh':1}
     def __init__(self,raw_h5_f,file_name,datasource_name=None):
         self.h5f = raw_h5_f
         if datasource_name == None:
@@ -1658,7 +1667,7 @@ class Raw_H5f():
 
     def show_h5f_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
-        show_h5f_summary_info(self.h5f)
+        return show_h5f_summary_info(self.h5f)
 
     def set_num_default_row(self,N):
         self.num_default_row = N
@@ -1812,6 +1821,14 @@ class Raw_H5f():
         self.rm_invalid()
         self.add_geometric_scope()
 
+        self.write_raw_summary()
+        #self.show_h5f_summary_info()
+
+    def write_raw_summary(self):
+        summary_fn = os.path.splitext( self.file_name )[0]+'.txt'
+        with open(summary_fn,'w') as summary_f:
+            summary_f.write( self.show_h5f_summary_info() )
+
     def add_geometric_scope(self,line_num_limit=None):
         ''' calculate the geometric scope of raw h5 data, and add the result to attrs of dset'''
         #begin = time.time()
@@ -1893,11 +1910,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     IsCheck_sh5f['index_to_ixyz'] = False and ENABLECHECK
 
     file_flag = 'SORTED_H5F'
-    labels_order = ['label_category','label_instance','label_material']
+    labels_order = ['label_category','label_instance','label_mesh','label_material']
     #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
     data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
     data_label_ele_candidates_order += ['org_row_index']
-    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,
+    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_mesh':1,
                            'label_material':1,'intensity':1,'org_row_index':1,'xyz_1norm_file':3,'xyz_midnorm_block':3,
                            'color_1norm':3}
     IS_CHECK = False # when true, store org_row_index
