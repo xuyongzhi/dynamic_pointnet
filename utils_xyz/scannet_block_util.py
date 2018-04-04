@@ -272,10 +272,11 @@ class Scannet_Prepare():
         print('sort raw t= %f'%(time.time()-t0))
 
     def GenPyramid(self, base_stride, base_step, MultiProcess=0):
-        file_list = []
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
-        file_list += glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
+        file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
+        if TMPDEBUG:
+            file_list = glob.glob( os.path.join( sh5f_dir, 'scene0000_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -367,9 +368,9 @@ def main( ):
         MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
-        scanet_prep.ParseRaw( MultiProcess )
+        #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        scanet_prep.SortRaw( base_step_stride, MultiProcess )
+        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
         scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()

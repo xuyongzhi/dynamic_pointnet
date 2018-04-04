@@ -47,7 +47,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.8,2]).astype(np.float)
         sub_block_step_candis = np.array([0.2,0.8,2]).astype(np.float)
-        nsubblock_candis =       np.array([2048, 200, 32]).astype(np.int32)
+        nsubblock_candis =       np.array([6400, 640, 128]).astype(np.int32)
         npoint_subblock_candis = np.array([80,  20,  16]).astype(np.int32)
 
     elif gsbb_config == '3B2':
@@ -59,10 +59,10 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         global_num_point = 320000
         flatbxmap_max_nearest_num = 4
 
-        sub_block_stride_candis = np.array([0.2,0.5,1.2]).astype(np.float)
-        sub_block_step_candis = np.array([0.3,0.8,2.4]).astype(np.float)
-        nsubblock_candis =       np.array([3200, 512, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([160,  32,  48]).astype(np.int32)
+        sub_block_stride_candis = np.array([0.2,0.6,1.2]).astype(np.float)
+        sub_block_step_candis = np.array([0.3,0.9,2.4]).astype(np.float)
+        nsubblock_candis =       np.array([6400, 640, 128]).astype(np.int32)
+        npoint_subblock_candis = np.array([200,  32,  48]).astype(np.int32)
 
 
     elif gsbb_config == '2C1':

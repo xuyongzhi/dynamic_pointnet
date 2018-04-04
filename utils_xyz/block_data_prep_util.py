@@ -79,9 +79,9 @@ def get_stride_step_name(block_stride,block_step):
     assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
-        assert (v*100) % 1 == 0, "v=%s"%(str(v))
+        assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
         if v%1!=0:
-            if (v*10)%1 == 0: return '%dd%d'%(v,v%1*10)
+            if (v*10)%1 < 1e-8: return '%dd%d'%(v,v%1*10)
             else: return '%dd%d%d'%(v,v%1*10, v*10%1*10)
         else: return str(int(v))
     if block_stride[2] == -1:
@@ -703,6 +703,7 @@ class GlobalSubBaseBLOCK():
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
         if aim_nsubblock < valid_sorted_aimbids.size:
+            #baseb_num_inaim_ls0 = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             sorted_aimbids_fixed, bidxmap_dic_fixed  = GlobalSubBaseBLOCK.fix_bmap( cascade_id, valid_sorted_aimbids, bidxmap_dic, aim_nsubblock,
                                                                                    aim_npoint_subblock, aim_attrs, debug_meta, self.IsCheck_gsbb['IsCheckMissingAimb'] )
             valid_aimb_num = aim_nsubblock
@@ -710,8 +711,6 @@ class GlobalSubBaseBLOCK():
             baseb_num_inaim_ls = [ bidxmap_dic[aimbid].size for aimbid in sorted_aimbids_fixed ]
         else:
             valid_aimb_num = valid_sorted_aimbids.size
-            # only add the end bid, and flatten_bidxmap follows the same rule.
-            # So that, at the next cascade_id, the flatted aim_b_index is right.
             #sorted_aimbids_fixed = random_choice(valid_sorted_aimbids, aim_nsubblock, only_tile_last_one=True)
 
             # tile the blocks with largest aimb to the end
@@ -2011,7 +2010,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def set_whole_scene_stride_step(h5fattrs):
         '''
-        global_step: When gsbb_config_dic['global_step'] <0, the global step is set as whole scene. But the limit is -global_step.
+        global_step: global_stride: When gsbb_config_dic['global_step'] <0, the global step and stride is set as whole scene. But the limit is -global_step.
         '''
         for i in range(0,len(h5fattrs['block_step'])):
             if h5fattrs['block_step'][i]  <0:
