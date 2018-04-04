@@ -19,10 +19,10 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = False
+TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
-DATA_SOURCE= 'Scannet_H5F'
+DATA_SOURCE= 'Scannet__H5F'
 SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
 
 CLASS_NAMES = scannet_util.g_label_names
@@ -121,6 +121,27 @@ def parse_scan_raw( scene_name ):
 
     return scene_points, instance_labels, semantic_labels, mesh_labels
 
+def WriteRawH5f( scene_name, rawh5f_dir ):
+    # save as rh5
+    scene_name_base = os.path.basename( scene_name )
+    rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return scene_name
+
+    scene_points, instance_labels, semantic_labels, mesh_labels = parse_scan_raw( scene_name )
+    num_points = scene_points.shape[0]
+    with h5py.File(rawh5f_fn,'w') as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', scene_points[:,0:3])
+        raw_h5f.append_to_dset('color', scene_points[:,3:6])
+        raw_h5f.append_to_dset('label_category', semantic_labels)
+        raw_h5f.append_to_dset('label_instance', instance_labels)
+        raw_h5f.append_to_dset('label_mesh', mesh_labels)
+        raw_h5f.create_done()
+    return scene_name
+
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
     return rawh5_file_ls
@@ -167,7 +188,7 @@ class Scannet_Prepare():
         self.sorted_path_stride_2_step_4_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed'
         self.filename_stride_2_step_4_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed.nh5'
 
-    def ParseRaw(self):
+    def ParseRaw(self, MultiProcess):
         raw_path = DATA_DIR+'/scannet_data'
 
         rawh5f_dir = self.rawh5f_dir
@@ -176,25 +197,26 @@ class Scannet_Prepare():
 
         scene_name_ls =  glob.glob( raw_path+'/scene*' )
         scene_name_ls.sort()
-        for scene_name in scene_name_ls:
-            # save as rh5
-            scene_name_base = os.path.basename( scene_name )
-            rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
-            if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
-                print('rh5 intact: %s'%(rawh5f_fn))
-                continue
+        if TMPDEBUG:
+            scene_name_ls  = scene_name_ls[0:5]
+        if MultiProcess < 2:
+            for scene_name in scene_name_ls:
+                WriteRawH5f( scene_name, rawh5f_dir )
+        else:
+            pool = mp.Pool(MultiProcess)
+            for scene_name in scene_name_ls:
+                results = pool.apply_async( WriteRawH5f, ( scene_name, rawh5f_dir))
+            pool.close()
+            pool.join()
 
-            scene_points, instance_labels, semantic_labels, mesh_labels = parse_scan_raw( scene_name )
-            num_points = scene_points.shape[0]
-            with h5py.File(rawh5f_fn,'w') as h5f:
-                raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
-                raw_h5f.set_num_default_row(num_points)
-                raw_h5f.append_to_dset('xyz', scene_points[:,0:3])
-                raw_h5f.append_to_dset('color', scene_points[:,3:6])
-                raw_h5f.append_to_dset('label_category', semantic_labels)
-                raw_h5f.append_to_dset('label_instance', instance_labels)
-                raw_h5f.append_to_dset('label_mesh', mesh_labels)
-                raw_h5f.create_done()
+            success_fns = []
+            success_N = len(scene_name_ls)
+            try:
+                for k in range(success_N):
+                    success_fns.append(results.get(timeout=0.1))
+            except:
+                assert len(success_fns)==success_N,"ParseRaw failed. only %d files successed"%(len(success_fns))
+            print("\n\nParseRaw:all %d files successed\n******************************\n"%(len(success_fns)))
 
     def Load_Raw_Scannet_Pickle(self):
         file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(self.split))
@@ -254,8 +276,6 @@ class Scannet_Prepare():
         sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list += glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
-        if TMPDEBUG:
-            file_list = file_list[0:10]
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -344,14 +364,13 @@ class Scannet_Prepare():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 6
         scanet_prep = Scannet_Prepare()
 
-        #scanet_prep.Load_Raw_Scannet_Pickle()
-        scanet_prep.ParseRaw()
+        scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.SortRaw( base_step_stride, MultiProcess )
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         #scanet_prep.MergeNormed()
         #scanet_prep.GenObj_NormedH5f()
         print('T = %f sec'%(time.time()-t0))

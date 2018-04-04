@@ -1932,12 +1932,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             self.file_name = None
         self.reduced_num = 0
         self.update_data_index_by_elementnames()
-        #self.show_summary_info()
-
 
     def show_summary_info(self):
         print('\n\nsummary of file: ',self.file_name)
-        show_h5f_summary_info(self.h5f)
+        return show_h5f_summary_info(self.h5f)
 
     def update_data_index_by_elementnames(self):
         # update by self.h5f.attrs['element_names']
@@ -2887,23 +2885,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     #***************************************************************************
     #Net feed utils: extract data from unsampled sorted dataset
     #***************************************************************************
-    #def get_blockids_of_dif_stride_step_byxyz( self,xyz1norm_k, new_stride, new_step ):
-    #    '''
-    #    1) new stride and step is larger than current
-    #    2) get the new_blockid with new stride and step include xyz_k
-    #    3) get all the current block ids included within the new block
-    #    '''
-    #    new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
-    #    xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
-    #    new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
-    #   # print(xyz_k)
-    #   # print(cur_block_id)
-    #   # print(cur_ixyz)
-
-    #    cur_block_id_ls,cur_i_xyz_ls = Sorted_H5f.get_blockids_of_dif_stride_step(new_block_id,new_sorted_h5f_attrs,self.h5f.attrs)
-    #    print(cur_block_id_ls)
-    #    return cur_block_id_ls,cur_i_xyz_ls,new_block_id
-
     def get_block_data_of_new_stride_step_byxyz1norm( self,xyz1norm_k, new_stride,new_step,
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
         xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
@@ -3530,7 +3511,10 @@ class Sort_RawH5f():
                         print('somewhere check failed')
                 self.s_h5f.h5f.attrs['is_intact'] = 1
                 if self.IsShowInfoFinished:
-                    self.s_h5f.show_summary_info()
+                    summary_str = self.s_h5f.show_summary_info()
+                    summary_fn = os.path.splitext( blocked_file_name )[0] + '.txt'
+                    with open( summary_fn, 'w' ) as sf:
+                        sf.write( summary_str )
 
                 scope = self.raw_h5f.xyz_scope
                 area = scope[0] * scope[1]
@@ -3582,7 +3566,6 @@ class Sort_RawH5f():
     def get_block_index_subbuf(self,sub_buf_xyz,block_ks,i_start):
         for i in range(sub_buf_xyz.shape[0]):
             block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])[0]
-
 
 
 class DatasetMeta():
