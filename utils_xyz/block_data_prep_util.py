@@ -483,17 +483,14 @@ class GlobalSubBaseBLOCK():
                 meta_str += '\n'
             bmap_meta_f.write( meta_str )
 
-    def get_pyramid_flag(self, OnlyGlobal=False, IncludeGlobalNum=False):
+    def get_pyramid_flag(self, OnlyGlobal=False ):
         def my_str(s):
             if s%1!=0:
                 str_ = '%dd'%(int(s))+str(int((10*s)%10))
             else:
                 str_ = str(int(s))
             return str_
-        if IncludeGlobalNum:
-            flag_str = str(self.global_num_point) + '_'
-        else:
-            flag_str = ''
+        flag_str = str(self.global_num_point) + '_'
         flag_str += 'gs'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
         if OnlyGlobal:
             return flag_str
@@ -3134,14 +3131,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder_sph5 = rootsort_dirname + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False ) + '/' + house_name
-            out_folder_bxmh5 = rootsort_dirname + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True) + '/' + house_name
+            out_folder_sph5 = rootsort_dirname + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
+            out_folder_bxmh5 = rootsort_dirname + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True, IncludeGlobalNum = False )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False, IncludeGlobalNum = True )
+            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
         else:
             assert False, datasource_name
 

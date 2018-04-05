@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
 
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3B3'
+_gsbb_config = '3B4'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -65,12 +65,23 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         global_step = np.array([-10,-10,-10]).astype(np.float)
         max_global_num_point = 320000
         global_num_point = 320000
-        flatbxmap_max_nearest_num = 4
 
+        flatbxmap_max_nearest_num = 4
         sub_block_stride_candis = np.array([0.1,0.2,0.6,1.2]).astype(np.float)
         sub_block_step_candis = np.array([0.1,0.4,1.0,2.4]).astype(np.float)
         nsubblock_candis =       np.array([8000, 4800, 320, 56]).astype(np.int32)
         npoint_subblock_candis = np.array([100, 20,  40,  32]).astype(np.int32)
+
+    elif gsbb_config == '3B4':
+        global_stride = np.array([-6,-6,-6]).astype(np.float)
+        global_step = np.array([-10,-10,-10]).astype(np.float)
+        global_num_point = 128000
+        flatbxmap_max_nearest_num = 4
+
+        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.2]).astype(np.float)
+        sub_block_step_candis = np.array([0.1,0.4,1.0,2.4]).astype(np.float)
+        nsubblock_candis =       np.array([8000, 4800, 320, 64]).astype(np.int32)
+        npoint_subblock_candis = np.array([24, 20,  40,  32]).astype(np.int32)
 
 
     elif gsbb_config == '2C1':
@@ -88,7 +99,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
     gsbb_config_dic = {}
-    gsbb_config_dic['max_global_num_point'] = max_global_num_point
+    gsbb_config_dic['max_global_num_point'] = global_num_point
     gsbb_config_dic['global_stride'] = global_stride
     gsbb_config_dic['global_step'] = global_step
     gsbb_config_dic['global_num_point'] = global_num_point
