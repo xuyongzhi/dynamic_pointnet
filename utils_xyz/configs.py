@@ -75,8 +75,8 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.1,0.2,0.6,1.2]).astype(np.float)
         sub_block_step_candis = np.array([0.1,0.4,1.0,2.4]).astype(np.float)
-        nsubblock_candis =       np.array([16000, 8000, 600, 128]).astype(np.int32)
-        npoint_subblock_candis = np.array([24, 20,  32,  24]).astype(np.int32)
+        nsubblock_candis =       np.array([10000, 6000, 560, 128]).astype(np.int32)
+        npoint_subblock_candis = np.array([48, 20,  32,  24]).astype(np.int32)
 
 
     elif gsbb_config == '2C1':

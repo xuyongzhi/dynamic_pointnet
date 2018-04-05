@@ -4481,6 +4481,8 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                         if attr in GlobalSubBaseBLOCK.meta_names:
                             merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
 
+                    if 'xyz_scope_aligned' in in_h5f.attrs:
+                        merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] += in_h5f.attrs['xyz_scope_aligned']
                     if 'rootb_split_idxmap' in in_h5f:
                         for attr in in_h5f['rootb_split_idxmap'].attrs:
                             if attr != 'valid_num':
@@ -4489,6 +4491,14 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:
                     merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
+        # average metrics
+        if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:
+            merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] /= len(in_filename_ls)
+        if 'rootb_split_idxmap' in merged_normed_h5f.h5f:
+            for attr in merged_normed_h5f.h5f['rootb_split_idxmap'].attrs:
+                if attr != 'valid_num':
+                    merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] /= merged_normed_h5f.h5f['rootb_split_idxmap'].attrs['valid_num']
+
 
         merged_normed_h5f.sph5_create_done()
 
