@@ -170,7 +170,7 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
     Output:
         new_points1: (2, 256, 256)
     '''
-    IsShowModel = False
+    IsShowModel = True
     IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))

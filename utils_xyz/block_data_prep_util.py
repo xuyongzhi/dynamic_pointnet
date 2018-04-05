@@ -476,7 +476,7 @@ class GlobalSubBaseBLOCK():
                     if ele_name == 'baseb_exact_flat_num':
                         meta_str += ' \t<-- nsubblock:%s  step:%s'%( self.nsubblock_candis[cascade_id], self.sub_block_step_candis[cascade_id] )
                         baseb_exact_flat_num = getattr(self, ele_name)[cascade_id] / count
-                        meta_str += '\n\t\tmissed_baseb_num:%d/%%%0.2f'%( baseb_exact_flat_num[0], 1.0*baseb_exact_flat_num[0]/np.sum(baseb_exact_flat_num) )
+                        meta_str += '\n\t\tmissed_baseb_num:%d/%0.1f%%'%( baseb_exact_flat_num[0], 100.0*baseb_exact_flat_num[0]/np.sum(baseb_exact_flat_num) )
                     if ele_name == 'npointsubblock_missed_add':
                         meta_str += ' \t<-- npoint_subblock:%s'%( self.npoint_subblock_candis[cascade_id] )
                     meta_str += '\n'

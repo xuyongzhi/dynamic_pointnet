@@ -21,9 +21,9 @@ ShuffleFlag='Y'
 baselogname=log
 
 # *****************************************************************************
-all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5-1d6_2/'
-bxmh5_folder_name='stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
-eval_fnglob_or_rate='test'
+all_fn_globs='Merged_sph5/gs-6_-10/'
+bxmh5_folder_name='Merged_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
+eval_fnglob_or_rate=0
 #eval_fnglob_or_rate='train_300'
 # *****************************************************************************
 

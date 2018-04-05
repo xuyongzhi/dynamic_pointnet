@@ -37,10 +37,8 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([80,  20,  10]).astype(np.int32)
 
     elif gsbb_config == '3B1':
-        # for scannet
-        # _12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2
-        global_stride = np.array([-6,-6,-6]).astype(np.float)
-        global_step = np.array([-10,-10,-10]).astype(np.float)
+        global_stride = np.array([-2,-2,-8]).astype(np.float)
+        global_step = np.array([-4,-4,-8]).astype(np.float)
         max_global_num_point = 128000
         global_num_point = 128000
         flatbxmap_max_nearest_num = 4
@@ -51,8 +49,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([80,  20,  16]).astype(np.int32)
 
     elif gsbb_config == '3B2':
-        # for scannet
-        # _12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2
         global_stride = np.array([-6,-6,-6]).astype(np.float)
         global_step = np.array([-10,-10,-10]).astype(np.float)
         max_global_num_point = 320000
@@ -65,7 +61,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([200,  32,  48]).astype(np.int32)
 
     elif gsbb_config == '3B3':
-        # for scannet
         global_stride = np.array([-6,-6,-6]).astype(np.float)
         global_step = np.array([-10,-10,-10]).astype(np.float)
         max_global_num_point = 320000

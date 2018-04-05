@@ -269,7 +269,7 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:150]
+            file_list = file_list[0:300]
              #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0061_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
@@ -296,8 +296,7 @@ class Scannet_Prepare():
 
     def MergeNormed(self):
         plsph5_folder_name = 'Org_sph5/gs-6_-10'
-        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-6400_640_128-200_32_48-0d3_0d9_2d4-0d2_0d6_1d2-3B2'
-        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-10000_6000_560_128-48_20_32_24-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
+        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
         sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
@@ -307,7 +306,7 @@ class Scannet_Prepare():
         plfn_ls.sort()
 
         group_n = 150
-        plfn_ls = plfn_ls[0:group_n]
+        plfn_ls = plfn_ls[0:group_n*2]
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
@@ -386,8 +385,8 @@ def main( ):
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

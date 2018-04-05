@@ -356,7 +356,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 20 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -701,7 +701,7 @@ def get_shuffle_flag(epoch):
 
 def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, multi_feed_flags, lock, limit_max_train_num_batches=None):
     with tf.device('/cpu:%d'%(cpu_id)):
-        max_buf_size = 10
+        max_buf_size = 3
         block_idx_start = net_provider.g_block_idxs[file_id_start,0]
         block_idx_end = net_provider.g_block_idxs[file_id_end,1]
         if train_or_test=='test':
