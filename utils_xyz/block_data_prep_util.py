@@ -247,7 +247,7 @@ def check_h5fs_intact(file_name):
     elif f_format == '.sh5' or f_format == '.rsh5':
         return Sorted_H5f.check_sh5_intact(file_name)
     elif f_format == '.sph5' or f_format == '.prh5':
-        return Normed_H5f.check_nh5_intact(file_name)
+        return Normed_H5f.check_sph5_intact(file_name)
     elif f_format == '.bmh5':
         return GlobalSubBaseBLOCK.check_bmh5_intact(file_name)
     else:
@@ -346,7 +346,7 @@ class GlobalSubBaseBLOCK():
         # only when called by MergeNormed_H5f() -> merged_normed_h5f.copy_root_attrs_from_normed()
         f_format = os.path.splitext(bxmh5_fn)[-1]
         assert f_format == '.bxmh5'
-        IsIntact,s = Normed_H5f.check_nh5_intact( bxmh5_fn )
+        IsIntact,s = Normed_H5f.check_sph5_intact( bxmh5_fn )
         assert IsIntact, s
         with h5py.File( bxmh5_fn,'r' ) as h5f:
             for ele_name in self.para_names + self.meta_names + self.root_para_names:
@@ -1571,11 +1571,11 @@ class GlobalSubBaseBLOCK():
         ply_util.create_ply( kept_xyz_center, kept_ply_fn, force_color=[255,0,0] )
         print('gen %s\ngen %s\n'%( org_ply_fn, kept_ply_fn ))
 
-    def gen_bmap_ply( self, nh5_fn ):
+    def gen_bmap_ply( self, sph5_fn ):
         assert self.mode=='load'
-        IsIntact_nh5, ck_str = Normed_H5f.check_nh5_intact( nh5_fn )
+        IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
-        if not (IsIntact_nh5 and IsIntact_bmh5):
+        if not (IsIntact_sph5 and IsIntact_bmh5):
             return
         print('start gen ply for %s'%(self.bmh5_fn))
         region_name = os.path.splitext( os.path.basename(self.bmh5_fn) )[0]
@@ -1585,8 +1585,8 @@ class GlobalSubBaseBLOCK():
             os.makedirs(ply_path)
 
         with h5py.File( self.bmh5_fn, 'r' ) as bmh5f:
-          with h5py.File( nh5_fn, 'r' ) as nh5f:
-            pl_xyz = nh5f['data'][...,0:3]
+          with h5py.File( sph5_fn, 'r' ) as sph5f:
+            pl_xyz = sph5f['data'][...,0:3]
             for cascade_id in self.cascade_id_ls:
                 group_name = self.get_cascade_grp_name(cascade_id)
                 grp = bmh5f[group_name]
@@ -1597,17 +1597,17 @@ class GlobalSubBaseBLOCK():
                 ply_fn = '%s/bmap_%s_cascade_%s.ply'%(ply_path, region_name, cascade_id)
                 ply_util.gen_box_norotation( ply_fn, bxyz_min, bxyz_max )
 
-    def gen_bxmap_ply( self, nh5_fn, bxmh5_fn ):
-        IsIntact_nh5_bxmap,ck_str = Normed_H5f.check_nh5_intact( bxmh5_fn )
-        IsIntact_nh5, ck_str = Normed_H5f.check_nh5_intact( nh5_fn )
+    def gen_bxmap_ply( self, sph5_fn, bxmh5_fn ):
+        IsIntact_sph5_bxmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
+        IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
-        if not (IsIntact_nh5_bxmap and IsIntact_nh5 and IsIntact_bmh5):
+        if not (IsIntact_sph5_bxmap and IsIntact_sph5 and IsIntact_bmh5):
             return
         print('start gen ply for %s'%(bxmh5_fn))
         with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
          with h5py.File( self.bmh5_fn, 'r' ) as bmh5f:
-          with h5py.File( nh5_fn, 'r' ) as nh5f:
-            pl_xyz = nh5f['data'][...,0:3]
+          with h5py.File( sph5_fn, 'r' ) as sph5f:
+            pl_xyz = sph5f['data'][...,0:3]
             sg_all_bidxmaps = bxmh5f['bidxmaps_sample_group']
             flatten_bidxmaps = bxmh5f['bidxmaps_flat']
 
@@ -1762,7 +1762,7 @@ class Raw_H5f():
             base_fn = os.path.basename(self.file_name)
             base_fn = os.path.splitext(base_fn)[0]
             folder_path = os.path.dirname(self.file_name)
-            obj_folder = os.path.join(folder_path,base_fn)
+            obj_folder = os.path.join(folder_path,'obj/'+base_fn)
             print('obj_folder:',obj_folder)
             obj_file_name = os.path.join(obj_folder,base_fn+'.obj')
             obj_file_name_nocolor = os.path.join(obj_folder,base_fn+'_xyz.obj')
@@ -1826,12 +1826,7 @@ class Raw_H5f():
                     out_obj_file.write(str_j)
                     xyz_obj_file.write(nocolor_str_j)
 
-                rate = int(100.0 * end / row_N)
-                e = row_step / row_N
-                if rate > 3 and rate % 3 <= e:
-                    print('gen raw obj: %d%%'%(rate))
-                if rate > 3:
-                    break
+            print('gen raw obj: %s'%(obj_file_name,))
 
     def create_done(self):
         self.rm_invalid()
@@ -3155,7 +3150,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         IsIntact_sh5,ck_str = Sorted_H5f.check_sh5_intact( self.file_name )
         if not IsIntact_sh5:
-            print( "\n\nsh5 not intact:  %s \nAbandon generating nh5"%(self.file_name) )
+            print( "\n\nsh5 not intact:  %s \nAbandon generating sph5"%(self.file_name) )
             return
 
         # check bmh5 intact primarily
@@ -3165,18 +3160,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         t1 = time.time()
         #-----------------------------------------------------------------------
         pl_sph5_filename = os.path.join(out_folder_sph5,scene_name+'.sph5')
-        IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_sph5_filename )
-        if (not Always_CreateNew_plh5) and IsIntact_pl_nh5:
+        IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
+        if (not Always_CreateNew_plh5) and IsIntact_pl_sph5:
             with h5py.File( pl_sph5_filename,'r' ) as plh5f:
                 cur_global_num_point = plh5f.attrs['sample_num']
             if cur_global_num_point != gsbb_write.global_num_point:
-                Sorted_H5f.add_new_sample_num_in_plnh5( pl_sph5_filename, gsbb_write )
+                Sorted_H5f.add_new_sample_num_in_plsph5( pl_sph5_filename, gsbb_write )
             else:
                 if not SHOW_ONLY_ERR: print('pyh5 intact: %s'%(pl_sph5_filename))
         else:
-            self.save_pl_nh5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished)
+            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished)
 
-        IsIntact_pl_nh5,ck_str = Normed_H5f.check_nh5_intact( pl_sph5_filename )
+        IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
             if not SHOW_ONLY_ERR: print('void file, skip generating bxmh5: %s'%(pl_sph5_filename))
             return
@@ -3184,8 +3179,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         t2 = time.time()
         # save bxmap file
         bxmh5_fn = os.path.join(out_folder_bxmh5,region_name+'.bxmh5')
-        IsIntact_nh5_bmap,ck_str = Normed_H5f.check_nh5_intact( bxmh5_fn )
-        if (not Always_CreateNew_bxmh5) and  IsIntact_nh5_bmap:
+        IsIntact_sph5_bmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
+        if (not Always_CreateNew_bxmh5) and  IsIntact_sph5_bmap:
             if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bxmh5_fn))
         else:
             Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
@@ -3193,21 +3188,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
         if t3 - t0 > 1:
-            print('\tper square meters save bmh5 t:%f  save pl_nh5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0)/area, (t2-t1)/area, (t3-t2)/area, area ))
+            print('\tper square meters save bmh5 t:%f  save pl_sph5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0)/area, (t2-t1)/area, (t3-t2)/area, area ))
 
         # gen ply
         if IsGenPly:
             gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
-    def save_pl_nh5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
+    def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
-        assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_nh5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
-        print('start gen nh5 file: ',pl_sph5_filename)
+        assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
+        print('start gen sph5 file: ',pl_sph5_filename)
         with h5py.File(pl_sph5_filename,'w') as h5f:
             global_attrs = gsbb_write.get_new_attrs('global')
 
-            pl_nh5f = Normed_H5f(h5f,pl_sph5_filename,S_H5f.h5f.attrs['datasource_name'])
-            pl_nh5f.copy_root_attrs_from_sorted(global_attrs,global_num_point,S_H5f.IS_CHECK)
+            pl_sph5f = Normed_H5f(h5f,pl_sph5_filename,S_H5f.h5f.attrs['datasource_name'])
+            pl_sph5f.copy_root_attrs_from_sorted(global_attrs,global_num_point,S_H5f.IS_CHECK)
 
             file_datas = []
             file_global_sample_rate = []
@@ -3251,22 +3246,22 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 file_gbixyzs = np.concatenate(file_gbixyzs,axis=0)
                 file_rootb_split_idxmaps = np.concatenate(file_rootb_split_idxmaps,axis=0)
 
-                pl_nh5f.append_to_dset('data',file_datas)
-                pl_nh5f.append_to_dset('block_sample_rate',file_global_sample_rate)
-                pl_nh5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
-                pl_nh5f.append_to_dset('gbixyz',file_gbixyzs)
-                pl_nh5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
+                pl_sph5f.append_to_dset('data',file_datas)
+                pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
+                pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
+                pl_sph5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
 
-                pl_nh5f.create_done()
+                pl_sph5f.create_done()
                 if IsShowSummaryFinished:
-                    pl_nh5f.show_summary_info()
-                print('plnh5 file create finished: data shape: %s'%(str(pl_nh5f.data_set.shape)) )
+                    pl_sph5f.show_summary_info()
+                print('plsph5 file create finished: data shape: %s'%(str(pl_sph5f.data_set.shape)) )
 
 
     @staticmethod
-    def add_new_sample_num_in_plnh5( pl_sph5_filename, gsbb_write ):
+    def add_new_sample_num_in_plsph5( pl_sph5_filename, gsbb_write ):
         global_num_point = gsbb_write.global_num_point
         global_num_point_str  = str(int(global_num_point))
         with h5py.File(pl_sph5_filename,'a') as pl_h5f:
@@ -3276,7 +3271,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if pl_h5f[rsm_str].attrs['is_intact_new_sample_num']==1:
                     print('small global_num %d is already intact in %s'%(global_num_point,pl_sph5_filename))
                     return
-            print('start add global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_sph5_filename) )
+            print('start add global_num_point (%d) to plsph5 file: %s'%(global_num_point, pl_sph5_filename) )
 
             cur_global_num_point = pl_h5f.attrs['sample_num']
             assert global_num_point < cur_global_num_point
@@ -3297,23 +3292,23 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             new_rootb_split_idxmap = np.concatenate( new_rootb_split_idxmap,0 )
             new_point_idxs = np.concatenate( new_point_idxs,0 )
 
-            pl_nh5f = Normed_H5f(pl_h5f, pl_sph5_filename)
-            pl_nh5f.create_dsets_new_sample_num( global_num_point )
-            pl_nh5f.append_to_dset( global_num_point_str + '-rootb_split_idxmap', new_rootb_split_idxmap )
-            pl_nh5f.append_to_dset( global_num_point_str + '-point_indices', new_point_idxs )
+            pl_sph5f = Normed_H5f(pl_h5f, pl_sph5_filename)
+            pl_sph5f.create_dsets_new_sample_num( global_num_point )
+            pl_sph5f.append_to_dset( global_num_point_str + '-rootb_split_idxmap', new_rootb_split_idxmap )
+            pl_sph5f.append_to_dset( global_num_point_str + '-point_indices', new_point_idxs )
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_point_num'] = missed_point_num
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_rootb_num'] = missed_rootb_num
-            pl_nh5f.create_done()
-        print('finish adding global_num_point (%d) to plnh5 file: %s'%(global_num_point, pl_sph5_filename) )
+            pl_sph5f.create_done()
+        print('finish adding global_num_point (%d) to plsph5 file: %s'%(global_num_point, pl_sph5_filename) )
 
     @staticmethod
     def save_bxmap_h5f(bxmh5_fn, gsbb_write, S_H5f, pl_sph5_filename ):
         print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
-        with h5py.File(pl_sph5_filename,'r') as pl_nh5f, h5py.File(bxmh5_fn,'w') as bxmh5f:
-            if gsbb_write.global_num_point == pl_nh5f.attrs['sample_num']:
-                rootb_split_idxmap = pl_nh5f['rootb_split_idxmap']
+        with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f:
+            if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
+                rootb_split_idxmap = pl_sph5f['rootb_split_idxmap']
             else:
-                rootb_split_idxmap = pl_nh5f[str(gsbb_write.global_num_point)+'-rootb_split_idxmap']
+                rootb_split_idxmap = pl_sph5f[str(gsbb_write.global_num_point)+'-rootb_split_idxmap']
             global_block_num = rootb_split_idxmap.shape[0]
 
             bxmh5f = Normed_H5f(bxmh5f,bxmh5_fn,S_H5f.h5f.attrs['datasource_name'])
@@ -3868,7 +3863,7 @@ class Normed_H5f():
         for attr in attrs:
             if attr in sortedh5f_attrs:
                 self.h5f.attrs[attr] = sortedh5f_attrs[attr]
-        self.h5f.attrs['is_intact_nh5'] = 0
+        self.h5f.attrs['is_intact_sph5'] = 0
         self.h5f.attrs['sample_num'] = block_sample_num
 
         # - org_row_index when sortedh5f IS_CHECK=True
@@ -3876,19 +3871,19 @@ class Normed_H5f():
 
     def copy_root_attrs_from_normed(self,h5f_normed, in_bxmh5_fn=None, flag=None):
         if 'data' in h5f_normed:
-            self.copy_root_attrs_from_normed_plnh5( h5f_normed, flag )
+            self.copy_root_attrs_from_normed_plsph5( h5f_normed, flag )
         elif 'bidxmaps_flat' in h5f_normed:
             self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bxmh5_fn, flag )
         else:
             assert False
 
-    def copy_root_attrs_from_normed_plnh5(self,h5f_normed,flag=None):
+    def copy_root_attrs_from_normed_plsph5(self,h5f_normed,flag=None):
        # attrs_candis=['datasource_name','element_names','total_block_N',
        #        'xyz_max','xyz_min','xyz_max_aligned','xyz_min_aligned','xyz_scope_aligned',
        #        'block_step','block_stride','block_dims_N','total_row_N']
         for attr in h5f_normed.attrs:
             self.h5f.attrs[attr] = h5f_normed.attrs[attr]
-        self.h5f.attrs['is_intact_nh5'] = 0
+        self.h5f.attrs['is_intact_sph5'] = 0
         if flag=='MergeNormed_H5f':
             if 'total_block_N' in self.h5f.attrs:
                 del self.h5f.attrs['total_block_N']
@@ -3912,7 +3907,7 @@ class Normed_H5f():
             #if attr in GlobalSubBaseBLOCK.meta_names:
             #    self.h5f.attrs[attr] = h5f_normed.attrs[attr] * 0
             #print(attr,h5f_normed.attrs[attr])
-        self.h5f.attrs['is_intact_nh5'] = 0
+        self.h5f.attrs['is_intact_sph5'] = 0
         gsbb_empty = GlobalSubBaseBLOCK( )
         gsbb_empty.load_para_from_bxmh5( in_bxmh5_fn )
         self.create_bidxmap_dsets(gsbb_empty)
@@ -3950,7 +3945,7 @@ class Normed_H5f():
         return dset.shape
 
     def create_dsets(self):
-        self.h5f.attrs['is_intact_nh5'] = 0
+        self.h5f.attrs['is_intact_sph5'] = 0
         if 'total_block_N' in self.h5f.attrs:
             total_block_N = self.h5f.attrs['total_block_N']
         else:
@@ -4025,7 +4020,7 @@ class Normed_H5f():
             self.h5f.attrs['smaller_sample_num'] = np.concatenate( [self.h5f.attrs['smaller_sample_num'],new_sample_num] )
 
     def create_bidxmap_dsets(self, gsbb_write_or_load):
-        self.h5f.attrs['is_intact_nh5'] = 0
+        self.h5f.attrs['is_intact_sph5'] = 0
         chunks_n = 1
         total_block_N = 1
         sg_block_shape = gsbb_write_or_load.get_sg_bidxmaps_fixed_shape()
@@ -4158,7 +4153,7 @@ class Normed_H5f():
     def create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
-        self.h5f.attrs['is_intact_nh5'] = 1
+        self.h5f.attrs['is_intact_sph5'] = 1
         if 'smaller_sample_num' in self.h5f.attrs:
             for new_sample_num in self.h5f.attrs['smaller_sample_num']:
                 self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
@@ -4166,25 +4161,26 @@ class Normed_H5f():
             self.write_summary()
 
     @staticmethod
-    def check_nh5_intact( file_name ):
+    def check_sph5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
         assert f_format == '.sph5' or f_format == '.prh5' or f_format == '.bxmh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
 
-       # if os.path.getsize( file_name ) / 1000.0 < 100:
-       #     return False,"file too small < 100 K"
         file_type = magic.from_file(file_name)
         if "Hierarchical Data Format" not in file_type:
             return False,"File signature err"
-        #print('checking nh5: %s'%(file_name))
+        #print('checking sph5: %s'%(file_name))
         with h5py.File(file_name,'r') as h5f:
             if 'intact_void_file' in h5f.attrs:
                 return True,"void file"
-            if 'is_intact_nh5' not in h5f.attrs:
-                return False,"no is_intact_nh5 attr"
-            IsIntact = h5f.attrs['is_intact_nh5'] == 1
-            return IsIntact,"is_intact_nh5=1"
+            if 'is_intact_sph5' not in h5f.attrs and 'is_intact_nh5' not in h5f.attrs:
+                return False,"no is_intact_sph5 attr"
+            if 'is_intact_nh5' in h5f.attrs:
+                IsIntact = h5f.attrs['is_intact_nh5'] == 1
+            if 'is_intact_sph5' in h5f.attrs:
+                IsIntact = h5f.attrs['is_intact_sph5'] == 1
+            return IsIntact,"is_intact_sph5=1"
 
     def rm_invalid_data(self):
         for dset_name_i in self.h5f:
@@ -4386,11 +4382,12 @@ class Normed_H5f():
                     else: hascolor = False
                     if hascolor:
                         color_block = (np.reshape( self.data_set[...,self.data_set.attrs['color_1norm']],(-1,3) )*255).astype(np.uint8)
-                    if self.pred_logits_set.shape[0] !=0 and  j < self.pred_logits_set.shape[0]:
-                        IsGenPred = True
-                        label_pred = np.reshape( self.pred_logits_set[j,:], (-1,3) )[:,self.label_ele_idxs['label_category'][0]]
-                    else:
-                        IsGenPred = False
+                    #if self.pred_logits_set.shape[0] !=0 and  j < self.pred_logits_set.shape[0]:
+                    #    IsGenPred = True
+                    #    label_pred = np.reshape( self.pred_logits_set[j,:], (-1,3) )[:,self.label_ele_idxs['label_category'][0]]
+                    #else:
+                    #    IsGenPred = False
+                    IsGenPred = False
                     for i in range(xyz_block.shape[0]):
 
                         # cut parts by xyz or label
@@ -4456,13 +4453,13 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
         print('no .sph5/.prh5 file in the list')
         return
     for k,fn in enumerate(in_filename_ls):
-        if not Normed_H5f.check_nh5_intact( fn )[0]:
+        if not Normed_H5f.check_sph5_intact( fn )[0]:
             print('Abort merging. file not intact: %s'%(fn))
             return
     if not Always_CreateNew:
-        IsIntact,_ = Normed_H5f.check_nh5_intact(merged_filename)
+        IsIntact,_ = Normed_H5f.check_sph5_intact(merged_filename)
         if IsIntact:
-            if not SHOW_ONLY_ERR: print('nh5/prh5 file intact: %s'%(merged_filename))
+            if not SHOW_ONLY_ERR: print('sph5/prh5 file intact: %s'%(merged_filename))
             return
     if not os.path.exists( os.path.dirname(merged_filename) ):
         os.makedirs( os.path.dirname(merged_filename) )

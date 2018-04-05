@@ -161,13 +161,6 @@ def GenPyramidSortedFlie( fn ):
     return fn
 
 
-def GenObj_RawH5f():
-    file_name = '/home/z/Research/dynamic_pointnet/data/Scannet_H5F/scans/rawh5/test/scene0119_00.rh5'
-    xyz_cut_rate= [0,0,0.9]
-    xyz_cut_rate= [0,0,0]
-    with h5py.File(file_name,'r') as h5f:
-        rawh5f = Raw_H5f(h5f,file_name)
-        rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
 class Scannet_Prepare():
     '''
@@ -276,7 +269,8 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = glob.glob( os.path.join( sh5f_dir, 'scene0000_00.sh5' ) )
+            file_list = file_list[0:5]
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0000_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -301,18 +295,18 @@ class Scannet_Prepare():
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
     def MergeNormed(self):
-        plnh5_folder_name = 'sph5/stride_0d1_step_0d1_pl_sph5-1d6_2'
-        bxmh5_folder_name = 'bxmh5/stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
-        nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
+        plsph5_folder_name = 'Org_sph5/gs-6_-10'
+        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-6400_640_128-200_32_48-0d3_0d9_2d4-0d2_0d6_1d2-3B2'
+        sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
-        pl_region_h5f_path = SCANNET_DATA_DIR + '/' + nh5_folder_names[0]
+        pl_region_h5f_path = SCANNET_DATA_DIR + '/' + sph5_folder_names[0]
         plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
         plfn_ls.sort()
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
         for pl_fn in plfn_ls:
-            is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
+            is_intact, ck_str = Normed_H5f.check_sph5_intact( pl_fn )
             region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
             if not is_intact:
                 print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], pl_fn))
@@ -320,7 +314,7 @@ class Scannet_Prepare():
             if ck_str == 'void file':
                 print('void file: %s'%(pl_fn))
                 continue
-            bxmh5_fn = SCANNET_DATA_DIR + '/' + nh5_folder_names[1] + '/' + region_name + formats[1]
+            bxmh5_fn = SCANNET_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
                 print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], bxmh5_fn))
                 return
@@ -338,14 +332,17 @@ class Scannet_Prepare():
             return
         fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
 
-        group_n = int(len(nonvoid_plfn_ls) / 5)
+        group_n = 150
         for k in range( 0, len(nonvoid_plfn_ls),group_n ):
             end = min( k+group_n, len(nonvoid_plfn_ls) )
             merged_file_names = ['','']
 
             for j in range(2):
-                merged_path = SCANNET_DATA_DIR + '/Merged/' + nh5_folder_names[j] + '/'
-                merged_file_names[j] = merged_path + '_' + str(k)  + formats[j]
+                merged_path = SCANNET_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                start_scene = os.path.splitext( os.path.basename( nonvoid_plfn_ls[k] ) )[0]
+                end_scene = os.path.splitext( os.path.basename( nonvoid_plfn_ls[end-1] ) )[0]
+                end_scene = end_scene[5:len(end_scene)]
+                merged_file_names[j] = merged_path + start_scene + '-to-' + end_scene + '-' + str(end-k)  + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
                 MergeNormed_H5f( fn_ls[j][k:end], merged_file_names[j], IsShowSummaryFinished=True)
@@ -357,27 +354,38 @@ class Scannet_Prepare():
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
 
-    def GenObj_NormedH5f(self):
-        file_name = '/home/z/Research/dynamic_pointnet/data/Scannet_H5F/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/train/train_0.sph5'
-        with h5py.File(file_name,'r') as h5f:
-            normedh5f = Normed_H5f(h5f,file_name)
+def GenObj_rh5():
+    xyz_cut_rate= [0,0,0.9]
+    xyz_cut_rate= None
+
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/rawh5'
+    fn_ls = glob.glob( path+'/scene0002*.rh5' )
+    for fn in fn_ls:
+        with h5py.File( fn,'r' ) as h5f:
+            rawh5f = Raw_H5f(h5f,fn)
+            rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
+
+def GenObj_sph5():
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/gs-6_-10'
+    fn_ls = glob.glob( path+'/scene0002*.sph5' )
+    for fn in fn_ls:
+        with h5py.File(fn,'r') as h5f:
+            normedh5f = Normed_H5f(h5f,fn)
             normedh5f.gen_gt_pred_obj_examples()
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 6
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
-        #scanet_prep.GenObj_NormedH5f()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
     main()
-    #main('test')
-    #main('train')
-    #GenObj_RawH5f()
+    #GenObj_rh5()
+    #GenObj_sph5()
