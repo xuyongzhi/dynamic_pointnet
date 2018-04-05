@@ -190,8 +190,8 @@ class Scannet_Prepare():
 
         scene_name_ls =  glob.glob( raw_path+'/scene*' )
         scene_name_ls.sort()
-        if TMPDEBUG:
-            scene_name_ls  = scene_name_ls[300:len(scene_name_ls)]
+        #if TMPDEBUG:
+        #    scene_name_ls  = scene_name_ls[300:len(scene_name_ls)]
         if MultiProcess < 2:
             for scene_name in scene_name_ls:
                 WriteRawH5f( scene_name, rawh5f_dir )
@@ -269,8 +269,8 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:5]
-            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0000_00.sh5' ) )
+        #    file_list = file_list[0:5]
+             file_list = glob.glob( os.path.join( sh5f_dir, 'scene0061_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -297,12 +297,18 @@ class Scannet_Prepare():
     def MergeNormed(self):
         plsph5_folder_name = 'Org_sph5/gs-6_-10'
         bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-6400_640_128-200_32_48-0d3_0d9_2d4-0d2_0d6_1d2-3B2'
+        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-10000_6000_560_128-48_20_32_24-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
+
         sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
         pl_region_h5f_path = SCANNET_DATA_DIR + '/' + sph5_folder_names[0]
         plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
         plfn_ls.sort()
+
+        group_n = 150
+        plfn_ls = plfn_ls[0:group_n]
+
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
         for pl_fn in plfn_ls:
@@ -310,18 +316,18 @@ class Scannet_Prepare():
             region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
             if not is_intact:
                 print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], pl_fn))
-                continue
+                assert False
             if ck_str == 'void file':
                 print('void file: %s'%(pl_fn))
                 continue
             bxmh5_fn = SCANNET_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
-                print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], bxmh5_fn))
-                return
+                print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
+                assert False
             with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
                     print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
-                    return
+                    assert False
                 else:
                     #print('shape match check ok: %s'%(region_name))
                     pass
@@ -332,9 +338,10 @@ class Scannet_Prepare():
             return
         fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
 
-        group_n = 150
         for k in range( 0, len(nonvoid_plfn_ls),group_n ):
             end = min( k+group_n, len(nonvoid_plfn_ls) )
+            if TMPDEBUG and end%group_n!=0:
+                break
             merged_file_names = ['','']
 
             for j in range(2):
@@ -375,14 +382,14 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 6
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

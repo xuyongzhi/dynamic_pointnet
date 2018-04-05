@@ -475,6 +475,8 @@ class GlobalSubBaseBLOCK():
                         meta_str += ' \t<-- stride:%s  nsubblock:%s'%( self.sub_block_stride_candis[cascade_id], self.nsubblock_candis[cascade_id] )
                     if ele_name == 'baseb_exact_flat_num':
                         meta_str += ' \t<-- nsubblock:%s  step:%s'%( self.nsubblock_candis[cascade_id], self.sub_block_step_candis[cascade_id] )
+                        baseb_exact_flat_num = getattr(self, ele_name)[cascade_id] / count
+                        meta_str += '\n\t\tmissed_baseb_num:%d/%%%0.2f'%( baseb_exact_flat_num[0], 1.0*baseb_exact_flat_num[0]/np.sum(baseb_exact_flat_num) )
                     if ele_name == 'npointsubblock_missed_add':
                         meta_str += ' \t<-- npoint_subblock:%s'%( self.npoint_subblock_candis[cascade_id] )
                     meta_str += '\n'
@@ -788,19 +790,18 @@ class GlobalSubBaseBLOCK():
             # save the missed base bidxs
             base_bid_indexs_missed = [ i for i in base_bid_valid_indexs if i not in base_bid_valid_indexs_fixvalid ]
             for baseb_index in base_bid_indexs_missed:
-                if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                if flatten_bidxmap_num[baseb_index] == 0:
                     # exactly containing relationship, index_dis = 0.01 to flag missing block
                     pointindex_within_subblock = 0 # actually not exist in the aim block, replace by the 0th base block
                     flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index, pointindex_within_subblock,0.01]
-                    flatten_bidxmap_num[baseb_index] += 1
+                    # Do not increase flatten_bidxmap_num[baseb_index], so that next time is this base block get exactly contained, overwrite this.
+                    ##flatten_bidxmap_num[baseb_index] += #1
         if self.IsCheck_gsbb['Aim_b_index']:
             print('Aim_b_index check OK')
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
-        missed_baseb_num = np.sum( flatten_bidxmap[:,0,2]==0.01 )
-        baseb_exact_flat_num[0] = missed_baseb_num
-        baseb_exact_flat_num[1] -= missed_baseb_num
-
+        # set all the flatten_bidxmap_num==0 to 1, because these base blocks are already assigned with reponding 0th bid
+        flatten_bidxmap_num[ flatten_bidxmap_num==0 ] = 1
         if IsRecordTime: t3 = time.time()
         #-----------------------------------------------------------------------
         # (3) For the base block that are contained by flatten_bidxmap_num aim
