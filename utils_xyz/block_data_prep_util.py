@@ -450,12 +450,13 @@ class GlobalSubBaseBLOCK():
             if hasattr( self, ele_name ):
                 aim_attrs[ele_name] = getattr( self,ele_name )
 
-    def write_bxm_paras_in_txt(self, bxmh5_fn, pl_sph5_filename ):
+    def write_bxm_paras_in_txt(self, bxmh5_fn, pl_sph5_filename=None ):
         assert os.path.splitext( bxmh5_fn )[1] == '.bxmh5'
         bmap_meta_filename = os.path.splitext( bxmh5_fn )[0]+'.txt'
         with open( bmap_meta_filename,'w' ) as bmap_meta_f:
-            bmap_meta_f.write( 'Responding sph5 folder: %s\n'%( os.path.basename( os.path.dirname( pl_sph5_filename ) ) ))
-            bmap_meta_f.write( 'Responding bmh5 folder: %s\n\n'%( os.path.basename( os.path.dirname( self.bmh5_fn ) ) ))
+            if pl_sph5_filename!=None:
+                bmap_meta_f.write( 'Responding sph5 folder: %s\n'%( os.path.basename( os.path.dirname( pl_sph5_filename ) ) ))
+                bmap_meta_f.write( 'Responding bmh5 folder: %s\n\n'%( os.path.basename( os.path.dirname( self.bmh5_fn ) ) ))
 
             par_str = 'global parameters:\n'
             for ele_name in self.para_names:
@@ -1828,7 +1829,7 @@ class Raw_H5f():
 
             print('gen raw obj: %s'%(obj_file_name,))
 
-    def create_done(self):
+    def rh5_create_done(self):
         self.rm_invalid()
         self.add_geometric_scope()
 
@@ -2776,7 +2777,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             normed_h5f.append_to_dset('data',normed_data_i)
             normed_h5f.append_to_dset('labels',normed_labels_i)
             #normed_h5f.append_to_dset('blockid',int(k_str))
-            normed_h5f.create_done()
+            normed_h5f.sph5_create_done()
             if IsShowSummaryFinished:
                 normed_h5f.show_summary_info()
             print('normalization finished: data shape: %s'%(str(normed_h5f.data_set.shape)) )
@@ -2823,7 +2824,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 normed_h5f.append_to_dset('data',normed_data_i)
                 normed_h5f.append_to_dset('labels',labels_i,IsLabelWithRawCategory=False)
                 #normed_h5f.append_to_dset('blockid',int(k_str))
-            normed_h5f.create_done()
+            normed_h5f.sph5_create_done()
             if IsShowSummaryFinished:
                 normed_h5f.show_summary_info()
             print('normalization finished: data shape: %s'%(str(normed_h5f.data_set.shape)) )
@@ -3254,7 +3255,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
 
-                pl_sph5f.create_done()
+                pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
                     pl_sph5f.show_summary_info()
                 print('plsph5 file create finished: data shape: %s'%(str(pl_sph5f.data_set.shape)) )
@@ -3298,7 +3299,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             pl_sph5f.append_to_dset( global_num_point_str + '-point_indices', new_point_idxs )
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_point_num'] = missed_point_num
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_rootb_num'] = missed_rootb_num
-            pl_sph5f.create_done()
+            pl_sph5f.sph5_create_done()
         print('finish adding global_num_point (%d) to plsph5 file: %s'%(global_num_point, pl_sph5_filename) )
 
     @staticmethod
@@ -3344,7 +3345,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #gsbb_write.load_para_from_bxmh5( bxmh5_fn )
             gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
 
-            bxmh5f.create_done()
+            bxmh5f.sph5_create_done()
             print('write finish: %s'%(bxmh5_fn))
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
@@ -4150,7 +4151,7 @@ class Normed_H5f():
                 area_data = np.ones((num_blocks,num_sample)) * area_no
                 self.append_to_dset('area_no',area_data)
 
-    def create_done(self):
+    def sph5_create_done(self):
         self.rm_invalid_data()
         self.add_label_histagram()
         self.h5f.attrs['is_intact_sph5'] = 1
@@ -4489,7 +4490,14 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                 for ele in in_h5f:
                     merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
 
-        merged_normed_h5f.create_done()
+        merged_normed_h5f.sph5_create_done()
+
+        format = os.path.splitext( merged_filename )[1]
+        if format == '.bxmh5':
+            gsbb_empty = GlobalSubBaseBLOCK()
+            gsbb_empty.load_para_from_bxmh5( merged_filename )
+            gsbb_empty.write_bxm_paras_in_txt( merged_filename )
+
         if IsShowSummaryFinished:
             merged_normed_h5f.show_summary_info()
         print('merged h5f OK: %s'%(merged_filename))
