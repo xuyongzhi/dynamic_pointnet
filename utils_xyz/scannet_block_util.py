@@ -269,8 +269,8 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-        #    file_list = file_list[0:5]
-             file_list = glob.glob( os.path.join( sh5f_dir, 'scene0061_00.sh5' ) )
+            file_list = file_list[0:150]
+             #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0061_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -340,8 +340,6 @@ class Scannet_Prepare():
 
         for k in range( 0, len(nonvoid_plfn_ls),group_n ):
             end = min( k+group_n, len(nonvoid_plfn_ls) )
-            if TMPDEBUG and end%group_n!=0:
-                break
             merged_file_names = ['','']
 
             for j in range(2):
