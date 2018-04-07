@@ -2282,12 +2282,16 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, padding, IsCheck_mapping=None):
         '''
-            base_bid: int
+            base_bid: int, The known base lock id.
             base_attrs: dictionary
             aim_attrs: dictionary
+
+            (1) large_step_flag = 'base'
+                Bid with larger step is known (input:base_bid), ask for the smaller block ids in this larger block (return: aim_bid_ls).
         '''
         assert (base_attrs['xyz_min_aligned'] == aim_attrs['xyz_min_aligned']).all()
         assert (base_attrs['xyz_max_aligned'] == aim_attrs['xyz_max_aligned']).all()
+        IsMoveForwardLastLargeBaseBlock = True
         # the max padding space if smallb_ixyz_padding_max * small_block_step
         # When smallb_ixyz_padding_max is 0: (1) aim block totally inside the base block (2) aim block totally contain base block
         smallb_ixyz_padding_max = np.array([1.0, 1.0, 1.0]) * padding
@@ -2297,15 +2301,26 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # at the edge block, use 1.0 padding to avoid lost some aim_bids
         for i in range(3):
             if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
-                smallb_ixyz_padding_max[i] = 1.0
+                smallb_ixyz_padding_max[i] = 0.3
 
         large_step_flag = ''
-        if (base_attrs['block_step'] >= aim_attrs['block_step']).any():
+        if (base_attrs['block_step'] == aim_attrs['block_step']).all():
+            aim_bid_ls = [base_bid]
+            aim_bixyz_ls = [base_bixyz]
+            return aim_bid_ls, aim_bixyz_ls
+        elif (base_attrs['block_step'] >= aim_attrs['block_step']).any():
             large_step_flag = 'base'
             aim_bixyz_threshold_min = ( base_bixyz * base_attrs['block_stride'] ) / aim_attrs['block_stride']
             aim_bixyz_threshold_max = ( base_bixyz * base_attrs['block_stride'] + base_attrs['block_step'] - aim_attrs['block_step']) / aim_attrs['block_stride']
             aim_bixyz_min = my_ceil( aim_bixyz_threshold_min - smallb_ixyz_padding_max )
             aim_bixyz_max = my_fix( aim_bixyz_threshold_max + smallb_ixyz_padding_max )
+            if IsMoveForwardLastLargeBaseBlock:
+                # In order not to let the last base block be too small. Move forward it to make it full of valid base small blocks.
+                for i in range(3):
+                    if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
+                        vacant_aim_b_num = int( base_attrs['block_step'][i] / aim_attrs['block_step'][i] ) - ( aim_bixyz_max[i] - aim_bixyz_min[i] +1 )
+                        if vacant_aim_b_num > 0:
+                            aim_bixyz_min[i] = max(0, aim_bixyz_min[i] - vacant_aim_b_num)
         else:
             large_step_flag = 'aim'
             aim_bixyz_threshold_max = ( (base_bixyz + smallb_ixyz_padding_max) * base_attrs['block_stride'] ) / aim_attrs['block_stride']
