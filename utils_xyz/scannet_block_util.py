@@ -128,6 +128,7 @@ def WriteRawH5f( scene_name, rawh5f_dir ):
     if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
         print('rh5 intact: %s'%(rawh5f_fn))
         return scene_name
+    print('start write rh5: %s'%(rawh5f_fn))
 
     scene_points, instance_labels, semantic_labels, mesh_labels = parse_scan_raw( scene_name )
     num_points = scene_points.shape[0]
@@ -139,7 +140,7 @@ def WriteRawH5f( scene_name, rawh5f_dir ):
         raw_h5f.append_to_dset('label_category', semantic_labels)
         raw_h5f.append_to_dset('label_instance', instance_labels)
         raw_h5f.append_to_dset('label_mesh', mesh_labels)
-        raw_h5f.create_done()
+        raw_h5f.rh5_create_done()
     return scene_name
 
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
@@ -190,8 +191,7 @@ class Scannet_Prepare():
 
         scene_name_ls =  glob.glob( raw_path+'/scene*' )
         scene_name_ls.sort()
-        #if TMPDEBUG:
-        #    scene_name_ls  = scene_name_ls[300:len(scene_name_ls)]
+
         if MultiProcess < 2:
             for scene_name in scene_name_ls:
                 WriteRawH5f( scene_name, rawh5f_dir )
@@ -298,12 +298,17 @@ class Scannet_Prepare():
         plsph5_folder_name = 'Org_sph5/gs-6_-10'
         bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
+        plsph5_folder_name = 'Org_sph5/128000_gs-6_-10'
+        bxmh5_folder_name = 'Org_bxmh5/128000_gs-6_-10_fmn4-8000_4800_320_64-24_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B4'
+
         sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
         pl_region_h5f_path = SCANNET_DATA_DIR + '/' + sph5_folder_names[0]
         plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
         plfn_ls.sort()
+        if len(plfn_ls) == 0:
+            print('no file mathces %s'%(pl_region_h5f_path + '/*' +  formats[0] ))
 
         group_n = 150
         plfn_ls = plfn_ls[0:group_n*2]
@@ -371,8 +376,8 @@ def GenObj_rh5():
 
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/gs-6_-10'
-    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/80000_gs-6_-10'
-    fn_ls = glob.glob( path+'/scene0001*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/128000_gs-6_-10'
+    fn_ls = glob.glob( path+'/scene0002*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -391,6 +396,6 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main()
+    main()
     #GenObj_rh5()
-    GenObj_sph5()
+    #GenObj_sph5()

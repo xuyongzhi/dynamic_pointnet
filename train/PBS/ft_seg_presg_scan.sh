@@ -12,19 +12,24 @@ learning_rate=0.002
 decay_epoch_step=30
 feed_label_elements="label_category"
 
-multip_feed=0
-finetune=0
-model_epoch=300
-only_evaluate=1
+multip_feed=1
+finetune=1
+model_epoch=90
+only_evaluate=0
 ShuffleFlag='Y'
 #ShuffleFlag='N'
 baselogname=log
-baselogname='scan_12887/log-model_3aG_144-Elw-gsbb_3A1-bs48-lr2-ds_30-Sf_Y-xyz_midnorm_block-12800-sca_12887'
+baselogname='log-model_5aG_114-Elw-gsbb_3B4-bs4-lr2-ds_30-Sf_Y-xyz_midnorm_block-color_1norm-128000-sca_31'
 # *****************************************************************************
 all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5-1d6_2/'
 bxmh5_folder_name='stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
 eval_fnglob_or_rate='test'
 #eval_fnglob_or_rate='train_300'
+
+all_fn_globs='Merged_sph5/128000_gs-6_-10/scene0000_00-to-0013_01-30'
+bxmh5_folder_name='Merged_bxmh5/128000_gs-6_-10_fmn4-8000_4800_320_64-24_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B4'
+
+eval_fnglob_or_rate=0
 # *****************************************************************************
 
 run_train()

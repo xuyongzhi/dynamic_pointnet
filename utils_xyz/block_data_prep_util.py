@@ -2006,13 +2006,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         global_step: global_stride: When gsbb_config_dic['global_step'] <0, the global step and stride is set as whole scene. But the limit is -global_step.
         '''
-        for i in range(0,len(h5fattrs['block_step'])):
-            if h5fattrs['block_step'][i]  <0:
-                assert  h5fattrs['block_stride'][i]  <0
-                if h5fattrs['xyz_scope_aligned'][i] <= -h5fattrs['block_step'][i]:
+        if h5fattrs['block_step'][0]  < 0:
+            assert h5fattrs['block_step'][1]  < 0 and h5fattrs['block_step'][2]  < 0
+            h5fattrs['block_step'][2] = h5fattrs['xyz_scope_aligned'][2]
+            h5fattrs['block_stride'][2] = h5fattrs['xyz_scope_aligned'][2]
+            real_xy_area = h5fattrs['xyz_scope_aligned'][0]  *  h5fattrs['xyz_scope_aligned'][1]
+            config_xy_area = h5fattrs['block_step'][0] * h5fattrs['block_step'][1]
+            if real_xy_area < config_xy_area:
+                for i in range(2):
                     h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
                     h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
-                else:
+            else:
+                for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
                     if tmp <=  h5fattrs['block_step'][i]-1:
@@ -2021,8 +2026,24 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     else:
                         # when two blocks is not enough, use the fixed stride value
                         h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
-       # get_attrs_str(h5fattrs)
-       # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
+
+        #for i in range(0,len(h5fattrs['block_step'])):
+        #    if h5fattrs['block_step'][i]  <0:
+        #        assert  h5fattrs['block_stride'][i]  <0
+        #        if h5fattrs['xyz_scope_aligned'][i] <= -h5fattrs['block_step'][i]:
+        #            h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
+        #            h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
+        #        else:
+        #            h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
+        #            tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
+        #            if tmp <=  h5fattrs['block_step'][i]-1:
+        #                # use two blocks can totally include whole scene
+        #                h5fattrs['block_stride'][i] =  tmp
+        #            else:
+        #                # when two blocks is not enough, use the fixed stride value
+        #                h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
+        # get_attrs_str(h5fattrs)
+        # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
 
 
     @staticmethod
@@ -4065,7 +4086,7 @@ class Normed_H5f():
             for ele_name in attrs:
                 summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
-                    total_point_num = base_sample_num*global_b_num + attrs[ele_name]
+                    total_point_num = base_sample_num + attrs[ele_name]
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
                 if ele_name == 'missed_rootb_num':
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
