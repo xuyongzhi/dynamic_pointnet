@@ -485,10 +485,15 @@ class GlobalSubBaseBLOCK():
 
     def get_pyramid_flag(self, OnlyGlobal=False ):
         def my_str(s):
+            if s<0:
+                is_neg = True
+                s = -s
+            else: is_neg = False
             if s%1!=0:
                 str_ = '%dd'%(int(s))+str(int((10*s)%10))
             else:
                 str_ = str(int(s))
+            if is_neg: str_ = '-'+str_
             return str_
         flag_str = str(self.global_num_point) + '_'
         flag_str += 'gs'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
