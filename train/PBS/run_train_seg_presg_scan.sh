@@ -7,9 +7,9 @@
 
 train_script=../train_semseg_sorted.py
 dataset_name=scannet
-maxepoch=301
+maxepoch=501
 learning_rate=0.002
-decay_epoch_step=30
+decay_epoch_step=50
 feed_label_elements="label_category"
 
 multip_feed=1

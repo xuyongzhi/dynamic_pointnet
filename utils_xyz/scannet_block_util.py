@@ -19,7 +19,7 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATA_SOURCE= 'Scannet__H5F'
@@ -299,7 +299,7 @@ class Scannet_Prepare():
         bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
         plsph5_folder_name = 'Org_sph5/60000_gs-3_-4d8'
-        bxmh5_folder_name = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1280_400_48-64_16_27-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
+        bxmh5_folder_name = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-64_16_27-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
         sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
@@ -315,6 +315,7 @@ class Scannet_Prepare():
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
+        IsOnlyIntact = True
         for pl_fn in plfn_ls:
             is_intact, ck_str = Normed_H5f.check_sph5_intact( pl_fn )
             region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
@@ -326,6 +327,7 @@ class Scannet_Prepare():
                 continue
             bxmh5_fn = SCANNET_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
+                if IsOnlyIntact: continue
                 print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
                 assert False
             with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
@@ -385,14 +387,14 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 6
+        MultiProcess = 3
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
