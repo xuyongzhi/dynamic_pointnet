@@ -53,6 +53,9 @@ Search with "name:" to find the definition.
     baseb_exact_flat_num
     global_step
 '''
+'''    Important functions
+    get_blockids_of_dif_stride_step
+'''
 
 SHOW_ONLY_ERR = False
 DEBUGTMP=True
@@ -2303,10 +2306,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         base_bixyz = Sorted_H5f.block_index_to_ixyz_(base_bid, base_attrs)
 
-        # at the edge block, use 1.0 padding to avoid lost some aim_bids
         for i in range(3):
             if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
-                smallb_ixyz_padding_max[i] = 0.3
+                # at the edge block, use 1.0 padding to avoid lost some aim_bids
+                smallb_ixyz_padding_max[i]  =1
 
         large_step_flag = ''
         if (base_attrs['block_step'] == aim_attrs['block_step']).all():
@@ -2325,6 +2328,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
                         vacant_aim_b_num = int( base_attrs['block_step'][i] / aim_attrs['block_step'][i] ) - ( aim_bixyz_max[i] - aim_bixyz_min[i] +1 )
                         if vacant_aim_b_num > 0:
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
                             aim_bixyz_min[i] = max(0, aim_bixyz_min[i] - vacant_aim_b_num)
         else:
             large_step_flag = 'aim'
@@ -4421,7 +4425,7 @@ class Normed_H5f():
                     if 'color_1norm' in self.data_set.attrs: hascolor = True
                     else: hascolor = False
                     if hascolor:
-                        color_block = (np.reshape( self.data_set[...,self.data_set.attrs['color_1norm']],(-1,3) )*255).astype(np.uint8)
+                        color_block = (self.data_set[j,:,self.data_set.attrs['color_1norm']]*255).astype(np.uint8)
                     #if self.pred_logits_set.shape[0] !=0 and  j < self.pred_logits_set.shape[0]:
                     #    IsGenPred = True
                     #    label_pred = np.reshape( self.pred_logits_set[j,:], (-1,3) )[:,self.label_ele_idxs['label_category'][0]]
