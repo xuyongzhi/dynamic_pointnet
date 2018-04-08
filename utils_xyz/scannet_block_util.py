@@ -268,9 +268,9 @@ class Scannet_Prepare():
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
-        if TMPDEBUG:
-            file_list = file_list[0:6]
-            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0003_01.sh5' ) )
+        #if TMPDEBUG:
+        #    file_list = file_list[0:6]
+        #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0003_01.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -298,8 +298,8 @@ class Scannet_Prepare():
         plsph5_folder_name = 'Org_sph5/gs-6_-10'
         bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
-        plsph5_folder_name = 'Org_sph5/60000_gs-3_-4d2'
-        bxmh5_folder_name = 'Org_bxmh5/60000_gs-3_-4d2_fmn4-1280_320_48-64_20_20-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
+        plsph5_folder_name = 'Org_sph5/60000_gs-3_-4d8'
+        bxmh5_folder_name = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1280_400_48-64_16_27-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
         sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
         formats = ['.sph5','.bxmh5']
@@ -310,8 +310,8 @@ class Scannet_Prepare():
         if len(plfn_ls) == 0:
             print('no file mathces %s'%(pl_region_h5f_path + '/*' +  formats[0] ))
 
-        group_n = 150
-        plfn_ls = plfn_ls[0:group_n*2]
+        group_n = 6
+        plfn_ls = plfn_ls[0:group_n]
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []

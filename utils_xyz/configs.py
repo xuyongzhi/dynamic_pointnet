@@ -99,7 +99,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.4,1.2]).astype(np.float)
         sub_block_step_candis =   np.array([0.2,0.6,1.8]).astype(np.float)
-        nsubblock_candis =       np.array([1280, 400, 48]).astype(np.int32)
+        nsubblock_candis =       np.array([1600, 480, 48]).astype(np.int32)
         npoint_subblock_candis = np.array([64,  16,  27]).astype(np.int32)
 
 
