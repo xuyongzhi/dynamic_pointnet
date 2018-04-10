@@ -633,7 +633,7 @@ class GlobalSubBaseBLOCK():
         assert False
         return -1, -1, -1
 
-    def get_bidxmap(self, cascade_id, valid_sorted_basebids, debug_meta ):
+    def get_bidxmap(self, cascade_id, valid_sorted_basebids, num_valid_basebids, debug_meta ):
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
 
@@ -665,7 +665,7 @@ class GlobalSubBaseBLOCK():
             rootb_split_idxmap = rootb_split_idxmap[0:valid_rootb_n,:]
             valid_sorted_rootbids = rootb_split_idxmap[:,0]
             valid_sorted_pointids = np.arange( rootb_split_idxmap[-1,1] ) # root bids are the point indexs
-            org_baseb_num = rootb_split_idxmap[-1,1]
+            num_valid_basebids = org_baseb_num = rootb_split_idxmap[-1,1]
             assert rootb_split_idxmap.ndim == 2
         else:
             org_baseb_num = valid_sorted_basebids.size
@@ -681,6 +681,7 @@ class GlobalSubBaseBLOCK():
         if IsRecordTime: t1 = time.time()
         all_sorted_aimbids = self.get_all_sorted_aimbids(cascade_id)
         all_base_bids_indic = self.get_all_base_bids_in_aim_dic(cascade_id)
+        #all_aim_bids_in_base_dic = self.get_all_aim_bids_in_base_dic(cascade_id)
         bidxmap_dic={}
         raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
@@ -710,6 +711,7 @@ class GlobalSubBaseBLOCK():
 
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
+        num_valid_aimbids = valid_sorted_aimbids.size
         if aim_nsubblock < valid_sorted_aimbids.size:
             #baseb_num_inaim_ls0 = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             sorted_aimbids_fixed, bidxmap_dic_fixed  = GlobalSubBaseBLOCK.fix_bmap( cascade_id, valid_sorted_aimbids, bidxmap_dic, aim_nsubblock,
@@ -803,6 +805,13 @@ class GlobalSubBaseBLOCK():
                     ##flatten_bidxmap_num[baseb_index] += #1
         if self.IsCheck_gsbb['Aim_b_index']:
             print('Aim_b_index check OK')
+
+        # When cascade_id>0, thers may be some
+        for baseb_index in range( flatten_bidxmap_num.shape[0] ):
+            if cascade_id>0 and flatten_bidxmap_num[baseb_index] == 0:
+                if baseb_index>0 and valid_sorted_basebids[baseb_index] == valid_sorted_basebids[baseb_index-1] and flatten_bidxmap_num[baseb_index-1]!=0:
+                    flatten_bidxmap[baseb_index] = flatten_bidxmap[baseb_index-1]
+                    flatten_bidxmap_num[baseb_index] = flatten_bidxmap_num[baseb_index-1]
 
         baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
         # set all the flatten_bidxmap_num==0 to 1, because these base blocks are already assigned with reponding 0th bid
@@ -952,7 +961,7 @@ class GlobalSubBaseBLOCK():
             bxmap_meta['around_aimb_dis_std'] = np.array( [0] )
         bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
 
-        return sg_bidxmap_fixed, sorted_aimbids_fixed, flatten_bidxmap_fixed, bxmap_meta
+        return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
     def convert_dis_to_weight( flatten_bidxmap ):
@@ -1131,8 +1140,9 @@ class GlobalSubBaseBLOCK():
         bxmap_metas = {}
 
         valid_sorted_basebids_fixed = rootb_split_idxmap
+        num_valid_basebids = None
         for cascade_id in range(0,self.cascade_num):
-            sg_bidxmap, valid_sorted_basebids_fixed, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed, debug_meta )
+            sg_bidxmap, valid_sorted_basebids_fixed, num_valid_basebids, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed, num_valid_basebids, debug_meta )
             if IsCheck_bidxmap_extract:  sg_bidxmaps_ls.append( sg_bidxmap )
             sg_bidxmap_fixed = np.ones( shape=(sg_bidxmap.shape[0],sg_bidxmaps_fixed_shape1) ).astype(np.int32) * (-1)
             sg_bidxmap_fixed[:,0:sg_bidxmap.shape[1]] = sg_bidxmap
