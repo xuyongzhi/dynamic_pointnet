@@ -806,7 +806,7 @@ class GlobalSubBaseBLOCK():
         if self.IsCheck_gsbb['Aim_b_index']:
             print('Aim_b_index check OK')
 
-        # When cascade_id>0, thers may be some
+        # When cascade_id>0, thers may be some replicated basebids. Their flatten_bidxmap can also be replicated.
         for baseb_index in range( flatten_bidxmap_num.shape[0] ):
             if cascade_id>0 and flatten_bidxmap_num[baseb_index] == 0:
                 if baseb_index>0 and valid_sorted_basebids[baseb_index] == valid_sorted_basebids[baseb_index-1] and flatten_bidxmap_num[baseb_index-1]!=0:
