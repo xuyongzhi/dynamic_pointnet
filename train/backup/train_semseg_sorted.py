@@ -26,6 +26,7 @@ import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
 from configs import NETCONFIG
+from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 DEBUG_TMP = False
 ISSUMMARY = True
@@ -34,7 +35,6 @@ DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='2A_144', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
-parser.add_argument('--model_type', default='presg', help='fds or presg')
 parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
@@ -83,12 +83,6 @@ except:
     pass
 ISNoEval = FLAGS.eval_fnglob_or_rate == 0
 #-------------------------------------------------------------------------------
-if FLAGS.model_type == 'fds':
-    from pointnet2_sem_seg import  get_model,get_loss
-    import pdb; pdb.set_trace()
-    from pointnet2_sem_seg import placeholder_inputs
-elif FLAGS.model_type == 'presg':
-    from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 BATCH_SIZE = FLAGS.batch_size
 #FLAGS.num_point = Net_Provider.global_num_point
@@ -248,14 +242,10 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
 
             # Get model and loss
-            if FLAGS.model_type == 'fds':
-                pred,end_points = get_model( pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
-                loss = get_loss(pred, labels_pl,smpws_pl)
-            elif FLAGS.model_type == 'presg':
-                sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-                pred, end_points, debug = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                                                    sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
-                loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
+            sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
+            pred, end_points, debug = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+                                                sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+            loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
 
             tf.summary.scalar('loss', loss)
 
