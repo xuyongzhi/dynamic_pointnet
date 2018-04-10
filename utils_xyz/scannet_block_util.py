@@ -268,9 +268,9 @@ class Scannet_Prepare():
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
-        if TMPDEBUG:
-            #file_list = file_list[0:6]
-            file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
+        #if TMPDEBUG:
+        #    #file_list = file_list[0:6]
+        #    file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -379,7 +379,7 @@ def GenObj_rh5():
 def GenObj_sph5():
     #path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/128000_gs-6_-10'
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/60000_gs-3_-4d8'
-    fn_ls = glob.glob( path+'/scene0001*.sph5' )
+    fn_ls = glob.glob( path+'/scene0000*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -387,7 +387,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 7
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
