@@ -268,9 +268,10 @@ class Scannet_Prepare():
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
-        #if TMPDEBUG:
-        #    #file_list = file_list[0:6]
-        #    file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
+        if TMPDEBUG:
+            file_list = file_list[0:750]   # L
+            #file_list = file_list[750:len(file_list)] # R
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
