@@ -34,7 +34,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='5aG_144', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='4aG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/60000_gs-3_-4d8/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
@@ -63,7 +63,7 @@ parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--inkp_min', type=float, default=1.3, help='random input drop minimum')
+parser.add_argument('--inkp_min', type=float, default=0.3, help='random input drop minimum')
 parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
 
 FLAGS = parser.parse_args()
@@ -276,7 +276,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 print('no input dropout')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
-                input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
+                input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
             input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
             input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
 
