@@ -117,7 +117,7 @@ DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
-MAX_MULTIFEED_NUM = 3
+MAX_MULTIFEED_NUM = 5
 
 DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2:
