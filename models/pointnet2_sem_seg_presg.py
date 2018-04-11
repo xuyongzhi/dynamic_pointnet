@@ -139,8 +139,8 @@ def get_fp_module_config( model_flag ):
     elif model_flag=='4aG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
-        mlps_fp.append( [384,256] )
-        mlps_fp.append( [512,384] ) # for l_points[3-4]
+        mlps_fp.append( [256,256] )
+        mlps_fp.append( [384,256] ) # for l_points[3-4]
     elif model_flag=='4bG':
         mlps_fp.append( [256,256,128,128] )
         mlps_fp.append( [512,512] )

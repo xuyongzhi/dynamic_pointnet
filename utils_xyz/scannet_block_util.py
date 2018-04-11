@@ -22,8 +22,8 @@ import scannet_util
 TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
-DATA_SOURCE= 'Scannet__H5F'
-SCANNET_DATA_DIR = os.path.join(DATA_DIR,DATA_SOURCE)
+SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
+SCANNET_MERGED_DATA_DIR = os.path.join(DATA_DIR, 'ScannetH5F' )
 
 CLASS_NAMES = scannet_util.g_label_names
 RAW2SCANNET = scannet_util.g_raw2scannet
@@ -162,6 +162,48 @@ def GenPyramidSortedFlie( fn ):
     return fn
 
 
+def split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
+    plsph5_folder = SCANNET_DATA_DIR + '/' + plsph5_folder
+    bxmh5_folder = SCANNET_DATA_DIR + '/' + bxmh5_folder
+    scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
+    scannet_test_ls = list(np.loadtxt('./scannet_meta/scannet_test.txt','string'))
+    trainval_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_trainval_ls]
+    trainval_sph5_ls = [ os.path.join(plsph5_folder, scene_name+'.sph5')  for scene_name in scannet_trainval_ls]
+    test_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_test_ls]
+    test_sph5_ls = [ os.path.join(plsph5_folder, scene_name+'.sph5')  for scene_name in scannet_test_ls]
+
+    # check all file exist
+    trainval_bxmh5_ls = [ fn for fn in trainval_bxmh5_ls if fn in bxmh5_fn_ls ]
+    trainval_sph5_ls = [ fn for fn in trainval_sph5_ls if fn in nonvoid_plfn_ls ]
+    test_bxmh5_ls = [ fn for fn in test_bxmh5_ls if fn in bxmh5_fn_ls ]
+    test_sph5_ls = [ fn for fn in test_sph5_ls if fn in nonvoid_plfn_ls ]
+    assert len(trainval_bxmh5_ls) ==  len(trainval_sph5_ls)
+    assert len(test_bxmh5_ls) == len(test_sph5_ls)
+    #assert len(trainval_bxmh5_ls) ==  1201
+    #assert len(trainval_sph5_ls) == 1202
+    #assert len(test_bxmh5_ls) == 312
+    #assert len(test_sph5_ls) == 312
+    trainval_bxmh5_ls.sort()
+    trainval_sph5_ls.sort()
+    test_bxmh5_ls.sort()
+    test_sph5_ls.sort()
+
+    all_bxmh5_ls = [test_bxmh5_ls]
+    all_sph5_ls = [test_sph5_ls]
+    all_group_name_ls = ['test']
+    # split trainval ls
+    group_n = 300
+    for k in range( 0, len(trainval_bxmh5_ls), group_n ):
+        end  = min( k+group_n, len(trainval_bxmh5_ls) )
+        all_bxmh5_ls += [trainval_bxmh5_ls[k:end]]
+        all_sph5_ls += [trainval_sph5_ls[k:end]]
+        scene_name_0 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[k]) )[0]
+        scene_name_1 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[end-1]) )[0]
+        scene_name_1 = scene_name_1[5:len(scene_name_1)]
+        all_group_name_ls += ['trainval_'+scene_name_0+'_to_'+scene_name_1+'-'+str(end-k)]
+
+    return [all_sph5_ls, all_bxmh5_ls], all_group_name_ls
+
 
 class Scannet_Prepare():
     '''
@@ -295,14 +337,16 @@ class Scannet_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
+
+
     def MergeNormed(self):
-        plsph5_folder_name = 'Org_sph5/gs-6_-10'
-        bxmh5_folder_name = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
+        plsph5_folder = 'Org_sph5/gs-6_-10'
+        bxmh5_folder = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
-        plsph5_folder_name = 'Org_sph5/60000_gs-3_-4d8'
-        bxmh5_folder_name = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-64_16_27-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
+        plsph5_folder = 'Org_sph5/60000_gs-3_-4d8'
+        bxmh5_folder = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
-        sph5_folder_names = [ plsph5_folder_name, bxmh5_folder_name]
+        sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
         pl_region_h5f_path = SCANNET_DATA_DIR + '/' + sph5_folder_names[0]
@@ -310,9 +354,6 @@ class Scannet_Prepare():
         plfn_ls.sort()
         if len(plfn_ls) == 0:
             print('no file mathces %s'%(pl_region_h5f_path + '/*' +  formats[0] ))
-
-        group_n = len(plfn_ls)
-        plfn_ls = plfn_ls[0:group_n]
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
@@ -343,21 +384,18 @@ class Scannet_Prepare():
         if len( nonvoid_plfn_ls )  == 0:
             print(  "no file, skip merging" )
             return
-        fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
 
-        for k in range( 0, len(nonvoid_plfn_ls),group_n ):
-            end = min( k+group_n, len(nonvoid_plfn_ls) )
+        allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+
+        for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
 
             for j in range(2):
-                merged_path = SCANNET_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
-                start_scene = os.path.splitext( os.path.basename( nonvoid_plfn_ls[k] ) )[0]
-                end_scene = os.path.splitext( os.path.basename( nonvoid_plfn_ls[end-1] ) )[0]
-                end_scene = end_scene[5:len(end_scene)]
-                merged_file_names[j] = merged_path + start_scene + '-to-' + end_scene + '-' + str(end-k)  + formats[j]
+                merged_path = SCANNET_MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f( fn_ls[j][k:end], merged_file_names[j], IsShowSummaryFinished=True)
+                MergeNormed_H5f( allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
@@ -394,8 +432,8 @@ def main( ):
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
