@@ -627,11 +627,12 @@ class Net_Provider():
             test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
             cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
             labels_hist_1norm.append(  cur_labels_hist_1norm )
-            labels_weights.append(  1/np.log(1.2+cur_labels_hist_1norm) )
+            labels_weights.append(  1/np.log(1.03+cur_labels_hist_1norm) )
         self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
         self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
         self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )
         self.labels_weights = np.concatenate( labels_weights,axis=1 )
+        self.labels_weights /= self.labels_weights.min()
 
 
     def write_file_accuracies(self,obj_dump_dir=None):
