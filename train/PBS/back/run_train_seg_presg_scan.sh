@@ -21,6 +21,13 @@ ShuffleFlag='Y'
 baselogname=log
 
 # *****************************************************************************
+<<<<<<< HEAD:train/PBS/run_train_seg_presg_scan.sh
+all_fn_globs='each_house/stride_0d1_step_0d1_pl_nh5_1d6_2/'
+bxmh5_folder_name='stride_0d1_step_0d1_bmap_nh5_12800_1d6_2_fmn3-256_48_16-56_8_8-0d2_0d6_1d2-0d2_0d6_1d2'
+#eval_fnglob_or_rate='test'
+#eval_fnglob_or_rate=0#'train_300'
+eval_fnglob_or_rate=0.5
+=======
 all_fn_globs='Merged_sph5/gs-6_-10/'
 bxmh5_folder_name='Merged_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
 
@@ -29,6 +36,7 @@ bxmh5_folder_name='Merged_bxmh5/128000_gs-6_-10_fmn4-8000_4800_320_64-24_20_40_3
 
 eval_fnglob_or_rate=0
 #eval_fnglob_or_rate='train_300'
+>>>>>>> 08dedd978f2384b56a18c6b4bbc72a134e32d1c0:train/PBS/back/run_train_seg_presg_scan.sh
 # *****************************************************************************
 
 run_train()
@@ -38,8 +46,12 @@ run_train()
   gpu=$3
   feed_data_elements=$4
   loss_weight=${5}
+<<<<<<< HEAD:train/PBS/run_train_seg_presg_scan.sh
+  pudb $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight
+=======
   inkp_min=${6}
   python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --gpu $gpu --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight --inkp_min $inkp_min
+>>>>>>> 08dedd978f2384b56a18c6b4bbc72a134e32d1c0:train/PBS/back/run_train_seg_presg_scan.sh
 }
 
 run_train $1 $2 $3 $4  $5 $6

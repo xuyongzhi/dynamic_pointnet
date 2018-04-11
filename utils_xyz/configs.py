@@ -11,7 +11,6 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
 #-------------------------------------------------------------------------------
 # gsbb config
 _gsbb_config = '3C1'
-#_gsbb_config = '3B4'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -113,6 +112,21 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis = np.array([0.2,0.6]).astype(np.float)
         nsubblock_candis =       np.array([160,32]).astype(np.int32)
         npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
+
+
+    elif gsbb_config == '3D1':
+        ## generating the KITTI dataset benchmark
+        global_stride = np.array([-1,-1,-1]).astype(np.float)
+        global_step = np.array([-1,-1,-1]).astype(np.float)
+        max_global_num_point = 16384
+        global_num_point = 16384
+        flatbxmap_max_nearest_num = 3
+
+        sub_block_stride_candis = np.array([0.2, 0.4, 0.6]).astype(np.float)
+        sub_block_step_candis   = np.array([0.4, 0.8, 1.8]).astype(np.float)
+        nsubblock_candis        =  np.array([4086, 2048, 1024]).astype(np.int32)
+        npoint_subblock_candis = np.array([32,  16, 8]).astype(np.int32)
+
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
