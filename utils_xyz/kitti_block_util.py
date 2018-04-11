@@ -12,8 +12,8 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
-from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
 import h5py
 import glob
@@ -225,9 +225,9 @@ class Matterport3D_Prepare():
     The semantic labels of each point are achieved from faces.
     '''
 
-    matterport3D_root_dir = '/home/benz/repo/DATASET/pc/KITTI'
-    matterport3D_extracted_dir = '/home/benz/repo/DATASET/pc/KITTI'
-    matterport3D_h5f_dir = '/home/benz/repo/DATASET/pc/KITTI'
+    matterport3D_root_dir = '/home/benz/dataset/Voxel'
+    matterport3D_extracted_dir = '/home/benz/dataset/Voxel'
+    matterport3D_h5f_dir = '/home/benz/dataset/Voxel'
 
     def __init__(self):
         self.scans_name = scans_name = 'raw1'
@@ -483,6 +483,7 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
 
+
     def MergeNormed(self, flag, house_name=None, house_group_num=5 ):
         plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5-1d6_2'
         bxmh5_folder_name = 'stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
@@ -642,7 +643,7 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls, operations):
-    MultiProcess = 0
+    MultiProcess = 1
     matterport3d_prepare = Matterport3D_Prepare()
 
 
@@ -685,21 +686,21 @@ def parse_house(house_names_ls, operations):
         matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
-    house_names = ['rawh5_kitti_16384']
-    #house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    #house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
+    house_names = ['rawh5f_xyz_16384']
+    # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
+    # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
     # scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
-    scans_name_abs = '/home/benz/projects/pc/pre_sampling/dynamic_pointnet/data'
-    all_house_names = os.listdir(scans_name_abs)
-    #house_names = all_house_names
+    # scans_name_abs = '/home/benz/projects/pc/pre_sampling/dynamic_pointnet/data'
+    # all_house_names = os.listdir(scans_name_abs)
+    # house_names = all_house_names
     house_names.sort()
 
     # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     # operations = ['SortRaw','GenPyramid']
     # operations  = ['ParseRaw']
-    # operations  = ['SortRaw']
-    operations  = ['GenPyramid']    ## generating a one region
+    operations  = ['SortRaw']
+    # operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['MergeNormed_region']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
     #operations  = ['GenObj_SortedH5f']

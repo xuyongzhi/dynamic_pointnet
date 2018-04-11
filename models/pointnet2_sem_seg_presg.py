@@ -64,6 +64,19 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [256,256,512] )
         mlps_0.append( [512,512,512] )
         mlps_0.append( [512,512,512] )
+    elif model_flag=='5aG':
+        mlps_0.append( [32,32,64] )
+        mlps_0.append( [64,64,128] )
+        mlps_0.append( [128,128,256] )
+        mlps_0.append( [256,256,256] )
+        mlps_0.append( [256,512,512] )
+    elif model_flag=='5bG':
+        mlps_0.append( [32,32,48] )
+        mlps_0.append( [48,48,64] )
+        mlps_0.append( [64,64,128] )
+        mlps_0.append( [128,128,256] )
+        mlps_0.append( [256,512,512] )
+
 
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
@@ -133,6 +146,18 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] )
         mlps_fp.append( [512,512] ) # for l_points[3-4]
+    elif model_flag=='5aG':
+        mlps_fp.append( [128,128,128] )
+        mlps_fp.append( [256,128] )
+        mlps_fp.append( [256,256] )
+        mlps_fp.append( [256,256] )
+        mlps_fp.append( [512,256] )
+    elif model_flag=='5bG':
+        mlps_fp.append( [64,64,32] )
+        mlps_fp.append( [128,64] )
+        mlps_fp.append( [128,128] )
+        mlps_fp.append( [256,128] )
+        mlps_fp.append( [512,256] )
     #elif model_flag=='1DSa' or model_flag=='1DSaG':
     #    dense_config = {}
     #    dense_config['num_block'] = 1
@@ -280,6 +305,7 @@ def get_loss(pred, label, smpw, label_eles_idx ):
     #classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred)
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)
     tf.summary.scalar('classify loss', classify_loss)
+    #tf.add_to_collection('losses',classify_loss)
     return classify_loss
 
 if __name__=='__main__':

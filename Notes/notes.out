@@ -1,13 +1,20 @@
 \BOOKMARK [1][-]{section.1}{Quick notes for important events while using one file to test}{}% 1
-\BOOKMARK [2][-]{subsection.1.1}{batch size}{section.1}% 2
-\BOOKMARK [3][-]{subsubsection.1.1.1}{bs=27 vs bs=81}{subsection.1.1}% 3
-\BOOKMARK [2][-]{subsection.1.2}{feed elements}{section.1}% 4
-\BOOKMARK [2][-]{subsection.1.3}{model}{section.1}% 5
-\BOOKMARK [2][-]{subsection.1.4}{integration: matterport3d}{section.1}% 6
-\BOOKMARK [2][-]{subsection.1.5}{4 scales in 1083}{section.1}% 7
-\BOOKMARK [2][-]{subsection.1.6}{integration: scannet}{section.1}% 8
-\BOOKMARK [2][-]{subsection.1.7}{Semantic segmentation expamples}{section.1}% 9
-\BOOKMARK [3][-]{subsubsection.1.7.1}{good: 1083, train, 0.946}{subsection.1.7}% 10
-\BOOKMARK [3][-]{subsubsection.1.7.2}{bad: 18737,eval 0.071}{subsection.1.7}% 11
-\BOOKMARK [2][-]{subsection.1.8}{point++}{section.1}% 12
-\BOOKMARK [3][-]{subsubsection.1.8.1}{scannet seg}{subsection.1.8}% 13
+\BOOKMARK [2][-]{subsection.1.1}{over fitting}{section.1}% 2
+\BOOKMARK [2][-]{subsection.1.2}{Theory}{section.1}% 3
+\BOOKMARK [3][-]{subsubsection.1.2.1}{bidxmap}{subsection.1.2}% 4
+\BOOKMARK [3][-]{subsubsection.1.2.2}{Sparse voxel 3DCNN }{subsection.1.2}% 5
+\BOOKMARK [2][-]{subsection.1.3}{batch size}{section.1}% 6
+\BOOKMARK [3][-]{subsubsection.1.3.1}{bs=27 vs bs=81}{subsection.1.3}% 7
+\BOOKMARK [2][-]{subsection.1.4}{feed elements}{section.1}% 8
+\BOOKMARK [2][-]{subsection.1.5}{model}{section.1}% 9
+\BOOKMARK [2][-]{subsection.1.6}{integration: matterport3d}{section.1}% 10
+\BOOKMARK [2][-]{subsection.1.7}{multi scales \046 mat 1083}{section.1}% 11
+\BOOKMARK [2][-]{subsection.1.8}{multi scales \046 mat 21826}{section.1}% 12
+\BOOKMARK [2][-]{subsection.1.9}{multi scales \046 scannet 12887}{section.1}% 13
+\BOOKMARK [2][-]{subsection.1.10}{integration: scannet}{section.1}% 14
+\BOOKMARK [2][-]{subsection.1.11}{Semantic segmentation expamples}{section.1}% 15
+\BOOKMARK [3][-]{subsubsection.1.11.1}{good: 1083, train, 0.946}{subsection.1.11}% 16
+\BOOKMARK [3][-]{subsubsection.1.11.2}{bad: 18737,eval 0.071}{subsection.1.11}% 17
+\BOOKMARK [2][-]{subsection.1.12}{point++}{section.1}% 18
+\BOOKMARK [3][-]{subsubsection.1.12.1}{scannet seg}{subsection.1.12}% 19
+\BOOKMARK [2][-]{subsection.1.13}{whole room global block \046 multi scales \046 scan 305}{section.1}% 20

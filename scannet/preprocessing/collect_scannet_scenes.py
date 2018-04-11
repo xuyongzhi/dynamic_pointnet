@@ -7,13 +7,14 @@ import os
 import json
 import sys
 import numpy as np
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.append(BASE_DIR)
 sys.path.append('../')
 import pc_util
 
 SCANNET_DIR = 'scannet_clean_2'
+SCANNET_DIR = BASE_DIR + '/../../data/scannet_dset'
 SCENE_NAMES = [line.rstrip() for line in open('scannet_all.txt')]
 
 def collect_one_scene_data_label(scene_name, out_filename):
@@ -30,12 +31,12 @@ def collect_one_scene_data_label(scene_name, out_filename):
         if seg[i] not in segid_to_pointid:
             segid_to_pointid[seg[i]] = []
         segid_to_pointid[seg[i]].append(i)
-    
+
     # Raw points in XYZRGBA
     ply_filename = os.path.join(data_folder, '%s_vh_clean_2.ply' % (scene_name))
     points = pc_util.read_ply_rgba(ply_filename)
     log_string(str(points.shape))
-    
+
     # Instances over-segmented segment IDs: annotation on segments
     instance_segids = []
     labels = []
@@ -46,10 +47,10 @@ def collect_one_scene_data_label(scene_name, out_filename):
         for x in d['segGroups']:
             instance_segids.append(x['segments'])
             labels.append(x['label'])
-    
+
     #print len(instance_segids)
     #print labels
-    
+
     # Each instance's points
     instance_points_list = []
     instance_labels_list = []
@@ -61,22 +62,23 @@ def collect_one_scene_data_label(scene_name, out_filename):
            pointids += segid_to_pointid[segid]
        instance_points = points[np.array(pointids),:]
        instance_points_list.append(instance_points)
-       instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)   
+       instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)
        if labels[i] not in RAW2SCANNET:
            label = 'unannotated'
        else:
            label = RAW2SCANNET[labels[i]]
        label = CLASS_NAMES.index(label)
        semantic_labels_list.append(np.ones((instance_points.shape[0], 1))*label)
-       
+
     # Refactor data format
     scene_points = np.concatenate(instance_points_list, 0)
     scene_points = scene_points[:,0:6] # XYZRGB, disregarding the A
-    instance_labels = np.concatenate(instance_labels_list, 0) 
+    instance_labels = np.concatenate(instance_labels_list, 0)
     semantic_labels = np.concatenate(semantic_labels_list, 0)
     data = np.concatenate((scene_points, instance_labels, semantic_labels), 1)
     np.save(out_filename, data)
 
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
 LOG_FOUT = open('log.txt','w')
 def log_string(out_str):
@@ -89,14 +91,10 @@ if __name__=='__main__':
     output_folder = 'scannet_scenes'
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
-    
+
     for scene_name in SCENE_NAMES:
         log_string(scene_name)
-        try:
-            out_filename = scene_name+'.npy' # scene0000_00.npy
-            collect_one_scene_data_label(scene_name, os.path.join(output_folder, out_filename))
-        except Exception, e:
-            log_string(scene_name+'ERROR!!')
-            log_string(str(e))
-    
+        out_filename = scene_name+'.npy' # scene0000_00.npy
+        collect_one_scene_data_label(scene_name, os.path.join(output_folder, out_filename))
+
     LOG_FOUT.close()

@@ -170,7 +170,7 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
     Output:
         new_points1: (2, 256, 256)
     '''
-    IsShowModel = False
+    IsShowModel = True
     IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
@@ -249,16 +249,16 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
             mapped_points2 = tf.reduce_sum( mapped_points2_nei,2 )
         #-----------------------------------
 
-        if IsDebug:
-            debug['distance_%d'%(cascade_id)] = distance
-            debug['dis_weight_%d'%(cascade_id)] = dis_weight
+       # if IsDebug:
+       #     debug['distance_%d'%(cascade_id)] = fbmap_neighbor_idis
+       #     debug['dis_weight_%d'%(cascade_id)] = dis_weight
 
-        if IsDebug:
-            debug['flatten_bidxmap'].append( flatten_bidxmap )
-            flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0,0:2]],axis=-1 ) # (2, 256, 2)
-            flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
-            debug['flat_xyz'].append( flat_xyz )
-
+        #if IsDebug:
+        #    debug['flatten_bidxmap'].append( flatten_bidxmap )
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        #    flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour,0:2]],axis=-1 ) # (2, 256, 2)
+        #    flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
+        #    debug['flat_xyz'].append( flat_xyz )
 
         new_points1 = points1
         new_points1 = tf.expand_dims(new_points1,1)

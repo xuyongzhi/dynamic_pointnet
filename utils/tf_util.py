@@ -528,7 +528,7 @@ def avg_pool3d(inputs,
 
 
 
-def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
+def batch_norm_template_unused(inputs, is_training, scope, moments_dims, bn_decay):
   """ Batch normalization on convolutional maps and beyond...
   Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
 
@@ -575,6 +575,29 @@ def batch_norm_template(inputs, is_training, scope, moments_dims, bn_decay):
                         lambda: (ema.average(batch_mean), ema.average(batch_var)))
     normed = tf.nn.batch_normalization(inputs, mean, var, beta, gamma, 1e-3)
   return normed
+
+
+def batch_norm_template(inputs, is_training, scope, moments_dims_unused, bn_decay, data_format='NHWC'):
+  """ Batch normalization on convolutional maps and beyond...
+  Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
+
+  Args:
+      inputs:        Tensor, k-D input ... x C could be BC or BHWC or BDHWC
+      is_training:   boolean tf.Varialbe, true indicates training phase
+      scope:         string, variable scope
+      moments_dims:  a list of ints, indicating dimensions for moments calculation
+      bn_decay:      float or float tensor variable, controling moving average weight
+      data_format:   'NHWC' or 'NCHW'
+  Return:
+      normed:        batch-normalized maps
+  """
+  bn_decay = bn_decay if bn_decay is not None else 0.9
+  return tf.contrib.layers.batch_norm(inputs,
+                                      center=True, scale=True,
+                                      is_training=is_training, decay=bn_decay,updates_collections=None,
+                                      scope=scope,
+                                      data_format=data_format)
+
 
 def batch_norm_for_fc(inputs, is_training, bn_decay, scope):
   """ Batch normalization on FC data.

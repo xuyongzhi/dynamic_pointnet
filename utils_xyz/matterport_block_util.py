@@ -692,8 +692,8 @@ def parse_house_ls():
     operations  = ['ParseRaw']
     operations  = ['SortRaw']
     operations  = ['GenPyramid']
-    operations  = ['MergeNormed_region']
-    operations  = ['MergeNormed_house']
+    #operations  = ['MergeNormed_region']
+    #operations  = ['MergeNormed_house']
     #operations  = ['GenObj_SortedH5f']
     #operations  = ['GenObj_RawH5f']
     #operations  = ['GenObj_NormedH5f']
@@ -733,9 +733,9 @@ def show_all_label_colors():
     Normed_H5f.show_all_colors('MATTERPORT')
 
 if __name__ == '__main__':
-    #parse_house_ls()
+    parse_house_ls()
     #show_summary()
     #show_bidxmap()
     #show_all_label_colors()
-    GenPly_BidMap()
+    #GenPly_BidMap()
 
