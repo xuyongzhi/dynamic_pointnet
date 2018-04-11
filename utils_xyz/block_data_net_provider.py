@@ -18,7 +18,7 @@ from ply_util import create_ply
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'Scannet__H5F')
+DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'ScannetH5F')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
@@ -627,11 +627,12 @@ class Net_Provider():
             test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
             cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
             labels_hist_1norm.append(  cur_labels_hist_1norm )
-            labels_weights.append(  1/np.log(1.2+cur_labels_hist_1norm) )
+            labels_weights.append(  1/np.log(1.03+cur_labels_hist_1norm) )
         self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
         self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
         self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )
         self.labels_weights = np.concatenate( labels_weights,axis=1 )
+        self.labels_weights /= self.labels_weights.min()
 
 
     def write_file_accuracies(self,obj_dump_dir=None):
