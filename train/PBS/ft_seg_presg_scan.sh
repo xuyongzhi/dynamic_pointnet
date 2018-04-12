@@ -13,13 +13,13 @@ decay_epoch_step=50
 feed_label_elements="label_category"
 
 multip_feed=1
-finetune=1
+finetune=0
 model_epoch=200
-only_evaluate=0
+only_evaluate=1
 ShuffleFlag='Y'
 #ShuffleFlag='N'
 baselogname=log
-baselogname='log-model_4aG_114-Nlw-gsbb_3C2-bs18-lr2-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-60000-sca_3540'
+baselogname='3540_traingood_testbad/log-model_4aG_114-Nlw-gsbb_3C2-bs18-lr2-ds_50-Sf_Y-xyz_midnorm_block-color_1norm-60000-sca_3540'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/gs-6_-10/'
 bxmh5_folder_name='Merged_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'

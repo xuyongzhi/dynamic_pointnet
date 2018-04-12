@@ -19,7 +19,7 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
@@ -310,10 +310,10 @@ class Scannet_Prepare():
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
-        if TMPDEBUG:
-            file_list = file_list[10:16]   # L
-            #file_list = file_list[750:len(file_list)] # R
-            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
+        #if TMPDEBUG:
+        #    file_list = file_list[10:16]   # L
+        #    #file_list = file_list[750:len(file_list)] # R
+        #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -347,7 +347,7 @@ class Scannet_Prepare():
         bxmh5_folder = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
         plsph5_folder = 'Org_sph5/90000_gs-4_-6d3'
-        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-3200_1600_240_48-30_20_25_20-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
+        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_10_24_32-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -433,14 +433,14 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 3
+        MultiProcess = 7
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
