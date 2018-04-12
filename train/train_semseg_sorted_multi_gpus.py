@@ -195,6 +195,10 @@ log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
+if FLAGS.inkp_max - FLAGS.inkp_min >0:
+    log_string( 'input dropout: %f - %f'%( FLAGS.inkp_min, FLAGS.inkp_max ) )
+else:
+    log_string('input dropout: No')
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(

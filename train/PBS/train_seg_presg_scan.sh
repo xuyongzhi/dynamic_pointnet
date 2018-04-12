@@ -31,7 +31,6 @@ all_fn_globs='Merged_sph5/60000_gs-3_-4d8/'
 bxmh5_folder_name='Merged_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
 eval_fnglob_or_rate='test'
-#eval_fnglob_or_rate='train_300'
 # *****************************************************************************
 
 run_train()
