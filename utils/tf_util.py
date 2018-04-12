@@ -694,8 +694,14 @@ def dense_net( inputs, dense_config, bn, is_training, bn_decay, activation_fn=tf
     with tf.variable_scope(scope):
         if is_show_model:
             print('%s \ninputs:\t%s'%(scope, shape_str(inputs)))
-        if 'initial_feature_num' in dense_config:
-            outputs = conv2d_(inputs, dense_config['initial_feature_num'], [1,1],
+        if 'initial_feature_num' in dense_config or 'initial_feature_rate' in dense_config:
+            if 'initial_feature_num' in dense_config:
+                initial_feature_num = dense_config['initial_feature_num']
+                assert 'initial_feature_rate' not in dense_config
+            elif 'initial_feature_rate' in dense_config:
+                initial_feature_num = int(dense_config['initial_feature_rate'] * inputs.get_shape()[-1].value)
+
+            outputs = conv2d_(inputs, initial_feature_num, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=False, is_training=is_training,
                                         scope='conv_initial', bn_decay=bn_decay, activation_fn=None)

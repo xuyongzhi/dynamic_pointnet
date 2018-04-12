@@ -8,6 +8,7 @@ import tensorflow as tf
 import numpy as np
 import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
+import copy
 
 def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
         '''
@@ -82,10 +83,25 @@ def get_sa_module_config(model_flag):
         dense_config = {}
         dense_config['num_block'] = 1
         dense_config['growth_rate'] = 32
-        dense_config['initial_feature_num'] = int(dense_config['growth_rate']*1.5)
+        dense_config['initial_feature_num']=int(dense_config['growth_rate']*1.5)
         dense_config['layers_per_block'] = 5
-        dense_config['transition_feature_rate'] = 1
         dense_config['keep_prob'] = 0.3
+        mlps_0.append( dense_config )
+
+    elif model_flag=='4DSa' or model_flag=='4DSaG':
+        dense_config = {}
+        dense_config['num_block'] = 1
+        dense_config['growth_rate'] = 16
+        #dense_config['initial_feature_num']=int(dense_config['growth_rate']*1)
+        dense_config['layers_per_block'] = 4
+        dense_config['keep_prob'] = 0.3
+        mlps_0.append( copy.deepcopy(dense_config) )
+
+        #del dense_config['initial_feature_num']
+        #dense_config['initial_feature_rate'] = 0.8
+        dense_config['layers_per_block'] = 3
+        mlps_0.append( dense_config )
+        mlps_0.append( dense_config )
         mlps_0.append( dense_config )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
@@ -136,7 +152,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
-    elif model_flag=='4aG':
+    elif model_flag=='4aG' or model_flag=='4DSaG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
