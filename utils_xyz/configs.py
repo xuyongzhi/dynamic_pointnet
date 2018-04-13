@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
 
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3C1F'
+_gsbb_config = '3C0'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -100,6 +100,18 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
         nsubblock_candis =       np.array([6400, 2400, 300, 30]).astype(np.int32)
         npoint_subblock_candis = np.array([32, 18,  27,  48]).astype(np.int32)
+
+    elif gsbb_config == '3C0':
+        global_stride = np.array([-4,-4,-10]).astype(np.float)
+        global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
+        global_num_point = 10000 * 9
+        flatbxmap_max_nearest_num = 6
+
+        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.8]).astype(np.float)
+        sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
+        nsubblock_candis =       np.array([6400, 2400, 320, 32]).astype(np.int32)
+        npoint_subblock_candis = np.array([32, 16,  32,  48]).astype(np.int32)
+
 
     elif gsbb_config == '3C2':
         global_stride = np.array([-3,-3,-10]).astype(np.float)
