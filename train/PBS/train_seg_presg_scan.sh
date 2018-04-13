@@ -31,7 +31,7 @@ all_fn_globs='Merged_sph5/60000_gs-3_-4d8/'   #  4aG_114 - bs:9*2
 bxmh5_folder_name='Merged_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
 all_fn_globs='Merged_sph5/90000_gs-4_-6d3/'   #  4aG_114 - bs:5*2
-bxmh5_folder_name='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_10_24_32-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
+bxmh5_folder_name='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_18_27_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1F'
 
 eval_fnglob_or_rate='test'
 # *****************************************************************************

@@ -21,4 +21,4 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
 #feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
 #feed_data_elements='xyz_midnorm_block' 
 #./train_seg_presg_scan.sh 4bG_114 24 2 $feed_data_elements N 1.3 -> out_4bG114.log
-./train_seg_presg_scan.sh 4aG_114 18 2 $feed_data_elements N 1.3 -> out_4aG114.log
+./train_seg_presg_scan.sh 4aG_114 16 2 $feed_data_elements N 1.3 -> out_4aG114.log  # 0.97G per batch ->  10 for 1080TI, 16 for P100
