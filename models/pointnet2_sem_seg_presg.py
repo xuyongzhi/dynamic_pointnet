@@ -61,10 +61,10 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [128,128,256] )
         mlps_0.append( [256,256,512] )
     elif model_flag=='4bG':
-        mlps_0.append( [32,64,64,128,128,256] )
-        mlps_0.append( [256,256,512] )
-        mlps_0.append( [512,512,512] )
-        mlps_0.append( [512,512,512] )
+        mlps_0.append( [24,24,48] )
+        mlps_0.append( [48,48,64] )
+        mlps_0.append( [64,64,128] )
+        mlps_0.append( [128,128,256] )
     elif model_flag=='5aG':
         mlps_0.append( [32,32,64] )
         mlps_0.append( [64,64,128] )
@@ -119,11 +119,6 @@ def get_sa_module_config(model_flag):
         dense_config['transition_feature_rate'] = 1
         dense_config['keep_prob'] = 0.3
         mlps_1.append( dense_config )
-    elif model_flag=='4bG':
-        mlps_1.append( [256, 256] )
-        mlps_1.append( [512, 512] )
-        mlps_1.append( [512, 512] )
-        mlps_1.append( [512, 512] )
     else:
         for k in range(cascade_num):
             mlps_1.append( [] )
@@ -158,10 +153,10 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [256,256] )
         mlps_fp.append( [384,256] ) # for l_points[3-4]
     elif model_flag=='4bG':
-        mlps_fp.append( [256,256,128,128] )
-        mlps_fp.append( [512,512] )
-        mlps_fp.append( [512,512] )
-        mlps_fp.append( [512,512] ) # for l_points[3-4]
+        mlps_fp.append( [128,64,64] )
+        mlps_fp.append( [128,128] )
+        mlps_fp.append( [256,128] )
+        mlps_fp.append( [384,256] ) # for l_points[3-4]
     elif model_flag=='5aG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )

@@ -7,12 +7,12 @@
 
 train_script=../train_semseg_sorted_multi_gpus.py
 dataset_name=scannet
-maxepoch=201
+maxepoch=301
 learning_rate=0.002
 decay_epoch_step=50
 feed_label_elements="label_category"
 
-multip_feed=0
+multip_feed=1
 finetune=0
 model_epoch=170
 only_evaluate=0
@@ -27,8 +27,11 @@ bxmh5_folder_name='Merged_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_
 all_fn_globs='Merged_sph5/128000_gs-6_-10/'
 bxmh5_folder_name='Merged_bxmh5/128000_gs-6_-10_fmn4-8000_4800_320_64-24_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B4'
 
-all_fn_globs='Merged_sph5/60000_gs-3_-4d8/'
+all_fn_globs='Merged_sph5/60000_gs-3_-4d8/'   #  4aG_114 - bs:9*2
 bxmh5_folder_name='Merged_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
+
+all_fn_globs='Merged_sph5/90000_gs-4_-6d3/'   #  4aG_114 - bs:5*2
+bxmh5_folder_name='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_10_24_32-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
 
 eval_fnglob_or_rate='test'
 # *****************************************************************************
