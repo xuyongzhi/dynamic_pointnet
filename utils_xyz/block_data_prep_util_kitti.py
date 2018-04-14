@@ -40,7 +40,7 @@ import ply_util
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
-from configs import get_gsbb_config, NETCONFIG
+from configs_kitti import get_gsbb_config, NETCONFIG
 import magic
 
 '''                         Def key words list
@@ -59,7 +59,7 @@ Search with "name:" to find the definition.
 
 SHOW_ONLY_ERR = False
 DEBUGTMP=True
-ENABLECHECK = True
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -79,7 +79,8 @@ def isin_sorted( a,v ):
 def get_stride_step_name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
-    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
+    # assert (block_step[0] == block_step[2] and block_stride[0] ==
+    # block_stride[2]) or (block_step[2]<0 and block_stride[2]<0) ## benz_m
 
     def get_str(v):
         assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
@@ -442,6 +443,20 @@ class GlobalSubBaseBLOCK():
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + scene_name + '.bmh5'
+
+
+        elif datasource_name == "KITTI":              ### benz_m
+            region_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
+            house_dir_name = os.path.dirname(self.root_s_h5f_fn)
+            house_name = os.path.basename(house_dir_name)
+            rootsort_dirname = os.path.dirname(house_dir_name)
+
+            out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
+            if not os.path.exists(out_folder):
+                os.mkdir(out_folder)
+            blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
+
+
         else:
             assert False, datasource_name
 
@@ -2016,7 +2031,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
-        self.h5f.attrs['stride_to_align'] = stride_to_align
+        self.h5f.attrs['stride_to_align'] = block_step[0] #stride_to_align   # benz_m
         Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
 
     @staticmethod
@@ -3189,11 +3204,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             out_folder_sph5 = rootsort_dirname + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
             out_folder_bxmh5 = rootsort_dirname + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
+
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
             out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+
+        elif datasource_name == 'KITTI':               ## benz_m
+            scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
+            scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
+            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+
+
+
         else:
             assert False, datasource_name
 
@@ -3206,6 +3231,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if not IsIntact_sh5:
             print( "\n\nsh5 not intact:  %s \nAbandon generating sph5"%(self.file_name) )
             return
+
 
         # check bmh5 intact primarily
         IsIntact_bmh5,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact(gsbb_write.bmh5_fn)
@@ -3546,6 +3572,8 @@ class Sort_RawH5f():
                 row_step = g_h5_num_row_1M*3
                 sorted_buf_dic = {}
                 raw_row_N = self.raw_h5f.xyz_dset.shape[0]
+                row_step = raw_row_N     ## benz_m
+
 
                 for k in range(0,raw_row_N,row_step):
                     end = min(k+row_step,raw_row_N)
@@ -3755,6 +3783,9 @@ class Normed_H5f():
                                 6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                                 12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                                 17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
+
     g_label2color_dic = {}
     g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
     g_label2color_dic['ETH'] = \
@@ -3768,6 +3799,7 @@ class Normed_H5f():
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
 
     #g_easy_view_labels = [7,8,9,10,11,1]
     #g_is_labeled = True
