@@ -673,7 +673,7 @@ def parse_house(house_names_ls, operations):
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
-    base_step_stride = [0.2,0.2,6.0]
+    base_step_stride = [0.2,0.2,10.0]
     if 'SortRaw' in operations:
         matterport3d_prepare.SortRaw(house_names_ls, base_step_stride, MultiProcess)
 

@@ -1408,36 +1408,50 @@ class GlobalSubBaseBLOCK():
         '''
         new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
-        max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
 
         GroupingMethod = 'search_by_voxel'
+        GroupingMethod = 'search_by_point'
 
-        print('max_new_block_id = ',max_new_block_id)
-        for new_block_id in range(max_new_block_id+1):
-            base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                    new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding)
-            base_bids = np.array(base_bid_ls).astype(np.uint32)
-            mask = np.in1d( base_bids,all_base_bids )
-            valid_base_bids = base_bids[mask]
+        if GroupingMethod == 'search_by_voxel':
+            max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
+            print('max_new_block_id = ',max_new_block_id)
+            for new_block_id in range(max_new_block_id+1):
+                base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
+                                        new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding)
+                base_bids = np.array(base_bid_ls).astype(np.uint32)
+                mask = np.in1d( base_bids,all_base_bids )
+                valid_base_bids = base_bids[mask]
 
-            # check the scope of valid_cur_bids
-            if valid_base_bids.shape[0] > 0:
-                valid_scope = GlobalSubBaseBLOCK.get_scope_of_bids( valid_base_bids, base_attrs )
-                scope_rate = valid_scope / new_sorted_h5f_attrs['block_step']
-                valid_scope_rate = np.min(scope_rate)
-                if valid_scope_rate > 0.0:
-                    new_total_block_N += 1
-                    basebids_in_largeraimbid_dic[new_block_id] = valid_base_bids
-                else:
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
+                # check the scope of valid_cur_bids
+                if valid_base_bids.shape[0] > 0:
+                    valid_scope = GlobalSubBaseBLOCK.get_scope_of_bids( valid_base_bids, base_attrs )
+                    scope_rate = valid_scope / new_sorted_h5f_attrs['block_step']
+                    valid_scope_rate = np.min(scope_rate)
+                    if valid_scope_rate > 0.0:
+                        new_total_block_N += 1
+                        basebids_in_largeraimbid_dic[new_block_id] = valid_base_bids
+                    else:
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                        pass
 
-            if new_block_id >0 and new_block_id % 10000==0:
-                rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
-                print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
-                      get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+                if new_block_id >0 and new_block_id % 10000==0:
+                    rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
+                    print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
+                        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+        elif GroupingMethod == 'search_by_point':
+            print('base step: %s'%(base_attrs['block_step']))
+            print('base stride: %s'%(base_attrs['block_stride']))
+            print('aim step: %s'%(new_sorted_h5f_attrs['block_step']))
+            print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
+            for base_bid in all_base_bids:
+                aim_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
+                                        base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                pass
+
+
         larger_blockids = np.array(list(basebids_in_largeraimbid_dic.keys())).astype(np.uint32)
         all_sorted_larger_aimbids = np.sort(larger_blockids)
 
@@ -2115,6 +2129,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         h5fattrs['xyz_max_aligned'] = xyz_max_aligned
         h5fattrs['xyz_scope_aligned'] = xyz_scope_aligned
 
+        for i in range(3):
+            if block_step[i] > xyz_scope_aligned[i]:
+                block_step[i] = xyz_scope_aligned[i]
+            if block_stride[i] > xyz_scope_aligned[i]:
+                block_stride[i] = xyz_scope_aligned[i]
+        h5fattrs['block_step'] = block_step
+        h5fattrs['block_stride'] = block_stride
 
     def add_total_row_block_N(self,raw_h5f_total_row_N=None):
         total_row_N = 0
@@ -3461,7 +3482,6 @@ def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
     '''
     print('start sorting file to blocks: %s'%file_name)
     block_step = np.array( block_step_xyz )
-    print('block step = ',block_step)
     Sort_RawH5f_Instance.row_num_limit = None
 
     if not os.path.exists(Sort_RawH5f_Instance.out_folder):
@@ -3577,7 +3597,6 @@ class Sort_RawH5f():
             return
 
         print('start sorting file to blocks: %s'%file_name)
-        print('block step = ',block_step)
 
         with h5py.File(blocked_file_name,'w') as h5f_blocked:
             with h5py.File(file_name,'r') as h5_f:
