@@ -1424,12 +1424,14 @@ class GlobalSubBaseBLOCK():
         new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
         new_total_block_N = 0
-        basebids_in_largeraimbid_dic = {}
+        aimbids_in_smallerbasebid_dic = {}
 
         GroupingMethod = 'search_by_voxel'
-        #GroupingMethod = 'search_by_point'
+        GroupingMethod = 'search_by_point'
+        IsCheckTwoMethodsSame = True
 
-        if GroupingMethod == 'search_by_voxel':
+        if GroupingMethod == 'search_by_voxel' or IsCheckTwoMethodsSame:
+            basebids_in_largeraimbid_dic_1 = {}
             max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
             print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
@@ -1446,7 +1448,7 @@ class GlobalSubBaseBLOCK():
                     valid_scope_rate = np.min(scope_rate)
                     if valid_scope_rate > 0.0:
                         new_total_block_N += 1
-                        basebids_in_largeraimbid_dic[new_block_id] = valid_base_bids
+                        basebids_in_largeraimbid_dic_1[new_block_id] = valid_base_bids
                     else:
                         import pdb; pdb.set_trace()  # XXX BREAKPOINT
                         pass
@@ -1455,29 +1457,50 @@ class GlobalSubBaseBLOCK():
                     rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
-        elif GroupingMethod == 'search_by_point':
-            print('base step: %s'%(base_attrs['block_step']))
-            print('base stride: %s'%(base_attrs['block_stride']))
-            print('aim step: %s'%(new_sorted_h5f_attrs['block_step']))
-            print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
-            for base_bid in all_base_bids:
-                aim_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
+            basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_1
+            # get aimbids_in_smallerbasebid_dic
+            for aim_bid, basebids in basebids_in_largeraimbid_dic_1.items():
+                for base_bid in basebids:
+                    if base_bid not in aimbids_in_smallerbasebid_dic:
+                        aimbids_in_smallerbasebid_dic[base_bid] = np.array( [aim_bid] )
+                    else:
+                        aimbids_in_smallerbasebid_dic[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic[base_bid],np.array( [aim_bid] )]  )
+        if GroupingMethod == 'search_by_point' or IsCheckTwoMethodsSame:
+            #print('base step: %s'%(base_attrs['block_step']))
+            #print('base stride: %s'%(base_attrs['block_stride']))
+            #print('aim step: %s'%(new_sorted_h5f_attrs['block_step']))
+            #print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
+            basebids_in_largeraimbid_dic_2 = {}
+            for j, base_bid in  enumerate(all_base_bids):
+                new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
+                if len(new_bids_ls) ==0 :
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    pass
+                for new_bid in new_bids_ls:
+                    if new_bid not in basebids_in_largeraimbid_dic_2:
+                        basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
+                    basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
+                aimbids_in_smallerbasebid_dic[base_bid] = new_bids_ls
+
+                #if new_block_id >0 and new_block_id % 5000==0:
+                #    rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
+                #    print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
+                #        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+
+            if IsCheckTwoMethodsSame:
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                pass
+                assert len( basebids_in_largeraimbid_dic_1 ) == len( basebids_in_largeraimbid_dic_2 )
+                for key, value in basebids_in_largeraimbid_dic_1.items():
+                    assert (value == basebids_in_largeraimbid_dic_2[key]).all()
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    pass
+            basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_2
 
 
         larger_blockids = np.array(list(basebids_in_largeraimbid_dic.keys())).astype(np.uint32)
         all_sorted_larger_aimbids = np.sort(larger_blockids)
 
-        # get aimbids_in_smallerbasebid_dic
-        aimbids_in_smallerbasebid_dic = {}
-        for aim_bid, basebids in basebids_in_largeraimbid_dic.items():
-            for base_bid in basebids:
-                if base_bid not in aimbids_in_smallerbasebid_dic:
-                    aimbids_in_smallerbasebid_dic[base_bid] = np.array( [aim_bid] )
-                else:
-                    aimbids_in_smallerbasebid_dic[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic[base_bid],np.array( [aim_bid] )]  )
         if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
@@ -1493,8 +1516,8 @@ class GlobalSubBaseBLOCK():
             if not (all_base_bids_indic == all_base_bids).all():
                 assert False, "Not  all the base blocks are exactly included"
 
-            print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
-                      get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+            #print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
+            #          get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
         return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic
 
@@ -2389,7 +2412,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bid_ls = [base_bid]
             aim_bixyz_ls = [base_bixyz]
             return aim_bid_ls, aim_bixyz_ls
-        elif (base_attrs['block_step'] >= aim_attrs['block_step']).any():
+        elif base_attrs['block_step'][0] >= aim_attrs['block_step'][0]:
+            assert base_attrs['block_step'][1] >= aim_attrs['block_step'][1]
+            assert base_attrs['block_step'][2] >= aim_attrs['block_step'][2]
+
             large_step_flag = 'base'
             aim_bixyz_threshold_min = ( base_bixyz * base_attrs['block_stride'] ) / aim_attrs['block_stride']
             aim_bixyz_threshold_max = ( base_bixyz * base_attrs['block_stride'] + base_attrs['block_step'] - aim_attrs['block_step']) / aim_attrs['block_stride']
@@ -2404,6 +2430,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                             import pdb; pdb.set_trace()  # XXX BREAKPOINT
                             aim_bixyz_min[i] = max(0, aim_bixyz_min[i] - vacant_aim_b_num)
         else:
+            assert base_attrs['block_step'][1] <= aim_attrs['block_step'][1]
+            assert base_attrs['block_step'][2] <= aim_attrs['block_step'][2]
+
             large_step_flag = 'aim'
             aim_bixyz_threshold_max = ( (base_bixyz + smallb_ixyz_padding_max) * base_attrs['block_stride'] ) / aim_attrs['block_stride']
             aim_bixyz_threshold_min = ( (base_bixyz - smallb_ixyz_padding_max) * base_attrs['block_stride'] + base_attrs['block_step'] - aim_attrs['block_step']) / aim_attrs['block_stride']
