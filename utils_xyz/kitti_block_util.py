@@ -12,8 +12,10 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
-from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+#from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+#from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
 import h5py
 import glob
@@ -22,11 +24,18 @@ import multiprocessing as mp
 import itertools
 import zipfile,gzip
 from plyfile import PlyData, PlyElement
+import argparse
 
-TMPDEBUG = False
+
+TMPDEBUG = True
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--cores', type=int, default=0, help='how many cores you want to use')
+FLAGS = parser.parse_args()
+
 
 def zip_extract(ply_item_name,zipf,house_dir_extracted):
     '''
@@ -200,6 +209,16 @@ def NormSortedSampledFlie(fn):
     return fn
 
 def GenPyramidSortedFlie(fn):
+    #if TMPDEBUG:
+    #    # cut sh5
+    #    with h5py.File(fn,'w') as h5f:
+    #        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #        print( h5f.attrs['block_dims_N'] )
+    #        tmp = np.min( np.array([10,10,1]), h5f.attrs['block_dims_N'] )
+    #        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    #        self.h5f.attrs['block_dims_N'] = np.min( np.array([10,10,1]),self.h5f.attrs['block_dims_N'] )
+    #        pass
+
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_plh5 = False
@@ -225,9 +244,9 @@ class Matterport3D_Prepare():
     The semantic labels of each point are achieved from faces.
     '''
 
-    matterport3D_root_dir = '/home/benz/dataset/Voxel'
-    matterport3D_extracted_dir = '/home/benz/dataset/Voxel'
-    matterport3D_h5f_dir = '/home/benz/dataset/Voxel'
+    matterport3D_root_dir = '/home/ben/dataset/Voxel'
+    matterport3D_extracted_dir = '/home/ben/dataset/Voxel'
+    matterport3D_h5f_dir = '/home/ben/dataset/Voxel'
 
     def __init__(self):
         self.scans_name = scans_name = 'raw1'
@@ -305,7 +324,9 @@ class Matterport3D_Prepare():
         house_names_ls.sort()
         for house_name in house_names_ls:
             house_rawh5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-            rawh5_file_ls += glob.glob( os.path.join(house_rawh5f_dir,'*.h5') )
+            rawh5_file_ls += glob.glob( os.path.join(house_rawh5f_dir,'*.rh5') )
+        if len(rawh5_file_ls)==0:
+            print('no file mathces %s'%( os.path.join(house_rawh5f_dir,'*.rh5')  ))
         #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
         sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/' + house_name
@@ -430,8 +451,8 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
-            if TMPDEBUG:
-                file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
+            #if TMPDEBUG:
+            #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -643,14 +664,16 @@ class Matterport3D_Prepare():
 
 
 def parse_house(house_names_ls, operations):
-    MultiProcess = 1
+    # MultiProcess = 1
+    MultiProcess = FLAGS.cores
+
     matterport3d_prepare = Matterport3D_Prepare()
 
 
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
-    base_step_stride = [0.1,0.1,0.1]
+    base_step_stride = [0.2,0.2,6.0]
     if 'SortRaw' in operations:
         matterport3d_prepare.SortRaw(house_names_ls, base_step_stride, MultiProcess)
 
@@ -687,6 +710,7 @@ def parse_house(house_names_ls, operations):
 
 def parse_house_ls():
     house_names = ['rawh5f_xyz_16384']
+    house_names = ['rawh5f']
     # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
@@ -698,9 +722,9 @@ def parse_house_ls():
 
     # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     # operations = ['SortRaw','GenPyramid']
-    # operations  = ['ParseRaw']
-    operations  = ['SortRaw']
-    # operations  = ['GenPyramid']    ## generating a one region
+    #operations  = ['ParseRaw']
+    #operations  = ['SortRaw']
+    operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['MergeNormed_region']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
     #operations  = ['GenObj_SortedH5f']

@@ -59,7 +59,7 @@ Search with "name:" to find the definition.
 
 SHOW_ONLY_ERR = False
 DEBUGTMP=True
-ENABLECHECK = True
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -67,7 +67,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT']
+DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT','KITTI']
 FLOAT_BIAS = 1e-8
 
 def isin_sorted( a,v ):
@@ -79,7 +79,7 @@ def isin_sorted( a,v ):
 def get_stride_step_name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
-    assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
+    #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
         assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
@@ -442,6 +442,17 @@ class GlobalSubBaseBLOCK():
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + scene_name + '.bmh5'
+
+        elif datasource_name == "KITTI":              ### benz_m
+            region_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
+            house_dir_name = os.path.dirname(self.root_s_h5f_fn)
+            house_name = os.path.basename(house_dir_name)
+            rootsort_dirname = os.path.dirname(house_dir_name)
+
+            out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
+            if not os.path.exists(out_folder):
+                os.makedirs(out_folder)
+            blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
         else:
             assert False, datasource_name
 
@@ -1388,6 +1399,9 @@ class GlobalSubBaseBLOCK():
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
+
+        GroupingMethod = 'search_by_voxel'
+
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
             base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
@@ -3194,6 +3208,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
             out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+
+        elif datasource_name == 'KITTI':               ## benz_m
+            scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
+            scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
+            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+
         else:
             assert False, datasource_name
 
@@ -3270,11 +3291,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             feed_label_elements = feed_norm_ele_info['label_eles']
 
             all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
+            num_global_block_abandoned = 0
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
-                if global_sample_rate > NETCONFIG['max_global_sample_rate']:
+                #if DEBUGTMP:
+                #    print('global_sample_rate:%f'%(global_sample_rate))
+                if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
+                    num_global_block_abandoned += 1
                     continue    # too less points, abandon
                 if block_datas.size == 0:
                     continue
@@ -3302,11 +3327,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 pl_sph5f.append_to_dset('data',file_datas)
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
-                pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                if file_labels.size > 0:
+                    pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
                 pl_sph5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
+                h5f['rootb_split_idxmap'].attrs['num_global_block_abandoned'] = num_global_block_abandoned
+                h5f['rootb_split_idxmap'].attrs['max_global_sample_rate'] = NETCONFIG['max_global_sample_rate']
 
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
@@ -3672,6 +3700,10 @@ class DatasetMeta():
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+
     def __init__(self,datasource_name):
         self.datasource_name = datasource_name
         self.g_label2class = self.g_label2class_dic[self.datasource_name]
@@ -3762,6 +3794,9 @@ class Normed_H5f():
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
 
     #g_easy_view_labels = [7,8,9,10,11,1]
     #g_is_labeled = True
@@ -4023,9 +4058,11 @@ class Normed_H5f():
         bsample_rate_set = self.h5f.create_dataset( 'block_sample_rate',shape=(total_block_N,),\
                 maxshape=(None,), dtype=np.float32  )
         bsample_rate_set.attrs['valid_num'] = 0
-        labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
-                maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
-        labels_set.attrs['valid_num'] = 0
+        if label_eles_num > 1:
+            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
+                    maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+            labels_set.attrs['valid_num'] = 0
+            self.labels_set = labels_set
         gbixyz_set = self.h5f.create_dataset( 'gbixyz',shape=(total_block_N,3,),\
                 maxshape=(None,3,),dtype=np.int32,compression="gzip", chunks = (chunks_n,3,)  )
         gbixyz_set.attrs['valid_num'] = 0
@@ -4046,7 +4083,6 @@ class Normed_H5f():
             labels_set.attrs[ele] = self.label_ele_idxs[ele]
 
         self.data_set = data_set
-        self.labels_set = labels_set
         #self.bidxmap_dsets = bidxmap_dsets
         #self.pred_logits_set = pred_logits_set
 
@@ -4117,10 +4153,11 @@ class Normed_H5f():
             rootb_split_idxmap = self.h5f['rootb_split_idxmap']
             global_b_num = rootb_split_idxmap.shape[0]
             rootb_num = get_rootb_num( rootb_split_idxmap )
+            valid_num = attrs['valid_num']
             for ele_name in attrs:
                 summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
-                    total_point_num = base_sample_num + attrs[ele_name]
+                    total_point_num = base_sample_num + attrs[ele_name]/valid_num
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
                 if ele_name == 'missed_rootb_num':
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
