@@ -3305,6 +3305,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
             num_global_block_abandoned = 0
+            num_point_abandoned = 0
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
@@ -3313,6 +3314,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 #    print('global_sample_rate:%f'%(global_sample_rate))
                 if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
                     num_global_block_abandoned += 1
+                    num_point_abandoned += block_datas.shape[0]
                     continue    # too less points, abandon
                 if block_datas.size == 0:
                     continue
@@ -3347,6 +3349,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
                 h5f['rootb_split_idxmap'].attrs['num_global_block_abandoned'] = num_global_block_abandoned
+                h5f['rootb_split_idxmap'].attrs['num_point_abandoned'] = num_point_abandoned
                 h5f['rootb_split_idxmap'].attrs['max_global_sample_rate'] = NETCONFIG['max_global_sample_rate']
 
                 pl_sph5f.sph5_create_done()
@@ -4169,14 +4172,19 @@ class Normed_H5f():
             rootb_split_idxmap = self.h5f['rootb_split_idxmap']
             global_b_num = rootb_split_idxmap.shape[0]
             rootb_num = get_rootb_num( rootb_split_idxmap )
-            valid_num = attrs['valid_num']
+            valid_num = attrs['valid_num'] * 1.0
             for ele_name in attrs:
-                summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
+                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                     total_point_num = base_sample_num + attrs[ele_name]/valid_num
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
-                if ele_name == 'missed_rootb_num':
+                elif ele_name == 'missed_rootb_num':
+                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
+                elif ele_name == 'missed_point_num':
+                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
+                else:
+                    summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 summary += '\n'
 
             if 'smaller_sample_num' in self.h5f.attrs:
