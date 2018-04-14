@@ -40,7 +40,7 @@ import ply_util
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
-from configs import get_gsbb_config, NETCONFIG
+from configs_kitti import get_gsbb_config, NETCONFIG
 import magic
 
 '''                         Def key words list

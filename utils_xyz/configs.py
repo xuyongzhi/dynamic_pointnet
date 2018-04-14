@@ -152,12 +152,12 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
     elif gsbb_config == '3D2':
         ## generating the KITTI dataset benchmark
-        global_stride = np.array([-1,-1,-1]).astype(np.float)
-        global_step = np.array([-1,-1,-1]).astype(np.float)
+        global_stride = np.array([-1,-1,-1]).astype(np.float)*100
+        global_step = np.array([-1,-1,-1]).astype(np.float)*100
         max_global_num_point = 16384
         global_num_point = 16384
         flatbxmap_max_nearest_num = -1  # do not generate flatbxmap
-        NETCONFIG['max_global_sample_rate'] = global_num_point / 20.0
+        NETCONFIG['max_global_sample_rate'] = global_num_point / 2.0
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
         sub_block_stride_candis = np.array([0.4, 2]).astype(np.float)
