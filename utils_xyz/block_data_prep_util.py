@@ -4158,7 +4158,7 @@ class Normed_H5f():
                 summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
                     total_point_num = base_sample_num + attrs[ele_name]/valid_num
-                    summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
+                    summary += ' / %d   %f'%( total_point_num/valid_num, 1.0*attrs[ele_name]/total_point_num )
                 if ele_name == 'missed_rootb_num':
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
                 summary += '\n'
