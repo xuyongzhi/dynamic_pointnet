@@ -6,7 +6,7 @@ import numpy as np
 
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
-NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
+NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is very large for global block with few points which should be abandoned.
 
 #-------------------------------------------------------------------------------
 # gsbb config
@@ -152,17 +152,17 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
     elif gsbb_config == '3D2':
         ## generating the KITTI dataset benchmark
-        global_stride = np.array([6,6,6]).astype(np.float)
-        global_step = np.array([6,6,6]).astype(np.float)
-        max_global_num_point = 384
-        global_num_point = 384
-        flatbxmap_max_nearest_num = 1
+        global_stride = np.array([-1,-1,-1]).astype(np.float)
+        global_step = np.array([-1,-1,-1]).astype(np.float)
+        max_global_num_point = 16384
+        global_num_point = 16384
+        flatbxmap_max_nearest_num = 3
+        NETCONFIG['max_global_sample_rate'] = global_num_point / 20.0
 
-        sub_block_stride_candis = np.array([3]).astype(np.float)
-        sub_block_step_candis   = np.array([3]).astype(np.float)
-        nsubblock_candis        =  np.array([24]).astype(np.int32)
-        npoint_subblock_candis  = np.array([4]).astype(np.int32)
-
+        sub_block_stride_candis = np.array([0.8, 1.2]).astype(np.float)
+        sub_block_step_candis   = np.array([ 0.8, 1.8]).astype(np.float)
+        nsubblock_candis        =  np.array([2048, 1024]).astype(np.int32)
+        npoint_subblock_candis = np.array([  16, 8]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
