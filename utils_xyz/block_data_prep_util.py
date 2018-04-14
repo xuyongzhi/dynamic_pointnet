@@ -397,6 +397,8 @@ class GlobalSubBaseBLOCK():
     def __init__(self,root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None ):
         self.new_attrs = {}
         self.bm_output = {}
+        self.steps = {}
+        self.strides = {}
 
         if bmh5_fn != None:
             assert root_s_h5f_fn == None and root_s_h5f == None
@@ -561,15 +563,15 @@ class GlobalSubBaseBLOCK():
     def get_stride_step(self,cascade_id):
         return self.get_stride_step_(cascade_id)
 
-    def get_stride_step_(self,cascade_id):
+    def get_stride_step_(self, cascade_id):
         #if cascade_id=='root': assert (root_h5fattrs!=None) or ('root_block_stride' in self)
         if cascade_id == 'global':
             stride = self.global_stride
             step = self.global_step
         elif cascade_id == 'root':
             if self.mode == 'w':
-                stride = root_h5fattrs['block_stride']
-                step = root_h5fattrs['block_step']
+                self.root_block_stride = stride = root_h5fattrs['block_stride']
+                self.root_block_step = step = root_h5fattrs['block_step']
             else:
                 stride = self.root_block_stride
                 step = self.root_block_step
@@ -577,6 +579,19 @@ class GlobalSubBaseBLOCK():
             assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
             stride  =  np.array([1.0,1.0,1.0])*self.sub_block_stride_candis[cascade_id]
             step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
+            for i in range(3):
+                if cascade_id == 0:
+                    if stride[i] < self.root_block_step[i]:
+                        stride[i] = self.root_block_step[i]
+                    if step[i] < self.root_block_step[i]:
+                        step[i] = self.root_block_step[i]
+                else:
+                    if stride[i] < self.strides[cascade_id-1][i]:
+                        stride[i] = self.strides[cascade_id-1][i]
+                    if step[i] < self.steps[cascade_id-1][i]:
+                        step[i] = self.steps[cascade_id-1][i]
+            self.steps[cascade_id] = step
+            self.strides[cascade_id] = stride
         return stride,step
 
     def get_cascade_grp_name(self,cascade_id):
@@ -1412,7 +1427,7 @@ class GlobalSubBaseBLOCK():
         basebids_in_largeraimbid_dic = {}
 
         GroupingMethod = 'search_by_voxel'
-        GroupingMethod = 'search_by_point'
+        #GroupingMethod = 'search_by_point'
 
         if GroupingMethod == 'search_by_voxel':
             max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
@@ -1436,7 +1451,7 @@ class GlobalSubBaseBLOCK():
                         import pdb; pdb.set_trace()  # XXX BREAKPOINT
                         pass
 
-                if new_block_id >0 and new_block_id % 10000==0:
+                if new_block_id >0 and new_block_id % 5000==0:
                     rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
