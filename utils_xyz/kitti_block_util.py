@@ -12,8 +12,10 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
-from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+#from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+#from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
 import h5py
 import glob
@@ -322,7 +324,9 @@ class Matterport3D_Prepare():
         house_names_ls.sort()
         for house_name in house_names_ls:
             house_rawh5f_dir = self.scans_h5f_dir+'/%s'%(house_name)
-            rawh5_file_ls += glob.glob( os.path.join(house_rawh5f_dir,'*.h5') )
+            rawh5_file_ls += glob.glob( os.path.join(house_rawh5f_dir,'*.rh5') )
+        if len(rawh5_file_ls)==0:
+            print('no file mathces %s'%( os.path.join(house_rawh5f_dir,'*.rh5')  ))
         #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
         sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/' + house_name
@@ -669,7 +673,7 @@ def parse_house(house_names_ls, operations):
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
-    base_step_stride = [0.2,0.2, 14.0]
+    base_step_stride = [0.2,0.2,6.0]
     if 'SortRaw' in operations:
         matterport3d_prepare.SortRaw(house_names_ls, base_step_stride, MultiProcess)
 
@@ -706,6 +710,7 @@ def parse_house(house_names_ls, operations):
 
 def parse_house_ls():
     house_names = ['rawh5f_xyz_16384']
+    house_names = ['rawh5f']
     # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
@@ -717,7 +722,7 @@ def parse_house_ls():
 
     # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     # operations = ['SortRaw','GenPyramid']
-    # operations  = ['ParseRaw']
+    #operations  = ['ParseRaw']
     #operations  = ['SortRaw']
     operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['MergeNormed_region']   ## merge several regions in one house
