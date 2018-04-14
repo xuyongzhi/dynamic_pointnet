@@ -40,7 +40,7 @@ import ply_util
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
 import csv,pickle
-from configs_kitti import get_gsbb_config, NETCONFIG
+from configs import get_gsbb_config, NETCONFIG
 import magic
 
 '''                         Def key words list
@@ -67,7 +67,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT', 'KITTI']
+DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT','KITTI']
 FLOAT_BIAS = 1e-8
 
 def isin_sorted( a,v ):
@@ -79,8 +79,7 @@ def isin_sorted( a,v ):
 def get_stride_step_name(block_stride,block_step):
     assert block_step[0] == block_step[1]
     assert block_stride[0] == block_stride[1]
-    # assert (block_step[0] == block_step[2] and block_stride[0] ==
-    # block_stride[2]) or (block_step[2]<0 and block_stride[2]<0) ## benz_m
+    #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
         assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
@@ -444,7 +443,6 @@ class GlobalSubBaseBLOCK():
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + scene_name + '.bmh5'
 
-
         elif datasource_name == "KITTI":              ### benz_m
             region_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             house_dir_name = os.path.dirname(self.root_s_h5f_fn)
@@ -453,10 +451,8 @@ class GlobalSubBaseBLOCK():
 
             out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
             if not os.path.exists(out_folder):
-                os.mkdir(out_folder)
+                os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
-
-
         else:
             assert False, datasource_name
 
@@ -486,6 +482,8 @@ class GlobalSubBaseBLOCK():
                 meta_str += 'cascade_id %d bxmap meta:\n'%(cascade_id)
                 count = self.count[cascade_id]
                 for ele_name in self.meta_names:
+                    if not hasattr(self,ele_name):
+                        continue
                     meta_str += '\t%s: %s'%( ele_name, getattr(self, ele_name)[cascade_id] / count )
                     if ele_name == 'count':
                         meta_str += ' (%d)'%(count)
@@ -671,6 +669,7 @@ class GlobalSubBaseBLOCK():
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
         IsRecordTime = False
+        IsGenFlatbxmap = self.flatbxmap_max_nearest_num > 0
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
@@ -760,8 +759,9 @@ class GlobalSubBaseBLOCK():
 
         if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
         else: base_nsubblock = self.global_num_point
-        flatten_bidxmap = np.ones(shape=(base_nsubblock, self.flatbxmap_max_nearest_num,3)).astype(np.float64)*(-11)
-        flatten_bidxmap_num = np.zeros( shape=(base_nsubblock) ).astype(np.int8)
+        if IsGenFlatbxmap:
+            flatten_bidxmap = np.ones(shape=(base_nsubblock, self.flatbxmap_max_nearest_num,3)).astype(np.float64)*(-11)
+            flatten_bidxmap_num = np.zeros( shape=(base_nsubblock) ).astype(np.int8)
         aimbids_cleaned = []
         for aim_b_index in range(aim_nsubblock):
             #--------------- (2.1) get sg_bidxmap -------------------------------
@@ -769,6 +769,8 @@ class GlobalSubBaseBLOCK():
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
             sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
 
+            if not IsGenFlatbxmap:
+                continue
             if aimbids_tile.size>0 and isin_sorted( aimbids_tile, aim_bid ) and aim_bid not in aimbids_cleaned:
                 aimbids_cleaned.append( aim_bid )
                 num_cropped = base_bid_valid_indexs.size-aim_npoint_subblock
@@ -818,163 +820,169 @@ class GlobalSubBaseBLOCK():
                     flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index, pointindex_within_subblock,0.01]
                     # Do not increase flatten_bidxmap_num[baseb_index], so that next time is this base block get exactly contained, overwrite this.
                     ##flatten_bidxmap_num[baseb_index] += #1
-        if self.IsCheck_gsbb['Aim_b_index']:
-            print('Aim_b_index check OK')
 
-        # When cascade_id>0, thers may be some replicated basebids. Their flatten_bidxmap can also be replicated.
-        for baseb_index in range( flatten_bidxmap_num.shape[0] ):
-            if cascade_id>0 and flatten_bidxmap_num[baseb_index] == 0:
-                if baseb_index>0 and valid_sorted_basebids[baseb_index] == valid_sorted_basebids[baseb_index-1] and flatten_bidxmap_num[baseb_index-1]!=0:
-                    flatten_bidxmap[baseb_index] = flatten_bidxmap[baseb_index-1]
-                    flatten_bidxmap_num[baseb_index] = flatten_bidxmap_num[baseb_index-1]
+        if  IsGenFlatbxmap:
+            if self.IsCheck_gsbb['Aim_b_index']:
+                print('Aim_b_index check OK')
 
-        baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
-        # set all the flatten_bidxmap_num==0 to 1, because these base blocks are already assigned with reponding 0th bid
-        flatten_bidxmap_num[ flatten_bidxmap_num==0 ] = 1
-        if IsRecordTime: t3 = time.time()
-        #-----------------------------------------------------------------------
-        # (3) For the base block that are contained by flatten_bidxmap_num aim
-        # blocks which flatten_bidxmap_num is < self.flatbxmap_max_nearest_num.
-        # Find from nearly aim blocks to compensate if possible.
-        # The reason why flatten_bidxmap_num < self.flatbxmap_max_nearest_num is
-        # insufficient aim_nsubblock or small aim_sub_block_size.
-        # If still cannot find enough from nealy space, these base blocks are
-        # missed, and will be set random aim bid and large distance (zero weight)
+            # When cascade_id>0, thers may be some replicated basebids. Their flatten_bidxmap can also be replicated.
+            for baseb_index in range( flatten_bidxmap_num.shape[0] ):
+                if cascade_id>0 and flatten_bidxmap_num[baseb_index] == 0:
+                    if baseb_index>0 and valid_sorted_basebids[baseb_index] == valid_sorted_basebids[baseb_index-1] and flatten_bidxmap_num[baseb_index-1]!=0:
+                        flatten_bidxmap[baseb_index] = flatten_bidxmap[baseb_index-1]
+                        flatten_bidxmap_num[baseb_index] = flatten_bidxmap_num[baseb_index-1]
 
-        around_aimb_dis = []
-        sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
-        allaimbids_in_base_dic = self.get_all_aim_bids_in_base_dic( cascade_id )
-        if IsRecordTime: tts = []
-        last_rootb_index = -1
-        for baseb_index in range(flatten_bidxmap.shape[0]):
-            if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
-                if IsRecordTime: tt0 = time.time()
-                if cascade_id==0:
-                    base_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
-                    last_rootb_index = rootb_index
-                else:
-                    base_bid = valid_sorted_basebids[baseb_index]
-                if IsRecordTime: tt1 = time.time()
-                #aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs, padding=self.padding )
-                if base_bid not in allaimbids_in_base_dic:
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
-                aim_bids = allaimbids_in_base_dic[base_bid]
-                if IsRecordTime: tt2 = time.time()
-                # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
-                around_aimbidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( aim_bids, aim_attrs, sorted_aimbids_fixed, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
-                sr_counts[baseb_index] += sr_count
-                for k in range( around_aimbidx_dis.shape[0] ):
-                    flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],0,around_aimbidx_dis[k,1] ]
-                    flatten_bidxmap_num[baseb_index] += 1
-                    around_aimb_dis.append( around_aimbidx_dis[k,1] )
-                if IsRecordTime: tt3 = time.time()
-                if IsRecordTime:
-                        tts.append( np.expand_dims( np.array( [ (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ] ),0) )
-                #    print('sr_count:%d  1:%f  2:%f  3:%f'%( sr_count, (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ))
-        if IsRecordTime:
-            tts = np.concatenate( tts )
-            print( 'tts: ', tts.mean(axis=0) )
-        if IsRecordTime: t4 = time.time()
+            baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
+            # set all the flatten_bidxmap_num==0 to 1, because these base blocks are already assigned with reponding 0th bid
+            flatten_bidxmap_num[ flatten_bidxmap_num==0 ] = 1
+            if IsRecordTime: t3 = time.time()
+            #-----------------------------------------------------------------------
+            # (3) For the base block that are contained by flatten_bidxmap_num aim
+            # blocks which flatten_bidxmap_num is < self.flatbxmap_max_nearest_num.
+            # Find from nearly aim blocks to compensate if possible.
+            # The reason why flatten_bidxmap_num < self.flatbxmap_max_nearest_num is
+            # insufficient aim_nsubblock or small aim_sub_block_size.
+            # If still cannot find enough from nealy space, these base blocks are
+            # missed, and will be set random aim bid and large distance (zero weight)
+            if self.flatbxmap_max_nearest_num > 1:
+                around_aimb_dis = []
+                sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
+                allaimbids_in_base_dic = self.get_all_aim_bids_in_base_dic( cascade_id )
+                if IsRecordTime: tts = []
+                last_rootb_index = -1
+                for baseb_index in range(flatten_bidxmap.shape[0]):
+                    if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                        if IsRecordTime: tt0 = time.time()
+                        if cascade_id==0:
+                            base_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
+                            last_rootb_index = rootb_index
+                        else:
+                            base_bid = valid_sorted_basebids[baseb_index]
+                        if IsRecordTime: tt1 = time.time()
+                        #aim_bids, aim_ixyzs = Sorted_H5f.get_blockids_of_dif_stride_step( base_bid, base_attrs, aim_attrs, padding=self.padding )
+                        if base_bid not in allaimbids_in_base_dic:
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            pass
+                        aim_bids = allaimbids_in_base_dic[base_bid]
+                        if IsRecordTime: tt2 = time.time()
+                        # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
+                        around_aimbidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( aim_bids, aim_attrs, sorted_aimbids_fixed, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
+                        sr_counts[baseb_index] += sr_count
+                        for k in range( around_aimbidx_dis.shape[0] ):
+                            flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],0,around_aimbidx_dis[k,1] ]
+                            flatten_bidxmap_num[baseb_index] += 1
+                            around_aimb_dis.append( around_aimbidx_dis[k,1] )
+                        if IsRecordTime: tt3 = time.time()
+                        if IsRecordTime:
+                                tts.append( np.expand_dims( np.array( [ (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ] ),0) )
+                        #    print('sr_count:%d  1:%f  2:%f  3:%f'%( sr_count, (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ))
+            if IsRecordTime:
+                tts = np.concatenate( tts )
+                print( 'tts: ', tts.mean(axis=0) )
+            if IsRecordTime: t4 = time.time()
 
-        #-----------------------------------------------------------------------
-        #(4) If there are still any missed blocks, till random aim bids and set the dis to be very large =>>> the weight will be 0
-        after_fix_missed_baseb_num = np.sum( flatten_bidxmap_num == 0 )
-        for baseb_index in range(flatten_bidxmap.shape[0]):
-            if flatten_bidxmap_num[baseb_index] == 0:
-                for i in range(flatten_bidxmap.shape[1]):
-                    flatten_bidxmap[baseb_index,i,:] = [0,-2,1e7]
-                    flatten_bidxmap_num[baseb_index] += 1
-        if IsRecordTime: t5 = time.time()
-        #-----------------------------------------------------------------------
-        #(5) If there are still some bidxmaps not fill, till any valid one but weight be 0
-        for baseb_index in range(flatten_bidxmap.shape[0]):
-            if flatten_bidxmap_num[baseb_index]!=self.flatbxmap_max_nearest_num:
-                for i in range(flatten_bidxmap_num[baseb_index],self.flatbxmap_max_nearest_num):
-                    flatten_bidxmap[baseb_index,i,:] = flatten_bidxmap[baseb_index,0,:]
-                    flatten_bidxmap[baseb_index,i,2] = 1000
-                    flatten_bidxmap_num[baseb_index] += 1
-        flatten_bidxmap_fixed = flatten_bidxmap
-        #-----------------------------------------------------------------------
+            #-----------------------------------------------------------------------
+            #(4) If there are still any missed blocks, till random aim bids and set the dis to be very large =>>> the weight will be 0
+            after_fix_missed_baseb_num = np.sum( flatten_bidxmap_num == 0 )
+            for baseb_index in range(flatten_bidxmap.shape[0]):
+                if flatten_bidxmap_num[baseb_index] == 0:
+                    for i in range(flatten_bidxmap.shape[1]):
+                        flatten_bidxmap[baseb_index,i,:] = [0,-2,1e7]
+                        flatten_bidxmap_num[baseb_index] += 1
+            if IsRecordTime: t5 = time.time()
+            #-----------------------------------------------------------------------
+            #(5) If there are still some bidxmaps not fill, till any valid one but weight be 0
+            for baseb_index in range(flatten_bidxmap.shape[0]):
+                if flatten_bidxmap_num[baseb_index]!=self.flatbxmap_max_nearest_num:
+                    for i in range(flatten_bidxmap_num[baseb_index],self.flatbxmap_max_nearest_num):
+                        flatten_bidxmap[baseb_index,i,:] = flatten_bidxmap[baseb_index,0,:]
+                        flatten_bidxmap[baseb_index,i,2] = 1000
+                        flatten_bidxmap_num[baseb_index] += 1
+            flatten_bidxmap_fixed = flatten_bidxmap
+            #-----------------------------------------------------------------------
 
-        nonfull_baseb_num = np.sum( flatten_bidxmap_num != self.flatbxmap_max_nearest_num )
-        assert nonfull_baseb_num==0
+            nonfull_baseb_num = np.sum( flatten_bidxmap_num != self.flatbxmap_max_nearest_num )
+            assert nonfull_baseb_num==0
 
-        if IsRecordTime: t6 = time.time()
-        if IsRecordTime:
-            print('\n\ncascadeid:%d'%(cascade_id))
-            print('(0) get aim_nsubblock t=%f'%(t1-t0))
-            print('(1a) fix_bmap t=%f'%(t2a-t1))
-            print('(1b) get valid_sorted_aimbids t=%f'%(t2b-t2a))
-            print('(2) get flatten_bidxmap_num t=%f'%(t3-t2b))
-            print('(3) fix flatten_bidxmap_num t=%f'%(t4-t3))
-            print('(4) t=%f'%(t5-t4))
-            print('(5) t=%f'%(t6-t5))
+            if IsRecordTime: t6 = time.time()
+            if IsRecordTime:
+                print('\n\ncascadeid:%d'%(cascade_id))
+                print('(0) get aim_nsubblock t=%f'%(t1-t0))
+                print('(1a) fix_bmap t=%f'%(t2a-t1))
+                print('(1b) get valid_sorted_aimbids t=%f'%(t2b-t2a))
+                print('(2) get flatten_bidxmap_num t=%f'%(t3-t2b))
+                print('(3) fix flatten_bidxmap_num t=%f'%(t4-t3))
+                print('(4) t=%f'%(t5-t4))
+                print('(5) t=%f'%(t6-t5))
 
-        ##-----------------------------------------------------------------------
-        ##(6) tile the last one to fix flatten_bidxmap shape_0: when nsubblock is larger than valid
-        #if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
-        #else: base_nsubblock = self.global_num_point
-        #if flatten_bidxmap.shape[0] > base_nsubblock:
-        #    print('e')
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #flatten_bidxmap_tile = np.tile( np.expand_dims(flatten_bidxmap[-1,:,:],0), (base_nsubblock-flatten_bidxmap.shape[0],1,1) )
-        #flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
-        #if flatten_bidxmap.shape[0] < base_nsubblock:
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #    pass
-        #-----------------------------------------------------------------------
-        # check by visulization
-        if self.IsCheck_gsbb['gen_ply_gsbb']:
-            # rawdata ~ sg_basexyz_0 ->(gp) -> sg_aimbxyz_0 ! sg_basebxyz_1 ->(gp) sg_aimbxyz_1 ~ sg_basebxyz_2 ->(gp) sg_aimbxyz_2
-            # sg_basebxyz_2 -flat> flat_xyz_2,  sg_basebxyz_1 -flat> flat_xyz_1, sg_basebxyz_0 -flat> flat_xyz_0
-            sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
-            for aim_b_index in range( aim_nsubblock ):
-                aim_bid = sorted_aimbids_fixed[aim_b_index]
-                sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
+            ##-----------------------------------------------------------------------
+            ##(6) tile the last one to fix flatten_bidxmap shape_0: when nsubblock is larger than valid
+            #if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
+            #else: base_nsubblock = self.global_num_point
+            #if flatten_bidxmap.shape[0] > base_nsubblock:
+            #    print('e')
+            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #flatten_bidxmap_tile = np.tile( np.expand_dims(flatten_bidxmap[-1,:,:],0), (base_nsubblock-flatten_bidxmap.shape[0],1,1) )
+            #flatten_bidxmap_fixed = np.concatenate( [flatten_bidxmap, flatten_bidxmap_tile],0 )
+            #if flatten_bidxmap.shape[0] < base_nsubblock:
+            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #    pass
+            #-----------------------------------------------------------------------
+            # check by visulization
+            if self.IsCheck_gsbb['gen_ply_gsbb']:
+                # rawdata ~ sg_basexyz_0 ->(gp) -> sg_aimbxyz_0 ! sg_basebxyz_1 ->(gp) sg_aimbxyz_1 ~ sg_basebxyz_2 ->(gp) sg_aimbxyz_2
+                # sg_basebxyz_2 -flat> flat_xyz_2,  sg_basebxyz_1 -flat> flat_xyz_1, sg_basebxyz_0 -flat> flat_xyz_0
+                sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
+                for aim_b_index in range( aim_nsubblock ):
+                    aim_bid = sorted_aimbids_fixed[aim_b_index]
+                    sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+                ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
 
-            sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
-            for aim_b_index in range( aim_nsubblock ):
-                for pi in range( aim_npoint_subblock ):
-                    if cascade_id == 0:
-                        point_index = valid_sorted_pointids[ sg_bidxmap_fixed[aim_b_index,pi] ]
-                        root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
-                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
-                    else:
-                        base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
-                        sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
+                sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
+                for aim_b_index in range( aim_nsubblock ):
+                    for pi in range( aim_npoint_subblock ):
+                        if cascade_id == 0:
+                            point_index = valid_sorted_pointids[ sg_bidxmap_fixed[aim_b_index,pi] ]
+                            root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
+                            sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
+                        else:
+                            base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
+                            sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
+                ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
 
-            flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
-            for i in range( flat_xyzs.shape[0] ):
-                flat_idx = flatten_bidxmap_fixed[i,0,0:2].astype(np.int32)
-                flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
-            ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
-            if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
+                for i in range( flat_xyzs.shape[0] ):
+                    flat_idx = flatten_bidxmap_fixed[i,0,0:2].astype(np.int32)
+                    flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
+                ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
+                if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
 
         aimbnum_missed_add = aim_nsubblock - valid_sorted_aimbids.size
         bxmap_meta['aimbnum_missed_add'] = np.array([[ valid_sorted_aimbids.size, min(0,aimbnum_missed_add), max(0,aimbnum_missed_add) ]])
-        bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num,0 )
-        bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
         npointsubblock_mean = np.mean(baseb_num_inaim_ls)
 
         dif = aim_npoint_subblock - np.array(baseb_num_inaim_ls)
         miss = np.sum( dif * (dif<0) ) * 1.0 / aim_nsubblock
         add = np.sum( dif * (dif>0) ) * 1.0 / aim_nsubblock
         bxmap_meta['npointsubblock_missed_add'] = np.array( [[ npointsubblock_mean, miss, add ]] )
-
         bxmap_meta['npoint_subblock_std'] = np.array( [np.std(baseb_num_inaim_ls)] )
-        if len(around_aimb_dis) > 0:
-            bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )
-            bxmap_meta['around_aimb_dis_std'] = np.array( [np.std(around_aimb_dis)] )
+
+        if IsGenFlatbxmap:
+            bxmap_meta['after_fix_missed_baseb_num'] = np.array([after_fix_missed_baseb_num])
+            bxmap_meta['baseb_exact_flat_num'] = np.expand_dims( baseb_exact_flat_num,0 )
+
+            if len(around_aimb_dis) > 0:
+                bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )
+                bxmap_meta['around_aimb_dis_std'] = np.array( [np.std(around_aimb_dis)] )
+            else:
+                bxmap_meta['around_aimb_dis_mean'] = np.array( [0] )
+                bxmap_meta['around_aimb_dis_std'] = np.array( [0] )
+            bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
         else:
-            bxmap_meta['around_aimb_dis_mean'] = np.array( [0] )
-            bxmap_meta['around_aimb_dis_std'] = np.array( [0] )
-        bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
+            flatten_bidxmap_fixed = np.ones(shape=(base_nsubblock, 0,3)).astype(np.float64)*(-11)
 
         return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
@@ -1403,6 +1411,9 @@ class GlobalSubBaseBLOCK():
         max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
         new_total_block_N = 0
         basebids_in_largeraimbid_dic = {}
+
+        GroupingMethod = 'search_by_voxel'
+
         print('max_new_block_id = ',max_new_block_id)
         for new_block_id in range(max_new_block_id+1):
             base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
@@ -1463,6 +1474,8 @@ class GlobalSubBaseBLOCK():
         '''
         When aim block num is larger than nsubblock, select the aim blocks with more points
         '''
+        merge_blocks_while_fix_bmap = NETCONFIG['merge_blocks_while_fix_bmap']
+
         fix_bmap_method = GlobalSubBaseBLOCK.settings['fix_bmap_method']
         debug_meta['fix_bmap_method'] = fix_bmap_method
 
@@ -1477,7 +1490,6 @@ class GlobalSubBaseBLOCK():
             choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
             kept_aim_bids = all_sorted_aimbids[choice]
             cropped_aim_bids = [ bid for bid in all_sorted_aimbids if bid not in kept_aim_bids ]
-
             # merge base_bids of each cropped aim b to closest aim b
             ar_bidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_multibase( cropped_aim_bids, aim_attrs, kept_aim_bids, max_need_num=3, max_search_dis=1 )
             for i in range( len(cropped_aim_bids) ):
@@ -1527,7 +1539,7 @@ class GlobalSubBaseBLOCK():
                 return base_b_num
             loop_n = 0
             while ( all_sorted_aimbids.shape[0] != nsubblock ):
-                if loop_n >= 4:
+                if loop_n >= 3 or merge_blocks_while_fix_bmap==False:
                     # randomly select and abandon some
                     choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
                     all_sorted_aimbids = all_sorted_aimbids[choice]
@@ -1907,7 +1919,7 @@ class Raw_H5f():
     @staticmethod
     def check_rh5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
-        assert f_format == '.h5'         ## benz_m
+        assert f_format == '.rh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)
         #if os.path.getsize( file_name ) / 1000.0 < 100:
@@ -2031,7 +2043,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
-        self.h5f.attrs['stride_to_align'] = block_step[0] #stride_to_align   # benz_m
+        self.h5f.attrs['stride_to_align'] = stride_to_align
         Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
 
     @staticmethod
@@ -3204,7 +3216,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             out_folder_sph5 = rootsort_dirname + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
             out_folder_bxmh5 = rootsort_dirname + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
-
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
@@ -3216,8 +3227,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
             out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
-
-
 
         else:
             assert False, datasource_name
@@ -3231,7 +3240,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if not IsIntact_sh5:
             print( "\n\nsh5 not intact:  %s \nAbandon generating sph5"%(self.file_name) )
             return
-
 
         # check bmh5 intact primarily
         IsIntact_bmh5,ck_str = GlobalSubBaseBLOCK.check_bmh5_intact(gsbb_write.bmh5_fn)
@@ -3268,7 +3276,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
         if t3 - t0 > 1:
-            print('\tper square meters save bmh5 t:%f  save pl_sph5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0)/area, (t2-t1)/area, (t3-t2)/area, area ))
+            print('\tper square meters save bmh5 t:%f  save pl_sph5 t: %f, save bxmap_h5 t: %f  area: %s'%( (t1-t0), (t2-t1), (t3-t2), area ))
 
         # gen ply
         if IsGenPly:
@@ -3296,11 +3304,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             feed_label_elements = feed_norm_ele_info['label_eles']
 
             all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
+            num_global_block_abandoned = 0
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
-                if global_sample_rate > NETCONFIG['max_global_sample_rate']:
+                #if DEBUGTMP:
+                #    print('global_sample_rate:%f'%(global_sample_rate))
+                if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
+                    num_global_block_abandoned += 1
                     continue    # too less points, abandon
                 if block_datas.size == 0:
                     continue
@@ -3328,11 +3340,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 pl_sph5f.append_to_dset('data',file_datas)
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
-                pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
+                if file_labels.size > 0:
+                    pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
                 pl_sph5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
                 for key in global_sampling_meta_sum:
                     h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
+                h5f['rootb_split_idxmap'].attrs['num_global_block_abandoned'] = num_global_block_abandoned
+                h5f['rootb_split_idxmap'].attrs['max_global_sample_rate'] = NETCONFIG['max_global_sample_rate']
 
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
@@ -3400,6 +3415,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
+            print('global_block_num: %d'%(global_block_num))
             for global_bidx in range( global_block_num ):
                 debug_meta['global_bidx'] = global_bidx
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
@@ -3415,8 +3431,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
             bxmh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
-            bxmh5f.append_to_dset('bidxmaps_flat',all_flatten_bidxmaps[...,0:2].astype(np.int32))
-            bxmh5f.append_to_dset('fmap_neighbor_idis',all_flatten_bidxmaps[...,2:3].astype(np.float32))
+            if all_flatten_bidxmaps.shape[2]>0:
+                bxmh5f.append_to_dset('bidxmaps_flat',all_flatten_bidxmaps[...,0:2].astype(np.int32))
+                bxmh5f.append_to_dset('fmap_neighbor_idis',all_flatten_bidxmaps[...,2:3].astype(np.float32))
 
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
@@ -3572,8 +3589,6 @@ class Sort_RawH5f():
                 row_step = g_h5_num_row_1M*3
                 sorted_buf_dic = {}
                 raw_row_N = self.raw_h5f.xyz_dset.shape[0]
-                row_step = raw_row_N     ## benz_m
-
 
                 for k in range(0,raw_row_N,row_step):
                     end = min(k+row_step,raw_row_N)
@@ -3687,17 +3702,11 @@ class DatasetMeta():
                                 6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                                 12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                                 17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
-
     g_label2color_dic = {}
     g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
     g_label2color_dic['ETH'] = \
                     {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
-
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
-
     g_label2color_dic['STANFORD_INDOOR3D'] = \
                     {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
@@ -3706,6 +3715,10 @@ class DatasetMeta():
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+
     def __init__(self,datasource_name):
         self.datasource_name = datasource_name
         self.g_label2class = self.g_label2class_dic[self.datasource_name]
@@ -3779,13 +3792,10 @@ class Normed_H5f():
                     {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
                      8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
 
-    g_label2class_dic['SCANNET'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
+    g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
                                 6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                                 12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                                 17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
-
     g_label2color_dic = {}
     g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
     g_label2color_dic['ETH'] = \
@@ -3799,6 +3809,8 @@ class Normed_H5f():
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
     g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
 
     #g_easy_view_labels = [7,8,9,10,11,1]
@@ -4061,9 +4073,11 @@ class Normed_H5f():
         bsample_rate_set = self.h5f.create_dataset( 'block_sample_rate',shape=(total_block_N,),\
                 maxshape=(None,), dtype=np.float32  )
         bsample_rate_set.attrs['valid_num'] = 0
-        labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
-                maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
-        labels_set.attrs['valid_num'] = 0
+        if label_eles_num > 1:
+            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
+                    maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+            labels_set.attrs['valid_num'] = 0
+            self.labels_set = labels_set
         gbixyz_set = self.h5f.create_dataset( 'gbixyz',shape=(total_block_N,3,),\
                 maxshape=(None,3,),dtype=np.int32,compression="gzip", chunks = (chunks_n,3,)  )
         gbixyz_set.attrs['valid_num'] = 0
@@ -4084,7 +4098,6 @@ class Normed_H5f():
             labels_set.attrs[ele] = self.label_ele_idxs[ele]
 
         self.data_set = data_set
-        self.labels_set = labels_set
         #self.bidxmap_dsets = bidxmap_dsets
         #self.pred_logits_set = pred_logits_set
 
@@ -4121,13 +4134,14 @@ class Normed_H5f():
         sg_bidxmap_dset.attrs['valid_num'] = 0
 
         flatten_bidxmap_shape = gsbb_write_or_load.get_flatten_bidxmaps_shape()
-        flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flat',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(2,),dtype=np.int32,
-                                                       maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(2,)  )
-        flatten_bidxmap_dset.attrs['valid_num'] = 0
+        if flatten_bidxmap_shape[1]>0:
+            flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flat',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(2,),dtype=np.int32,
+                                                        maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(2,)  )
+            flatten_bidxmap_dset.attrs['valid_num'] = 0
 
-        fmap_neighbor_idis_dset = self.h5f.create_dataset('fmap_neighbor_idis',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(1,),dtype=np.float32,
-                                                       maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(1,)  )
-        fmap_neighbor_idis_dset.attrs['valid_num'] = 0
+            fmap_neighbor_idis_dset = self.h5f.create_dataset('fmap_neighbor_idis',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(1,),dtype=np.float32,
+                                                        maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(1,)  )
+            fmap_neighbor_idis_dset.attrs['valid_num'] = 0
 
     def write_summary( self ):
         def get_rootb_num( rootb_split_idxmap ):
@@ -4155,10 +4169,11 @@ class Normed_H5f():
             rootb_split_idxmap = self.h5f['rootb_split_idxmap']
             global_b_num = rootb_split_idxmap.shape[0]
             rootb_num = get_rootb_num( rootb_split_idxmap )
+            valid_num = attrs['valid_num']
             for ele_name in attrs:
                 summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 if ele_name == 'missed_point_num':
-                    total_point_num = base_sample_num + attrs[ele_name]
+                    total_point_num = base_sample_num + attrs[ele_name]/valid_num
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
                 if ele_name == 'missed_rootb_num':
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
