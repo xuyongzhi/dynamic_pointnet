@@ -250,7 +250,9 @@ class Net_Provider():
                          str(self.whole_train_data_shape),str(self.whole_eval_data_shape))
        # self.data_summary_str += 'train labels histogram: %s \n'%( np.array_str(np.transpose(self.train_labels_hist_1norm) ))
        # self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(np.transpose(self.test_labels_hist_1norm) ))
-        self.data_summary_str += 'labels histogram: %s \n'%( np.array_str(np.transpose(self.labels_hist_1norm[:,0]) ))
+        self.data_summary_str += 'label histogram:'+','.join('%5.2f'%(lh) for lh in self.labels_hist_1norm[:,0].tolist()) + '\n'
+        self.data_summary_str += 'label   weights:'+','.join('%5.2f'%(lw) for lw in self.labels_weights[:,0].tolist()) + '\n'
+        self.data_summary_str += 'class      name:'+','.join( '%5s'%(Normed_H5f.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(Normed_H5f.g_label2class_dic[self.dataset_name])) )
         #print(self.data_summary_str)
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):
@@ -627,7 +629,7 @@ class Net_Provider():
             test_labels_hist_1norm.append(   np.expand_dims(test_label_hist / np.sum(test_label_hist).astype(float),axis=-1) )
             cur_labels_hist_1norm =  np.expand_dims(label_hist / np.sum(label_hist).astype(float),axis=-1)
             labels_hist_1norm.append(  cur_labels_hist_1norm )
-            labels_weights.append(  1/np.log(1.03+cur_labels_hist_1norm) )
+            labels_weights.append(  1/np.log(1.015+cur_labels_hist_1norm) )
         self.train_labels_hist_1norm = np.concatenate( train_labels_hist_1norm,axis=-1 )
         self.test_labels_hist_1norm = np.concatenate( test_labels_hist_1norm,axis=-1 )
         self.labels_hist_1norm = np.concatenate( labels_hist_1norm,axis=-1 )

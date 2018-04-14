@@ -3767,7 +3767,7 @@ class Normed_H5f():
                     {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
                      8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
 
-    g_label2class_dic['SCANNET'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
+    g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
                                 6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                                 12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                                 17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}

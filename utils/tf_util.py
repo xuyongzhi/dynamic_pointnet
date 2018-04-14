@@ -22,17 +22,20 @@ def shape_str(tensor_ls):
     return shape_str
 
 def _variable_on_cpu(name, shape, initializer, use_fp16=False):
-  """Helper to create a Variable stored on CPU memory.
-  Args:
-    name: name of the variable
-    shape: list of ints
-    initializer: initializer for Variable
-  Returns:
-    Variable Tensor
-  """
-  dtype = tf.float16 if use_fp16 else tf.float32
-  var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
-  return var
+    """Helper to create a Variable stored on CPU memory.
+    Args:
+        name: name of the variable
+        shape: list of ints
+        initializer: initializer for Variable
+    Returns:
+        Variable Tensor
+    """
+    with tf.device('/cpu:0'):
+        dtype = tf.float16 if use_fp16 else tf.float32
+        #print( tf.get_variable_scope().name )
+        #print( tf.get_variable_scope().reuse )
+        var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+    return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
   """Helper to create an initialized Variable with weight decay.
@@ -694,8 +697,14 @@ def dense_net( inputs, dense_config, bn, is_training, bn_decay, activation_fn=tf
     with tf.variable_scope(scope):
         if is_show_model:
             print('%s \ninputs:\t%s'%(scope, shape_str(inputs)))
-        if 'initial_feature_num' in dense_config:
-            outputs = conv2d_(inputs, dense_config['initial_feature_num'], [1,1],
+        if 'initial_feature_num' in dense_config or 'initial_feature_rate' in dense_config:
+            if 'initial_feature_num' in dense_config:
+                initial_feature_num = dense_config['initial_feature_num']
+                assert 'initial_feature_rate' not in dense_config
+            elif 'initial_feature_rate' in dense_config:
+                initial_feature_num = int(dense_config['initial_feature_rate'] * inputs.get_shape()[-1].value)
+
+            outputs = conv2d_(inputs, initial_feature_num, [1,1],
                                         padding='VALID', stride=[1,1],
                                         bn=False, is_training=is_training,
                                         scope='conv_initial', bn_decay=bn_decay, activation_fn=None)

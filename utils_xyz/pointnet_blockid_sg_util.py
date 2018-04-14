@@ -291,6 +291,3 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
     return new_points1
 
 
-
-
-

@@ -117,10 +117,10 @@ DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 CATEGORY_LABEL_IDX = LABEL_ELE_IDXS['label_category'][0]
 TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
-MAX_MULTIFEED_NUM = 3
+MAX_MULTIFEED_NUM = 5
 
 DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
-if TRAIN_FILE_N < 2:
+if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
 try:
@@ -195,6 +195,10 @@ log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
+if FLAGS.inkp_max - FLAGS.inkp_min >0:
+    log_string( 'input dropout: %f - %f'%( FLAGS.inkp_min, FLAGS.inkp_max ) )
+else:
+    log_string('input dropout: No')
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
@@ -293,12 +297,13 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             # Get model and loss on multiple GPUS
             #------------------------------------------
             sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-            pred, end_points, debug = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+            get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
                                                 sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
 
             tower_grads = []
             pred_gpu = []
             total_loss_gpu = []
+            debugs = []
             for gi in range(FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=True):
                     with tf.device('/gpu:%d'%(gi)), tf.name_scope('gpu_%d'%(gi)) as scope:
@@ -324,6 +329,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
                         pred_gpu.append(pred)
                         total_loss_gpu.append(total_loss)
+                        debugs.append(debug)
 
             # Merge pred and losses from multiple GPUs
             pred = tf.concat(pred_gpu, 0)
@@ -381,12 +387,12 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
 
-        if 'l_xyz' in debug:
-            ops['l_xyz'] = debug['l_xyz']
-        if 'grouped_xyz' in debug:
-            ops['grouped_xyz'] = debug['grouped_xyz']
-            ops['flat_xyz'] = debug['flat_xyz']
-            ops['flatten_bidxmap'] = debug['flatten_bidxmap']
+        if 'l_xyz' in debugs[0]:
+            ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
+        if 'grouped_xyz' in debugs[0]:
+            ops['grouped_xyz'] = [ tf.concat( [ debugs[gi]['grouped_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['grouped_xyz'])) ]
+            ops['flat_xyz'] = [ tf.concat( [ debugs[gi]['flat_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['flat_xyz'])) ]
+            ops['flatten_bidxmap'] = [ tf.concat( [ debugs[gi]['flatten_bidxmap'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['flatten_bidxmap'])) ]
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
         max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
@@ -588,7 +594,7 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         def plyfn(name_meta, b0, b1):
             acc_str = '%0.3f'%(accuracy_batch[b0:b1].mean())
             acc_str = acc_str[2:len(acc_str)]
-            ply_folder = LOG_DIR + '/ply/%s_%d_%d_a0d%s/'%(fn_base,  fid_start_end[1]+b0, fid_start_end[1]+b1, acc_str )
+            ply_folder = LOG_DIR + '/ply_%s/%s_%d_%d_a0d%s/'%(show_flag, fn_base, fid_start_end[1]+b0, fid_start_end[1]+b1, acc_str )
             if not os.path.exists(ply_folder):
                 os.makedirs( ply_folder )
             return ply_folder + name_meta + '_'
