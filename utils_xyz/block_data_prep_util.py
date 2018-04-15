@@ -1337,6 +1337,7 @@ class GlobalSubBaseBLOCK():
         print('start writing %s'%(self.bmh5_fn))
         # the elements required to draw block
         wanted_attr_eles = ['block_dims_N','block_step','block_stride','xyz_min_aligned']
+        bmh5_meta_fn = os.path.splitext(self.bmh5_fn)[0]+'.txt'
         with h5py.File(self.bmh5_fn,'w') as h5f:
             h5f.attrs['is_intact_bmh5'] = 0
             self.write_paras_in_h5fattrs( h5f.attrs )
@@ -1347,6 +1348,7 @@ class GlobalSubBaseBLOCK():
             cascade_id_ls = self.cascade_id_ls
             cascade_attrs = {}
             cascade_attrs['root'] = self.root_s_h5f.attrs
+            bmh5_metas = []
             for cascade_id in cascade_id_ls:
                 if cascade_id == 'root':
                     all_sorted_larger_aimbids = all_sorted_blockids_dic[cascade_id]
@@ -1355,10 +1357,17 @@ class GlobalSubBaseBLOCK():
                     all_sorted_base_blockids = all_sorted_blockids_dic[base_cascadeid]
                     base_attrs = cascade_attrs[base_cascadeid]
                     larger_stride, larger_step = self.get_stride_step_(cascade_id)
-                    new_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic = \
+                    new_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic, bmh5_meta = \
                             GlobalSubBaseBLOCK.get_basebids_in_all_largerbid(base_attrs,all_sorted_base_blockids,larger_stride,larger_step, cascade_id, self.padding)
                     all_sorted_blockids_dic[cascade_id] = all_sorted_larger_aimbids
                     cascade_attrs[cascade_id] = new_attrs
+
+                    bmh5_metas.append( bmh5_meta )
+                    #for key in bmh5_meta_i:
+                    #    if key in bmh5_meta:
+                    #        bmh5_meta[key] += bmh5_meta_i[key]
+                    #    else:
+                    #        bmh5_meta[key] = bmh5_meta_i[key]
                 group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
@@ -1376,6 +1385,19 @@ class GlobalSubBaseBLOCK():
                         aim_in_base_map_dset[...] = aim_bids
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
+
+            with open(bmh5_meta_fn,'w') as bmh5_meta_f:
+                bmh5_meta_f.write('Key notes:\n\tReduce lost: increse aim_stride, increase stride.\n\n')
+                for ele in h5f.attrs:
+                    bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
+                bmh5_meta_f.write('\n\n')
+                for cas, bmh5_meta in enumerate(bmh5_metas):
+                    if cas ==0:
+                        bmh5_meta_f.write('cascade root:\n')
+                    else:
+                        bmh5_meta_f.write('cascade %d:\n'%(cas-1))
+                    for key, value in bmh5_meta.items():
+                        bmh5_meta_f.write( '\t%s: %s\n'%(key, value) )
             print('write finish: %s'%(self.bmh5_fn))
 
 
@@ -1473,12 +1495,11 @@ class GlobalSubBaseBLOCK():
             #print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
             basebids_in_largeraimbid_dic_2 = {}
             aimbids_in_smallerbasebid_dic_2 = {}
+            num_lost_baseb = 0  # Reduce lost: increse aim_stride, increase stride
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
-                if len(new_bids_ls) ==0 :
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
+                num_lost_baseb += len(new_bids_ls)==0
                 for new_bid in new_bids_ls:
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
@@ -1508,6 +1529,11 @@ class GlobalSubBaseBLOCK():
 
         larger_blockids = np.array(list(basebids_in_largeraimbid_dic.keys())).astype(np.uint32)
         all_sorted_larger_aimbids = np.sort(larger_blockids)
+        bmh5_meta = {}
+        bmh5_meta['num_lost_baseb'] = num_lost_baseb
+        bmh5_meta['base_block_num'] = all_base_bids.size
+        bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
+        bmh5_meta['GroupingMethod'] = GroupingMethod
 
         if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
             import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -1527,7 +1553,7 @@ class GlobalSubBaseBLOCK():
             #print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
             #          get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
-        return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic
+        return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic, bmh5_meta
 
     @staticmethod
     def fix_bmap( cascade_id, all_sorted_aimbids, all_base_bids_in_aim_dic, nsubblock, npoint_subblock, aim_attrs, debug_meta, IsCheckMissingAimb=False):
@@ -2451,6 +2477,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
         IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
+        if DEBUGTMP:
+            IsCheck_Scope = True
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
 
@@ -2473,7 +2501,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bid_ls.append( aim_bid )
 
         #check scope
-        if IsCheck_Scope:
+        if IsCheck_Scope and len(aim_bid_ls)>0:
             ixyz_check = True
             aim_xyz_max = np.array([-1.0e10,-1.0e10,-1.0e10])
             aim_xyz_min = np.array([1.0e10,1.0e10,1.0e10])
@@ -2514,6 +2542,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert ixyz_check and min_check and max_check
             #print('ixyz, min, max check ok')
+        #if DEBUGTMP and len(aim_bid_ls)==0:
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        #    pass
 
         if IsCheck_mapping==None:
             IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
