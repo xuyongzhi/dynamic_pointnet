@@ -1448,8 +1448,8 @@ class GlobalSubBaseBLOCK():
         new_total_block_N = 0
 
         IsSortRes = True
-        GroupingMethod = 'search_by_voxel'
-        GroupingMethod = 'search_by_point'
+        #GroupingMethod = 'search_by_voxel'    # 26.4 s
+        GroupingMethod = 'search_by_point'   # 8.7 s
         IsCheckTwoMethodsSame = False
 
         if GroupingMethod == 'search_by_voxel' or IsCheckTwoMethodsSame:
