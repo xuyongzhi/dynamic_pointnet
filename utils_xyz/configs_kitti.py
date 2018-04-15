@@ -21,7 +21,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     '''
 
     flatbxmap_max_dis = 4
-    padding = 0.6
+    padding = 0.3
 
     if gsbb_config == '3A1':
         # for scannet
@@ -139,10 +139,10 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         NETCONFIG['max_global_sample_rate'] = global_num_point / 2.0
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
-        sub_block_stride_candis = np.array([0.4, 2]).astype(np.float)
-        sub_block_step_candis   = np.array([0.4, 2]).astype(np.float)
-        nsubblock_candis        =  np.array([128, 24]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 32,  8]).astype(np.int32)
+        sub_block_stride_candis = np.array([0.6, 1]).astype(np.float)
+        sub_block_step_candis   = np.array([ 0.8, 2]).astype(np.float)
+        nsubblock_candis        =  np.array([ 48, 24]).astype(np.int32)
+        npoint_subblock_candis = np.array([ 8, 8]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
