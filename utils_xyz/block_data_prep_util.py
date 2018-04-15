@@ -1387,17 +1387,17 @@ class GlobalSubBaseBLOCK():
             h5f.flush()
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
-                bmh5_meta_f.write('Key notes:\n\tReduce lost: increse aim_stride, increase stride.\n\n')
+                bmh5_meta_f.write('Key notes:\n\tReduce lost: increse block_stride of next cascade, increase padding.\n\n')
                 for ele in h5f.attrs:
                     bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
                 bmh5_meta_f.write('\n\n')
                 for cas, bmh5_meta in enumerate(bmh5_metas):
-                    if cas ==0:
-                        bmh5_meta_f.write('cascade root:\n')
+                    if cas == len(bmh5_metas)-1:
+                        bmh5_meta_f.write('cascade global:\n')
                     else:
-                        bmh5_meta_f.write('cascade %d:\n'%(cas-1))
+                        bmh5_meta_f.write('cascade %d:\n'%(cas))
                     for key, value in bmh5_meta.items():
-                        bmh5_meta_f.write( '\t%s: %s\n'%(key, value) )
+                        bmh5_meta_f.write( '\t%s: %s \n'%(key, value) )
             print('write finish: %s'%(self.bmh5_fn))
 
 
