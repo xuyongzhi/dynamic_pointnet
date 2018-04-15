@@ -1447,6 +1447,7 @@ class GlobalSubBaseBLOCK():
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
         new_total_block_N = 0
 
+        IsSortRes = True
         GroupingMethod = 'search_by_voxel'
         GroupingMethod = 'search_by_point'
         IsCheckTwoMethodsSame = False
@@ -1480,6 +1481,7 @@ class GlobalSubBaseBLOCK():
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_1
+            num_lost_baseb = all_base_bids.size - len(basebids_in_largeraimbid_dic)
             # get aimbids_in_smallerbasebid_dic_1
             for aim_bid, basebids in basebids_in_largeraimbid_dic_1.items():
                 for base_bid in basebids:
@@ -1487,6 +1489,9 @@ class GlobalSubBaseBLOCK():
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.array( [aim_bid] )
                     else:
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic_1[base_bid],np.array( [aim_bid] )]  )
+            if IsSortRes:
+                for key in aimbids_in_smallerbasebid_dic_1:
+                    aimbids_in_smallerbasebid_dic_1[key].sort()
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_1
         if GroupingMethod == 'search_by_point' or IsCheckTwoMethodsSame:
             #print('base step: %s'%(base_attrs['block_step']))
@@ -1495,7 +1500,7 @@ class GlobalSubBaseBLOCK():
             #print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
             basebids_in_largeraimbid_dic_2 = {}
             aimbids_in_smallerbasebid_dic_2 = {}
-            num_lost_baseb = 0  # Reduce lost: increse aim_stride, increase stride
+            num_lost_baseb = 0  # Reduce lost: increse aim_stride, increase padding
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
@@ -1504,25 +1509,31 @@ class GlobalSubBaseBLOCK():
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
-                aimbids_in_smallerbasebid_dic_2[base_bid] = new_bids_ls
+                aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
 
-                #if new_block_id >0 and new_block_id % 5000==0:
-                #    rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
-                #    print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
-                #        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+                if j>0 and j % int(all_base_bids.size/5) == 0:
+                    rate = 100.0*j/all_base_bids.size
+                    print('%f%%  new stride step: %s      base stride step: %s'%(rate,
+                        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+
+            # sort basebids_in_largeraimbid_dic_2
+            if IsSortRes:
+                for key in basebids_in_largeraimbid_dic_2:
+                    basebids_in_largeraimbid_dic_2[key].sort()
 
             if IsCheckTwoMethodsSame:
                 assert len(aimbids_in_smallerbasebid_dic_1) == len(aimbids_in_smallerbasebid_dic_2)
                 for key, value in aimbids_in_smallerbasebid_dic_1.items():
-                    if not (value == aimbids_in_smallerbasebid_dic_2[key]).all():
+                    value_2 = aimbids_in_smallerbasebid_dic_2[key]
+                    if  value.size != value_2.size or  np.not_equal(value, value_2).sum() != 0:
                         import pdb; pdb.set_trace()  # XXX BREAKPOINT
                         pass
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert len( basebids_in_largeraimbid_dic_1 ) == len( basebids_in_largeraimbid_dic_2 )
                 for key, value in basebids_in_largeraimbid_dic_1.items():
-                    assert (value == basebids_in_largeraimbid_dic_2[key]).all()
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
+                    value_2 = basebids_in_largeraimbid_dic_2[key]
+                    if  value.size != value_2.size or  np.not_equal(value, value_2).sum() != 0:
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                        pass
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_2
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_2
 
@@ -2436,10 +2447,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         base_bixyz = Sorted_H5f.block_index_to_ixyz_(base_bid, base_attrs)
 
-        for i in range(3):
-            if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
-                # at the edge block, use 1.0 padding to avoid lost some aim_bids
-                smallb_ixyz_padding_max[i]  =1
+        # Disable this, so the two grouping methods get the same results.
+        #for i in range(3):
+        #    if base_bixyz[i] == base_attrs['block_dims_N'][i]-1:
+        #        # at the edge block, use 1.0 padding to avoid lost some aim_bids
+        #        smallb_ixyz_padding_max[i]  =1
 
         large_step_flag = ''
         if (base_attrs['block_step'] == aim_attrs['block_step']).all():
@@ -2477,8 +2489,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
         IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
-        if DEBUGTMP:
-            IsCheck_Scope = True
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
 
@@ -2542,9 +2552,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert ixyz_check and min_check and max_check
             #print('ixyz, min, max check ok')
-        #if DEBUGTMP and len(aim_bid_ls)==0:
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #    pass
 
         if IsCheck_mapping==None:
             IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
@@ -3418,8 +3425,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
-                #if DEBUGTMP:
-                #    print('global_sample_rate:%f'%(global_sample_rate))
                 if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
                     num_global_block_abandoned += 1
                     num_point_abandoned += block_datas.shape[0]
