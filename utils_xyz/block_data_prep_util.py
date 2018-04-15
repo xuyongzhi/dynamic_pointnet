@@ -1424,14 +1424,14 @@ class GlobalSubBaseBLOCK():
         new_sorted_h5f_attrs = Sorted_H5f.get_attrs_of_new_stride_step_(base_attrs,larger_stride,larger_step)
         new_block_dims_N = new_sorted_h5f_attrs['block_dims_N']
         new_total_block_N = 0
-        aimbids_in_smallerbasebid_dic = {}
 
         GroupingMethod = 'search_by_voxel'
         GroupingMethod = 'search_by_point'
-        IsCheckTwoMethodsSame = True
+        IsCheckTwoMethodsSame = False
 
         if GroupingMethod == 'search_by_voxel' or IsCheckTwoMethodsSame:
             basebids_in_largeraimbid_dic_1 = {}
+            aimbids_in_smallerbasebid_dic_1 = {}
             max_new_block_id = Sorted_H5f.ixyz_to_block_index_(new_block_dims_N-1,new_sorted_h5f_attrs)
             print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
@@ -1458,19 +1458,21 @@ class GlobalSubBaseBLOCK():
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_1
-            # get aimbids_in_smallerbasebid_dic
+            # get aimbids_in_smallerbasebid_dic_1
             for aim_bid, basebids in basebids_in_largeraimbid_dic_1.items():
                 for base_bid in basebids:
-                    if base_bid not in aimbids_in_smallerbasebid_dic:
-                        aimbids_in_smallerbasebid_dic[base_bid] = np.array( [aim_bid] )
+                    if base_bid not in aimbids_in_smallerbasebid_dic_1:
+                        aimbids_in_smallerbasebid_dic_1[base_bid] = np.array( [aim_bid] )
                     else:
-                        aimbids_in_smallerbasebid_dic[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic[base_bid],np.array( [aim_bid] )]  )
+                        aimbids_in_smallerbasebid_dic_1[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic_1[base_bid],np.array( [aim_bid] )]  )
+            aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_1
         if GroupingMethod == 'search_by_point' or IsCheckTwoMethodsSame:
             #print('base step: %s'%(base_attrs['block_step']))
             #print('base stride: %s'%(base_attrs['block_stride']))
             #print('aim step: %s'%(new_sorted_h5f_attrs['block_step']))
             #print('aim stride: %s'%(new_sorted_h5f_attrs['block_stride']))
             basebids_in_largeraimbid_dic_2 = {}
+            aimbids_in_smallerbasebid_dic_2 = {}
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
@@ -1481,7 +1483,7 @@ class GlobalSubBaseBLOCK():
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
-                aimbids_in_smallerbasebid_dic[base_bid] = new_bids_ls
+                aimbids_in_smallerbasebid_dic_2[base_bid] = new_bids_ls
 
                 #if new_block_id >0 and new_block_id % 5000==0:
                 #    rate = 1.0*(new_block_id+1)/(max_new_block_id+1)*100
@@ -1489,6 +1491,11 @@ class GlobalSubBaseBLOCK():
                 #        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
             if IsCheckTwoMethodsSame:
+                assert len(aimbids_in_smallerbasebid_dic_1) == len(aimbids_in_smallerbasebid_dic_2)
+                for key, value in aimbids_in_smallerbasebid_dic_1.items():
+                    if not (value == aimbids_in_smallerbasebid_dic_2[key]).all():
+                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                        pass
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 assert len( basebids_in_largeraimbid_dic_1 ) == len( basebids_in_largeraimbid_dic_2 )
                 for key, value in basebids_in_largeraimbid_dic_1.items():
@@ -1496,6 +1503,7 @@ class GlobalSubBaseBLOCK():
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
                     pass
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_2
+            aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_2
 
 
         larger_blockids = np.array(list(basebids_in_largeraimbid_dic.keys())).astype(np.uint32)
@@ -2479,16 +2487,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if large_step_flag == 'base':
                 min_gap = -(base_xyz_min - aim_xyz_min)
                 max_gap = -(aim_xyz_max - base_xyz_max)
-                small_step = aim_attrs['block_step']
+                max_step_gap = base_attrs['block_step'] - aim_attrs['block_step'] + np.array([1.0e-10,1.0e-10,1.0e-10])
+                small_step = aim_attrs['block_step'] + np.array([1.0e-10,1.0e-10,1.0e-10])
             elif large_step_flag == 'aim':
                 min_gap = base_xyz_min - aim_xyz_min
                 max_gap = aim_xyz_max - base_xyz_max
-                small_step = base_attrs['block_step']
+                max_step_gap = aim_attrs['block_step'] - base_attrs['block_step'] + np.array([1.0e-10,1.0e-10,1.0e-10])
+                small_step = base_attrs['block_step'] + np.array([1.0e-10,1.0e-10,1.0e-10])
             max_padding = smallb_ixyz_padding_max * small_step + 1e-10
-            # gap > 0: lost some space
+            # both gap > 0 => gap > -padding
+            # both gap < max_step_gap
+            # gap < -padding or  gap > max_step_gap => partial containing or not containing
             lost_space_gap = (min_gap + max_gap)
-            min_check = ( min_gap > -max_padding ).all() and ( min_gap < small_step ).all()
-            max_check = ( max_gap > -max_padding ).all() and ( max_gap < small_step ).all()
+            min_check = ( min_gap > -max_padding ).all() and ( min_gap < max_step_gap + max_padding ).all()
+            max_check = ( max_gap > -max_padding ).all() and ( max_gap < max_step_gap + max_padding ).all()
             if not (min_check and max_check and ixyz_check):
                 show_info()
                 if not min_check:
