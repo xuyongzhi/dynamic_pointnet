@@ -315,7 +315,7 @@ class Matterport3D_Prepare():
             print('no file mathces %s'%( os.path.join(house_rawh5f_dir,'*.rh5')  ))
         #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
-        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/' + house_name
+        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/'
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
@@ -343,7 +343,7 @@ class Matterport3D_Prepare():
         file_list = []
         #house_names_ls.sort()
         for house_name in house_names_ls:
-            house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
+            house_sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step))
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             #if TMPDEBUG:
             #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
@@ -527,17 +527,15 @@ def parse_house_ls():
     # house_names = all_house_names
     house_names.sort()
 
-    # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
-    # operations = ['SortRaw','GenPyramid']
-    #operations  = ['ParseRaw']
-    #operations  = ['SortRaw']
-    #operations  = ['GenPyramid']    ## generating a one region
-    operations  = ['GenPyramid','Merge']   ## merge several regions in one house
+    operations = ['SortRaw','GenPyramid','Merge']
+    # operations  = ['SortRaw']
+    # operations  = ['GenPyramid']    ## generating a one region
+    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
-    #operations  = ['GenObj_SortedH5f']
-    #operations  = ['GenObj_RawH5f']
-    #operations  = ['GenObj_NormedH5f']
-    #operations  = ['pr_sample_rate']
+    # operations  = ['GenObj_SortedH5f']
+    # operations  = ['GenObj_RawH5f']
+    # operations  = ['GenObj_NormedH5f']
+    # operations  = ['pr_sample_rate']
 
     #operations  = ['GenPyramid' , 'MergeNormed_region']
 

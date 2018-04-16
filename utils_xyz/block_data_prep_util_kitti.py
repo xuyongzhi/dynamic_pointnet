@@ -457,7 +457,7 @@ class GlobalSubBaseBLOCK():
             out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
-            blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
+            blockid_maps_fn = out_folder + '/' + region_name + '.bmh5'
         else:
             assert False, datasource_name
 
@@ -3346,7 +3346,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
-            scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
+            scannet_h5f_dir = os.path.dirname( os.path.dirname(self.file_name))
             out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
             out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
 
