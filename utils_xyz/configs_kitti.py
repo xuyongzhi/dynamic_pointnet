@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
 
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3D2'
+_gsbb_config = '3D3'
 #_gsbb_config = '3B4'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
@@ -115,44 +115,37 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
 
 
-    elif gsbb_config == '3D1':
+    elif gsbb_config == '3D3':
         ## generating the KITTI dataset benchmark
         global_stride = np.array([-100,-100,-100]).astype(np.float)
         global_step = np.array([-100,-100,-100]).astype(np.float)
         max_global_num_point = 32768
         global_num_point = 32768
         flatbxmap_max_nearest_num = -1  # do not generate flatbxmap
-        NETCONFIG['max_global_sample_rate'] = global_num_point / 2.0
+        NETCONFIG['max_global_sample_rate'] = 5
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
 
         sub_block_stride_candis = np.array([0.2, 0.4, 0.4]).astype(np.float)
         sub_block_step_candis   = np.array([0.4, 0.8, 1.8]).astype(np.float)
-        nsubblock_candis        =np.array([32, 16, 16]).astype(np.int32)
-        npoint_subblock_candis = np.array([32,  4, 4]).astype(np.int32)
+        nsubblock_candis        =np.array([12800, 6400, 560]).astype(np.int32)
+        npoint_subblock_candis = np.array([16,  8, 8]).astype(np.int32)
 
 
     elif gsbb_config == '3D2':
         ## generating the KITTI dataset benchmark
         global_stride = np.array([-1,-1,-1]).astype(np.float)*100
         global_step = np.array([-1,-1,-1]).astype(np.float)*100
-        max_global_num_point = 16384
-        global_num_point = 16384
+        max_global_num_point = 32768
+        global_num_point = 32768
         flatbxmap_max_nearest_num = -1  # do not generate flatbxmap
-        NETCONFIG['max_global_sample_rate'] = global_num_point / 2.0
+        NETCONFIG['max_global_sample_rate'] = 5
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
-<<<<<<< HEAD
-        sub_block_stride_candis = np.array([0.2, 2]).astype(np.float)
-        sub_block_step_candis   = np.array([0.4, 2]).astype(np.float)
-        nsubblock_candis        =  np.array([128, 24]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 32,  8]).astype(np.int32)
-=======
-        sub_block_stride_candis = np.array([0.6, 1]).astype(np.float)
-        sub_block_step_candis   = np.array([ 0.8, 2]).astype(np.float)
+        sub_block_stride_candis = np.array([0.2, 1]).astype(np.float)
+        sub_block_step_candis   = np.array([ 0.2, 2]).astype(np.float)
         nsubblock_candis        =  np.array([ 48, 24]).astype(np.int32)
         npoint_subblock_candis = np.array([ 8, 8]).astype(np.int32)
->>>>>>> 5239c61aa7ba2d8a637dd4d8a213e08b5ef4b2ab
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
