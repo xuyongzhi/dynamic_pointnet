@@ -709,7 +709,7 @@ def parse_house(house_names_ls, operations):
         matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
-    house_names = ['rawh5f_xyz_16384']
+    # house_names = ['rawh5f_xyz']
     house_names = ['rawh5f']
     # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
@@ -723,7 +723,7 @@ def parse_house_ls():
     # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
     # operations = ['SortRaw','GenPyramid']
     #operations  = ['ParseRaw']
-    #operations  = ['SortRaw']
+    # operations  = ['SortRaw']
     operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['MergeNormed_region']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
