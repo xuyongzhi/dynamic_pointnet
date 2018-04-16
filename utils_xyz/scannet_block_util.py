@@ -311,7 +311,7 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:750]   # L
+            file_list = file_list[0:1]   # L
         #    #file_list = file_list[750:len(file_list)] # R
         #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
@@ -349,6 +349,7 @@ class Scannet_Prepare():
         plsph5_folder = 'Org_sph5/90000_gs-4_-6d3'
         #bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_10_24_32-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
         bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_18_27_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1F'
+        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C0'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -434,7 +435,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
