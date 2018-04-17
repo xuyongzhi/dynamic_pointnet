@@ -527,10 +527,10 @@ def parse_house_ls():
     # house_names = all_house_names
     house_names.sort()
 
-    operations = ['SortRaw','GenPyramid','Merge']
+    # operations = ['SortRaw','GenPyramid','Merge']
     # operations  = ['SortRaw']
     # operations  = ['GenPyramid']    ## generating a one region
-    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
+    operations  = ['GenPyramid','Merge']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
     # operations  = ['GenObj_SortedH5f']
     # operations  = ['GenObj_RawH5f']
