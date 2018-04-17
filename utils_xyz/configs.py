@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is ve
 NETCONFIG['merge_blocks_while_fix_bmap'] = True
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3D2'
+_gsbb_config = '3D3'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -79,39 +79,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([8000, 4800, 320, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([24, 20,  40,  32]).astype(np.int32)
 
-    elif gsbb_config == '3C1':
-        global_stride = np.array([-4,-4,-10]).astype(np.float)
-        global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
-        global_num_point = 10000 * 9
-        flatbxmap_max_nearest_num = 6
-
-        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.8]).astype(np.float)
-        sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
-        nsubblock_candis =       np.array([6400, 2400, 300, 30]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 10,  24,  32]).astype(np.int32)
-
-    elif gsbb_config == '3C1F':
-        global_stride = np.array([-4,-4,-10]).astype(np.float)
-        global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
-        global_num_point = 10000 * 9
-        flatbxmap_max_nearest_num = 6
-
-        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.8]).astype(np.float)
-        sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
-        nsubblock_candis =       np.array([6400, 2400, 300, 30]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 18,  27,  48]).astype(np.int32)
-
-    elif gsbb_config == '3C0':
-        global_stride = np.array([-4,-4,-10]).astype(np.float)
-        global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
-        global_num_point = 10000 * 9
-        flatbxmap_max_nearest_num = 6
-
-        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.8]).astype(np.float)
-        sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
-        nsubblock_candis =       np.array([6400, 2400, 320, 32]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 16,  32,  48]).astype(np.int32)
-
 
     elif gsbb_config == '3C2':
         global_stride = np.array([-3,-3,-10]).astype(np.float)
@@ -124,6 +91,17 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([1600, 480, 48]).astype(np.int32)
         npoint_subblock_candis = np.array([80,  16,  32]).astype(np.int32)
 
+    elif gsbb_config == '4C0':  # ***
+        global_stride = np.array([-4,-4,-10]).astype(np.float)
+        global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
+        global_num_point = 10000 * 9
+        flatbxmap_max_nearest_num = 6
+
+        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.8]).astype(np.float)
+        sub_block_step_candis   = np.array([0.1,0.3,0.9,2.7]).astype(np.float)
+        nsubblock_candis =       np.array([6400, 2400, 320, 32]).astype(np.int32)
+        npoint_subblock_candis = np.array([32, 16,  32,  48]).astype(np.int32)
+
 
     elif gsbb_config == '2C1':
         global_stride = np.array([0.5,0.5,-1]).astype(np.float)
@@ -135,35 +113,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis = np.array([0.2,0.6]).astype(np.float)
         nsubblock_candis =       np.array([160,32]).astype(np.int32)
         npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
-
-
-    elif gsbb_config == '3D1':
-        ## generating the KITTI dataset benchmark
-        global_stride = np.array([-1,-1,-1]).astype(np.float)
-        global_step = np.array([-1,-1,-1]).astype(np.float)
-        max_global_num_point = 16384
-        global_num_point = 16384
-        flatbxmap_max_nearest_num = 3
-
-        sub_block_stride_candis = np.array([0.2, 0.4, 0.6]).astype(np.float)
-        sub_block_step_candis   = np.array([0.4, 0.8, 1.8]).astype(np.float)
-        nsubblock_candis        =  np.array([4086, 2048, 1024]).astype(np.int32)
-        npoint_subblock_candis = np.array([32,  16, 8]).astype(np.int32)
-
-    elif gsbb_config == '3D2':
-        ## generating the KITTI dataset benchmark
-        global_stride = np.array([-1,-1,-1]).astype(np.float)*100
-        global_step = np.array([-1,-1,-1]).astype(np.float)*100
-        max_global_num_point = 16384
-        global_num_point = 16384
-        flatbxmap_max_nearest_num = -1  # do not generate flatbxmap
-        NETCONFIG['max_global_sample_rate'] = global_num_point / 2.0
-        NETCONFIG['merge_blocks_while_fix_bmap'] = False
-
-        sub_block_stride_candis = np.array([0.6, 1]).astype(np.float)
-        sub_block_step_candis   = np.array([ 0.8, 2]).astype(np.float)
-        nsubblock_candis        =  np.array([ 48, 24]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 8, 8]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 

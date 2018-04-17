@@ -30,7 +30,10 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
         return flatten_bidxmap_i_concat
 
-def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_bidxmaps_shape, flatten_bidxmaps_shape, flatten_bm_extract_idx):
+def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_configs):
+    sg_bidxmaps_shape = sgf_configs['sg_bidxmaps_shape']
+    flatten_bidxmaps_shape = sgf_configs['flatten_bidxmaps_shape']
+    flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
     with tf.variable_scope("pls") as pl_sc:
         pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (data_num_ele,))
         labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample + (label_num_ele,))
@@ -216,7 +219,7 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     fbmap_neighbor_dis_global = tf.zeros(shape = [batch_size, nsubblock_last, nearest_block_num, 1], dtype=tf.float32)
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
-def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_extract_idx, flatten_bidxmaps, fbmap_neighbor_dis, flatten_bm_extract_idx, bn_decay=None, IsDebug=False):
+def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, sgf_configs, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
@@ -227,6 +230,9 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_e
         IsAddGlobalLayer = True
     else:
         IsAddGlobalLayer = False
+
+    flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
+    sg_bm_extract_idx = sgf_configs['sg_bm_extract_idx']
 
     batch_size = rawdata.get_shape()[0].value
     global_num_point = rawdata.get_shape()[1].value
@@ -256,9 +262,10 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sg_bm_e
             start = sg_bm_extract_idx[k]
             end = sg_bm_extract_idx[k+1]
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+            block_center_xyz_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+3 ]
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k, mlps_0[k], mlps_1[k], is_training=is_training,
-                                                        bn_decay=bn_decay, scope='sa_layer'+str(k) )
+        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
+                                                                    is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
             debug['grouped_xyz'].append( grouped_xyz )

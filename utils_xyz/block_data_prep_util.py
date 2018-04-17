@@ -55,11 +55,13 @@ Search with "name:" to find the definition.
 '''
 '''    Important functions
     get_blockids_of_dif_stride_step
+    get_all_bidxmaps
+    gsbb naming: get_pyramid_flag
 '''
 
 SHOW_ONLY_ERR = False
 DEBUGTMP=True
-ENABLECHECK = False
+ENABLECHECK = True
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -353,6 +355,10 @@ class GlobalSubBaseBLOCK():
         assert IsIntact, s
         with h5py.File( bxmh5_fn,'r' ) as h5f:
             for ele_name in self.para_names + self.meta_names + self.root_para_names:
+                if 'bidxmaps_flat' not in h5f:
+                    if ele_name=='baseb_exact_flat_num' or ele_name=='after_fix_missed_baseb_num' or ele_name=='around_aimb_dis_mean' or ele_name=='around_aimb_dis_std' or ele_name=='sr_count':
+                        if ele_name not in h5f.attrs:
+                            continue
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
         self.update_parameters()
 
@@ -541,8 +547,8 @@ class GlobalSubBaseBLOCK():
             flag_str += my_str(s)
             if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
-        if not OnlyGlobal:
-            flag_str += '-' + self.gsbb_config
+        flag_str += '-pd'+str(int(self.padding*10))
+        flag_str += '-' + self.gsbb_config
         return flag_str
 
     def get_block_sample_shape(self,cascade_id):
@@ -665,10 +671,11 @@ class GlobalSubBaseBLOCK():
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
 
-        sg_bidxmap: (nsubblock, npoint_subblock)
-            sg_bidxmap[ aim_bid_index,: ] = [base_bid_index_0,1,2 ....31 ]
+        sg_bidxmap: (nsubblock, npoint_subblock+3)
+            sg_bidxmap[ aim_bid_index,: ] = [base_bid_index_0,1,2 ....31 ] = [block_center_x,y,z]
             base_bid_index is the index of base_bid stored in valid_sorted_basebids
             aim_bid_index is the index of aim_bid stored in sorted_aimbids_fixed
+            There are two options to get the grouping position: 1) mean of points grouped, 2) use the block center ( stored at the end of sg_bidxmap dim0)
 
         sg_bidxmaps: (sum of nsubblocks of all cascades, max of npoint_subblocks of all cascades)
 
@@ -771,6 +778,8 @@ class GlobalSubBaseBLOCK():
         else:
             base_attrs = self.get_new_attrs( cascade_id-1 )
         sg_bidxmap_fixed = np.ones(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32) * (-11)
+        # record the block center of each grouped aim block
+        aimb_center_xyz = np.zeros( shape=(aim_nsubblock,3) ).astype(np.float32)
 
         if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
         else: base_nsubblock = self.global_num_point
@@ -783,6 +792,7 @@ class GlobalSubBaseBLOCK():
             aim_bid = sorted_aimbids_fixed[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
             sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
+            aimb_center_xyz[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
 
             if not IsGenFlatbxmap:
                 continue
@@ -859,8 +869,8 @@ class GlobalSubBaseBLOCK():
             # insufficient aim_nsubblock or small aim_sub_block_size.
             # If still cannot find enough from nealy space, these base blocks are
             # missed, and will be set random aim bid and large distance (zero weight)
+            around_aimb_dis = []
             if self.flatbxmap_max_nearest_num > 1:
-                around_aimb_dis = []
                 sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
                 allaimbids_in_base_dic = self.get_all_aim_bids_in_base_dic( cascade_id )
                 if IsRecordTime: tts = []
@@ -992,13 +1002,18 @@ class GlobalSubBaseBLOCK():
             if len(around_aimb_dis) > 0:
                 bxmap_meta['around_aimb_dis_mean'] = np.array( [np.mean(around_aimb_dis)] )
                 bxmap_meta['around_aimb_dis_std'] = np.array( [np.std(around_aimb_dis)] )
+                bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
             else:
                 bxmap_meta['around_aimb_dis_mean'] = np.array( [0] )
                 bxmap_meta['around_aimb_dis_std'] = np.array( [0] )
-            bxmap_meta['sr_count'] = np.array( [sr_counts.mean()] )
+                bxmap_meta['sr_count'] = np.array( [0] )
         else:
             flatten_bidxmap_fixed = np.ones(shape=(base_nsubblock, 0,3)).astype(np.float64)*(-11)
 
+        # append aimb_center_xyz to the end of sg_bidxmap_fixed
+        # convert to mm and int32
+        aimb_center_xyz_mm = np.rint(aimb_center_xyz * 1000).astype(np.int32)
+        sg_bidxmap_fixed = np.concatenate( [sg_bidxmap_fixed, aimb_center_xyz_mm],-1 )
         return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
@@ -1208,15 +1223,30 @@ class GlobalSubBaseBLOCK():
 
         return sg_bidxmaps, flatten_bidxmaps, bxmap_metas
 
-    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id):
+    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag="both"):
+        return GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, self.sg_bidxmaps_extract_idx, cascade_id, flag )
+
+    @staticmethod
+    def extract_sg_bidxmaps_(sg_bidxmaps, sg_bidxmaps_extract_idx, cascade_id, flag="both"):
         # all cascade sg_bidxmap are concated together into sg_bidxmaps
         # Here to extract one sg_bidxmap of cascade_id
-        start = self.sg_bidxmaps_extract_idx[cascade_id,:]
-        end = self.sg_bidxmaps_extract_idx[cascade_id+1,:]
+        # include_bcxyz: the last 3 channels of dim 0 is grouped block center xyz
+        start = sg_bidxmaps_extract_idx[cascade_id,:]
+        end   = sg_bidxmaps_extract_idx[cascade_id+1,:]
+        if flag=="both" or "only_aimb_center_xyz_mm":
+            include_bcxyz = True
+        else:
+            include_bcxyz = False
+            assert flag == 'only_sg_bidxmap'
+        if flag == "only_aimb_center_xyz_mm":
+            start_1 = end[1]
+        else:
+            start_1 = 0
+
         if sg_bidxmaps.ndim == 2:
-            return sg_bidxmaps[ start[0]:end[0],0:end[1] ]
+            return sg_bidxmaps[ start[0]:end[0], start_1:end[1]+3*include_bcxyz ]
         else:# with batch dimension
-            return sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+            return sg_bidxmaps[ :,start[0]:end[0], start_1:end[1]+3*include_bcxyz ]
 
     def extract_flatten_bidxmaps(self,flatten_bidxmaps,cascade_id):
         start = self.flatten_bidxmaps_extract_idx[cascade_id,:]
@@ -1230,7 +1260,8 @@ class GlobalSubBaseBLOCK():
         # tile all the sg_bidxmaps to same(max) shape[0], so that they can be
         # concatenated in one array
         shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])
-        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num])
+        # add 3 for block center xyz
+        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num]) + 3
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
@@ -4090,7 +4121,7 @@ class Normed_H5f():
     def copy_root_attrs_from_normed(self,h5f_normed, in_bxmh5_fn=None, flag=None):
         if 'data' in h5f_normed:
             self.copy_root_attrs_from_normed_plsph5( h5f_normed, flag )
-        elif 'bidxmaps_flat' in h5f_normed:
+        elif 'bidxmaps_sample_group' in h5f_normed:
             self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bxmh5_fn, flag )
         else:
             assert False

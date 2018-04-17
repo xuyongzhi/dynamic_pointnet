@@ -363,6 +363,46 @@ class Net_Provider():
             self.norm_h5f_L[f_idx].h5f.flush()
 
 
+    @staticmethod
+    def get_indices_in_voxel( sg_bidxmaps, sg_bidxmaps_extract_idx, sub_block_stride_candis, sub_block_step_candis ):
+        '''
+        Convert from block center xyz_mm to point indices inside voxel.
+        This should be performed in training model, just test it here in advance.
+        '''
+        aimb_center_xyz_mm_ls = []
+        strides_mm = sub_block_stride_candis * 1000
+        steps_mm =  sub_block_step_candis * 1000
+        points_indices_in_voxel_all = []
+        for cascade_id in range( len(strides_mm) ):
+            sg_bidxmap_acxm =  GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, sg_bidxmaps_extract_idx, cascade_id, flag='both' )
+            sg_bidxmap = sg_bidxmap_acxm[...,0:sg_bidxmap_acxm.shape[-1]-3]
+            aimb_center_xyz_mm = sg_bidxmap_acxm[...,-3:sg_bidxmap_acxm.shape[-1]]
+            aimb_center_xyz_mm_ls.append( aimb_center_xyz_mm )
+            if cascade_id>0:
+                # get the grouped xyz
+                assert sg_bidxmap.shape[0] == 1
+                points_indices_in_voxel_ls = []
+                for batch in range(sg_bidxmap.shape[0]):
+                    grouped_points_xyz_mm = np.take( aimb_center_xyz_mm_ls[cascade_id-1][batch], sg_bidxmap[batch], axis=0 )
+                    points_indices_ls = []
+                    for aimb in range(grouped_points_xyz_mm.shape[0]):
+                        # points_invoxel_xyzs_mm is positions of all the points inside a voxels
+                        # point_stride_mm is the stride between these points
+                        points_invoxel_xyzs_mm = grouped_points_xyz_mm[aimb,:]
+                        voxel_center_xyz_mm = aimb_center_xyz_mm[batch,aimb]
+                        min_point_xyz_mm = voxel_center_xyz_mm - steps_mm[cascade_id]*0.5 + steps_mm[cascade_id-1]*0.5
+                        points_indices = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1]
+                        points_indices = np.rint( points_indices ).astype( np.int32 )
+                        points_indices_ls.append(np.expand_dims(points_indices,axis=0))
+
+                        max_indice = (steps_mm[cascade_id] - steps_mm[cascade_id-1]) / strides_mm[cascade_id-1]
+                        assert points_indices.min() >= 0
+                        assert points_indices.max() <= max_indice
+                    points_indices_batch = np.concatenate( points_indices_ls, 0 )
+                    points_indices_in_voxel_ls.append( np.expand_dims(points_indices_batch,0) )
+                points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
+                points_indices_in_voxel_all.append( points_indices_in_voxe )
+        pass
 
     def get_global_batch(self,g_start_idx,g_end_idx):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
@@ -485,6 +525,8 @@ class Net_Provider():
             assert False
 
         fid_start_end = np.concatenate( fid_start_end,0 )
+
+        #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
@@ -647,9 +689,16 @@ def main_NormedH5f():
     '''
     t0 = time.time()
     dataset_name = 'matterport3d'
+    dataset_name = 'scannet'
 
-    all_filename_glob = ['v1/each_hosue/stride_0d1_step_0d1_pl_sph5_1d6_2/1']
-    eval_fnglob_or_rate = 0.3
+    all_fn_globs = ['Merged_sph5/90000_gs-4_-6d3/']
+    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C0'
+    eval_fnglob_or_rate = 'test'
+
+    all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
+    bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
+    eval_fnglob_or_rate = 'scene0000_00'
+
     #eval_fnglob_or_rate = 'region0'
 
     #all_filename_glob = ['all_merged_nf5']
@@ -657,19 +706,21 @@ def main_NormedH5f():
     num_point_block = None
 
     only_evaluate = False
-    feed_data_elements = ['xyz','xyz_1norm_file','xyz_midnorm_block']
-    feed_data_elements = ['xyz_midnorm_block', 'xyz', 'color_1norm']
-    feed_label_elements = ['label_category','label_instance']
+    Feed_Data_Elements = ['xyz','xyz_1norm_file','xyz_midnorm_block']
+    Feed_Data_Elements = ['xyz','xyz_midnorm_block', 'color_1norm']
+    Feed_Label_Elements = ['label_category','label_instance']
     #feed_label_elements = ['label_category','label_instance']
-    net_provider=Net_Provider(
-                              dataset_name=dataset_name,
-                              all_filename_glob=all_filename_glob,
-                              eval_fnglob_or_rate=eval_fnglob_or_rate,
-                              bxmh5_folder_name = 'stride_0d1_step_0d1_bmap_sph5_25600_1d6_2_fmn6-2048_256_64-192_48_6-0d2_0d6_1d2-0d1_0d4_0d8',
-                              only_evaluate=only_evaluate,
-                              num_point_block=num_point_block,
-                              feed_data_elements=feed_data_elements,
-                              feed_label_elements=feed_label_elements)
+    net_configs = {}
+    net_configs['loss_weight'] = 'E'
+    net_provider = Net_Provider(
+                                net_configs=net_configs,
+                                dataset_name=dataset_name,
+                                all_filename_glob=all_fn_globs,
+                                eval_fnglob_or_rate=eval_fnglob_or_rate,
+                                bxmh5_folder_name = bxmh5_folder_name,
+                                only_evaluate = False,
+                                feed_data_elements=Feed_Data_Elements,
+                                feed_label_elements=Feed_Label_Elements)
     t1 = time.time()
     print(net_provider.data_summary_str)
     print('init time:',t1-t0)
@@ -686,7 +737,8 @@ def main_NormedH5f():
         #end = net_provider.eval_num_blocks
         end = min( bk+steps[ply_flag], net_provider.eval_num_blocks )
         t0 = time.time()
-        cur_data, cur_label, cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps = net_provider.get_eval_batch(bk, end, IsShuffleIdx=IsShuffleIdx )
+        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, \
+            cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(bk, end, False)
         print('read each block t=%f ms IsShuffleIdx=%s'%( (time.time()-t0)/(end-bk)*1000, IsShuffleIdx ) )
         xyz_idxs = net_provider.feed_data_ele_idxs['xyz']
         color_idxs = net_provider.feed_data_ele_idxs['color_1norm']
@@ -740,5 +792,5 @@ def check_bxmap_pl_shape_match():
                 print('shape mathch err')
 
 if __name__=='__main__':
-    #main_NormedH5f()
-    check_bxmap_pl_shape_match()
+    main_NormedH5f()
+    #check_bxmap_pl_shape_match()

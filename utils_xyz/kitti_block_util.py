@@ -241,10 +241,13 @@ class Matterport3D_Prepare():
         If want high downsamplig rate, it should start with possion reconstuction mesh of low depth.
     The semantic labels of each point are achieved from faces.
     '''
-
     matterport3D_root_dir = '/home/ben/dataset/Voxel'
     matterport3D_extracted_dir = '/home/ben/dataset/Voxel'
     matterport3D_h5f_dir = '/home/ben/dataset/Voxel'
+
+    matterport3D_root_dir = '/home/z/dataset/Voxel'
+    matterport3D_extracted_dir = '/home/z/dataset/Voxel'
+    matterport3D_h5f_dir = '/home/z/dataset'
 
     def __init__(self):
         self.scans_name = scans_name = 'raw1'
@@ -347,6 +350,8 @@ class Matterport3D_Prepare():
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             #if TMPDEBUG:
             #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
+        if len(file_list) == 0:
+            print('no file mathes %s'%(os.path.join(house_sh5f_dir, '*.sh5') ))
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -371,7 +376,7 @@ class Matterport3D_Prepare():
 
     def Merge(self):
         plsph5_folder = 'Org_sph5/32768_gs-100_-100'
-        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-3D3'
+        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd3-3D3'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -529,9 +534,15 @@ def parse_house_ls():
 
     # operations = ['SortRaw','GenPyramid','Merge']
     # operations  = ['SortRaw']
+<<<<<<< HEAD
     # operations  = ['GenPyramid']    ## generating a one region
     operations  = ['GenPyramid','Merge']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
+=======
+    #operations  = ['GenPyramid']    ## generating a one region
+    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
+    operations  = ['Merge']   ## merge sveral houses together
+>>>>>>> aad08cd8f0f24a6a20d0217373289ac30f116af5
     # operations  = ['GenObj_SortedH5f']
     # operations  = ['GenObj_RawH5f']
     # operations  = ['GenObj_NormedH5f']
