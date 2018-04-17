@@ -18,7 +18,7 @@ from ply_util import create_ply
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'Scannet__H5F')
+DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'ScannetH5F')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
@@ -526,7 +526,7 @@ class Net_Provider():
 
         fid_start_end = np.concatenate( fid_start_end,0 )
 
-        Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
+        #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)

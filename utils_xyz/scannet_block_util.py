@@ -311,7 +311,7 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:1]   # L
+            file_list = file_list[0:5]   # L
         #    #file_list = file_list[750:len(file_list)] # R
         #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
@@ -347,9 +347,7 @@ class Scannet_Prepare():
         bxmh5_folder = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
 
         plsph5_folder = 'Org_sph5/90000_gs-4_-6d3'
-        #bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_10_24_32-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1'
-        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_300_30-32_18_27_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C1F'
-        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C0'
+        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -391,10 +389,12 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        #allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
 
-        #allfn_ls = [ [nonvoid_plfn_ls], [bxmh5_fn_ls] ]
-        #all_group_name_ls = [ 'all' ]
+        n1 = len(nonvoid_plfn_ls)
+        n2 = int(n1/2)
+        allfn_ls = [ [nonvoid_plfn_ls[0:n2], nonvoid_plfn_ls[n2:n1]], [bxmh5_fn_ls[0:n2],bxmh5_fn_ls[n2:n1]] ]
+        all_group_name_ls = [ '0_%d'%(n2), '%d_%d'%(n2,n1) ]
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -441,8 +441,8 @@ def main( ):
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
