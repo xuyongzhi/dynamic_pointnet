@@ -363,32 +363,45 @@ class Net_Provider():
             self.norm_h5f_L[f_idx].h5f.flush()
 
 
-    def get_indices_in_voxel( self, sg_bidxmaps ):
+    @staticmethod
+    def get_indices_in_voxel( sg_bidxmaps, sg_bidxmaps_extract_idx, sub_block_stride_candis, sub_block_step_candis ):
+        '''
+        Convert from block center xyz_mm to point indices inside voxel.
+        This should be performed in training model, just test it here in advance.
+        '''
         aimb_center_xyz_mm_ls = []
-        strides_mm =  self.gsbb_load.sub_block_stride_candis * 1000
-        steps_mm =  self.gsbb_load.sub_block_step_candis * 1000
-        for cascade_id in range(self.cascade_num):
-            sg_bidxmap_acxm =  GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, self.sg_bidxmaps_extract_idx, cascade_id, flag='both' )
+        strides_mm = sub_block_stride_candis * 1000
+        steps_mm =  sub_block_step_candis * 1000
+        points_indices_in_voxel_all = []
+        for cascade_id in range( len(strides_mm) ):
+            sg_bidxmap_acxm =  GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, sg_bidxmaps_extract_idx, cascade_id, flag='both' )
             sg_bidxmap = sg_bidxmap_acxm[...,0:sg_bidxmap_acxm.shape[-1]-3]
             aimb_center_xyz_mm = sg_bidxmap_acxm[...,-3:sg_bidxmap_acxm.shape[-1]]
             aimb_center_xyz_mm_ls.append( aimb_center_xyz_mm )
             if cascade_id>0:
                 # get the grouped xyz
                 assert sg_bidxmap.shape[0] == 1
-                grouped_points_xyz_mm = np.take( aimb_center_xyz_mm_ls[cascade_id-1], sg_bidxmap[0], axis=1 )
-                for batch in range(grouped_points_xyz_mm.shape[0]):
-                    for aimb in range(grouped_points_xyz_mm.shape[1]):
+                points_indices_in_voxel_ls = []
+                for batch in range(sg_bidxmap.shape[0]):
+                    grouped_points_xyz_mm = np.take( aimb_center_xyz_mm_ls[cascade_id-1][batch], sg_bidxmap[batch], axis=0 )
+                    points_indices_ls = []
+                    for aimb in range(grouped_points_xyz_mm.shape[0]):
                         # points_invoxel_xyzs_mm is positions of all the points inside a voxels
                         # point_stride_mm is the stride between these points
-                        points_invoxel_xyzs_mm = grouped_points_xyz_mm[batch,aimb,:]
+                        points_invoxel_xyzs_mm = grouped_points_xyz_mm[aimb,:]
                         voxel_center_xyz_mm = aimb_center_xyz_mm[batch,aimb]
                         min_point_xyz_mm = voxel_center_xyz_mm - steps_mm[cascade_id]*0.5 + steps_mm[cascade_id-1]*0.5
                         points_indices = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1]
-                        points_indices = np.rint( point_indices )
+                        points_indices = np.rint( points_indices ).astype( np.int32 )
+                        points_indices_ls.append(np.expand_dims(points_indices,axis=0))
 
                         max_indice = (steps_mm[cascade_id] - steps_mm[cascade_id-1]) / strides_mm[cascade_id-1]
-                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                        pass
+                        assert points_indices.min() >= 0
+                        assert points_indices.max() <= max_indice
+                    points_indices_batch = np.concatenate( points_indices_ls, 0 )
+                    points_indices_in_voxel_ls.append( np.expand_dims(points_indices_batch,0) )
+                points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
+                points_indices_in_voxel_all.append( points_indices_in_voxe )
         pass
 
     def get_global_batch(self,g_start_idx,g_end_idx):
@@ -513,7 +526,7 @@ class Net_Provider():
 
         fid_start_end = np.concatenate( fid_start_end,0 )
 
-        self.get_indices_in_voxel( sg_bidxmaps )
+        Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
