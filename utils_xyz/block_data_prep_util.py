@@ -355,6 +355,10 @@ class GlobalSubBaseBLOCK():
         assert IsIntact, s
         with h5py.File( bxmh5_fn,'r' ) as h5f:
             for ele_name in self.para_names + self.meta_names + self.root_para_names:
+                if 'bidxmaps_flat' not in h5f:
+                    if ele_name=='baseb_exact_flat_num' or ele_name=='after_fix_missed_baseb_num' or ele_name=='around_aimb_dis_mean' or ele_name=='around_aimb_dis_std' or ele_name=='sr_count':
+                        if ele_name not in h5f.attrs:
+                            continue
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
         self.update_parameters()
 
@@ -4117,7 +4121,7 @@ class Normed_H5f():
     def copy_root_attrs_from_normed(self,h5f_normed, in_bxmh5_fn=None, flag=None):
         if 'data' in h5f_normed:
             self.copy_root_attrs_from_normed_plsph5( h5f_normed, flag )
-        elif 'bidxmaps_flat' in h5f_normed:
+        elif 'bidxmaps_sample_group' in h5f_normed:
             self.copy_root_attrs_from_normed_bxmh5( h5f_normed, in_bxmh5_fn, flag )
         else:
             assert False
