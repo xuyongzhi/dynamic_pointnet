@@ -266,18 +266,6 @@ class Matterport3D_Prepare():
         for house_name in house_names_ls:
             self.Parse_house_regions(house_name,MultiProcess)
 
-    def move_path(self, house_name ):
-        org_house_dir = self.scans_h5f_dir+'/%s'%(house_name)
-        dir_ls = ['stride_0d1_step_0d1','stride_0d1_step_0d1-bidxmap-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2','stride_0d1_step_0d1_pyramid-1d6_2-512_256_64-128_12_6-0d2_0d6_1d2']
-        for dn in dir_ls:
-            org_rawh5f_path = org_house_dir + '/'+ dn
-            new_rawh5f_path = self.scans_h5f_dir+'/'+ dn +'/'+house_name
-            import shutil
-            if os.path.exists(org_rawh5f_path):
-                shutil.move( org_rawh5f_path, new_rawh5f_path )
-                print('move %s to %s'%(org_rawh5f_path, new_rawh5f_path))
-            if os.path.exists( org_house_dir ):
-                shutil.rmtree( org_house_dir )
 
     def Parse_house_regions(self,house_name,MultiProcess=0):
         t0 = time.time()
@@ -327,7 +315,7 @@ class Matterport3D_Prepare():
             print('no file mathces %s'%( os.path.join(house_rawh5f_dir,'*.rh5')  ))
         #rawh5_file_ls = glob.glob(self.house_h5f_dir+'/rawh5f/*.rh5')
         #block_step_xyz = [0.5,0.5,0.5]
-        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/' + house_name
+        sorted_path = self.scans_h5f_dir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz) + '/'
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
@@ -350,104 +338,12 @@ class Matterport3D_Prepare():
             print("\n\nSortRaw:all %d files successed\n******************************\n"%(len(success_fns)))
         print('sort raw t= %f'%(time.time()-t0))
 
-    def MergeSampleNorm(self,base_step_stride,new_stride,new_step,numpoint_block,MultiProcess=0):
-        '''
-         1 merge to new block step/stride size
-             obj_merged: generate obj for merged
-         2 randomly sampling to fix point number in each block
-             obj_sampled_merged
-         3 normalizing sampled block
-        '''
-        base_stride = base_step = base_step_stride
-        base_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        new_stride = new_stride
-        new_step = new_step
-        new_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(new_stride,new_step)
-
-
-        base_file_list = glob.glob( os.path.join(base_path,'*.sh5') )
-        print('%d sh5 files in %s'%(len(base_file_list),base_path))
-
-        more_actions_config = {}
-        more_actions_config['actions'] = []
-        more_actions_config['actions'] = ['sample_merged']
-        #more_actions_config['actions'] = ['sample_merged','norm_sampled_merged']
-        more_actions_config['sample_num'] = numpoint_block
-
-        IsMultiProcess = MultiProcess>1
-        if IsMultiProcess:
-            pool = mp.Pool(MultiProcess)
-        for fn in base_file_list:
-            if not IsMultiProcess:
-                MergeSampleNorm_FromSortedH5f( fn,new_stride,new_step,new_sorted_path,more_actions_config )
-            else:
-                results = pool.apply_async(MergeSampleNorm_FromSortedH5f,( fn,new_stride,new_step,new_sorted_path,more_actions_config ))
-        if IsMultiProcess:
-            pool.close()
-            pool.join()
-
-            success_fns = []
-            success_N = len(base_file_list)
-            try:
-                for k in range(success_N):
-                    success_fns.append(results.get(timeout=0.1))
-            except:
-                assert len(success_fns)==success_N,"MergeSampleNorm failed. only %d files successed"%(len(success_fns))
-            print("\n\n MergeSampleNorm:all %d files successed\n******************************\n"%(len(success_fns)))
-
-    def Sample(self,base_stride,base_step,numpoint_block,MultiProcess=0):
-        base_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-
-        base_file_list = glob.glob( os.path.join(base_path,'*.sh5') )
-        print('%d sh5 files in %s'%(len(base_file_list),base_path))
-
-        IsGenNorm = False
-
-        IsMultiProcess = MultiProcess>1
-        if IsMultiProcess:
-            pool = mp.Pool(MultiProcess)
-        for fn in base_file_list:
-            if not IsMultiProcess:
-                SampleFile(fn,numpoint_block,IsGenNorm)
-            else:
-                results = pool.apply_async( SampleFile,(fn,numpoint_block,IsGenNorm) )
-        if IsMultiProcess:
-            pool.close()
-            pool.join()
-
-            success_fns = []
-            success_N = len(base_file_list)
-            try:
-                for k in range(success_N):
-                    success_fns.append(results.get(timeout=0.1))
-            except:
-                assert len(success_fns)==success_N,"Sample failed. only %d files successed"%(len(success_fns))
-            print("\n\n SampleFile:all %d files successed\n******************************\n"%(len(success_fns)))
-
-    def get_mean_pr_sample_num(self,base_stride,base_step):
-        base_sorted_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)
-        py_normed_path = base_sorted_path +'_pyramid-'+GlobalSubBaseBLOCK.get_pyramid_flag()
-        file_list = glob.glob( os.path.join(py_normed_path,'*.prh5') )
-        sum_sg_bidxmap_sample_num = np.zeros((GlobalSubBaseBLOCK.cascade_num,6)).astype(np.uint64)
-        sum_flatten_bmap_sample_num = np.zeros((GlobalSubBaseBLOCK.cascade_num,3)).astype(np.uint64)
-        for fn in file_list:
-            with h5py.File(fn,'r') as f:
-                #print('sum_sg_bidxmap_sample_num')
-                #print(f['bidxmaps'].attrs['sum_sg_bidxmap_sample_num'].astype(np.uint64))
-                sum_sg_bidxmap_sample_num += f['bidxmaps'].attrs['sum_sg_bidxmap_sample_num'].astype(np.uint64)
-                sum_flatten_bmap_sample_num += f['bidxmaps'].attrs['sum_flatten_bmap_sample_num'].astype(np.uint64)
-        mean_sg_sample_num = get_mean_sg_sample_rate(sum_sg_bidxmap_sample_num)
-        mean_flatten_sample_num = get_mean_flatten_sample_rate(sum_flatten_bmap_sample_num)
-        print('mean_sg_sample_num:')
-        print(mean_sg_sample_num)
-        print('\nmean_flatten_sample_num')
-        print(mean_flatten_sample_num)
 
     def GenPyramid(self,house_names_ls, base_stride, base_step, MultiProcess=0):
         file_list = []
         #house_names_ls.sort()
         for house_name in house_names_ls:
-            house_sh5f_dir = self.scans_h5f_dir+'/%s/%s'%(get_stride_step_name(base_stride,base_step), house_name)
+            house_sh5f_dir = self.scans_h5f_dir+'/%s'%(get_stride_step_name(base_stride,base_step))
             file_list += glob.glob( os.path.join(house_sh5f_dir, '*.sh5') )
             #if TMPDEBUG:
             #    file_list = glob.glob( os.path.join(house_sh5f_dir, '*region0.sh5') )
@@ -473,146 +369,62 @@ class Matterport3D_Prepare():
                 assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def Norm(self,base_stride,base_step,numpoint_block,MultiProcess=0):
-      #  base_stride = [2,2,-1]
-      #  base_step = [4,4,-1]
-      #  numpoint_block = 8192
-        base_sorted_sampled_path = self.house_h5f_dir+'/'+get_stride_step_name(base_stride,base_step)+'_'+str(numpoint_block)
-        file_list = glob.glob( os.path.join(base_sorted_sampled_path,'*.rsh5') )
-        #file_list.sort()
+    def Merge(self):
+        plsph5_folder = 'Org_sph5/32768_gs-100_-100'
+        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-3D3'
 
-        IsMultiProcess = MultiProcess>1
-        if IsMultiProcess:
-            pool = mp.Pool(MultiProcess)
-        for fn in file_list:
-            if not IsMultiProcess:
-                NormSortedSampledFlie(fn)
-            else:
-                results = pool.apply_async(NormSortedSampledFlie,(fn,))
-        if IsMultiProcess:
-            pool.close()
-            pool.join()
-
-            success_fns = []
-            success_N = len(file_list)
-            try:
-                for k in range(success_N):
-                    success_fns.append(results.get(timeout=0.1))
-            except:
-                assert len(success_fns)==success_N,"Norm failed. only %d files successed"%(len(success_fns))
-            print("\n\n Norm:all %d files successed\n******************************\n"%(len(success_fns)))
-
-
-    def MergeNormed(self, flag, house_name=None, house_group_num=5 ):
-        plnh5_folder_name = 'stride_0d1_step_0d1_pl_nh5-1d6_2'
-        bxmh5_folder_name = 'stride_0d1_step_0d1_bxmh5-12800_1d6_2_fmn4-480_80_24-80_20_10-0d2_0d6_1d2-0d2_0d6_1d2-3A1'
-        nh5_folder_names = [ plnh5_folder_name, bxmh5_folder_name]
-        formats = ['.nh5','.bxmh5']
+        sph5_folder_names = [ plsph5_folder, bxmh5_folder]
+        formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
+        pl_region_h5f_path = self.matterport3D_h5f_dir + '/' + sph5_folder_names[0]
+        plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
+        plfn_ls.sort()
+        if len(plfn_ls) == 0:
+            print('no file mathces %s'%(pl_region_h5f_path + '/*' +  formats[0] ))
+        print('%d files found for %s'%(len(plfn_ls), pl_region_h5f_path + '/*' +  formats[0] ))
 
-        if flag == 'region':
-            pl_region_h5f_path = self.scans_h5f_dir + '/' + nh5_folder_names[0] + '/' + house_name
-            plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
-            plfn_ls.sort()
-            nonvoid_plfn_ls = []
-            bxmh5_fn_ls = []
-            for pl_fn in plfn_ls:
-                is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
-                if not is_intact:
-                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], pl_fn))
-                    continue
-                if ck_str == 'void file':
-                    if not SHOWONLYERR: print('void file: %s'%(pl_fn))
-                    continue
-                region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
-                bxmh5_fn = self.scans_h5f_dir + '/' + nh5_folder_names[1] + '/' + house_name + '/' + region_name + formats[1]
-                if not os.path.exists( bxmh5_fn ):
-                    print(' ! ! ! Abort merging %s not intact: %s'%(house_name+formats[0], bxmh5_fn))
-                    return
-                with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
-                        return
-                    else:
-                        #print('shape match check ok: %s'%(region_name))
-                        pass
-                nonvoid_plfn_ls.append( pl_fn )
-                bxmh5_fn_ls.append( bxmh5_fn )
-            if len( nonvoid_plfn_ls )  == 0:
-                print(  "no file, skip %s"%( house_name ) )
-                return
-            fn_ls = [ nonvoid_plfn_ls, bxmh5_fn_ls ]
+        nonvoid_plfn_ls = []
+        bxmh5_fn_ls = []
+        IsOnlyIntact = True
+        for pl_fn in plfn_ls:
+            is_intact, ck_str = Normed_H5f.check_sph5_intact( pl_fn )
+            region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
+            if not is_intact:
+                print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], pl_fn))
+                assert False
+            if ck_str == 'void file':
+                print('void file: %s'%(pl_fn))
+                continue
+            bxmh5_fn = self.matterport3D_h5f_dir + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
+            if not os.path.exists( bxmh5_fn ):
+                if IsOnlyIntact: continue
+                print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
+                assert False
+            nonvoid_plfn_ls.append( pl_fn )
+            bxmh5_fn_ls.append( bxmh5_fn )
+        if len( nonvoid_plfn_ls )  == 0:
+            print(  "no file, skip merging" )
+            return
+
+        allfn_ls = [ [nonvoid_plfn_ls], [bxmh5_fn_ls] ]
+        all_group_name_ls = [ 'all' ]
+
+        for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
 
             for j in range(2):
-                merged_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[j] + '/'
-                merged_file_names[j] = merged_path + house_name+formats[j]
+                merged_path = self.matterport3D_h5f_dir + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f( fn_ls[j], merged_file_names[j], IsShowSummaryFinished=True)
+                MergeNormed_H5f( allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_file_names[0],merged_file_names[1]) )
+                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_sample_group'].shape[0]:
+                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_sample_group shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_sample_group'].shape[0], merged_file_names[0],merged_file_names[1]) )
                 else:
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
-
-        elif flag == 'house':
-            assert house_name == None
-            house_h5f_path = os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[0]
-            pl_fn_ls = glob.glob( house_h5f_path + '/*' + formats[0] )
-            pl_fn_ls.sort()
-            for pl_fn in pl_fn_ls:
-                is_intact, ck_str = Normed_H5f.check_nh5_intact( pl_fn )
-                assert is_intact, "not intact: %s"%(pl_fn)
-            print('all %d houses intact'%(len(pl_fn_ls)))
-
-            for k in range( 0, len(pl_fn_ls), house_group_num ):
-                end = min( (k+house_group_num),len(pl_fn_ls) )
-                pl_fn_ls_k = pl_fn_ls[k : end ]
-                bxmh5_fn_ls_k = []
-                for pl_fn in pl_fn_ls_k:
-                    house_name =  os.path.splitext(os.path.basename( pl_fn ))[0]
-                    bxmh5_fn =  os.path.dirname( self.scans_h5f_dir ) + '/each_house/' + nh5_folder_names[1] + '/' + house_name + formats[1]
-                    if not os.path.exists(bxmh5_fn):
-                        print('Abort merging %d-%d, not exist: %s'%(k, end, bxmh5_fn))
-                        return
-                    with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                        if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                            print('Abort merging %d-%d, data shape (%d) != bidxmaps_flat shape (%d): %s'%( k, end, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
-                            return
-                        else:
-                            print('shape match check ok: %s'%(house_name))
-                    bxmh5_fn_ls_k.append( bxmh5_fn )
-                fn_ls_k = [ pl_fn_ls_k, bxmh5_fn_ls_k ]
-
-                merged_fns = ['','']
-                for j in range(2):
-                    house_name_ls_k = [ os.path.splitext(os.path.basename( fn ))[0] for fn in fn_ls_k[j] ]
-                    merged_house_name = ''
-                    for i,hn in enumerate( house_name_ls_k ):
-                        merged_house_name += hn[0:3]
-                        if i != len(house_name_ls_k)-1:
-                            merged_house_name += '_'
-                    if j==1:
-                        merged_fn_pl = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[0] + '/' + merged_house_name + formats[0]
-                        if not os.path.exists( merged_fn_pl ):
-                            print('abort because not exist: %s'%(merged_fn_pl))
-                            continue
-                    merged_path = os.path.dirname( self.scans_h5f_dir ) + '/merged_house/' + nh5_folder_names[j]
-                    merged_fns[j] = merged_path + '/'+ merged_house_name + formats[j]
-                    if not os.path.exists(merged_path):
-                        os.makedirs(merged_path)
-                    MergeNormed_H5f( fn_ls_k[j], merged_fns[j], IsShowSummaryFinished=True)
-                # check after merged
-                with h5py.File( merged_fns[0], 'r' ) as plh5f, h5py.File( merged_fns[1], 'r' ) as bxmh5f:
-                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_fns[0],merged_fns[1]) )
-                    else:
-                        #print( 'After merging, shape match check ok: %s'%(os.path.basename(fn_ls[0][i])) )
-                        pass
-
 
     def GenObj_RawH5f(self,house_name):
         house_h5f_dir = self.scans_h5f_dir+'/rawh5f'+'/%s'%(house_name)
@@ -671,7 +483,7 @@ def parse_house(house_names_ls, operations):
     if 'ParseRaw' in operations:
         matterport3d_prepare.Parse_houses_regions( house_names_ls,  MultiProcess)
 
-    base_step_stride = [0.2,0.2,6.0]
+    base_step_stride = [0.2,0.2,20.0]
     if 'SortRaw' in operations:
         matterport3d_prepare.SortRaw(house_names_ls, base_step_stride, MultiProcess)
 
@@ -693,11 +505,8 @@ def parse_house(house_names_ls, operations):
         matterport3d_prepare.Sample(new_stride,new_step,numpoint_block,MultiProcess)
     if 'Norm' in operations:
         matterport3d_prepare.Norm(new_stride,new_step,numpoint_block,MultiProcess)
-    if 'MergeNormed_region' in operations:
-        for house_name in house_names_ls:
-            matterport3d_prepare.MergeNormed('region', house_name=house_name)
-    if 'MergeNormed_house' in operations:
-        matterport3d_prepare.MergeNormed('house')
+    if 'Merge' in operations:
+        matterport3d_prepare.Merge()
     if 'GenObj_RawH5f' in operations:
         for house_name in house_names_ls:
             matterport3d_prepare.GenObj_RawH5f(house_name)
@@ -707,7 +516,7 @@ def parse_house(house_names_ls, operations):
         matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
-    house_names = ['rawh5f_xyz_16384']
+    # house_names = ['rawh5f_xyz']
     house_names = ['rawh5f']
     # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
     # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
@@ -718,17 +527,15 @@ def parse_house_ls():
     # house_names = all_house_names
     house_names.sort()
 
-    # operations = ['ParseRaw','SortRaw','GenPyramid','MergeSampleNorm','Sample','Norm','MergeNormed']
-    # operations = ['SortRaw','GenPyramid']
-    #operations  = ['ParseRaw']
-    #operations  = ['SortRaw']
-    operations  = ['GenPyramid']    ## generating a one region
-    # operations  = ['MergeNormed_region']   ## merge several regions in one house
+    operations = ['SortRaw','GenPyramid','Merge']
+    # operations  = ['SortRaw']
+    # operations  = ['GenPyramid']    ## generating a one region
+    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
     # operations  = ['MergeNormed_house']   ## merge sveral houses together
-    #operations  = ['GenObj_SortedH5f']
-    #operations  = ['GenObj_RawH5f']
-    #operations  = ['GenObj_NormedH5f']
-    #operations  = ['pr_sample_rate']
+    # operations  = ['GenObj_SortedH5f']
+    # operations  = ['GenObj_RawH5f']
+    # operations  = ['GenObj_NormedH5f']
+    # operations  = ['pr_sample_rate']
 
     #operations  = ['GenPyramid' , 'MergeNormed_region']
 
@@ -769,4 +576,5 @@ if __name__ == '__main__':
     #show_bidxmap()
     #show_all_label_colors()
     #GenPly_BidMap()
+
 
