@@ -1606,10 +1606,6 @@ class GlobalSubBaseBLOCK():
             #print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
             #          get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
-        if DEBUGTMP and cascade_id==3:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            pass
-
         return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic, bmh5_meta
 
     @staticmethod
@@ -2549,7 +2545,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         IsForceMoved = True
 
         IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
-        IsCheck_Scope = DEBUGTMP and cascade_id == 3
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
 
@@ -2570,9 +2565,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bid = Sorted_H5f.ixyz_to_block_index_( aim_bixyz, aim_attrs )
                     aim_bixyz_ls.append( aim_bixyz )
                     aim_bid_ls.append( aim_bid )
-
-        if DEBUGTMP and  len(aim_bid_ls)==0:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         #check scope
         if IsCheck_Scope and len(aim_bid_ls)>0 and not IsForceMoved:
@@ -4777,23 +4769,13 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                         for attr in in_h5f['rootb_split_idxmap'].attrs:
                             if attr != 'valid_num':
                                 merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] += in_h5f['rootb_split_idxmap'].attrs[attr]
-                        if DEBUGTMP:
-                            attr = 'missed_point_num'
-                            print( 'A', 1.0* in_h5f['rootb_split_idxmap'].attrs[attr] / in_h5f['rootb_split_idxmap'].attrs['valid_num'])
-                            print( 'B', 1.0* merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] / merged_normed_h5f.h5f['rootb_split_idxmap'].attrs['valid_num'])
-                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                            pass
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:
                     merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         # average metrics
         if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:
-            merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] /= len(in_filename_ls)
-        if 'rootb_split_idxmap' in merged_normed_h5f.h5f:
-            for attr in merged_normed_h5f.h5f['rootb_split_idxmap'].attrs:
-                if attr != 'valid_num':
-                    merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] /= merged_normed_h5f.h5f['rootb_split_idxmap'].attrs['valid_num']
+            merged_normed_h5f.h5f.attrs['xyz_scope_aligned_ave'] = merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] / len(in_filename_ls)
 
 
         merged_normed_h5f.sph5_create_done()
