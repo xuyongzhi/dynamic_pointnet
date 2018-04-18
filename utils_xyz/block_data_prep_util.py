@@ -1522,6 +1522,9 @@ class GlobalSubBaseBLOCK():
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.array( [aim_bid] )
                     else:
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic_1[base_bid],np.array( [aim_bid] )]  )
+            for base_bid in all_base_bids:
+                if base_bid not in basebids_in_largeraimbid_dic_1:
+                    basebids_in_largeraimbid_dic_1[base_bid] = []
             if IsSortRes:
                 for key in aimbids_in_smallerbasebid_dic_1:
                     aimbids_in_smallerbasebid_dic_1[key].sort()
@@ -1538,14 +1541,14 @@ class GlobalSubBaseBLOCK():
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
+                aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
                 if len(new_bids_ls)==0:
-                    num_lost_baseb += 0
+                    num_lost_baseb += 1
                     continue
                 for new_bid in new_bids_ls:
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
-                aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
 
                 if j>0 and j % int(all_base_bids.size/5) == 0:
                     rate = 100.0*j/all_base_bids.size
@@ -1583,7 +1586,7 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
-        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.01, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
+        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.6, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
 
         #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
         #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -1602,6 +1605,10 @@ class GlobalSubBaseBLOCK():
 
             #print('\nbasebids in each largerbid dic check ok\n  new stride step: %s      base stride step: %s'%(
             #          get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+
+        if DEBUGTMP and cascade_id==3:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
 
         return new_sorted_h5f_attrs, basebids_in_largeraimbid_dic, all_sorted_larger_aimbids, aimbids_in_smallerbasebid_dic, bmh5_meta
 
