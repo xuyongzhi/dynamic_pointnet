@@ -437,7 +437,7 @@ class GlobalSubBaseBLOCK():
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
+            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
             if not os.path.exists(out_folder):
                 os.mkdir(out_folder)
             blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
@@ -446,7 +446,7 @@ class GlobalSubBaseBLOCK():
             scene_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.root_s_h5f_fn) ))
 
-            out_folder = scannet_h5f_dir + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
+            out_folder = scannet_h5f_dir + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + scene_name + '.bmh5'
@@ -457,7 +457,7 @@ class GlobalSubBaseBLOCK():
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder = rootsort_dirname + '/Org_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
+            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
@@ -1402,9 +1402,12 @@ class GlobalSubBaseBLOCK():
                 group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
+
+                print('\ncascade_id %s'%(cascade_id))
                 for ele in wanted_attr_eles:
                     grp.attrs[ele] = cascade_attrs[cascade_id][ele]
                     print( ele,':\t', grp.attrs[ele] )
+
                 all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_aimbids.shape,dtype=np.int32  )
                 all_sorted_aimbids_dset[...] = all_sorted_larger_aimbids
                 if not cascade_id == 'root':
@@ -1479,7 +1482,7 @@ class GlobalSubBaseBLOCK():
         new_total_block_N = 0
 
         IsSortRes = True
-        #GroupingMethod = 'search_by_voxel'    # 26.4 s
+        GroupingMethod = 'search_by_voxel'    # 26.4 s
         GroupingMethod = 'search_by_point'   # 8.7 s
         IsCheckTwoMethodsSame = False
 
@@ -1490,7 +1493,7 @@ class GlobalSubBaseBLOCK():
             print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
                 base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                        new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding)
+                                        new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding, cascade_id=cascade_id )
                 base_bids = np.array(base_bid_ls).astype(np.uint32)
                 mask = np.in1d( base_bids,all_base_bids )
                 valid_base_bids = base_bids[mask]
@@ -1512,7 +1515,6 @@ class GlobalSubBaseBLOCK():
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_1
-            num_lost_baseb = all_base_bids.size - len(basebids_in_largeraimbid_dic)
             # get aimbids_in_smallerbasebid_dic_1
             for aim_bid, basebids in basebids_in_largeraimbid_dic_1.items():
                 for base_bid in basebids:
@@ -1520,9 +1522,13 @@ class GlobalSubBaseBLOCK():
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.array( [aim_bid] )
                     else:
                         aimbids_in_smallerbasebid_dic_1[base_bid] = np.concatenate( [aimbids_in_smallerbasebid_dic_1[base_bid],np.array( [aim_bid] )]  )
+            for base_bid in all_base_bids:
+                if base_bid not in basebids_in_largeraimbid_dic_1:
+                    basebids_in_largeraimbid_dic_1[base_bid] = []
             if IsSortRes:
                 for key in aimbids_in_smallerbasebid_dic_1:
                     aimbids_in_smallerbasebid_dic_1[key].sort()
+            num_lost_baseb = all_base_bids.size - len(aimbids_in_smallerbasebid_dic_1)
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_1
         if GroupingMethod == 'search_by_point' or IsCheckTwoMethodsSame:
             #print('base step: %s'%(base_attrs['block_step']))
@@ -1534,13 +1540,15 @@ class GlobalSubBaseBLOCK():
             num_lost_baseb = 0  # Reduce lost: increse aim_stride, increase padding
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                        base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
-                num_lost_baseb += len(new_bids_ls)==0
+                                        base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding, cascade_id=cascade_id )
+                aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
+                if len(new_bids_ls)==0:
+                    num_lost_baseb += 1
+                    continue
                 for new_bid in new_bids_ls:
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
-                aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
 
                 if j>0 and j % int(all_base_bids.size/5) == 0:
                     rate = 100.0*j/all_base_bids.size
@@ -1565,6 +1573,8 @@ class GlobalSubBaseBLOCK():
                     if  value.size != value_2.size or  np.not_equal(value, value_2).sum() != 0:
                         import pdb; pdb.set_trace()  # XXX BREAKPOINT
                         pass
+                print('Two grouping methods check to be the same')
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_2
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_2
 
@@ -1576,11 +1586,12 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
+        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.6, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
 
-        if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
-            pass
+        #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        #    assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
+        #    pass
         # check: basebids_in_largeraimbid_dic shoule contain all the all_base_bids. If larger_stride==larger_step, each base bid should occur one time.
         if GlobalSubBaseBLOCK.IsCheck_gsbb['all_base_included']:
             all_base_bids_indic = np.concatenate( basebids_in_largeraimbid_dic.values()).astype(np.int32)
@@ -2193,9 +2204,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    if tmp <=  h5fattrs['block_step'][i]-1:
+                    if tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
                         # use two blocks can totally include whole scene
-                        h5fattrs['block_stride'][i] =  tmp
+                        h5fattrs['block_stride'][i] =  max( tmp,0 )
                     else:
                         # when two blocks is not enough, use the fixed stride value
                         h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
@@ -2460,7 +2471,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     @staticmethod
-    def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, padding, IsCheck_mapping=None):
+    def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, padding, IsCheck_mapping=None, cascade_id=None):
         '''
             base_bid: int, The known base lock id.
             base_attrs: dictionary
@@ -2519,6 +2530,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_min[i] = max( aim_bixyz_min[i], 0 )
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
+        # forcely reduce base block lost
+        max_force_rate = 0.3
+        IsNoAim =  np.sum( aim_bixyz_max-aim_bixyz_min ) < 0
+        IsForceMoved = False
+        if large_step_flag=='aim' and IsNoAim:
+            for i in range(3):
+                if  aim_bixyz_max[i]-aim_bixyz_min [i] < 0:
+                    if aim_bixyz_min[i] > 0 and aim_bixyz_threshold_min[i] + 1 - aim_bixyz_min[i] < max_force_rate:
+                        aim_bixyz_min[i] -= 1
+                        IsForceMoved = True
+                    elif aim_bixyz_max[i] < aim_attrs['block_dims_N'][i]-1 and aim_bixyz_threshold_max[i] - aim_bixyz_max[i] < max_force_rate:
+                        aim_bixyz_max[i] += 1
+                        IsForceMoved = True
+
         IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
@@ -2542,7 +2567,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bid_ls.append( aim_bid )
 
         #check scope
-        if IsCheck_Scope and len(aim_bid_ls)>0:
+        if IsCheck_Scope and len(aim_bid_ls)>0 and not IsForceMoved:
             ixyz_check = True
             aim_xyz_max = np.array([-1.0e10,-1.0e10,-1.0e10])
             aim_xyz_min = np.array([1.0e10,1.0e10,1.0e10])
@@ -2582,7 +2607,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert ixyz_check and min_check and max_check
-            #print('ixyz, min, max check ok')
+            print( 'base_xyz_min', base_xyz_min )
+            print( 'base_xyz_max', base_xyz_max )
+            print( 'aim_xyz_min', aim_xyz_min )
+            print( 'aim_xyz_max', aim_xyz_max )
 
         if IsCheck_mapping==None:
             IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
@@ -3359,20 +3387,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder_sph5 = rootsort_dirname + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
-            out_folder_bxmh5 = rootsort_dirname + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
+            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
+            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/Org_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/Org_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
 
         else:
             assert False, datasource_name
@@ -4323,8 +4351,6 @@ class Normed_H5f():
                 elif ele_name == 'missed_rootb_num':
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
-                elif ele_name == 'missed_point_num':
-                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                 else:
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 summary += '\n'
@@ -4749,11 +4775,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                     merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         # average metrics
         if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:
-            merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] /= len(in_filename_ls)
-        if 'rootb_split_idxmap' in merged_normed_h5f.h5f:
-            for attr in merged_normed_h5f.h5f['rootb_split_idxmap'].attrs:
-                if attr != 'valid_num':
-                    merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] /= merged_normed_h5f.h5f['rootb_split_idxmap'].attrs['valid_num']
+            merged_normed_h5f.h5f.attrs['xyz_scope_aligned_ave'] = merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] / len(in_filename_ls)
 
 
         merged_normed_h5f.sph5_create_done()
