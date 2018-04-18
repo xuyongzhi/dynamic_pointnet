@@ -245,10 +245,6 @@ class Matterport3D_Prepare():
     matterport3D_extracted_dir = '/home/ben/dataset/Voxel'
     matterport3D_h5f_dir = '/home/ben/dataset/Voxel'
 
-    matterport3D_root_dir = '/home/z/dataset/Voxel'
-    matterport3D_extracted_dir = '/home/z/dataset/Voxel'
-    matterport3D_h5f_dir = '/home/z/dataset'
-
     def __init__(self):
         self.scans_name = scans_name = 'raw1'
         self.scans_dir = self.matterport3D_root_dir # +scans_name
@@ -376,7 +372,7 @@ class Matterport3D_Prepare():
 
     def Merge(self):
         plsph5_folder = 'Org_sph5/32768_gs-100_-100'
-        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd3-3D3'
+        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -521,32 +517,16 @@ def parse_house(house_names_ls, operations):
         matterport3d_prepare.GenObj_NormedH5f()
 
 def parse_house_ls():
-    # house_names = ['rawh5f_xyz']
-    house_names = ['rawh5f']
-    # house_names = ['17DRP5sb8fy','1pXnuDYAj8r','2azQ1b91cZZ','2t7WUuJeko7']
-    # house_names += ['5q7pvUzZiYa', '759xd9YjKW5','8194nk5LbLH','8WUmhLawc2A','ac26ZMwG7aT','B6ByNegPMKs']
 
-    # scans_name_abs = Matterport3D_Prepare.matterport3D_h5f_dir + '/v1/scans/rawh5f'
-    # scans_name_abs = '/home/benz/projects/pc/pre_sampling/dynamic_pointnet/data'
-    # all_house_names = os.listdir(scans_name_abs)
-    # house_names = all_house_names
+    house_names = ['rawh5f']
     house_names.sort()
 
     # operations = ['SortRaw','GenPyramid','Merge']
     # operations  = ['SortRaw']
-<<<<<<< HEAD
     # operations  = ['GenPyramid']    ## generating a one region
-    operations  = ['GenPyramid','Merge']   ## merge several regions in one house
-    # operations  = ['MergeNormed_house']   ## merge sveral houses together
-=======
-    #operations  = ['GenPyramid']    ## generating a one region
+    # operations  = ['SortRaw','GenPyramid','Merge']   ## merge several regions in one house
     # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
     operations  = ['Merge']   ## merge sveral houses together
->>>>>>> aad08cd8f0f24a6a20d0217373289ac30f116af5
-    # operations  = ['GenObj_SortedH5f']
-    # operations  = ['GenObj_RawH5f']
-    # operations  = ['GenObj_NormedH5f']
-    # operations  = ['pr_sample_rate']
 
     #operations  = ['GenPyramid' , 'MergeNormed_region']
 
