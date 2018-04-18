@@ -161,8 +161,20 @@ def GenPyramidSortedFlie( fn ):
         sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
 
+def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
+    nf = len(nonvoid_plfn_ls)
+    merged_n = min( merged_n, nf )
+    group_n = int( nf/merged_n )
+    allfn_ls = [ [], [] ]
+    all_group_name_ls = []
+    for i in range( 0, nf, group_n ):
+        end = min( nf, i+group_n )
+        allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
+        allfn_ls[1].append( bxmh5_fn_ls[i:end] )
+        all_group_name_ls.append( '%d_%d'%(i, end) )
+    return allfn_ls, all_group_name_ls
 
-def split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
+def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
     plsph5_folder = SCANNET_DATA_DIR + '/' + plsph5_folder
     bxmh5_folder = SCANNET_DATA_DIR + '/' + bxmh5_folder
     scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
@@ -383,17 +395,8 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        #allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
-
-        nf = len(nonvoid_plfn_ls)
-        group_n = 1
-        allfn_ls = [ [], [] ]
-        all_group_name_ls = []
-        for i in range( 0, nf, group_n ):
-            end = min( nf, i+group_n )
-            allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
-            allfn_ls[1].append( bxmh5_fn_ls[i:end] )
-            all_group_name_ls.append( '%d_%d'%(i, end) )
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']

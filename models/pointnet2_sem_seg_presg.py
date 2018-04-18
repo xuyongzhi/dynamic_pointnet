@@ -264,10 +264,9 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
             block_center_xyz_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+3 ]
 
-        if TMPDEBUG and k>0:
+        if TMPDEBUG:
             pooling = '3DCNN'
-        else:
-            pooling = 'max'
+
         l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
                                                                     is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
         if IsDebug:

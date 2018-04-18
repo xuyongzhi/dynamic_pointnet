@@ -116,6 +116,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
         else:
             root_point_features = None
 
+        if pooling == '3DCNN' and cascade_id == 0:
+            pooling = 'max'
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         elif pooling=='weighted_avg':
@@ -134,16 +136,20 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            voxel_center_xyz = new_xyz
-            c1 = tf.constant(0.5,tf.float32)
-            min_point_xyz = voxel_center_xyz - sgf_configs['sub_block_step_candis'][cascade_id]*c1 + sgf_configs['sub_block_step_candis'][cascade_id-1]*c1
-            !!!
-            min_point_xyz = tf.expand_dims( min_point_xyz, -2 )
-            point_indices = (grouped_xyz - min_point_xyz) / sgf_configs['sub_block_stride_candis'][cascade_id-1]
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
-            if DEBUG_TMP and cascade_id == 1:
-                tf.add_to_collection( 'point_indices', point_indices )
+            voxel_center_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32)
+            # NOTE: c1=[1,1,1]*0.5 ONLY when the sh5 step is also the same on three dimensions.
+            #                      Otherwise, the stride at each cascade may also be changed.
+            c1 = tf.constant([500,500,500],tf.float32)
+            min_point_xyz_mm = voxel_center_xyz_mm - sgf_configs['sub_block_step_candis'][cascade_id]*c1 + sgf_configs['sub_block_step_candis'][cascade_id-1]*c1
+            min_point_xyz_mm = tf.expand_dims( min_point_xyz_mm, -2, name='min_point_xyz_mm' ) # gpu_0/sa_layer1/min_point_xyz_mm:0
+            c2 = tf.constant([1000,1000,1000],tf.float32)
+            grouped_xyz_mm = grouped_xyz * c2
+            stride = c2 * sgf_configs['sub_block_stride_candis'][cascade_id-1]
+            point_indices_f = (grouped_xyz_mm - min_point_xyz_mm) / stride
+            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer1/point_indices:0
+            point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer1/point_indices_err:0
+            point_indices_maxerr_xyz = tf.reduce_max( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz:0
+            point_indices_meanerr_xyz = tf.reduce_mean( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz_1:0
 
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
 
