@@ -1402,9 +1402,12 @@ class GlobalSubBaseBLOCK():
                 group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
+
+                print('\ncascade_id %s'%(cascade_id))
                 for ele in wanted_attr_eles:
                     grp.attrs[ele] = cascade_attrs[cascade_id][ele]
                     print( ele,':\t', grp.attrs[ele] )
+
                 all_sorted_aimbids_dset = grp.create_dataset( 'all_sorted_aimbids',shape=all_sorted_larger_aimbids.shape,dtype=np.int32  )
                 all_sorted_aimbids_dset[...] = all_sorted_larger_aimbids
                 if not cascade_id == 'root':
@@ -1479,7 +1482,7 @@ class GlobalSubBaseBLOCK():
         new_total_block_N = 0
 
         IsSortRes = True
-        #GroupingMethod = 'search_by_voxel'    # 26.4 s
+        GroupingMethod = 'search_by_voxel'    # 26.4 s
         GroupingMethod = 'search_by_point'   # 8.7 s
         IsCheckTwoMethodsSame = False
 
@@ -1512,7 +1515,6 @@ class GlobalSubBaseBLOCK():
                     print('%f%%  new id: %d  new stride step: %s      base stride step: %s'%(rate,new_block_id,
                         get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_1
-            num_lost_baseb = all_base_bids.size - len(basebids_in_largeraimbid_dic)
             # get aimbids_in_smallerbasebid_dic_1
             for aim_bid, basebids in basebids_in_largeraimbid_dic_1.items():
                 for base_bid in basebids:
@@ -1523,6 +1525,7 @@ class GlobalSubBaseBLOCK():
             if IsSortRes:
                 for key in aimbids_in_smallerbasebid_dic_1:
                     aimbids_in_smallerbasebid_dic_1[key].sort()
+            num_lost_baseb = all_base_bids.size - len(aimbids_in_smallerbasebid_dic_1)
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_1
         if GroupingMethod == 'search_by_point' or IsCheckTwoMethodsSame:
             #print('base step: %s'%(base_attrs['block_step']))
@@ -1535,7 +1538,9 @@ class GlobalSubBaseBLOCK():
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
                                         base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
-                num_lost_baseb += len(new_bids_ls)==0
+                if len(new_bids_ls)==0:
+                    num_lost_baseb += 0
+                    continue
                 for new_bid in new_bids_ls:
                     if new_bid not in basebids_in_largeraimbid_dic_2:
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
@@ -1565,6 +1570,8 @@ class GlobalSubBaseBLOCK():
                     if  value.size != value_2.size or  np.not_equal(value, value_2).sum() != 0:
                         import pdb; pdb.set_trace()  # XXX BREAKPOINT
                         pass
+                print('Two grouping methods check to be the same')
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
             basebids_in_largeraimbid_dic = basebids_in_largeraimbid_dic_2
             aimbids_in_smallerbasebid_dic = aimbids_in_smallerbasebid_dic_2
 
@@ -1576,11 +1583,12 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
+        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.01, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
 
-        if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
-            pass
+        #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        #    assert False, "all_base_bids.size=%d  len(aimbids_in_smallerbasebid_dic)=%d"%( all_base_bids.size, len(aimbids_in_smallerbasebid_dic) )
+        #    pass
         # check: basebids_in_largeraimbid_dic shoule contain all the all_base_bids. If larger_stride==larger_step, each base bid should occur one time.
         if GlobalSubBaseBLOCK.IsCheck_gsbb['all_base_included']:
             all_base_bids_indic = np.concatenate( basebids_in_largeraimbid_dic.values()).astype(np.int32)
@@ -2193,9 +2201,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    if tmp <=  h5fattrs['block_step'][i]-1:
+                    if tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
                         # use two blocks can totally include whole scene
-                        h5fattrs['block_stride'][i] =  tmp
+                        h5fattrs['block_stride'][i] =  max( tmp,0 )
                     else:
                         # when two blocks is not enough, use the fixed stride value
                         h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
@@ -4319,12 +4327,10 @@ class Normed_H5f():
                 if ele_name == 'missed_point_num':
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                     total_point_num = base_sample_num + attrs[ele_name]/valid_num
-                    summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
+                    summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/valid_num/total_point_num )
                 elif ele_name == 'missed_rootb_num':
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                     summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
-                elif ele_name == 'missed_point_num':
-                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
                 else:
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 summary += '\n'
@@ -4743,6 +4749,12 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                         for attr in in_h5f['rootb_split_idxmap'].attrs:
                             if attr != 'valid_num':
                                 merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] += in_h5f['rootb_split_idxmap'].attrs[attr]
+                        if DEBUGTMP:
+                            attr = 'missed_point_num'
+                            print( 'A', 1.0* in_h5f['rootb_split_idxmap'].attrs[attr] / in_h5f['rootb_split_idxmap'].attrs['valid_num'])
+                            print( 'B', 1.0* merged_normed_h5f.h5f['rootb_split_idxmap'].attrs[attr] / merged_normed_h5f.h5f['rootb_split_idxmap'].attrs['valid_num'])
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            pass
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:

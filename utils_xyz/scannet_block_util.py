@@ -311,7 +311,7 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:750]   # L
+            file_list = file_list[4:5]   # L
         #    #file_list = file_list[750:len(file_list)] # R
         #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
@@ -340,12 +340,6 @@ class Scannet_Prepare():
 
 
     def MergeNormed(self):
-        plsph5_folder = 'ORG_sph5/gs-6_-10'
-        bxmh5_folder = 'ORG_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
-
-        plsph5_folder = 'ORG_sph5/60000_gs-3_-4d8'
-        bxmh5_folder = 'ORG_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
-
         plsph5_folder = 'ORG_sph5/90000_gs-4_-6d3'
         bxmh5_folder = 'ORG_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
 
@@ -391,10 +385,15 @@ class Scannet_Prepare():
 
         #allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
 
-        n1 = len(nonvoid_plfn_ls)
-        n2 = int(n1/2)
-        allfn_ls = [ [nonvoid_plfn_ls[0:n2], nonvoid_plfn_ls[n2:n1]], [bxmh5_fn_ls[0:n2],bxmh5_fn_ls[n2:n1]] ]
-        all_group_name_ls = [ '0_%d'%(n2), '%d_%d'%(n2,n1) ]
+        nf = len(nonvoid_plfn_ls)
+        group_n = 1
+        allfn_ls = [ [], [] ]
+        all_group_name_ls = []
+        for i in range( 0, nf, group_n ):
+            end = min( nf, i+group_n )
+            allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
+            allfn_ls[1].append( bxmh5_fn_ls[i:end] )
+            all_group_name_ls.append( '%d_%d'%(i, end) )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
