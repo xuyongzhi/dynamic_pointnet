@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is ve
 NETCONFIG['merge_blocks_while_fix_bmap'] = True
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '3D3'
+_gsbb_config = '4C0'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -102,17 +102,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([6400, 2400, 320, 32]).astype(np.int32)
         npoint_subblock_candis = np.array([32, 16,  32,  48]).astype(np.int32)
 
-
-    elif gsbb_config == '2C1':
-        global_stride = np.array([0.5,0.5,-1]).astype(np.float)
-        global_step = np.array([1,1,-1]).astype(np.float)
-        global_num_point = 2048
-        flatbxmap_max_nearest_num = 3
-
-        sub_block_stride_candis = np.array([0.2,0.6]).astype(np.float)
-        sub_block_step_candis = np.array([0.2,0.6]).astype(np.float)
-        nsubblock_candis =       np.array([160,32]).astype(np.int32)
-        npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 

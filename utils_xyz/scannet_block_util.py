@@ -161,8 +161,20 @@ def GenPyramidSortedFlie( fn ):
         sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
 
+def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
+    nf = len(nonvoid_plfn_ls)
+    merged_n = min( merged_n, nf )
+    group_n = int( nf/merged_n )
+    allfn_ls = [ [], [] ]
+    all_group_name_ls = []
+    for i in range( 0, nf, group_n ):
+        end = min( nf, i+group_n )
+        allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
+        allfn_ls[1].append( bxmh5_fn_ls[i:end] )
+        all_group_name_ls.append( '%d_%d'%(i, end) )
+    return allfn_ls, all_group_name_ls
 
-def split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
+def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
     plsph5_folder = SCANNET_DATA_DIR + '/' + plsph5_folder
     bxmh5_folder = SCANNET_DATA_DIR + '/' + bxmh5_folder
     scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
@@ -311,7 +323,7 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[0:5]   # L
+            file_list = file_list[10:16]   # L
         #    #file_list = file_list[750:len(file_list)] # R
         #    #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0062_01.sh5' ) )
 
@@ -340,14 +352,8 @@ class Scannet_Prepare():
 
 
     def MergeNormed(self):
-        plsph5_folder = 'Org_sph5/gs-6_-10'
-        bxmh5_folder = 'Org_bxmh5/320000_gs-6_-10_fmn4-8000_4800_320_56-100_20_40_32-0d1_0d4_1_2d4-0d1_0d2_0d6_1d2-3B3'
-
-        plsph5_folder = 'Org_sph5/60000_gs-3_-4d8'
-        bxmh5_folder = 'Org_bxmh5/60000_gs-3_-4d8_fmn6-1600_480_48-80_16_32-0d2_0d6_1d8-0d2_0d4_1d2-3C2'
-
-        plsph5_folder = 'Org_sph5/90000_gs-4_-6d3'
-        bxmh5_folder = 'Org_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+        plsph5_folder = 'ORG_sph5/90000_gs-4_-6d3'
+        bxmh5_folder = 'ORG_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -389,12 +395,8 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        #allfn_ls, all_group_name_ls = split_fn_ls( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
-
-        n1 = len(nonvoid_plfn_ls)
-        n2 = int(n1/2)
-        allfn_ls = [ [nonvoid_plfn_ls[0:n2], nonvoid_plfn_ls[n2:n1]], [bxmh5_fn_ls[0:n2],bxmh5_fn_ls[n2:n1]] ]
-        all_group_name_ls = [ '0_%d'%(n2), '%d_%d'%(n2,n1) ]
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -425,8 +427,8 @@ def GenObj_rh5():
             rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
 def GenObj_sph5():
-    #path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/128000_gs-6_-10'
-    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/Org_sph5/60000_gs-3_-4d8'
+    #path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/128000_gs-6_-10'
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/60000_gs-3_-4d8'
     fn_ls = glob.glob( path+'/scene0000*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
@@ -435,7 +437,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 6
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )

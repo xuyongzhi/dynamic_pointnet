@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = False
+DEBUG_TMP = True
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -39,14 +39,14 @@ parser.add_argument('--dataset_name', default='scannet', help='dataset_name: sca
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0', help='')
-parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 
-parser.add_argument('--num_gpus', type=int, default=2, help='GPU num]')
+parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
@@ -60,9 +60,8 @@ parser.add_argument('--finetune',type=int,default=0,help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
-parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
-parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
+parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--inkp_min', type=float, default=0.3, help='random input drop minimum')
 parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
@@ -75,7 +74,7 @@ IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISDEBUG = FLAGS.debug
+ISTFDEBUG = True
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -305,15 +304,15 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #------------------------------------------
             # Get model and loss on multiple GPUS
             #------------------------------------------
-            get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                       flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+            #get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
 
             tower_grads = []
             pred_gpu = []
             total_loss_gpu = []
             debugs = []
             for gi in range(FLAGS.num_gpus):
-                with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+                with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi)), tf.name_scope('gpu_%d'%(gi)) as scope:
                         # Evenly split input data to each GPU
                         pc_device = tf.slice(pointclouds_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
@@ -374,7 +373,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         # Init variables
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl:True})
-        if ISDEBUG:
+        if ISTFDEBUG:
             sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             sess.add_tensor_filter("has_inf_or_nan",tf_debug.has_inf_or_nan)
 
@@ -394,6 +393,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
+            #point_indices_ls = tf.get_collection( 'point_indices' )
+            #ops['point_indices'] = point_indices_ls[0]
 
         if 'l_xyz' in debugs[0]:
             ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
@@ -541,6 +542,10 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
+        #if DEBUG_TMP:
+        #    point_indices, = sess.run( [ops['point_indices']], feed_dict=feed_dict )
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        #    pass
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
         t2 = time.time()

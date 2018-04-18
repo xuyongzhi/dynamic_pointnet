@@ -390,8 +390,8 @@ class Net_Provider():
                         # point_stride_mm is the stride between these points
                         points_invoxel_xyzs_mm = grouped_points_xyz_mm[aimb,:]
                         voxel_center_xyz_mm = aimb_center_xyz_mm[batch,aimb]
-                        min_point_xyz_mm = voxel_center_xyz_mm - steps_mm[cascade_id]*0.5 + steps_mm[cascade_id-1]*0.5
-                        points_indices = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1]
+                        min_point_xyz_mm = voxel_center_xyz_mm - steps_mm[cascade_id]*0.5 + steps_mm[cascade_id-1]*0.5 # [ 950, 1550, 1750] - 300 *0.5 + 100*0.5
+                        points_indices = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1] # [1050, 1650, 1850] - [ 850., 1450., 1650.] / 100
                         points_indices = np.rint( points_indices ).astype( np.int32 )
                         points_indices_ls.append(np.expand_dims(points_indices,axis=0))
 
@@ -402,6 +402,7 @@ class Net_Provider():
                     points_indices_in_voxel_ls.append( np.expand_dims(points_indices_batch,0) )
                 points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
                 points_indices_in_voxel_all.append( points_indices_in_voxe )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         pass
 
     def get_global_batch(self,g_start_idx,g_end_idx):
@@ -692,12 +693,12 @@ def main_NormedH5f():
     dataset_name = 'scannet'
 
     all_fn_globs = ['Merged_sph5/90000_gs-4_-6d3/']
-    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-3C0'
-    eval_fnglob_or_rate = 'test'
+    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+    eval_fnglob_or_rate = '0_2'
 
-    all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
-    bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
-    eval_fnglob_or_rate = 'scene0000_00'
+    #all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
+    #bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
+    #eval_fnglob_or_rate = 'scene0000_00'
 
     #eval_fnglob_or_rate = 'region0'
 
