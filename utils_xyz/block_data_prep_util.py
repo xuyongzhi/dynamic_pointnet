@@ -1493,7 +1493,7 @@ class GlobalSubBaseBLOCK():
             print('max_new_block_id = ',max_new_block_id)
             for new_block_id in range(max_new_block_id+1):
                 base_bid_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                        new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding)
+                                        new_block_id, new_sorted_h5f_attrs, base_attrs, padding=padding, cascade_id=cascade_id )
                 base_bids = np.array(base_bid_ls).astype(np.uint32)
                 mask = np.in1d( base_bids,all_base_bids )
                 valid_base_bids = base_bids[mask]
@@ -1540,7 +1540,7 @@ class GlobalSubBaseBLOCK():
             num_lost_baseb = 0  # Reduce lost: increse aim_stride, increase padding
             for j, base_bid in  enumerate(all_base_bids):
                 new_bids_ls,_ = Sorted_H5f.get_blockids_of_dif_stride_step(
-                                        base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding )
+                                        base_bid, base_attrs, new_sorted_h5f_attrs, padding=padding, cascade_id=cascade_id )
                 aimbids_in_smallerbasebid_dic_2[base_bid] = np.array( new_bids_ls )
                 if len(new_bids_ls)==0:
                     num_lost_baseb += 1
@@ -2475,7 +2475,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     @staticmethod
-    def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, padding, IsCheck_mapping=None):
+    def get_blockids_of_dif_stride_step(base_bid, base_attrs, aim_attrs, padding, IsCheck_mapping=None, cascade_id=None):
         '''
             base_bid: int, The known base lock id.
             base_attrs: dictionary
@@ -2534,7 +2534,22 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_min[i] = max( aim_bixyz_min[i], 0 )
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
+        # forcely reduce base block lost
+        max_force_rate = 0.3
+        IsNoAim =  np.sum( aim_bixyz_max-aim_bixyz_min ) < 0
+        IsForceMoved = False
+        if large_step_flag=='aim' and IsNoAim:
+            for i in range(3):
+                if  aim_bixyz_max[i]-aim_bixyz_min [i] < 0:
+                    if aim_bixyz_min[i] > 0 and aim_bixyz_threshold_min[i] + 1 - aim_bixyz_min[i] < max_force_rate:
+                        aim_bixyz_min[i] -= 1
+                        IsForceMoved = True
+                    elif aim_bixyz_max[i] < aim_attrs['block_dims_N'][i]-1 and aim_bixyz_threshold_max[i] - aim_bixyz_max[i] < max_force_rate:
+                        aim_bixyz_max[i] += 1
+                        IsForceMoved = True
+
         IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
+        IsCheck_Scope = DEBUGTMP and cascade_id == 3
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
 
@@ -2556,8 +2571,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bixyz_ls.append( aim_bixyz )
                     aim_bid_ls.append( aim_bid )
 
+        if DEBUGTMP and  len(aim_bid_ls)==0:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
         #check scope
-        if IsCheck_Scope and len(aim_bid_ls)>0:
+        if IsCheck_Scope and len(aim_bid_ls)>0 and not IsForceMoved:
             ixyz_check = True
             aim_xyz_max = np.array([-1.0e10,-1.0e10,-1.0e10])
             aim_xyz_min = np.array([1.0e10,1.0e10,1.0e10])
@@ -2597,7 +2615,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     print('ixyz check failed, i_xyz_new:',i_xyz_new,'\t i_xyz_new_tocheck:',i_xyz_new_tocheck)
                     import pdb; pdb.set_trace()  # XXX BREAKPOINT
             assert ixyz_check and min_check and max_check
-            #print('ixyz, min, max check ok')
+            print( 'base_xyz_min', base_xyz_min )
+            print( 'base_xyz_max', base_xyz_max )
+            print( 'aim_xyz_min', aim_xyz_min )
+            print( 'aim_xyz_max', aim_xyz_max )
 
         if IsCheck_mapping==None:
             IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
