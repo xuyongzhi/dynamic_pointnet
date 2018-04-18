@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = False
+DEBUG_TMP = True
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -46,7 +46,7 @@ parser.add_argument('--num_point', type=int, default=-1, help='Point number [def
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 
-parser.add_argument('--num_gpus', type=int, default=2, help='GPU num]')
+parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
@@ -305,15 +305,15 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #------------------------------------------
             # Get model and loss on multiple GPUS
             #------------------------------------------
-            get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                       flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+            #get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
 
             tower_grads = []
             pred_gpu = []
             total_loss_gpu = []
             debugs = []
             for gi in range(FLAGS.num_gpus):
-                with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+                with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi)), tf.name_scope('gpu_%d'%(gi)) as scope:
                         # Evenly split input data to each GPU
                         pc_device = tf.slice(pointclouds_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
@@ -394,6 +394,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
+            point_indices_ls = tf.get_collection( 'point_indices' )
+            ops['point_indices'] = point_indices_ls[0]
 
         if 'l_xyz' in debugs[0]:
             ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
@@ -544,6 +546,10 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
         t2 = time.time()
+        if DEBUG_TMP:
+            point_indices, = sess.run( [ops['point_indices']], feed_dict=feed_dict )
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
 
         #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
 

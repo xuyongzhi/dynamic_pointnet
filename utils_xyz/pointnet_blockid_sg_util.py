@@ -8,6 +8,7 @@ sys.path.append(BASE_DIR+'/../utils')
 from block_data_prep_util import GlobalSubBaseBLOCK
 import tf_util
 
+DEBUG_TMP = True
 '''
 Checking list:
     new_xyz
@@ -24,7 +25,8 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs, is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs,
+                       is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -84,7 +86,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             if use_xyz:
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
-        if sgf_configs['mean_grouping_position']:
+        if sgf_configs['mean_grouping_position'] and (not pooling=='3DCNN'):
             new_xyz = tf.reduce_mean(grouped_xyz,-2)
         else:
             new_xyz = tf.cast(block_center_xyz_mm,tf.float32) * tf.constant( 0.001, tf.float32 )
@@ -131,6 +133,19 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             avg_points = tf_util.max_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='maxpool1')
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
+        elif pooling == '3DCNN':
+            voxel_center_xyz = new_xyz
+            c1 = tf.constant(0.5,tf.float32)
+            min_point_xyz = voxel_center_xyz - sgf_configs['sub_block_step_candis'][cascade_id]*c1 + sgf_configs['sub_block_step_candis'][cascade_id-1]*c1
+            !!!
+            min_point_xyz = tf.expand_dims( min_point_xyz, -2 )
+            point_indices = (grouped_xyz - min_point_xyz) / sgf_configs['sub_block_stride_candis'][cascade_id-1]
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+            if DEBUG_TMP and cascade_id == 1:
+                tf.add_to_collection( 'point_indices', point_indices )
+
+            new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
 
         if IsShowModel:
             print('after %s pooling, new_points:%s'%( pooling, shape_str([new_points])))

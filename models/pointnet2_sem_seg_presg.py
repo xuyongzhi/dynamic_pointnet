@@ -10,6 +10,7 @@ import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 import copy
 
+TMPDEBUG = True
 def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
         '''
             flatten_bidxmaps: (2, 26368, 2)
@@ -80,7 +81,6 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [64,64,128] )
         mlps_0.append( [128,128,256] )
         mlps_0.append( [256,512,512] )
-
 
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
@@ -264,8 +264,12 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
             block_center_xyz_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+3 ]
 
+        if TMPDEBUG and k>0:
+            pooling = '3DCNN'
+        else:
+            pooling = 'max'
         l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
-                                                                    is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
+                                                                    is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
             debug['grouped_xyz'].append( grouped_xyz )
