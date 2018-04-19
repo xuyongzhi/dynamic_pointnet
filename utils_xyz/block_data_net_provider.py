@@ -377,27 +377,59 @@ class Net_Provider():
             sg_bidxmap_acxm =  GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, sg_bidxmaps_extract_idx, cascade_id, flag='both' )
             sg_bidxmap = sg_bidxmap_acxm[...,0:sg_bidxmap_acxm.shape[-1]-3]
             aimb_center_xyz_mm = sg_bidxmap_acxm[...,-3:sg_bidxmap_acxm.shape[-1]]
-            aimb_center_xyz_mm_ls.append( aimb_center_xyz_mm )
+            # Note: transform both point and block position from center to min firstly
+            aimbmin_xyz_mm = aimb_center_xyz_mm - (steps_mm[cascade_id] * 0.5).astype(np.int32)
+            aimbmin_xyz_mm_ls.append( aimbmin_xyz_mm )
+
+            aimb_center_min_mm = np.min( aimbmin_xyz_mm[0], axis=0 )
+            aimb_center_max_mm = np.max( aimbmin_xyz_mm[0], axis=0 )
+
+            print( 'cascade_id', cascade_id )
+            print( 'aimb_center_min_mm',aimb_center_min_mm )
+            print( 'aimb_center_max_mm',aimb_center_max_mm )
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            continue
             if cascade_id>0:
                 # get the grouped xyz
                 assert sg_bidxmap.shape[0] == 1
                 points_indices_in_voxel_ls = []
                 for batch in range(sg_bidxmap.shape[0]):
-                    grouped_points_xyz_mm = np.take( aimb_center_xyz_mm_ls[cascade_id-1][batch], sg_bidxmap[batch], axis=0 )
+                    grouped_points_xyz_mm = np.take( aimbmin_xyz_mm_ls[cascade_id-1][batch], sg_bidxmap[batch], axis=0 )
                     points_indices_ls = []
                     for aimb in range(grouped_points_xyz_mm.shape[0]):
                         # points_invoxel_xyzs_mm is positions of all the points inside a voxels
                         # point_stride_mm is the stride between these points
                         points_invoxel_xyzs_mm = grouped_points_xyz_mm[aimb,:]
-                        voxel_center_xyz_mm = aimb_center_xyz_mm[batch,aimb]
+                        voxel_center_xyz_mm = aimbmin_xyz_mm[batch,aimb]
                         min_point_xyz_mm = voxel_center_xyz_mm - steps_mm[cascade_id]*0.5 + steps_mm[cascade_id-1]*0.5 # [ 950, 1550, 1750] - 300 *0.5 + 100*0.5
-                        points_indices = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1] # [1050, 1650, 1850] - [ 850., 1450., 1650.] / 100
-                        points_indices = np.rint( points_indices ).astype( np.int32 )
+                        points_indices_f = (points_invoxel_xyzs_mm - min_point_xyz_mm) * 1.0 / strides_mm[cascade_id-1] # [1050, 1650, 1850] - [ 850., 1450., 1650.] / 100
+                        points_indices = np.rint( points_indices_f ).astype( np.int32 )
                         points_indices_ls.append(np.expand_dims(points_indices,axis=0))
 
+                        # Check point scope inside voxel
+                        points_scope = points_invoxel_xyzs_mm.max(axis=0) - points_invoxel_xyzs_mm.min(axis=0)
+                        max_padding = 0
+                        max_scope_invoxel = steps_mm[cascade_id] - steps_mm[cascade_id-1] + steps_mm[cascade_id-1]*max_padding*2
+                        points_scope_err = max_scope_invoxel - points_scope
+                        if not points_scope_err.min() > -1e-5:
+                            print("cascade %d points scope in voxel check failed: %s"%(cascade_id, points_scope_err))
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            pass
+                        # Check indices err
+                        points_indices_err = np.max(np.abs(points_indices - points_indices_f), axis=0)
+                        points_indices_errmax = np.max( points_indices_err )
+                        if points_indices_errmax > 1e-1:
+                            print ( "cascade %d points_indices_errmax: %s"%(cascade_id, points_indices_err) )
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            pass
+
+                        # Check max indice
                         max_indice = (steps_mm[cascade_id] - steps_mm[cascade_id-1]) / strides_mm[cascade_id-1]
                         assert points_indices.min() >= 0
                         assert points_indices.max() <= max_indice
+                        if cascade_id == 3:
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            pass
                     points_indices_batch = np.concatenate( points_indices_ls, 0 )
                     points_indices_in_voxel_ls.append( np.expand_dims(points_indices_batch,0) )
                 points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
@@ -527,7 +559,7 @@ class Net_Provider():
 
         fid_start_end = np.concatenate( fid_start_end,0 )
 
-        #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
+        Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_stride_candis, self.gsbb_load.sub_block_step_candis  )
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)

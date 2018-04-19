@@ -46,8 +46,8 @@ import magic
 '''                         Def key words list
 Search with "name:" to find the definition.
 
-    bidxmap
     rootb_split_idxmap
+    bxmh5
     flatten_bidxmap
     sg_bidxmap
     baseb_exact_flat_num
@@ -57,6 +57,10 @@ Search with "name:" to find the definition.
     get_blockids_of_dif_stride_step
     get_all_bidxmaps
     gsbb naming: get_pyramid_flag
+'''
+'''     step, stride Configuration
+    (1) set_whole_scene_stride_step: limit stride, step of every cascade by whole scene scope. By calling update_align_scope_by_stridetoalign_
+    (2) IsLimitStrideStepCascades_Inbxmap : Always limit step and stride larger than last cascade in bxmh5
 '''
 
 SHOW_ONLY_ERR = False
@@ -472,7 +476,21 @@ class GlobalSubBaseBLOCK():
             if hasattr( self, ele_name ):
                 aim_attrs[ele_name] = getattr( self,ele_name )
 
-    def write_bxm_paras_in_txt(self, bxmh5_fn, pl_sph5_filename=None ):
+        attrs_all = []
+        for cascade_id in range(self.cascade_num):
+            attrs = self.get_new_attrs(cascade_id)
+            attrs_all.append( attrs )
+
+        attr_candicates = ['stride_to_align', 'block_dims_N', 'xyz_scope_aligned', 'xyz_min_aligned', 'total_block_N', 'xyz_max_aligned']
+        for attr in attr_candicates:
+            aim_attrs[attr] = attrs[attr]
+        attr_candicates = [ 'block_stride','block_step' ]
+        for attr in attr_candicates:
+            attr_ls = [np.expand_dims(attrs[attr],0) for attrs in attrs_all]
+            attr_cas = np.concatenate( attr_ls,0 )
+            aim_attrs[attr+'_cascades'] = attr_cas
+
+    def write_bxm_paras_in_txt_unused(self, bxmh5_fn, pl_sph5_filename=None ):
         assert os.path.splitext( bxmh5_fn )[1] == '.bxmh5'
         bmap_meta_filename = os.path.splitext( bxmh5_fn )[0]+'.txt'
         with open( bmap_meta_filename,'w' ) as bmap_meta_f:
@@ -570,7 +588,10 @@ class GlobalSubBaseBLOCK():
         return self.get_stride_step_(cascade_id)
 
     def get_stride_step_(self, cascade_id):
-        #if cascade_id=='root': assert (root_h5fattrs!=None) or ('root_block_stride' in self)
+        '''
+        IsLimitStrideStepCascades_Inbxmap: Always limit step and stride larger than last cascade in bxmh5
+        '''
+        IsLimitStrideStepCascades_Inbxmap = True
         if cascade_id == 'global':
             stride = self.global_stride
             step = self.global_step
@@ -585,17 +606,18 @@ class GlobalSubBaseBLOCK():
             assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
             stride  =  np.array([1.0,1.0,1.0])*self.sub_block_stride_candis[cascade_id]
             step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
-            for i in range(3):
-                if cascade_id == 0:
-                    if stride[i] < self.root_block_step[i]:
-                        stride[i] = self.root_block_step[i]
-                    if step[i] < self.root_block_step[i]:
-                        step[i] = self.root_block_step[i]
-                else:
-                    if stride[i] < self.strides[cascade_id-1][i]:
-                        stride[i] = self.strides[cascade_id-1][i]
-                    if step[i] < self.steps[cascade_id-1][i]:
-                        step[i] = self.steps[cascade_id-1][i]
+            if IsLimitStrideStepCascades_Inbxmap:
+                for i in range(3):
+                    if cascade_id == 0:
+                        if stride[i] < self.root_block_step[i]:
+                            stride[i] = self.root_block_step[i]
+                        if step[i] < self.root_block_step[i]:
+                            step[i] = self.root_block_step[i]
+                    else:
+                        if stride[i] < self.strides[cascade_id-1][i]:
+                            stride[i] = self.strides[cascade_id-1][i]
+                        if step[i] < self.steps[cascade_id-1][i]:
+                            step[i] = self.steps[cascade_id-1][i]
             self.steps[cascade_id] = step
             self.strides[cascade_id] = stride
         return stride,step
@@ -792,7 +814,10 @@ class GlobalSubBaseBLOCK():
             aim_bid = sorted_aimbids_fixed[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
             sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
-            aimb_center_xyz[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+            aimbcenter, aimbmin, aimbmax = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+            aimb_center_xyz[aim_b_index,:] = aimbcenter
+
+
 
             if not IsGenFlatbxmap:
                 continue
@@ -1010,6 +1035,12 @@ class GlobalSubBaseBLOCK():
         else:
             flatten_bidxmap_fixed = np.ones(shape=(base_nsubblock, 0,3)).astype(np.float64)*(-11)
 
+        #if :
+        #    aimbmin_xyz = aimb_center_xyz - aim_attrs['block_step']*0.5
+        #    print('cascade_id',cascade_id)
+        #    print( 'aimbmin',aimbmin_xyz.min(0) )
+        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
         # append aimb_center_xyz to the end of sg_bidxmap_fixed
         # convert to mm and int32
         aimb_center_xyz_mm = np.rint(aimb_center_xyz * 1000).astype(np.int32)
@@ -1223,6 +1254,20 @@ class GlobalSubBaseBLOCK():
 
         return sg_bidxmaps, flatten_bidxmaps, bxmap_metas
 
+    def check_block_scope( self ):
+        # Check block position
+        for cascade_id in range(0, self.cascade_num):
+            aim_attrs = self.get_new_attrs(cascade_id)
+            aimbcenter, aimbmin, aimbmax = Sorted_H5f.ixyz_to_xyz( np.array([0,0,0]), aim_attrs )
+            print( 'cascade_id',cascade_id )
+            print( 'step',aim_attrs['block_step'] )
+            print( 'aimbmin',aimbmin )
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
+
+
     def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag="both"):
         return GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, self.sg_bidxmaps_extract_idx, cascade_id, flag )
 
@@ -1403,7 +1448,7 @@ class GlobalSubBaseBLOCK():
 
                 grp = h5f.create_group(group_name)
 
-                print('\ncascade_id %s'%(cascade_id))
+                print('\ncascade_id: %s'%(cascade_id))
                 for ele in wanted_attr_eles:
                     grp.attrs[ele] = cascade_attrs[cascade_id][ele]
                     print( ele,':\t', grp.attrs[ele] )
@@ -2240,7 +2285,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         xyz_max_aligned = xyz_max - xyz_max % 0.1 + 0.1
         xyz_scope_aligned =  xyz_max_aligned - xyz_min_aligned
 
-        # step or stride <0 means one step/stride the whole scene
         if 'block_step' in h5fattrs:
             block_step = h5fattrs['block_step']
             block_stride = h5fattrs['block_stride']
@@ -3435,7 +3479,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
-            if not SHOW_ONLY_ERR: print('void file, skip generating bxmh5: %s'%(pl_sph5_filename))
+            if not SHOW_ONLY_ERR: print('void file, skip generating bxmh5 : %s'%(pl_sph5_filename))
             return
         #-----------------------------------------------------------------------
         t2 = time.time()
@@ -3573,6 +3617,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def save_bxmap_h5f(bxmh5_fn, gsbb_write, S_H5f, pl_sph5_filename ):
+        '''
+        bxmh5:
+        '''
         print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
         with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f:
             if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
@@ -3614,9 +3661,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
             gsbb_write.write_paras_in_h5fattrs( bxmh5f.h5f.attrs )
             #gsbb_write.load_para_from_bxmh5( bxmh5_fn )
-            gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
+            #gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
 
-            bxmh5f.sph5_create_done()
+            bxmh5f.sph5_create_done( bmh5_fn = gsbb_write.bmh5_fn, pl_sph5_fn = pl_sph5_filename )
             print('write finish: %s'%(bxmh5_fn))
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
@@ -4316,7 +4363,7 @@ class Normed_H5f():
                                                         maxshape=(None,)+flatten_bidxmap_shape, chunks = (chunks_n,)+flatten_bidxmap_shape[0:-1]+(1,)  )
             fmap_neighbor_idis_dset.attrs['valid_num'] = 0
 
-    def write_summary( self ):
+    def write_summary_sph5( self ):
         def get_rootb_num( rootb_split_idxmap ):
             rootb_nums = []
             for i in range(rootb_split_idxmap.shape[0]):
@@ -4371,6 +4418,41 @@ class Normed_H5f():
             sf.write( summary )
             print('finish summary file: %s'%(summary_fn))
 
+    def write_summary_bxmh5( self, bmh5_fn = None, pl_sph5_fn = None ):
+        summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
+        with open(summary_fn,'w') as sf:
+            if pl_sph5_fn!=None:
+                sf.write( 'Responding sph5 folder: %s\n'%( os.path.basename( os.path.dirname( pl_sph5_fn ) ) ))
+                sf.write( 'Responding bmh5 folder: %s\n\n'%( os.path.basename( os.path.dirname( bmh5_fn ) ) ))
+            summary = 'basic info\n'
+            attrs = self.h5f.attrs
+            for ele_name in attrs:
+                if ele_name not in GlobalSubBaseBLOCK.meta_names:
+                    summary += '\t%s: %s\n'%(ele_name, attrs[ele_name])
+            sf.write( summary )
+
+            cascade_num = attrs['sub_block_step_candis'].size
+            meta_str = '\n\n'
+            for cascade_id in range(cascade_num):
+                meta_str += 'cascade_id %d bxmap meta:\n'%(cascade_id)
+                count = attrs['count'][cascade_id]
+                for ele_name in GlobalSubBaseBLOCK.meta_names:
+                    if ele_name not in attrs:
+                        continue
+                    meta_str += '\t%s: %s'%( ele_name, attrs[ele_name][cascade_id] / count )
+                    if ele_name == 'count':
+                        meta_str += ' (%d)'%(count)
+                    if ele_name == 'aimbnum_missed_add':
+                        meta_str += ' \t<-- stride:%s  nsubblock:%s'%( attrs['sub_block_stride_candis'][cascade_id], attrs['nsubblock_candis'][cascade_id] )
+                    if ele_name == 'baseb_exact_flat_num':
+                        meta_str += ' \t<-- nsubblock:%s  step:%s'%( attrs['nsubblock_candis'][cascade_id], attrs['sub_block_step_candis'][cascade_id] )
+                        baseb_exact_flat_num = attrs[ele_name][cascade_id] / count
+                        meta_str += '\n\t\tmissed_baseb_num:%d/%0.1f%%'%( baseb_exact_flat_num[0], 100.0*baseb_exact_flat_num[0]/np.sum(baseb_exact_flat_num) )
+                    if ele_name == 'npointsubblock_missed_add':
+                        meta_str += ' \t<-- npoint_subblock:%s'%( attrs['npoint_subblock_candis'][cascade_id] )
+                    meta_str += '\n'
+                meta_str += '\n'
+            sf.write( meta_str )
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
@@ -4433,7 +4515,7 @@ class Normed_H5f():
                 area_data = np.ones((num_blocks,num_sample)) * area_no
                 self.append_to_dset('area_no',area_data)
 
-    def sph5_create_done(self):
+    def sph5_create_done(self,bmh5_fn = None, pl_sph5_fn = None ):
         self.rm_invalid_data()
         self.add_label_histagram()
         self.h5f.attrs['is_intact_sph5'] = 1
@@ -4441,7 +4523,9 @@ class Normed_H5f():
             for new_sample_num in self.h5f.attrs['smaller_sample_num']:
                 self.h5f[str(int(new_sample_num))+'-rootb_split_idxmap'].attrs['is_intact_new_sample_num'] = 1
         if 'data' in self.h5f:
-            self.write_summary()
+            self.write_summary_sph5()
+        else:
+            self.write_summary_bxmh5( bmh5_fn = bmh5_fn, pl_sph5_fn = pl_sph5_fn )
 
     @staticmethod
     def check_sph5_intact( file_name ):

@@ -145,11 +145,15 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             c2 = tf.constant([1000,1000,1000],tf.float32)
             grouped_xyz_mm = grouped_xyz * c2
             stride = c2 * sgf_configs['sub_block_stride_candis'][cascade_id-1]
-            point_indices_f = (grouped_xyz_mm - min_point_xyz_mm) / stride
-            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer1/point_indices:0
-            point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer1/point_indices_err:0
-            point_indices_maxerr_xyz = tf.reduce_max( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz:0
-            point_indices_meanerr_xyz = tf.reduce_mean( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz_1:0
+            point_indices_f = (grouped_xyz_mm - min_point_xyz_mm) / stride  # gpu_0/sa_layer3/div:0
+            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+            point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
+            point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz:0
+            check_point_indices = tf.assert_less( point_indices_maxerr, 1e0, data=[point_indices_maxerr],
+                                                 message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
+
+            if DEBUG_TMP:
+                tf.add_to_collection( 'check', check_point_indices )
 
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
 

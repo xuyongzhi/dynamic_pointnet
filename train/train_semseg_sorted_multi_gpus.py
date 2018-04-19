@@ -41,7 +41,7 @@ parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glo
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
@@ -374,7 +374,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         init = tf.global_variables_initializer()
         sess.run(init, {is_training_pl:True})
         if ISTFDEBUG:
-            sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+            sess = tf_debug.LocalCLIDebugWrapperSession(sess, dump_root='/home/z/tmp/tfdbg')
             sess.add_tensor_filter("has_inf_or_nan",tf_debug.has_inf_or_nan)
 
 
@@ -393,8 +393,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
-            #point_indices_ls = tf.get_collection( 'point_indices' )
-            #ops['point_indices'] = point_indices_ls[0]
+            ops['check_ops'] = tf.get_collection( 'check' )
 
         if 'l_xyz' in debugs[0]:
             ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
@@ -542,10 +541,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
-        #if DEBUG_TMP:
-        #    point_indices, = sess.run( [ops['point_indices']], feed_dict=feed_dict )
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #    pass
+        if DEBUG_TMP:
+            check_point_indices, = sess.run( [ops['check_ops']], feed_dict=feed_dict )
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
+            return ''
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage = sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']],
                                     feed_dict=feed_dict )
         t2 = time.time()
