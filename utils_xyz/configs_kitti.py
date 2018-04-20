@@ -21,7 +21,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     '''
 
     flatbxmap_max_dis = 4
-    padding = 0.3
+    padding = 0.1
 
     if gsbb_config == '3A1':
         # for scannet
