@@ -10,7 +10,7 @@ NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is ve
 NETCONFIG['merge_blocks_while_fix_bmap'] = True
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = 'tmp'
+_gsbb_config = '4C0'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):

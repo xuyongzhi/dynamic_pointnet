@@ -25,7 +25,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs,
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs, sgf_config_pls,
                        is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
@@ -47,6 +47,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
     '''
     IsShowModel = True
     with tf.variable_scope(scope) as sc:
+        cascade_num = sgf_config_pls['block_stride_cascades_batch'].shape[1].value - 1
+        assert sgf_config_pls['block_step_cascades_batch'].shape[1].value == cascade_num+1, "Should add global xyz_min_aligned to the last dimension."
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
 
@@ -58,14 +60,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             grouped_points = tf.expand_dims(points,axis=1)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
-        #elif cascade_id == 0:
-        #    # already grouped, no need to group
-        #    assert len(xyz.shape) == 4
-        #    # (2, 512, 128, 6)
-        #    grouped_points = xyz
-        #    # the first step, xyz can be actually rawdata include color ...
-        #    # assume xyz in at the first 3 channels
-        #    grouped_xyz = xyz[...,0:3]
+            block_center_xyz_mm = sgf_config_pls['block_step_cascades_batch'][:,cascade_num:cascade_num+1,:]
         else:
             assert len(xyz.shape) == 3
             batch_size = xyz.get_shape()[0].value
@@ -136,20 +131,29 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            voxel_center_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32)
+            block_center_xyz_mm = tf.identity( block_center_xyz_mm,'block_center_xyz_mm' )      # gpu_0/sa_layer3/block_center_xyz_mm:0
+            c500 = tf.constant([500],tf.float32)
+            c1000 = tf.constant([1000],tf.float32)
+            step_last = sgf_config_pls['block_step_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_1:0
+            step_last = tf.expand_dims( step_last, 1 )
+            stride_last = sgf_config_pls['block_stride_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_2:0
+            stride_last = tf.expand_dims( stride_last,1 )
+            if not IsExtraGlobalLayer:
+                step_cur = sgf_config_pls['block_step_cascades_batch'][:,cascade_id:cascade_id+1,:]  # gpu_0/sa_layer1/strided_slice:0
+                voxel_bottom_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32) - step_cur * c500     # gpu_0/sa_layer1/sub:0
+            else:
+                voxel_bottom_xyz_mm = sgf_config_pls['block_stride_cascades_batch'][:,cascade_num:cascade_num+1,:] * c1000 # gpu_0/sa_layer3/mul_1:0
+                assert voxel_bottom_xyz_mm.shape[1].value == 1
             # NOTE: c1=[1,1,1]*0.5 ONLY when the sh5 step is also the same on three dimensions.
             #                      Otherwise, the stride at each cascade may also be changed.
-            c1 = tf.constant([500,500,500],tf.float32)
-            min_point_xyz_mm = voxel_center_xyz_mm - sgf_configs['sub_block_step_candis'][cascade_id]*c1 + sgf_configs['sub_block_step_candis'][cascade_id-1]*c1
-            min_point_xyz_mm = tf.expand_dims( min_point_xyz_mm, -2, name='min_point_xyz_mm' ) # gpu_0/sa_layer1/min_point_xyz_mm:0
-            c2 = tf.constant([1000,1000,1000],tf.float32)
-            grouped_xyz_mm = grouped_xyz * c2
-            stride = c2 * sgf_configs['sub_block_stride_candis'][cascade_id-1]
-            point_indices_f = (grouped_xyz_mm - min_point_xyz_mm) / stride  # gpu_0/sa_layer3/div:0
+            min_point_bottom_xyz_mm = voxel_bottom_xyz_mm
+            min_point_bottom_xyz_mm = tf.expand_dims( min_point_bottom_xyz_mm, -2, name='min_point_bottom_xyz_mm' ) # gpu_0/sa_layer1/min_point_bottom_xyz_mm:0
+            grouped_bottom_xyz_mm = grouped_xyz * c1000 - step_last * c500  # gpu_0/sa_layer1/sub_1:0
+            point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
             point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
             point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
             point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz:0
-            check_point_indices = tf.assert_less( point_indices_maxerr, 1e0, data=[point_indices_maxerr],
+            check_point_indices = tf.assert_less( point_indices_maxerr, 1e-4, data=[point_indices_maxerr],
                                                  message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
 
             if DEBUG_TMP:

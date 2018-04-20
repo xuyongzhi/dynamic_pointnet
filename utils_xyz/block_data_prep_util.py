@@ -817,8 +817,6 @@ class GlobalSubBaseBLOCK():
             aimbcenter, aimbmin, aimbmax = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
             aimb_center_xyz[aim_b_index,:] = aimbcenter
 
-
-
             if not IsGenFlatbxmap:
                 continue
             if aimbids_tile.size>0 and isin_sorted( aimbids_tile, aim_bid ) and aim_bid not in aimbids_cleaned:
@@ -4137,7 +4135,14 @@ class Normed_H5f():
             fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
+            block_step_cascades = h5f.attrs['block_step_cascades']
+            block_stride_cascades = h5f.attrs['block_stride_cascades']
+            # Add global block xyz_min_aligned to block_step_cascades
+            #   for extra global layer while using 3DCNN
+            block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
+            block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
+
+        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, block_step_cascades, block_stride_cascades
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
@@ -4868,7 +4873,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
         if format == '.bxmh5':
             gsbb_empty = GlobalSubBaseBLOCK()
             gsbb_empty.load_para_from_bxmh5( merged_filename )
-            gsbb_empty.write_bxm_paras_in_txt( merged_filename )
+            #gsbb_empty.write_bxm_paras_in_txt( merged_filename )
 
         if IsShowSummaryFinished:
             merged_normed_h5f.show_summary_info()

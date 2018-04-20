@@ -34,7 +34,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='4aG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='5aG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
@@ -74,7 +74,7 @@ IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = True
+ISTFDEBUG = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -265,13 +265,13 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             sgf_configs = {}
             sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
             sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
-            sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
-            sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
+            #sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
+            #sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
             sgf_configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
             sgf_configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
             sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
 
-            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, sgf_configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -323,7 +323,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         fbmap_neighbor_dis_device = tf.slice(fbmap_neighbor_dis_pl, [gi*DEVICE_BATCH_SIZE,0,0,0], [DEVICE_BATCH_SIZE,-1,-1,-1])
 
                         pred, end_points, debug = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
-                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY )
+                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, sgf_config_pls, bn_decay=bn_decay, IsDebug=IS_GEN_PLY )
 
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS)
                         losses = tf.get_collection('losses', scope)
@@ -391,6 +391,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['sg_bidxmaps_pl'] = sg_bidxmaps_pl
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
+        ops['block_step_cascades_batch_pl'] = sgf_config_pls['block_step_cascades_batch']
+        ops['block_stride_cascades_batch_pl'] = sgf_config_pls['block_stride_cascades_batch']
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
             ops['check_ops'] = tf.get_collection( 'check' )
@@ -508,7 +510,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid, \
+                cur_block_step_cascades_batch, cur_block_stride_cascades_batch = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -525,7 +528,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                         bufread_t0 = time.time()
                     time.sleep(0.1)
             #if DEBUG_MULTIFEED: print('get train_feed_buf_q size= %d,  batch_idx=%d'%(train_feed_buf_q.qsize(),batch_idx))
-            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis,\
+                block_step_cascades_batch, block_stride_cascades_batch,  batch_idx_buf,epoch_buf = train_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
         #if DEBUG_MULTIFEED: continue
 
@@ -540,6 +544,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
+        feed_dict[ops['block_step_cascades_batch_pl']] = cur_block_step_cascades_batch
+        feed_dict[ops['block_stride_cascades_batch_pl']] = cur_block_stride_cascades_batch
 
         if DEBUG_TMP:
             check_point_indices, = sess.run( [ops['check_ops']], feed_dict=feed_dict )
@@ -717,7 +723,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
+                block_step_cascades_batch, block_stride_cascades_batch  = net_provider.get_eval_batch(start_idx,end_idx,False)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -734,7 +741,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
                 time.sleep(0.2)
             #print('eval_feed_buf_q size= %d'%(eval_feed_buf_q.qsize()))
 
-            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
+            cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, \
+                block_step_cascades_batch, block_stride_cascades_batch, batch_idx_buf,epoch_buf  = eval_feed_buf_q.get()
             #assert batch_idx == batch_idx_buf and epoch== epoch_buf
 
         #if DEBUG_MULTIFEED: continue
@@ -751,6 +759,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         feed_dict[ops['sg_bidxmaps_pl']] = cur_sg_bidxmaps
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
+        feed_dict[ops['block_step_cascades_batch_pl']] = cur_block_step_cascades_batch
+        feed_dict[ops['block_stride_cascades_batch_pl']] = cur_block_stride_cascades_batch
 
         summary, step, loss_val, pred_val,accuracy_batch = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred'],ops['accuracy_block']],
                                       feed_dict=feed_dict)
@@ -817,10 +827,12 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
+                            block_step_cascades_batch, block_stride_cascades_batch = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
-                    feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, batch_idx,epoch] )
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
+                            block_step_cascades_batch, block_stride_cascades_batch = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                    feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, block_step_cascades_batch, block_stride_cascades_batch, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))
                         break # all data reading finished
