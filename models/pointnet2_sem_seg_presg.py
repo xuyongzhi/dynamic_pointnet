@@ -231,6 +231,11 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     """
     IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
+    num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
+    assert num_neighbors[0] <= sgf_configs['flatbxmap_max_nearest_num'][0]
+    assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0]
+    assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:])
+
     if 'G' in model_flag:
         IsAddGlobalLayer = True
     else:

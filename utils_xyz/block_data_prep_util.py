@@ -724,7 +724,7 @@ class GlobalSubBaseBLOCK():
         baseb_exact_flat_num: (4,)  the histogram of the aim block num containing current base block
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
-        IsRecordTime = True
+        IsRecordTime = False
         cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
         IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
         if IsRecordTime: t0 = time.time()
@@ -1494,7 +1494,7 @@ class GlobalSubBaseBLOCK():
                         bmh5_meta_f.write('cascade %d:\n'%(cas))
                     for key, value in bmh5_meta.items():
                         bmh5_meta_f.write( '\t%s: %s \n'%(key, value) )
-                bmh5_meta_f.write( 'gen t: %0.2f sec'%(t_bmh5) )
+                bmh5_meta_f.write( '\ngen t: %0.2f sec'%(t_bmh5) )
             print('write finish: %s'%(self.bmh5_fn))
 
 
@@ -4447,7 +4447,7 @@ class Normed_H5f():
                             summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
                         summary += '\n'
             sf.write( summary )
-            sf.write( 'gen t: %0.2f sec'%(attrs['t']) )
+            sf.write( '\ngen t: %0.2f sec'%(self.h5f.attrs['t']) )
             print('finish summary file: %s'%(summary_fn))
 
     def write_summary_bxmh5( self, bmh5_fn = None, pl_sph5_fn = None ):
@@ -4485,7 +4485,7 @@ class Normed_H5f():
                     meta_str += '\n'
                 meta_str += '\n'
             sf.write( meta_str )
-            sf.write( 'gen t: %0.2f sec'%(attrs['t']) )
+            sf.write( '\ngen t: %0.2f sec'%(attrs['t']) )
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
