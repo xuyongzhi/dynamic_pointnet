@@ -57,6 +57,7 @@ Search with "name:" to find the definition.
     get_blockids_of_dif_stride_step
     get_all_bidxmaps
     gsbb naming: get_pyramid_flag
+    file_saveas_pyramid_feed
 '''
 '''     step, stride Configuration
     (1) set_whole_scene_stride_step: limit stride, step of every cascade by whole scene scope. By calling update_align_scope_by_stridetoalign_
@@ -441,7 +442,7 @@ class GlobalSubBaseBLOCK():
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
+            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( 'bmh5' )
             if not os.path.exists(out_folder):
                 os.mkdir(out_folder)
             blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
@@ -450,7 +451,7 @@ class GlobalSubBaseBLOCK():
             scene_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.root_s_h5f_fn) ))
 
-            out_folder = scannet_h5f_dir + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False)
+            out_folder = scannet_h5f_dir + '/ORG_bmh5/' + self.get_pyramid_flag( 'bmh5' )
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + scene_name + '.bmh5'
@@ -461,7 +462,7 @@ class GlobalSubBaseBLOCK():
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( OnlyGlobal = False) + '/'
+            out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( 'bmh5' ) + '/'
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
             blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
@@ -470,25 +471,26 @@ class GlobalSubBaseBLOCK():
 
         return blockid_maps_fn
 
-    def write_paras_in_h5fattrs(self, aim_attrs ):
+    def write_gsbbattrs_to_bmh5_bxmh5(self, aim_attrs, file_format ):
         assert self.mode == 'write'
         for ele_name in self.para_names + self.meta_names + self.root_para_names:
             if hasattr( self, ele_name ):
                 aim_attrs[ele_name] = getattr( self,ele_name )
 
-        attrs_all = []
-        for cascade_id in range(self.cascade_num):
-            attrs = self.get_new_attrs(cascade_id)
-            attrs_all.append( attrs )
+        if file_format == 'bxmh5':
+            attrs_all = []
+            for cascade_id in range(self.cascade_num):
+                attrs = self.get_new_attrs(cascade_id)
+                attrs_all.append( attrs )
 
-        attr_candicates = ['stride_to_align', 'block_dims_N', 'xyz_scope_aligned', 'xyz_min_aligned', 'total_block_N', 'xyz_max_aligned']
-        for attr in attr_candicates:
-            aim_attrs[attr] = attrs[attr]
-        attr_candicates = [ 'block_stride','block_step' ]
-        for attr in attr_candicates:
-            attr_ls = [np.expand_dims(attrs[attr],0) for attrs in attrs_all]
-            attr_cas = np.concatenate( attr_ls,0 )
-            aim_attrs[attr+'_cascades'] = attr_cas
+            attr_candicates = ['stride_to_align', 'block_dims_N', 'xyz_scope_aligned', 'xyz_min_aligned', 'total_block_N', 'xyz_max_aligned']
+            for attr in attr_candicates:
+                aim_attrs[attr] = attrs[attr]
+            attr_candicates = [ 'block_stride','block_step' ]
+            for attr in attr_candicates:
+                attr_ls = [np.expand_dims(attrs[attr],0) for attrs in attrs_all]
+                attr_cas = np.concatenate( attr_ls,0 )
+                aim_attrs[attr+'_cascades'] = attr_cas
 
     def write_bxm_paras_in_txt_unused(self, bxmh5_fn, pl_sph5_filename=None ):
         assert os.path.splitext( bxmh5_fn )[1] == '.bxmh5'
@@ -525,7 +527,11 @@ class GlobalSubBaseBLOCK():
                 meta_str += '\n'
             bmap_meta_f.write( meta_str )
 
-    def get_pyramid_flag(self, OnlyGlobal=False ):
+    def get_pyramid_flag(self, aim_format ):
+        '''
+        aim_format = 'sph5' 'bmh5' 'bxmh5'
+        '''
+        assert aim_format == 'sph5' or aim_format == 'bmh5' or aim_format == 'bxmh5'
         def my_str(s):
             if s<0:
                 is_neg = True
@@ -537,11 +543,17 @@ class GlobalSubBaseBLOCK():
                 str_ = str(int(s))
             if is_neg: str_ = '-'+str_
             return str_
-        flag_str = str(self.global_num_point) + '_'
+        if aim_format != 'bmh5':
+            flag_str = str(self.global_num_point) + '_'
+        else:
+            flag_str = ''
         flag_str += 'gs'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
-        if OnlyGlobal:
+        if aim_format == 'sph5':
             return flag_str
-        flag_str += '_fmn'+str(self.flatbxmap_max_nearest_num)
+        if aim_format == 'bxmh5':
+            flag_str += '_fmn'
+            for n in self.flatbxmap_max_nearest_num:
+                flag_str += str(n)
         flag_str += '-'
         for i,n in enumerate(self.nsubblock_candis):
             flag_str += str(n)
@@ -712,8 +724,9 @@ class GlobalSubBaseBLOCK():
         baseb_exact_flat_num: (4,)  the histogram of the aim block num containing current base block
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
-        IsRecordTime = False
-        IsGenFlatbxmap = self.flatbxmap_max_nearest_num > 0
+        IsRecordTime = True
+        cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+        IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
@@ -806,7 +819,7 @@ class GlobalSubBaseBLOCK():
         if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
         else: base_nsubblock = self.global_num_point
         if IsGenFlatbxmap:
-            flatten_bidxmap = np.ones(shape=(base_nsubblock, self.flatbxmap_max_nearest_num,3)).astype(np.float64)*(-11)
+            flatten_bidxmap = np.ones(shape=(base_nsubblock, np.max(self.flatbxmap_max_nearest_num),3)).astype(np.float64)*(-11)
             flatten_bidxmap_num = np.zeros( shape=(base_nsubblock) ).astype(np.int8)
         aimbids_cleaned = []
         for aim_b_index in range(aim_nsubblock):
@@ -837,7 +850,7 @@ class GlobalSubBaseBLOCK():
                 last_rootb_index = -1
                 base_bid_valid_indexs_fixvalid = np.sort(base_bid_valid_indexs_fixvalid)
             for pointindex_within_subblock, baseb_index in enumerate( base_bid_valid_indexs_fixvalid ):
-                if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                if flatten_bidxmap_num[baseb_index] < cur_flatbxmap_max_nearest_num:
                     # exactly containing relationship, so the dis=0
                     flatten_bidxmap[baseb_index,flatten_bidxmap_num[baseb_index],:] = [aim_b_index,pointindex_within_subblock,0]
                     flatten_bidxmap_num[baseb_index] += 1
@@ -880,26 +893,27 @@ class GlobalSubBaseBLOCK():
                         flatten_bidxmap[baseb_index] = flatten_bidxmap[baseb_index-1]
                         flatten_bidxmap_num[baseb_index] = flatten_bidxmap_num[baseb_index-1]
 
-            baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range(self.flatbxmap_max_nearest_num+2) )[0]
+            baseb_exact_flat_num = np.histogram( flatten_bidxmap_num, bins=range( np.max(self.flatbxmap_max_nearest_num)+2) )[0]
             # set all the flatten_bidxmap_num==0 to 1, because these base blocks are already assigned with reponding 0th bid
             flatten_bidxmap_num[ flatten_bidxmap_num==0 ] = 1
             if IsRecordTime: t3 = time.time()
             #-----------------------------------------------------------------------
+            # This step costs the most time!!!
             # (3) For the base block that are contained by flatten_bidxmap_num aim
-            # blocks which flatten_bidxmap_num is < self.flatbxmap_max_nearest_num.
+            # blocks which flatten_bidxmap_num is < cur_flatbxmap_max_nearest_num.
             # Find from nearly aim blocks to compensate if possible.
-            # The reason why flatten_bidxmap_num < self.flatbxmap_max_nearest_num is
+            # The reason why flatten_bidxmap_num < cur_flatbxmap_max_nearest_num is
             # insufficient aim_nsubblock or small aim_sub_block_size.
             # If still cannot find enough from nealy space, these base blocks are
             # missed, and will be set random aim bid and large distance (zero weight)
             around_aimb_dis = []
-            if self.flatbxmap_max_nearest_num > 1:
+            if cur_flatbxmap_max_nearest_num > 1:
                 sr_counts = np.zeros( shape=(flatten_bidxmap.shape[0]) ).astype(np.uint8)
                 allaimbids_in_base_dic = self.get_all_aim_bids_in_base_dic( cascade_id )
                 if IsRecordTime: tts = []
                 last_rootb_index = -1
                 for baseb_index in range(flatten_bidxmap.shape[0]):
-                    if flatten_bidxmap_num[baseb_index] < self.flatbxmap_max_nearest_num:
+                    if flatten_bidxmap_num[baseb_index] < cur_flatbxmap_max_nearest_num:
                         if IsRecordTime: tt0 = time.time()
                         if cascade_id==0:
                             base_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, baseb_index, last_rootb_index )
@@ -913,8 +927,8 @@ class GlobalSubBaseBLOCK():
                             pass
                         aim_bids = allaimbids_in_base_dic[base_bid]
                         if IsRecordTime: tt2 = time.time()
-                        # search around aim_ixyz to find the nearest self.flatbxmap_max_nearest_num valid aim_bids
-                        around_aimbidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( aim_bids, aim_attrs, sorted_aimbids_fixed, self.flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
+                        # search around aim_ixyz to find the nearest cur_flatbxmap_max_nearest_num valid aim_bids
+                        around_aimbidx_dis, sr_count = GlobalSubBaseBLOCK.get_around_bid_1base( aim_bids, aim_attrs, sorted_aimbids_fixed, cur_flatbxmap_max_nearest_num-flatten_bidxmap_num[baseb_index] )
                         sr_counts[baseb_index] += sr_count
                         for k in range( around_aimbidx_dis.shape[0] ):
                             flatten_bidxmap[baseb_index, flatten_bidxmap_num[baseb_index],:] = [ around_aimbidx_dis[k,0],0,around_aimbidx_dis[k,1] ]
@@ -924,9 +938,9 @@ class GlobalSubBaseBLOCK():
                         if IsRecordTime:
                                 tts.append( np.expand_dims( np.array( [ (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ] ),0) )
                         #    print('sr_count:%d  1:%f  2:%f  3:%f'%( sr_count, (tt1-tt0)*1000, (tt2-tt1)*1000, (tt3-tt2)*1000 ))
-            if IsRecordTime:
-                tts = np.concatenate( tts )
-                print( 'tts: ', tts.mean(axis=0) )
+                if IsRecordTime:
+                    tts = np.concatenate( tts )
+                    print( 'tts: ', tts.mean(axis=0) )
             if IsRecordTime: t4 = time.time()
 
             #-----------------------------------------------------------------------
@@ -941,15 +955,15 @@ class GlobalSubBaseBLOCK():
             #-----------------------------------------------------------------------
             #(5) If there are still some bidxmaps not fill, till any valid one but weight be 0
             for baseb_index in range(flatten_bidxmap.shape[0]):
-                if flatten_bidxmap_num[baseb_index]!=self.flatbxmap_max_nearest_num:
-                    for i in range(flatten_bidxmap_num[baseb_index],self.flatbxmap_max_nearest_num):
+                if flatten_bidxmap_num[baseb_index]!=cur_flatbxmap_max_nearest_num:
+                    for i in range(flatten_bidxmap_num[baseb_index],cur_flatbxmap_max_nearest_num):
                         flatten_bidxmap[baseb_index,i,:] = flatten_bidxmap[baseb_index,0,:]
                         flatten_bidxmap[baseb_index,i,2] = 1000
                         flatten_bidxmap_num[baseb_index] += 1
             flatten_bidxmap_fixed = flatten_bidxmap
             #-----------------------------------------------------------------------
 
-            nonfull_baseb_num = np.sum( flatten_bidxmap_num != self.flatbxmap_max_nearest_num )
+            nonfull_baseb_num = np.sum( flatten_bidxmap_num != cur_flatbxmap_max_nearest_num )
             assert nonfull_baseb_num==0
 
             if IsRecordTime: t6 = time.time()
@@ -959,9 +973,10 @@ class GlobalSubBaseBLOCK():
                 print('(1a) fix_bmap t=%f'%(t2a-t1))
                 print('(1b) get valid_sorted_aimbids t=%f'%(t2b-t2a))
                 print('(2) get flatten_bidxmap_num t=%f'%(t3-t2b))
-                print('(3) fix flatten_bidxmap_num t=%f'%(t4-t3))
+                print('(3) fix flatten_bidxmap_num t=%f,  cur_flatbxmap_max_nearest_num=%d'%(t4-t3,cur_flatbxmap_max_nearest_num))
                 print('(4) t=%f'%(t5-t4))
                 print('(5) t=%f'%(t6-t5))
+                print('(total) t=%f'%(t6-t0))
 
             ##-----------------------------------------------------------------------
             ##(6) tile the last one to fix flatten_bidxmap shape_0: when nsubblock is larger than valid
@@ -1233,7 +1248,8 @@ class GlobalSubBaseBLOCK():
 
             for key in bxmap_meta:
                 if cascade_id==0: bxmap_metas[key] = bxmap_meta[key]
-                else: bxmap_metas[key] = np.concatenate( [bxmap_metas[key], bxmap_meta[key]],0 )
+                else:
+                    bxmap_metas[key] = np.concatenate( [bxmap_metas[key], bxmap_meta[key]],0 )
 
             #sg_bidxmap_sample_num[cascade_id,:] = sg_sample_num
             #flatten_bidxmap,sample_num_flatten = fix_var_shape(flatten_bidxmap,self.nsubblock_candis[cascade_id-1],0)
@@ -1317,7 +1333,7 @@ class GlobalSubBaseBLOCK():
             return self.nsubblock_candis[cascade_id-1]
     def get_flatten_bidxmaps_shape(self):
         shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
-        return (shape0,self.flatbxmap_max_nearest_num,3)
+        return (shape0,np.max(self.flatbxmap_max_nearest_num),3)
 
     def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic','allaimbids_in_base_dic'],aim_bid=None):
         assert os.path.exists(self.bmh5_fn),"file not exist: %s"%(self.bmh5_fn)
@@ -1412,9 +1428,10 @@ class GlobalSubBaseBLOCK():
         # the elements required to draw block
         wanted_attr_eles = ['block_dims_N','block_step','block_stride','xyz_min_aligned']
         bmh5_meta_fn = os.path.splitext(self.bmh5_fn)[0]+'.txt'
+        t0 = time.time()
         with h5py.File(self.bmh5_fn,'w') as h5f:
             h5f.attrs['is_intact_bmh5'] = 0
-            self.write_paras_in_h5fattrs( h5f.attrs )
+            self.write_gsbbattrs_to_bmh5_bxmh5( h5f.attrs, file_format='bmh5' )
 
             all_sorted_blockids_dic={}
             all_sorted_blockids_dic['root'] = np.sort([int(k) for k in self.root_s_h5f])
@@ -1460,6 +1477,8 @@ class GlobalSubBaseBLOCK():
                     for base_bid, aim_bids in aimbids_in_smallerbasebid_dic.items():
                         aim_in_base_map_dset = grp.create_dataset( 'base/'+str(base_bid),shape=(len(aim_bids),),dtype=np.int32  )
                         aim_in_base_map_dset[...] = aim_bids
+            t_bmh5 = time.time() -t0
+            h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
 
@@ -1475,6 +1494,7 @@ class GlobalSubBaseBLOCK():
                         bmh5_meta_f.write('cascade %d:\n'%(cas))
                     for key, value in bmh5_meta.items():
                         bmh5_meta_f.write( '\t%s: %s \n'%(key, value) )
+                bmh5_meta_f.write( 'gen t: %0.2f sec'%(t_bmh5) )
             print('write finish: %s'%(self.bmh5_fn))
 
 
@@ -3429,20 +3449,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True ) + '/' + house_name
-            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False ) + '/' + house_name
+            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + '/' + house_name
+            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  )
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = True )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( OnlyGlobal = False  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' )
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  )
 
         else:
             assert False, datasource_name
@@ -3502,6 +3522,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_num_point = gsbb_write.global_num_point
         assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
         print('start gen sph5 file: ',pl_sph5_filename)
+        t0 = time.time()
         with h5py.File(pl_sph5_filename,'w') as h5f:
             global_attrs = gsbb_write.get_new_attrs('global')
 
@@ -3566,6 +3587,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 h5f['rootb_split_idxmap'].attrs['num_point_abandoned'] = num_point_abandoned
                 h5f['rootb_split_idxmap'].attrs['max_global_sample_rate'] = NETCONFIG['max_global_sample_rate']
 
+                t_sph5 = time.time() - t0
+                pl_sph5f.h5f.attrs['t'] = t_sph5
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
                     pl_sph5f.show_summary_info()
@@ -3619,6 +3642,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         bxmh5:
         '''
         print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
+        t0 = time.time()
         with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f:
             if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
                 rootb_split_idxmap = pl_sph5f['rootb_split_idxmap']
@@ -3657,10 +3681,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
-            gsbb_write.write_paras_in_h5fattrs( bxmh5f.h5f.attrs )
+            gsbb_write.write_gsbbattrs_to_bmh5_bxmh5( bxmh5f.h5f.attrs, file_format='bxmh5' )
             #gsbb_write.load_para_from_bxmh5( bxmh5_fn )
             #gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
 
+            t_bxmh5 = time.time() - t0
+            bxmh5f.h5f.attrs['t'] = t_bxmh5
             bxmh5f.sph5_create_done( bmh5_fn = gsbb_write.bmh5_fn, pl_sph5_fn = pl_sph5_filename )
             print('write finish: %s'%(bxmh5_fn))
 
@@ -4421,6 +4447,7 @@ class Normed_H5f():
                             summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
                         summary += '\n'
             sf.write( summary )
+            sf.write( 'gen t: %0.2f sec'%(attrs['t']) )
             print('finish summary file: %s'%(summary_fn))
 
     def write_summary_bxmh5( self, bmh5_fn = None, pl_sph5_fn = None ):
@@ -4458,6 +4485,7 @@ class Normed_H5f():
                     meta_str += '\n'
                 meta_str += '\n'
             sf.write( meta_str )
+            sf.write( 'gen t: %0.2f sec'%(attrs['t']) )
 
     def raw_xyz_set(self):
         return self.data_set[...,self.data_set.attrs['xyz']]
