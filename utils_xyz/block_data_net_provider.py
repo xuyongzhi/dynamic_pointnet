@@ -570,7 +570,7 @@ class Net_Provider():
 
         fid_start_end = np.concatenate( fid_start_end,0 )
 
-        #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, block_step_cascades_batch, block_stride_cascades_batch  )
+        Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, block_step_cascades_batch, block_stride_cascades_batch  )
 
      #   print('\nin global')
      #   print('file_start = ',start_file_idx)
@@ -736,8 +736,8 @@ def main_NormedH5f():
     dataset_name = 'scannet'
 
     all_fn_globs = ['Merged_sph5/90000_gs-4_-6d3/']
-    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
-    eval_fnglob_or_rate = '0_3'
+    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+    eval_fnglob_or_rate = '0_2'
 
     #all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
     #bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
