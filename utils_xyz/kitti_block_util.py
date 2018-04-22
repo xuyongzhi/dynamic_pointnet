@@ -553,8 +553,8 @@ def parse_house_ls():
     # operations  = ['SortRaw']
     # operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['SortRaw','GenPyramid','Merge']   ## merge several regions in one house
-    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
-    operations  = ['Merge']   ## merge sveral houses together
+    operations  = ['GenPyramid','Merge']   ## merge several regions in one house
+    # operations  = ['Merge']   ## merge sveral houses together
 
     #operations  = ['GenPyramid' , 'MergeNormed_region']
 
