@@ -231,6 +231,22 @@ def GenPyramidSortedFlie(fn):
                                             IsGenPly = False and TMPDEBUG)
     return fn
 
+def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
+    nf = len(nonvoid_plfn_ls)
+    merged_n = min( merged_n, nf )
+    group_n = int( nf/merged_n )
+    allfn_ls = [ [], [] ]
+    all_group_name_ls = []
+    for i in range( 0, nf, group_n ):
+        end = min( nf, i+group_n )
+        allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
+        allfn_ls[1].append( bxmh5_fn_ls[i:end] )
+        all_group_name_ls.append( '%d_%d'%(i, end) )
+    return allfn_ls, all_group_name_ls
+
+
+
+
 class Matterport3D_Prepare():
     '''
     Read each region as a h5f.
@@ -407,8 +423,9 @@ class Matterport3D_Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls = [ [nonvoid_plfn_ls], [bxmh5_fn_ls] ]
-        all_group_name_ls = [ 'all' ]
+        # allfn_ls = [ [nonvoid_plfn_ls], [bxmh5_fn_ls] ]
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        # all_group_name_ls = [ 'all' ]
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -419,6 +436,7 @@ class Matterport3D_Prepare():
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
                 MergeNormed_H5f( allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
+
             # check after merged
             with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
                 if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_sample_group'].shape[0]:
@@ -426,6 +444,16 @@ class Matterport3D_Prepare():
                 else:
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
+            label_file_name = merged_path + 'gt' + all_group_name_ls[k] + '.txt'
+            with open(label_file_name, 'w') as sf:
+                first_one = True
+                for name_dir in allfn_ls[0][k]:    ## benz_m, saving the labeling data for object detection
+                    if first_one:
+                        name = os.path.splitext(os.path.basename(name_dir))[0] + '.txt\n'
+                        first_one = False
+                    else:
+                        name += os.path.splitext(os.path.basename(name_dir))[0] + '.txt\n'
+                sf.write(name)
 
     def GenObj_RawH5f(self,house_name):
         house_h5f_dir = self.scans_h5f_dir+'/rawh5f'+'/%s'%(house_name)
