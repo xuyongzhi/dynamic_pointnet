@@ -35,6 +35,8 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_
     sg_bidxmaps_shape = sgf_configs['sg_bidxmaps_shape']
     flatten_bidxmaps_shape = sgf_configs['flatten_bidxmaps_shape']
     flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
+    cascade_num = flatten_bm_extract_idx.shape[0]-1
+    sgf_config_pls = {}
     with tf.variable_scope("pls") as pl_sc:
         pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (data_num_ele,))
         labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample + (label_num_ele,))
@@ -42,7 +44,10 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_
         sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
         flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(2,),name="flatten_bidxmaps_pl")
         fbmap_neighbor_idis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_idis_pl")
-        return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl
+        sgf_config_pls['block_step_cascades_batch'] = tf.placeholder( tf.float32, shape=(batch_size,cascade_num+1,3),name='block_step_cascades_batch' )       # pls/block_step_cascades_batch:0
+        sgf_config_pls['block_stride_cascades_batch'] = tf.placeholder( tf.float32, shape=(batch_size,cascade_num+1,3),name='block_stride_cascades_batch' )   # pls/block_stride_cascades_batch:0
+
+        return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl, sgf_config_pls
 
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
@@ -59,7 +64,7 @@ def get_sa_module_config(model_flag):
         mlps_0.append( [32,32,64] )
         mlps_0.append( [64,128,256] )
         mlps_0.append( [256,256,512] )
-    elif model_flag=='4aG':
+    elif model_flag=='4a' or model_flag=='4aG':
         mlps_0.append( [32,32,64] )
         mlps_0.append( [64,64,128] )
         mlps_0.append( [128,128,256] )
@@ -150,7 +155,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
-    elif model_flag=='4aG' or model_flag=='4DSaG':
+    elif model_flag=='4a' or model_flag=='4aG' or model_flag=='4DSaG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
@@ -219,13 +224,18 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     fbmap_neighbor_dis_global = tf.zeros(shape = [batch_size, nsubblock_last, nearest_block_num, 1], dtype=tf.float32)
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
-def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, sgf_configs, bn_decay=None, IsDebug=False):
+def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, sgf_configs, sgf_config_pls, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
     """
     IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
+    num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
+    assert num_neighbors[0] <= sgf_configs['flatbxmap_max_nearest_num'][0]
+    assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0]
+    assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:])
+
     if 'G' in model_flag:
         IsAddGlobalLayer = True
     else:
@@ -257,18 +267,23 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         if IsAddGlobalLayer and k==cascade_num-1:
             IsExtraGlobalLayer = True
             sg_bidxmap_k = None
+            block_center_xyz_mm = None
         else:
             IsExtraGlobalLayer = False
             start = sg_bm_extract_idx[k]
             end = sg_bm_extract_idx[k+1]
             sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
             block_center_xyz_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+3 ]
+            #block_center_xyz_mm = tf.identity( block_center_xyz_mm, str(k)+"block_center_xyz_mm" )
+            # gpu_0/0block_center_xyz_mm:0
+            # gpu_0/1block_center_xyz_mm:0
+            # gpu_0/2block_center_xyz_mm:0
 
         if TMPDEBUG:
             pooling = '3DCNN'
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
-                                                                    is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
+        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm,
+                                                                                 sgf_configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
         if IsDebug:
             debug['l_xyz'].append( l_xyz )
             debug['grouped_xyz'].append( grouped_xyz )

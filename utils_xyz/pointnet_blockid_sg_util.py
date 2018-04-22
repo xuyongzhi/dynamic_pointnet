@@ -25,7 +25,7 @@ def shape_str(tensor_ls):
             shape_str += '\n'
     return shape_str
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs,
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_center_xyz_mm, sgf_configs, sgf_config_pls,
                        is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
@@ -47,6 +47,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
     '''
     IsShowModel = True
     with tf.variable_scope(scope) as sc:
+        cascade_num = sgf_config_pls['block_stride_cascades_batch'].shape[1].value - 1
+        assert sgf_config_pls['block_step_cascades_batch'].shape[1].value == cascade_num+1, "Should add global xyz_min_aligned to the last dimension."
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
 
@@ -58,14 +60,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             grouped_points = tf.expand_dims(points,axis=1)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
-        #elif cascade_id == 0:
-        #    # already grouped, no need to group
-        #    assert len(xyz.shape) == 4
-        #    # (2, 512, 128, 6)
-        #    grouped_points = xyz
-        #    # the first step, xyz can be actually rawdata include color ...
-        #    # assume xyz in at the first 3 channels
-        #    grouped_xyz = xyz[...,0:3]
+            block_center_xyz_mm = sgf_config_pls['block_step_cascades_batch'][:,cascade_num:cascade_num+1,:]
         else:
             assert len(xyz.shape) == 3
             batch_size = xyz.get_shape()[0].value
@@ -136,20 +131,33 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            voxel_center_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32)
+            block_center_xyz_mm = tf.identity( block_center_xyz_mm,'block_center_xyz_mm' )      # gpu_0/sa_layer3/block_center_xyz_mm:0
+            c500 = tf.constant([500],tf.float32)
+            c1000 = tf.constant([1000],tf.float32)
+            step_last = sgf_config_pls['block_step_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_1:0
+            step_last = tf.expand_dims( step_last, 1 )
+            stride_last = sgf_config_pls['block_stride_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_2:0
+            stride_last = tf.expand_dims( stride_last,1 )
+            if not IsExtraGlobalLayer:
+                step_cur = sgf_config_pls['block_step_cascades_batch'][:,cascade_id:cascade_id+1,:]  # gpu_0/sa_layer1/strided_slice:0
+                voxel_bottom_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32) - step_cur * c500     # gpu_0/sa_layer1/sub:0
+            else:
+                voxel_bottom_xyz_mm = sgf_config_pls['block_stride_cascades_batch'][:,cascade_num:cascade_num+1,:] * c1000 # gpu_0/sa_layer3/mul_1:0
+                assert voxel_bottom_xyz_mm.shape[1].value == 1
             # NOTE: c1=[1,1,1]*0.5 ONLY when the sh5 step is also the same on three dimensions.
             #                      Otherwise, the stride at each cascade may also be changed.
-            c1 = tf.constant([500,500,500],tf.float32)
-            min_point_xyz_mm = voxel_center_xyz_mm - sgf_configs['sub_block_step_candis'][cascade_id]*c1 + sgf_configs['sub_block_step_candis'][cascade_id-1]*c1
-            min_point_xyz_mm = tf.expand_dims( min_point_xyz_mm, -2, name='min_point_xyz_mm' ) # gpu_0/sa_layer1/min_point_xyz_mm:0
-            c2 = tf.constant([1000,1000,1000],tf.float32)
-            grouped_xyz_mm = grouped_xyz * c2
-            stride = c2 * sgf_configs['sub_block_stride_candis'][cascade_id-1]
-            point_indices_f = (grouped_xyz_mm - min_point_xyz_mm) / stride
-            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer1/point_indices:0
-            point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer1/point_indices_err:0
-            point_indices_maxerr_xyz = tf.reduce_max( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz:0
-            point_indices_meanerr_xyz = tf.reduce_mean( point_indices_err, axis=-1, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer1/point_indices_maxerr_xyz_1:0
+            min_point_bottom_xyz_mm = voxel_bottom_xyz_mm
+            min_point_bottom_xyz_mm = tf.expand_dims( min_point_bottom_xyz_mm, -2, name='min_point_bottom_xyz_mm' ) # gpu_0/sa_layer1/min_point_bottom_xyz_mm:0
+            grouped_bottom_xyz_mm = grouped_xyz * c1000 - step_last * c500  # gpu_0/sa_layer1/sub_1:0
+            point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
+            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+            point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
+            point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
+            check_point_indices = tf.assert_less( point_indices_maxerr, 1e0, data=[cascade_id, point_indices_maxerr],
+                                                 message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
+
+            if DEBUG_TMP:
+                tf.add_to_collection( 'check', check_point_indices )
 
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
 
@@ -198,7 +206,6 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
     IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
-    num_neighbours = [ int(n) for n in num_neighbors ]
     with tf.variable_scope(scope) as sc:
         assert len(flatten_bidxmap.get_shape()) == 4
         if cascade_id == 0:
@@ -219,14 +226,14 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
             #flatten_bidxmap_aimbidx_concat1 = tf.concat( [batch_idx, flatten_bidxmap_aimbidx1], axis=-1 )
             #points1 = tf.gather_nd(points1, flatten_bidxmap_aimbidx_concat1 )
 
-            num_neighbour0 = num_neighbours[0]
+            num_neighbor0 = num_neighbors[0]
             disw_theta0 = -1.5 # the abs smaller, more smooth
-            assert num_neighbour0 <= flatten_bidxmap.shape[2].value
-            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour0 ,1] ) # (2, 256, 1)
-            flatten_bidxmap_concat1 = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour0,0:2]], axis=-1 )  # [...,[batch_idx,aimb_idx,point_idx_in_aimb] ]
+            assert num_neighbor0 <= flatten_bidxmap.shape[2].value
+            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbor0 ,1] ) # (2, 256, 1)
+            flatten_bidxmap_concat1 = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbor0,0:2]], axis=-1 )  # [...,[batch_idx,aimb_idx,point_idx_in_aimb] ]
             points1_nei = tf.gather_nd( points1, flatten_bidxmap_concat1 )
-            if num_neighbour0 > 1:
-                dis_weight = tf.nn.softmax( fbmap_neighbor_idis[:,:,0:num_neighbour0,:] * disw_theta0, axis=2 )
+            if num_neighbor0 > 1:
+                dis_weight = tf.nn.softmax( fbmap_neighbor_idis[:,:,0:num_neighbor0,:] * disw_theta0, axis=2 )
                 points1_nei = tf.multiply( points1_nei, dis_weight )
             points1 = tf.reduce_sum( points1_nei, axis=2 )
 
@@ -237,22 +244,22 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
 
         # use the inverse distance weighted sum of 3 neighboured point features
         if cascade_id == 0:
-            num_neighbour = num_neighbours[1]
+            num_neighbor = num_neighbors[1]
         else:
-            num_neighbour = num_neighbours[2]
-        assert num_neighbour <= flatten_bidxmap.shape[2].value
+            num_neighbor = num_neighbors[2]
+        assert num_neighbor <= flatten_bidxmap.shape[2].value
         neighbor_method = 'A'
         #-----------------------------------
         if neighbor_method=='A':
             batch_idx = tf.tile( batch_idx0,[1, point1_num, 1 ,1] ) # (2, 256, 1)
             # from distance to weight
-            if num_neighbour>1:
+            if num_neighbor>1:
                 disw_theta = -0.5 # the abs smaller, more smooth
                 dis_weight = tf.nn.softmax( fbmap_neighbor_idis * disw_theta, axis=2 )
-            for i in range(num_neighbour):
+            for i in range(num_neighbor):
                 flatten_bidxmap_aimbidx_concat_i = tf.concat( [batch_idx, flatten_bidxmap[:,:,i:(i+1),0:1]],axis=-1 ) # (2, 256, 2)
                 mapped_points2_nei_i = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat_i) # (2, 256, 512)
-                if num_neighbour>1:
+                if num_neighbor>1:
                     mapped_points2_nei_i = tf.multiply( mapped_points2_nei_i, dis_weight[:,:,i:(i+1),:] )
                     if i==0:
                         mapped_points2 = mapped_points2_nei_i
@@ -263,10 +270,10 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
             mapped_points2 = tf.squeeze( mapped_points2,2 )
         #-----------------------------------
         if neighbor_method=='B':
-            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbour ,1] ) # (2, 256, 1)
-            flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour,0:1]],axis=-1 ) # (2, 256, 2)
+            batch_idx = tf.tile( batch_idx0,[1, point1_num, num_neighbor ,1] ) # (2, 256, 1)
+            flatten_bidxmap_aimbidx_concat = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbor,0:1]],axis=-1 ) # (2, 256, 2)
             mapped_points2_nei = tf.gather_nd(points2, flatten_bidxmap_aimbidx_concat) # (2, 256, 512)
-            if num_neighbour>1:
+            if num_neighbor>1:
                 disw_theta = -0.7 # the abs smaller, more smooth
                 dis_weight = tf.nn.softmax( fbmap_neighbor_idis * disw_theta, axis=2 )
                 mapped_points2_nei = tf.multiply( mapped_points2_nei, dis_weight )
@@ -280,7 +287,7 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
         #if IsDebug:
         #    debug['flatten_bidxmap'].append( flatten_bidxmap )
         #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #    flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbour,0:2]],axis=-1 ) # (2, 256, 2)
+        #    flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbor,0:2]],axis=-1 ) # (2, 256, 2)
         #    flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
         #    debug['flat_xyz'].append( flat_xyz )
 
