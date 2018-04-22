@@ -18,7 +18,7 @@ from ply_util import create_ply
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'Scannet__H5F')
+DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'ScannetH5F')
 DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
@@ -421,13 +421,12 @@ class Net_Provider():
             # Note: transform both point and block position from center to min firstly
             aimb_bottom_mm_ls.append( aimb_bottom_mm )
 
-            aimbmin_xyz_min_mm = np.min( aimb_bottom_mm[0], axis=0 )
-            aimbmin_xyz_max_mm = np.max( aimb_bottom_mm[0], axis=0 )
+            aimb_bottom_min_mm = np.min( aimb_bottom_mm[0], axis=0 )
+            aimb_bottom_max_mm = np.max( aimb_bottom_mm[0], axis=0 )
 
             print( '\ncascade_id', cascade_id )
-            print( 'aimbmin_xyz_min_mm',aimbmin_xyz_min_mm )
-            print( 'aimbmin_xyz_max_mm',aimbmin_xyz_max_mm )
-            print( 'aimb_bottom_mm 0:', aimb_bottom_mm[0,0,:] )
+            print( 'aimb_bottom_min_mm',aimb_bottom_min_mm )
+            print( 'aimb_bottom_max_mm',aimb_bottom_max_mm )
             if cascade_id>0:
                 # get the grouped xyz
                 assert sg_bidxmap.shape[0] == 1
@@ -515,7 +514,7 @@ class Net_Provider():
             label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
             # data_i: [batch_size,npoint_block,data_nchannels]
             # label_i: [batch_size,npoint_block,label_nchannels]
-            sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, block_step_cascades, block_stride_cascades = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+            sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
             assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
@@ -766,12 +765,12 @@ def main_NormedH5f():
     dataset_name = 'scannet'
 
     all_fn_globs = ['Merged_sph5/90000_gs-4_-6d3/']
-    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn1111-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
     eval_fnglob_or_rate = '0_3'
 
-    all_fn_globs = ['ORG_sph5/90000_gs-4_-6d3/']
-    bxmh5_folder_name = 'ORG_bxmh5/90000_gs-4_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
-    eval_fnglob_or_rate = 'scene0001_01'
+    #all_fn_globs = ['ORG_sph5/90000_gs-4_-6d3/']
+    #bxmh5_folder_name = 'ORG_bxmh5/90000_gs-4_-6d3_fmn1111-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+    #eval_fnglob_or_rate = 'scene0000_01'
 
     #all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
     #bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
@@ -851,23 +850,6 @@ def main_NormedH5f():
     print(cur_data[0,0:3,:])
     print(cur_label[0,0:3,:])
     print(cur_smp_weights[0,0:3,:])
-
-
-def check_bxmap_pl_shape_match():
-    bxmap_path = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_bmap_sph5_12800_1d6_2_fmn6-2048_256_64-48_32_16-0d2_0d6_1d2-0d1_0d3_0d6/2n8kARJN3HM'
-    pl_path = '/home/z/Research/dynamic_pointnet/data/Matterport3D_H5F/v1/scans/stride_0d1_step_0d1_pl_sph5_1d6_2/2n8kARJN3HM'
-    pl_fn_ls = glob.glob( pl_path + '/*.sph5' )
-    for pl_fn in pl_fn_ls:
-        base_fn = os.path.splitext( os.path.basename( pl_fn ) )[0] + '.bxmh5'
-        bxmap_fn = bxmap_path + '/' + base_fn
-        if not os.path.exists(bxmap_fn):
-            print('%s not exist'%(bxmap_fn))
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        with h5py.File( bxmap_fn, 'r' ) as bxmf:
-          with h5py.File( pl_fn, 'r' ) as plf:
-            if bxmf['bidxmaps_flat'].shape[0] != plf['data'].shape[0]:
-                print(pl_fn)
-                print('shape mathch err')
 
 if __name__=='__main__':
     main_NormedH5f()

@@ -47,8 +47,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
     '''
     IsShowModel = True
     with tf.variable_scope(scope) as sc:
-        cascade_num = sgf_config_pls['block_stride_cascades_batch'].shape[1].value - 1
-        assert sgf_config_pls['block_step_cascades_batch'].shape[1].value == cascade_num+1, "Should add global xyz_min_aligned to the last dimension."
+        cascade_num = sgf_configs['flatten_bm_extract_idx'].shape[0]-1
+        assert sgf_configs['sub_block_step_candis'].size == cascade_num
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
 
@@ -134,12 +134,11 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             block_center_xyz_mm = tf.identity( block_center_xyz_mm,'block_center_xyz_mm' )      # gpu_0/sa_layer3/block_center_xyz_mm:0
             c500 = tf.constant([500],tf.float32)
             c1000 = tf.constant([1000],tf.float32)
-            step_last = sgf_config_pls['block_step_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_1:0
-            step_last = tf.expand_dims( step_last, 1 )
-            stride_last = sgf_config_pls['block_stride_cascades_batch'][:,cascade_id-1:cascade_id,:] # gpu_0/sa_layer1/ExpandDims_2:0
-            stride_last = tf.expand_dims( stride_last,1 )
+            c1 = tf.constant([[[1,1,1]]],tf.float32)
+            step_last = sgf_configs['sub_block_step_candis'][cascade_id-1] * c1
+            stride_last = sgf_configs['sub_block_stride_candis'][cascade_id-1] * c1
             if not IsExtraGlobalLayer:
-                step_cur = sgf_config_pls['block_step_cascades_batch'][:,cascade_id:cascade_id+1,:]  # gpu_0/sa_layer1/strided_slice:0
+                step_cur = sgf_configs['sub_block_step_candis'][cascade_id] * c1
                 voxel_bottom_xyz_mm = tf.cast(block_center_xyz_mm,tf.float32) - step_cur * c500     # gpu_0/sa_layer1/sub:0
             else:
                 voxel_bottom_xyz_mm = sgf_config_pls['block_stride_cascades_batch'][:,cascade_num:cascade_num+1,:] * c1000 # gpu_0/sa_layer3/mul_1:0

@@ -44,8 +44,6 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_
         sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
         flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(2,),name="flatten_bidxmaps_pl")
         fbmap_neighbor_idis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_idis_pl")
-        sgf_config_pls['block_step_cascades_batch'] = tf.placeholder( tf.float32, shape=(batch_size,cascade_num+1,3),name='block_step_cascades_batch' )       # pls/block_step_cascades_batch:0
-        sgf_config_pls['block_stride_cascades_batch'] = tf.placeholder( tf.float32, shape=(batch_size,cascade_num+1,3),name='block_stride_cascades_batch' )   # pls/block_stride_cascades_batch:0
 
         return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl, sgf_config_pls
 
@@ -232,9 +230,9 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
     num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
-    assert num_neighbors[0] <= sgf_configs['flatbxmap_max_nearest_num'][0]
-    assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0]
-    assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:])
+    assert num_neighbors[0] <= sgf_configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
 
     if 'G' in model_flag:
         IsAddGlobalLayer = True

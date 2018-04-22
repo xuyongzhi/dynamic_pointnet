@@ -55,6 +55,7 @@ Search with "name:" to find the definition.
 '''
 '''    Important functions
     get_blockids_of_dif_stride_step
+    get_bidxmap
     get_all_bidxmaps
     gsbb naming: get_pyramid_flag
     file_saveas_pyramid_feed
@@ -578,6 +579,8 @@ class GlobalSubBaseBLOCK():
             if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
         flag_str += '-pd'+str(int(self.padding*10))
+        if NETCONFIG['merge_blocks_while_fix_bmap']:
+            flag_str += '-mbf'
         flag_str += '-' + self.gsbb_config
         return flag_str
 
@@ -1146,13 +1149,14 @@ class GlobalSubBaseBLOCK():
                                 ar_bidx_dis.append( [b_index[0], dis] )
                                 ar_ixyzs.append( ixyz_sr )
                                 ar_bids.append( bid )
+
                                 #print( 'sr_count=%d, find new bid=%d, bindex=%d, dis=%s'%(sr_count, bid, b_index, dis) )
                                 if len(ar_bidx_dis) >= max_need_num: break
         ar_bidx_dis = np.array( ar_bidx_dis )
         if IsRecordTime:
             t = time.time() - t0
             print('sr_count = %d   t = %f'%(sr_count,t*1000))
-            if sr_count > 100:
+            if sr_count > 20:
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 pass
         return ar_bidx_dis, sr_count
@@ -1741,8 +1745,9 @@ class GlobalSubBaseBLOCK():
                     base_b_num[i] = len(all_base_bids_in_aim_dic_fixed[all_sorted_aimbids[i]])
                 return base_b_num
             loop_n = 0
+            max_loop_n = 3
             while ( all_sorted_aimbids.shape[0] != nsubblock ):
-                if loop_n >= 3 or merge_blocks_while_fix_bmap==False:
+                if loop_n >= max_loop_n or merge_blocks_while_fix_bmap==False:
                     # randomly select and abandon some
                     choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
                     all_sorted_aimbids = all_sorted_aimbids[choice]
@@ -4162,14 +4167,14 @@ class Normed_H5f():
             fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
-            block_step_cascades = h5f.attrs['block_step_cascades']
-            block_stride_cascades = h5f.attrs['block_stride_cascades']
-            # Add global block xyz_min_aligned to block_step_cascades
-            #   for extra global layer while using 3DCNN
-            block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
-            block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
+            #block_step_cascades = h5f.attrs['block_step_cascades']
+            #block_stride_cascades = h5f.attrs['block_stride_cascades']
+            ## Add global block xyz_min_aligned to block_step_cascades
+            ##   for extra global layer while using 3DCNN
+            #block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
+            #block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, block_step_cascades, block_stride_cascades
+        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
