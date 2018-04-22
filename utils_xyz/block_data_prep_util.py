@@ -814,7 +814,7 @@ class GlobalSubBaseBLOCK():
             base_attrs = self.get_new_attrs( cascade_id-1 )
         sg_bidxmap_fixed = np.ones(shape=(aim_nsubblock,aim_npoint_subblock)).astype(np.int32) * (-11)
         # record the block center of each grouped aim block
-        aimb_center_xyz = np.zeros( shape=(aim_nsubblock,3) ).astype(np.float32)
+        aimb_bottom_center_xyz = np.zeros( shape=(aim_nsubblock,6) ).astype(np.float32)
 
         if cascade_id>0: base_nsubblock = self.nsubblock_candis[cascade_id-1]
         else: base_nsubblock = self.global_num_point
@@ -828,7 +828,8 @@ class GlobalSubBaseBLOCK():
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
             sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
             aimbcenter, aimbmin, aimbmax = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            aimb_center_xyz[aim_b_index,:] = aimbcenter
+            aimb_bottom_center_xyz[aim_b_index,0:3] = aimbmin
+            aimb_bottom_center_xyz[aim_b_index,3:6] = aimbcenter
 
             if not IsGenFlatbxmap:
                 continue
@@ -1056,8 +1057,8 @@ class GlobalSubBaseBLOCK():
 
         # append aimb_center_xyz to the end of sg_bidxmap_fixed
         # convert to mm and int32
-        aimb_center_xyz_mm = np.rint(aimb_center_xyz * 1000).astype(np.int32)
-        sg_bidxmap_fixed = np.concatenate( [sg_bidxmap_fixed, aimb_center_xyz_mm],-1 )
+        aimb_bottom_center_mm = np.rint(aimb_bottom_center_xyz * 1000).astype(np.int32)
+        sg_bidxmap_fixed = np.concatenate( [sg_bidxmap_fixed, aimb_bottom_center_mm],-1 )
         return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
@@ -1303,9 +1304,9 @@ class GlobalSubBaseBLOCK():
             start_1 = 0
 
         if sg_bidxmaps.ndim == 2:
-            return sg_bidxmaps[ start[0]:end[0], start_1:end[1]+3*include_bcxyz ]
+            return sg_bidxmaps[ start[0]:end[0], start_1:end[1]+6*include_bcxyz ]
         else:# with batch dimension
-            return sg_bidxmaps[ :,start[0]:end[0], start_1:end[1]+3*include_bcxyz ]
+            return sg_bidxmaps[ :,start[0]:end[0], start_1:end[1]+6*include_bcxyz ]
 
     def extract_flatten_bidxmaps(self,flatten_bidxmaps,cascade_id):
         start = self.flatten_bidxmaps_extract_idx[cascade_id,:]
@@ -1320,7 +1321,7 @@ class GlobalSubBaseBLOCK():
         # concatenated in one array
         shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])
         # add 3 for block center xyz
-        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num]) + 3
+        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num]) + 6
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
