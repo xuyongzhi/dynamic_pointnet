@@ -92,7 +92,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([80,  16,  32]).astype(np.int32)
 
     elif gsbb_config == '4C0':  # ***
-        global_stride = np.array([-4,-4,-10]).astype(np.float)
+        global_stride = np.array([-3.6,-3.6,-10]).astype(np.float)
         global_step = np.array([-6.3,-6.3,-10]).astype(np.float)
         global_num_point = 10000 * 9
         flatbxmap_max_nearest_num = [1,4,4,4]

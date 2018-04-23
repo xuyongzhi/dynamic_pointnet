@@ -1052,16 +1052,34 @@ class GlobalSubBaseBLOCK():
         else:
             flatten_bidxmap_fixed = np.ones(shape=(base_nsubblock, 0,3)).astype(np.float64)*(-11)
 
-        #if :
-        #    aimbmin_xyz = aimb_center_xyz - aim_attrs['block_step']*0.5
-        #    print('cascade_id',cascade_id)
-        #    print( 'aimbmin',aimbmin_xyz.min(0) )
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-        # append aimb_center_xyz to the end of sg_bidxmap_fixed
         # convert to mm and int32
         aimb_bottom_center_mm = np.rint(aimb_bottom_center_xyz * 1000).astype(np.int32)
         sg_bidxmap_fixed = np.concatenate( [sg_bidxmap_fixed, aimb_bottom_center_mm],-1 )
+
+        CheckScopeWithInGlobal = False
+        if CheckScopeWithInGlobal:
+            # check scope
+            aimb_bottom_min = aimb_bottom_center_xyz[:,0:3].min(0)
+            aimb_top = aimb_bottom_center_xyz[:,3:6] * 2 - aimb_bottom_center_xyz[:,0:3]
+            aimb_top_max = aimb_top.max(0)
+            gb_bottom = debug_meta['gb_bottom']
+            gb_top = debug_meta['gb_center']*2 - debug_meta['gb_bottom']
+
+            bottom_err = (aimb_bottom_min - gb_bottom) / aim_attrs['block_stride']
+            top_err = (gb_top - aimb_top_max) / aim_attrs['block_stride']
+
+            bottom_check = (aimb_bottom_min - gb_bottom > -1e-5).all()
+            top_check = (gb_top - aimb_top_max > -1e-5 ).all()
+            if not (bottom_check and top_check):
+                print('\ncascade_id:',cascade_id)
+                print(' bottom_check:%s\n top_check:%s'%(bottom_check, top_check))
+                print('gb_bottom:', gb_bottom)
+                print('aimb_bottom_min:', aimb_bottom_min)
+                print('gb_top:', gb_top)
+                print('aimb_top_max:', aimb_top_max)
+                print('bottom_err:',bottom_err)
+                print('top_err:',top_err)
         return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
@@ -2270,10 +2288,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
                     h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
             else:
+                # Try to use two blocks for whole scene. This can avoid small
+                # global blocks. But the draback is leading to unalignment
+                # between global cascade and the others.
+                IsUseTwoGlobalBlocks = False
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    if tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
+                    if IsUseTwoGlobalBlocks and tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
                         # use two blocks can totally include whole scene
                         h5fattrs['block_stride'][i] =  max( tmp,0 )
                     else:
@@ -3668,15 +3690,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             debug_meta['bxmh5_fn'] = bxmh5_fn
             print('global_block_num: %d'%(global_block_num))
             for global_bidx in range( global_block_num ):
+                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
+                globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
+                globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
+                if DEBUGTMP:
+                    debug_meta['gb_bottom'] = gb_bottom
+                    debug_meta['gb_center'] = gb_center
+
                 debug_meta['global_bidx'] = global_bidx
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
                        gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], debug_meta )
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
                 all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
-
-                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
-                globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
-                globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
 
                 if len(sum_bxmap_metas)==0: sum_bxmap_metas = bxmap_metas
                 else:

@@ -58,7 +58,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             #if cascade_id == 0:
             #    points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
             #    xyz = points[...,0:3]
-            grouped_xyz = tf.expand_dims( xyz,axis=1 )
+            grouped_xyz = tf.expand_dims( xyz,axis=1, name='grouped_xyz' )  # gpu_0/sa_layer4/grouped_xyz:0
             grouped_points = tf.expand_dims(points,axis=1)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
@@ -73,7 +73,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             bidmap = tf.expand_dims( bidmap,axis=-1 )
             bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1 )
 
-            grouped_xyz = tf.gather_nd(xyz,bidmap_concat)
+            grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )
@@ -83,6 +83,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         if sgf_configs['mean_grouping_position'] and (not pooling=='3DCNN'):
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             new_xyz = tf.reduce_mean(grouped_xyz,-2)
         else:
             new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
@@ -136,42 +137,60 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             c500 = tf.constant([500],tf.float32)
             c1000 = tf.constant([1000],tf.float32)
             c1 = tf.constant([[[1,1,1]]],tf.float32)
-            step_last = sgf_configs['sub_block_step_candis'][cascade_id-1] * c1 # gpu_0/sa_layer3/mul_1:0
-            stride_last = sgf_configs['sub_block_stride_candis'][cascade_id-1] * c1 # gpu_0/sa_layer3/mul_2:0
+            step_last_org = sgf_configs['sub_block_step_candis'][cascade_id-1] * c1
+            step_last = tf.minimum( step_last_org, sgf_config_pls['max_step_stride'], name='step_last' )    # gpu_0/sa_layer1/step_last:0
+            stride_last_org = sgf_configs['sub_block_stride_candis'][cascade_id-1] * c1
+            stride_last = tf.minimum( stride_last_org, sgf_config_pls['max_step_stride'], name='stride_last' )  # gpu_0/sa_layer1/stride_last:0
             voxel_bottom_xyz_mm = block_bottom_center_mm[:,:,0:3]
             # NOTE: c1=[1,1,1]*0.5 ONLY when the sh5 step is also the same on three dimensions.
             #                      Otherwise, the stride at each cascade may also be changed.
             min_point_bottom_xyz_mm = voxel_bottom_xyz_mm
             min_point_bottom_xyz_mm = tf.expand_dims( min_point_bottom_xyz_mm, -2, name='min_point_bottom_xyz_mm' ) # gpu_0/sa_layer1/min_point_bottom_xyz_mm:0
             grouped_bottom_xyz_mm = grouped_xyz * c1000 - step_last * c500  # gpu_0/sa_layer1/sub_1:0
+                # For ExtraGlobal layer, the step_last may be cropped, thus the point_indices_f is smaller.
             point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
             point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
 
+
             # check indice err
+            if not IsExtraGlobalLayer:  # DEBUG_TMP
+                Max_Assert = 1e-5
+            else:
+                Max_Assert = 1e-5
+
             point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
             point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
-            check_point_indices = tf.assert_less( point_indices_maxerr, 1e0, data=[cascade_id, point_indices_maxerr],
+            check_point_indices = tf.assert_less( point_indices_maxerr, Max_Assert, data=[cascade_id, point_indices_maxerr],
                                                  message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
+            #if not IsExtraGlobalLayer:
             tf.add_to_collection( 'check', check_point_indices )
 
-            # check max indice
-            check_min_indice = tf.assert_less( tf.constant(-1,tf.float32), tf.reduce_min(point_indices), data=[cascade_id,tf.reduce_min(point_indices)], name='check_min_indice' )
+            IsCompensateGlobal = True  # Dont know why, global block scope cannot be aligned with other cascades. The point indice can be smaller or larger one indice.
+            if IsCompensateGlobal and IsExtraGlobalLayer:
+                point_indices += tf.constant(1, tf.float32)
+
+            # check indice scope
+            check_min_indice = tf.assert_less( tf.constant(-Max_Assert,tf.float32), tf.reduce_min(point_indices), data=[cascade_id,tf.reduce_min(point_indices)], name='check_min_indice' )
+
             tf.add_to_collection( 'check', check_min_indice )
+
             if IsExtraGlobalLayer:
                 step_cur = (block_bottom_center_mm[:,:,3:6] - block_bottom_center_mm[:,:,0:3]) * tf.constant(0.002,tf.float32)  # gpu_0/sa_layer3/mul_6:0
+                # For ExtraGlobal layer, the step_last may be cropped, thus the point_indices_f is smaller.
                 max_indice = tf.ceil( ( step_cur[0,0] - step_last[0,0] ) / stride_last[0,0], name='max_indice_global' ) # gpu_0/sa_layer3/max_indice_global:0
-                max_indice += c1[0,0]    # ??? !!! ??? Why?: pading?
+                if IsCompensateGlobal:
+                    max_indice += tf.constant(2, tf.float32)    # ??? !!! ??? Why?: (not padding)
             else:
-                step_cur = sgf_configs['sub_block_step_candis'][cascade_id] * c1
-                max_indice_f = ( step_cur - step_last ) / stride_last  # gpu_0/sa_layer3/div_1:0
+                step_cur_org = sgf_configs['sub_block_step_candis'][cascade_id] * c1
+                max_indice_f = ( step_cur_org - step_last_org ) / stride_last_org  # gpu_0/sa_layer3/div_1:0
                 max_indice = tf.rint( max_indice_f[0,0], name='max_indice' ) # gpu_0/sa_layer1/max_indice:0
                 max_indice_err = tf.reduce_max(tf.abs(max_indice_f - max_indice))
-                check_MAX_indice = tf.assert_less( max_indice_err, tf.constant(1e-0), data=[max_indice_err], name='check_MAX_indice' )
+                check_MAX_indice = tf.assert_less( max_indice_err, tf.constant(Max_Assert), data=[max_indice_err], name='check_MAX_indice' )
                 tf.add_to_collection( 'check', check_MAX_indice )
 
             for i in range(3):
                 real_max = tf.reduce_max(point_indices[:,:,:,i])
-                check_max_indice = tf.assert_less_equal( real_max - max_indice[i], tf.constant(1e-7), data=[cascade_id, real_max, max_indice[i]], name='check_max_indice_'+str(i) )
+                check_max_indice = tf.assert_less( real_max - max_indice[i], tf.constant(Max_Assert), data=[cascade_id, real_max, max_indice[i]], name='check_max_indice_'+str(i) )
                 tf.add_to_collection( 'check', check_max_indice )
 
             point_indices = tf.cast( point_indices, tf.int32 )

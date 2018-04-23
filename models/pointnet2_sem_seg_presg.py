@@ -262,6 +262,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         debug['flatten_bidxmap'] = []
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
+    sgf_config_pls['max_step_stride'] = (sgf_config_pls['globalb_bottom_center_xyz'][:,:,3:6] - sgf_config_pls['globalb_bottom_center_xyz'][:,:,0:3]) * tf.constant(2,tf.float32)
     for k in range(cascade_num):
         if IsAddGlobalLayer and k==cascade_num-1:
             IsExtraGlobalLayer = True

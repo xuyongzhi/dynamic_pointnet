@@ -394,8 +394,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['globalb_bottom_center_xyz'] = sgf_config_pls['globalb_bottom_center_xyz']
         ops['check_ops'] = tf.get_collection( 'check' )
-        if DEBUG_TMP:
-            ops['input_keep_prob'] = input_keep_prob
 
         if 'l_xyz' in debugs[0]:
             ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
@@ -505,8 +503,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         # When use normal feed, stop with batch_idx
         t0 = time.time()
         batch_idx += 1
-        if DEBUG_TMP and batch_idx<4:
-            continue
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
 
@@ -548,9 +544,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
         feed_dict[ops['globalb_bottom_center_xyz']] = cur_globalb_bottom_center_xyzs
 
-        #if DEBUG_TMP:
         check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
-        if DEBUG_TMP and batch_idx==4: import pdb; pdb.set_trace()  # XXX BREAKPOINT
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage  = sess.run( [ops['merged'], ops['step'], ops['train_op'],\
                                     ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']], feed_dict=feed_dict )
         t2 = time.time()
