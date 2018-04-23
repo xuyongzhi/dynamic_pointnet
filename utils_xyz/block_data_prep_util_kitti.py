@@ -3890,8 +3890,11 @@ class DatasetMeta():
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+    # g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
+    # g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car'}   ## benz_m, currently, just background and car
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255]}     ## benz_m, just two label
 
     def __init__(self,datasource_name):
         self.datasource_name = datasource_name
@@ -3984,8 +3987,12 @@ class Normed_H5f():
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
+    # g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
+    # g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car'}   ## benz_m
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255]}     ## benz_m
+
 
     #g_easy_view_labels = [7,8,9,10,11,1]
     #g_is_labeled = True
