@@ -48,7 +48,10 @@ parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neig
 parser.add_argument('--dataset_name', default='rawh5_kitti_16384', help='rawh5_kitti')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 
-parser.add_argument('--feed_elements', default='xyz_raw', help='xyz_1norm,xyz_midnorm,color_1norm')
+parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0', help='')
+parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
+
 parser.add_argument('--batch_size', type=int, default= 32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='train', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
@@ -66,8 +69,11 @@ parser.add_argument('--max_test_file_num', type=int, default=None, help='Which a
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
 parser.add_argument('--finetune',action='store_true',help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
-
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
+
+parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
+
+
 
 FLAGS = parser.parse_args()
 
@@ -109,6 +115,10 @@ os.system('cp %s/models/pointnet2_obj_detection_tf4.py %s' % (ROOT_DIR,LOG_DIR))
 os.system('cp %s/config/config.py %s' % (ROOT_DIR,LOG_DIR))
 os.system('cp %s/train_birdview_obj_detection.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
 
+os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/train_semseg_sorted.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
+
+
 acc_name = 'accuracy.txt'
 if FLAGS.finetune:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'a')
@@ -116,6 +126,11 @@ if FLAGS.finetune:
 else:
     LOG_FOUT = open(os.path.join(LOG_DIR, log_name), 'w')
     LOG_FOUT_FUSION = open(os.path.join(LOG_DIR, acc_name), 'w')
+
+if FLAGS.finetune:
+    assert os.path.exists( MODEL_PATH+'.meta' ),"Finetune, but model mote exists: %s"%(MODEL_PATH+'.meta')
+if FLAGS.only_evaluate:
+    assert os.path.exists( MODEL_PATH+'.meta' ),"Only evaluate, but model mote exists: %s"%(MODEL_PATH+'.meta')
 
 LOG_FOUT_FUSION.write(str(FLAGS)+'\n\n')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
@@ -129,6 +144,10 @@ HOSTNAME = socket.gethostname()
 
 # Load Data
 #data_provider = kitti_data_net_provider_2d(DATASET_NAME,BATCH_SIZE)
+
+net_configs = {}
+net_configs['loss_weight'] = FLAGS.loss_weight
+
 net_provider = Net_Provider_kitti(
                             net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
@@ -140,7 +159,15 @@ net_provider = Net_Provider_kitti(
                             feed_label_elements=Feed_Label_Elements)
 
 
+NUM_POINT = net_provider.global_num_point
+NUM_DATA_ELES = net_provider.data_num_eles
 
+TRAIN_FILE_N = net_provider.train_file_N
+EVAL_FILE_N = net_provider.eval_file_N
+MAX_MULTIFEED_NUM = 5
+
+LABEL_ELE_IDXS = net_provider.feed_label_ele_idxs
+DATA_ELE_IDXS = net_provider.feed_data_ele_idxs
 
 NUM_CHANNELS = cfg.TRAIN.NUM_CHANNELS  # x, y, z
 NUM_CLASSES =  cfg.TRAIN.NUM_CLASSES   # bg(car), fg
