@@ -10,6 +10,8 @@ import tf_util
 import numpy as np
 
 DEBUG_TMP = True
+IsCompensateGlobal = True  # Dont know why, global block scope cannot be aligned with other cascades. The point indice can be smaller or larger one indice.
+
 '''
 Checking list:
     new_xyz
@@ -83,7 +85,6 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         if sgf_configs['mean_grouping_position'] and (not pooling=='3DCNN'):
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             new_xyz = tf.reduce_mean(grouped_xyz,-2)
         else:
             new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
@@ -153,19 +154,15 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
 
 
             # check indice err
-            if not IsExtraGlobalLayer:  # DEBUG_TMP
-                Max_Assert = 1e-5
-            else:
-                Max_Assert = 1e-5
+            Max_Assert = 1e-5
 
             point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
             point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
             check_point_indices = tf.assert_less( point_indices_maxerr, Max_Assert, data=[cascade_id, point_indices_maxerr],
                                                  message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
-            #if not IsExtraGlobalLayer:
-            tf.add_to_collection( 'check', check_point_indices )
+            if not IsExtraGlobalLayer:
+                tf.add_to_collection( 'check', check_point_indices )
 
-            IsCompensateGlobal = True  # Dont know why, global block scope cannot be aligned with other cascades. The point indice can be smaller or larger one indice.
             if IsCompensateGlobal and IsExtraGlobalLayer:
                 point_indices += tf.constant(1, tf.float32)
 

@@ -2291,7 +2291,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 # Try to use two blocks for whole scene. This can avoid small
                 # global blocks. But the draback is leading to unalignment
                 # between global cascade and the others.
-                IsUseTwoGlobalBlocks = False
+                IsUseTwoGlobalBlocks = True
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
