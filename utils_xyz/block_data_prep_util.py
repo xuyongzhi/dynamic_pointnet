@@ -2405,8 +2405,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def block_index_to_xyz_(block_k,attrs):
         ixyz = Sorted_H5f.block_index_to_ixyz_( block_k,attrs )
-        xyz_center, xyz_min, xyz_max = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
-        return xyz_center, xyz_min, xyz_max
+        xyz_center, xyz_bottom, xyz_top = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
+        return xyz_center, xyz_bottom, xyz_top
     def block_index_to_ixyz(self,block_k):
         return Sorted_H5f.block_index_to_ixyz_(block_k,self.h5f.attrs)
     @staticmethod
@@ -2469,10 +2469,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def ixyz_to_xyz( ixyz, attrs ):
-        xyz_min =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned']
-        xyz_center = xyz_min + attrs['block_step']*0.5
-        xyz_max = xyz_min + attrs['block_step']
-        return xyz_center, xyz_min, xyz_max
+        xyz_bottom =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned']
+        xyz_center = xyz_bottom + attrs['block_step']*0.5
+        xyz_top = xyz_bottom + attrs['block_step']
+        return xyz_center, xyz_bottom, xyz_top
     @staticmethod
     def xyz_to_ixyz( xyz, attrs ):
         ixyz =  (xyz - attrs['xyz_min_aligned'] - attrs['block_step']*0.5) / attrs['block_stride']
@@ -3662,6 +3662,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = []
             all_flatten_bidxmaps = []
             sum_bxmap_metas = []
+            globalb_bottom_center_xyz = np.zeros( shape=(global_block_num,2,3), dtype=np.float32 )
 
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
@@ -3673,6 +3674,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
                 all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
 
+                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
+                globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
+                globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
+
                 if len(sum_bxmap_metas)==0: sum_bxmap_metas = bxmap_metas
                 else:
                     for key in sum_bxmap_metas:
@@ -3681,6 +3686,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
             bxmh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+            bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
             if all_flatten_bidxmaps.shape[2]>0:
                 bxmh5f.append_to_dset('bidxmaps_flat',all_flatten_bidxmaps[...,0:2].astype(np.int32))
                 bxmh5f.append_to_dset('fmap_neighbor_idis',all_flatten_bidxmaps[...,2:3].astype(np.float32))
@@ -4166,6 +4172,8 @@ class Normed_H5f():
             flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
             fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
+            globalb_bottom_center_xyz = h5f['globalb_info'][start_block:end_block]
+            globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
 
             #block_step_cascades = h5f.attrs['block_step_cascades']
             #block_stride_cascades = h5f.attrs['block_stride_cascades']
@@ -4174,7 +4182,7 @@ class Normed_H5f():
             #block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
             #block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
+        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, globalb_bottom_center_xyz
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
@@ -4390,6 +4398,11 @@ class Normed_H5f():
                             maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
         sg_bidxmap_dset.attrs['valid_num'] = 0
 
+        globalb_info_dset = self.h5f.create_dataset('globalb_info',shape=(total_block_N,2,3), dtype=np.float32,
+                            maxshape=(None,2,3),chunks = (chunks_n,2,3)  )
+        globalb_info_dset.attrs['valid_num'] = 0
+        globalb_info_dset.attrs['readme'] = 'global block bottom and center xyz'
+
         flatten_bidxmap_shape = gsbb_write_or_load.get_flatten_bidxmaps_shape()
         if flatten_bidxmap_shape[1]>0:
             flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flat',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(2,),dtype=np.int32,
@@ -4415,6 +4428,12 @@ class Normed_H5f():
 
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
         with open(summary_fn,'w') as sf:
+            dataset_ls = [ds for ds in self.h5f]
+            sf.write('Totally %d datasets: %s\n'%( len(dataset_ls), dataset_ls ))
+            for ds in self.h5f:
+                sf.write( '  %s : %s\n'%(ds, self.h5f[ds].shape) )
+            sf.write('\n')
+
             summary = 'basic info'
             attrs = self.h5f.attrs
             for ele_name in attrs:
@@ -4459,6 +4478,11 @@ class Normed_H5f():
     def write_summary_bxmh5( self, bmh5_fn = None, pl_sph5_fn = None ):
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
         with open(summary_fn,'w') as sf:
+            dataset_ls = [ds for ds in self.h5f]
+            sf.write('Totally %d datasets: %s\n'%( len(dataset_ls), dataset_ls ))
+            for ds in self.h5f:
+                sf.write( '  %s : %s\n'%(ds, self.h5f[ds].shape) )
+            sf.write('\n')
             if pl_sph5_fn!=None:
                 sf.write( 'Responding sph5 folder: %s\n'%( os.path.basename( os.path.dirname( pl_sph5_fn ) ) ))
                 sf.write( 'Responding bmh5 folder: %s\n\n'%( os.path.basename( os.path.dirname( bmh5_fn ) ) ))
