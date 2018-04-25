@@ -786,18 +786,18 @@ class GlobalSubBaseBLOCK():
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
         num_valid_aimbids = valid_sorted_aimbids.size
-        if aim_nsubblock < valid_sorted_aimbids.size:
+        if aim_nsubblock < valid_sorted_aimbids.size:   # Too more blocks: only select most useful blocks, or merge points in abandoned blocks to others
             #baseb_num_inaim_ls0 = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             sorted_aimbids_fixed, bidxmap_dic_fixed  = GlobalSubBaseBLOCK.fix_bmap( cascade_id, valid_sorted_aimbids, bidxmap_dic, aim_nsubblock,
                                                                                    aim_npoint_subblock, aim_attrs, debug_meta, self.IsCheck_gsbb['IsCheckMissingAimb'] )
             valid_aimb_num = aim_nsubblock
             aimbids_tile = np.array([])
             baseb_num_inaim_ls = [ bidxmap_dic[aimbid].size for aimbid in sorted_aimbids_fixed ]
-        else:
+        else:                                           # Too less blocks: replicate blocks with large points, randomly selection inside the block can help to avoid point missing
             valid_aimb_num = valid_sorted_aimbids.size
             #sorted_aimbids_fixed = random_choice(valid_sorted_aimbids, aim_nsubblock, only_tile_last_one=True)
 
-            # tile the blocks with largest aimb to the end
+            # tile the blocks with largest points to the end
             num_tile = aim_nsubblock - valid_sorted_aimbids.size
             baseb_num_inaim_ls = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             indices = np.flip( np.argsort( baseb_num_inaim_ls ),0 )
@@ -829,7 +829,13 @@ class GlobalSubBaseBLOCK():
             #--------------- (2.1) get sg_bidxmap -------------------------------
             aim_bid = sorted_aimbids_fixed[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
-            sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
+            aim_npoint_subblock_err = aim_npoint_subblock - base_bid_valid_indexs.size
+            if NETCONFIG['redundant_points_in_block']!='replicate' and  aim_npoint_subblock_err > 0:
+                #assert NETCONFIG['redundant_points_in_block'] == -17
+                tile_idx = np.array([NETCONFIG['redundant_points_in_block']]*aim_npoint_subblock_err)
+                sg_bidxmap_fixed[aim_b_index,:] = np.concatenate( [base_bid_valid_indexs,tile_idx], 0 )
+            else:
+                sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
             aimbcenter, aimbmin, aimbmax = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
             aimb_bottom_center_xyz[aim_b_index,0:3] = aimbmin
             aimb_bottom_center_xyz[aim_b_index,3:6] = aimbcenter
