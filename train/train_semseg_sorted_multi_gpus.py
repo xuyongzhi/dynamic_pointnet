@@ -75,7 +75,7 @@ IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = False
+ISTFDEBUG = True
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
