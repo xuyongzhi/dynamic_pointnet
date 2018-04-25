@@ -3890,8 +3890,11 @@ class DatasetMeta():
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+    # g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
+    # g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car'}   ## benz_m, currently, just background and car
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255]}     ## benz_m, just two label
 
     def __init__(self,datasource_name):
         self.datasource_name = datasource_name
@@ -3984,8 +3987,12 @@ class Normed_H5f():
                     13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
+    # g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
+    # g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
+
+    g_label2class_dic['KITTI'] = {0:'background', 1:'car'}   ## benz_m
+    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255]}     ## benz_m
+
 
     #g_easy_view_labels = [7,8,9,10,11,1]
     #g_is_labeled = True
@@ -4086,12 +4093,15 @@ class Normed_H5f():
     @staticmethod
     def get_bidxmaps(bxmh5_fn, start_block,end_block):
         with h5py.File(bxmh5_fn,'r') as h5f:
-            assert h5f['bidxmaps_flat'].shape[0] >= end_block
-            flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
-            fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
+            # assert h5f['bidxmaps_flat'].shape[0] >= end_block
+            assert h5f['bidxmaps_sample_group'].shape[0] >= end_block
+            # flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
+            # benz_m, flatten_bidxmaps and fmap_neighbor are not needed in the
+            # object detection
+            # fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
+        return  sg_bidxmaps #, flatten_bidxmaps, fmap_neighbor_idis   # benz_m
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements

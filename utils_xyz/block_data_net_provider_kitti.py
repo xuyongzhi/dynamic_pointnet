@@ -63,18 +63,20 @@ class Net_Provider_kitti():          ## benz_m
             open_type = 'a' # need to write pred labels
         else:
             open_type = 'r'
-        train_file_list, train_bxmh5_fls = self.get_bxmh5_fn_ls( train_file_list )
-        eval_file_list, eval_bxmh5_fls = self.get_bxmh5_fn_ls( eval_file_list )
+        train_file_list, train_bxmh5_fls, train_label_fn_ls = self.get_bxmh5_fn_ls( train_file_list )
+        eval_file_list, eval_bxmh5_fls, eval_label_fn_ls = self.get_bxmh5_fn_ls( eval_file_list )
         self.train_file_N = train_file_N = len(train_file_list)
         self.eval_file_N = eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.sph5_file_list =  sph5_file_list = train_file_list + eval_file_list
         self.bxmh5_fn_ls = train_bxmh5_fls + eval_bxmh5_fls
+        self.labels_fn_ls = labels_fn_ls  = train_label_fn_ls + eval_label_fn_ls
         if len(sph5_file_list) > 6:
             print('WARING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(sph5_file_list)))
         #-----------------------------------------------------------------------
         # open each file as a Normed_H5f class instance
         self.norm_h5f_L = []
+        self.label_data_all = []
         # self.g_block_idxs: within the whole train/test dataset  (several files)
         #     record the start/end row idx  of each file to help search data from all files
         #     [ [start_global_row_idxs,end_global__idxs] ]
@@ -94,6 +96,10 @@ class Net_Provider_kitti():          ## benz_m
             h5f = h5py.File(fn,open_type)
             norm_h5f = Normed_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
+
+            label_data_i = self.read_label_data( labels_fn_ls[i] )  ## benz_m, opening all the bounding box
+            self.label_data_all.append( label_data_i )
+
             file_block_N = self.get_block_n(norm_h5f)
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
             if i<self.g_file_N-1:
@@ -149,21 +155,25 @@ class Net_Provider_kitti():          ## benz_m
     def get_bxmh5_fn_ls( self, plsph5_fn_ls ):
         bxmh5_fn_ls = []
         plsph5_fn_ls_new  = []
+        label_fn_ls = []
         for plsph5_fn in plsph5_fn_ls:
             bxmh5_fn = self.get_bxmh5_fn_1( plsph5_fn )
+            label_fn = self.get_label_fn_1(plsph5_fn)
             if os.path.exists( bxmh5_fn ):
                 # check shapes match with each other
                 with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                     with h5py.File( plsph5_fn, 'r' ) as plsph5f:
-                        if True or bxmh5f['bidxmaps_flat'].shape[0] == plsph5f['data'].shape[0]:  ## benz_m , there is no bidxmaps_flat for object detection
-                            bxmh5_fn_ls.append( bxmh5_fn )
-                            plsph5_fn_ls_new.append( plsph5_fn )
-                        else:
-                            print('bxmh5(%d) and plsph5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flat'].shape[0], plsph5f['data'].shape[0],plsph5_fn ))
-                            assert False
+                        with open(label_fn, 'r') as label_txt:
+                            if bxmh5f['bidxmaps_sample_group'].shape[0] == plsph5f['data'].shape[0] and bxmh5f['bidxmaps_sample_group'].shape[0]==len(label_txt.readlines()) :  ## benz_m , double checking the number of label is similar with that of point data
+                                bxmh5_fn_ls.append( bxmh5_fn )
+                                plsph5_fn_ls_new.append( plsph5_fn )
+                                label_fn_ls.append(label_fn)
+                            else:
+                                print('bxmh5(%d) and plsph5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_flat'].shape[0], plsph5f['data'].shape[0],plsph5_fn ))
+                                assert False
             else:
                 print( 'not exist: %s'%(bxmh5_fn) )
-        return plsph5_fn_ls_new, bxmh5_fn_ls
+        return plsph5_fn_ls_new, bxmh5_fn_ls, label_fn_ls
 
     def get_bxmh5_fn( self, plsph5_fn ):
         house_name = os.path.splitext( os.path.basename(plsph5_fn) )[0]
@@ -186,6 +196,15 @@ class Net_Provider_kitti():          ## benz_m
         base_name = os.path.splitext( os.path.basename( plsph5_fn ) )[0]
         bxmh5_fn = path + base_name + '.bxmh5'
         return bxmh5_fn
+
+    def get_label_fn_1( self, plsph5_fn ):
+
+        path = os.path.dirname(os.path.dirname( os.path.dirname(plsph5_fn) )) +'/'+ self.bxmh5_folder_name + '/'
+        base_name = os.path.splitext( os.path.basename( plsph5_fn ) )[0]
+        bxmh5_fn = path + base_name + '_label' + '.txt'
+        return bxmh5_fn
+
+
 
     def get_data_label_shape_info(self):
         self.feed_data_ele_idxs,self.feed_label_ele_idxs = self.norm_h5f_L[0].get_feed_ele_ids(self.feed_data_elements,self.feed_label_elements)
@@ -407,11 +426,85 @@ class Net_Provider_kitti():          ## benz_m
         import pdb; pdb.set_trace()  # XXX BREAKPOINT
         pass
 
+
+    def read_label_data( self, label_fn_ls ):     ## benz_m, opening all the bounding box in on merged file
+        label_data_i = []
+        with open(label_fn_ls, 'r') as label_txt:
+            all_names = label_txt.read().split('\n')[:-1]
+            for name in all_names:
+                dir_label = DATASET_DIR['Voxel'] + '/label/' + name
+                assert os.path.exists(dir_label)
+                bounding_box = []
+                with open(dir_label,'r') as  f:
+                    labels = f.read().split('\n')
+                    for label in labels:
+                        if not label:
+                            continue
+                        label = label.split(' ')
+                        if label[0] == 'Car':
+                            car_label = np.concatenate((np.array([1]),label[1:8]), axis = 0) ## 1 means car
+                            # bounding_box.append(label[1:8])
+                            bounding_box.append(car_label)
+                assert bounding_box
+                data = np.array(bounding_box, dtype = np.float32)
+                label_data_i.append(data)
+        assert label_data_i
+        return label_data_i
+
+    def get_global_batch_kitti(self,g_start_idx,g_end_idx):
+        start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
+            self.global_idx_to_local(g_start_idx,g_end_idx)
+        #t0 = time.time()
+
+        # max_num_label = 0   ## benz_m
+        # data_ls = []
+        # label_ls = []
+        # sg_bidxmaps_ls = []
+        fid_start_end = []
+
+        f_idx = start_file_idx
+        assert f_idx == start_file_idx
+        start = local_start_idx
+        assert f_idx == end_file_idx
+        end = local_end_idx
+
+        fid_start_end.append( np.expand_dims(np.array([f_idx, start, end]),0) )
+
+        new_feed_data_elements = list( self.feed_data_elements )
+        if 'xyz' not in new_feed_data_elements:
+            new_feed_data_elements = ['xyz'] + new_feed_data_elements
+        if 'xyz_midnorm_block' in new_feed_data_elements:
+            del  new_feed_data_elements[ new_feed_data_elements.index('xyz_midnorm_block') ]
+        if 'xyz_1norm_block' in new_feed_data_elements:
+            del  new_feed_data_elements[ new_feed_data_elements.index('xyz_1norm_block') ]
+
+        new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
+        data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
+        # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
+        label_i = self.label_data_all[f_idx][start]
+        # num_temp = label_i.shape[0]
+        # if max_num_label <= num_temp:
+        #    max_num_label = num_temp
+        # data_i: [batch_size,npoint_block,data_nchannels]
+        # label_i: [batch_size,npoint_block,label_nchannels]
+        # sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        sg_bidxmaps = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+
+
+        # assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
+
+
+        return data_i, label_i, sg_bidxmaps,  fid_start_end
+
+
+
+
     def get_global_batch(self,g_start_idx,g_end_idx):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
 
+        max_num_label = 0   ## benz_m
         data_ls = []
         label_ls = []
         center_mask = []
@@ -421,6 +514,7 @@ class Net_Provider_kitti():          ## benz_m
         fid_start_end = []
         xyz_mid_ls = []
         for f_idx in range(start_file_idx,end_file_idx+1):
+            '''
             if f_idx == start_file_idx:
                 start = local_start_idx
             else:
@@ -429,6 +523,13 @@ class Net_Provider_kitti():          ## benz_m
                 end = local_end_idx
             else:
                 end = self.get_block_n(self.norm_h5f_L[f_idx])
+            '''
+            assert f_idx == start_file_idx
+            start = local_start_idx
+            assert f_idx == end_file_idx
+            end = local_end_idx
+
+
             fid_start_end.append( np.expand_dims(np.array([f_idx, start, end]),0) )
 
             new_feed_data_elements = list( self.feed_data_elements )
@@ -441,7 +542,11 @@ class Net_Provider_kitti():          ## benz_m
 
             new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
             data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
-            label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
+            # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
+            label_i = self.label_data_all[f_idx][start]
+            num_temp = label_i.shape[0]
+            if max_num_label <= num_temp:
+                max_num_label = num_temp
             # data_i: [batch_size,npoint_block,data_nchannels]
             # label_i: [batch_size,npoint_block,label_nchannels]
             sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
@@ -485,6 +590,8 @@ class Net_Provider_kitti():          ## benz_m
 
             center_mask_i = self.get_center_mask(f_idx, xyz_midnorm_block_i)
             center_mask.append(center_mask_i)
+
+
 
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
@@ -558,6 +665,8 @@ class Net_Provider_kitti():          ## benz_m
         return center_mask
 
     def get_shuffled_global_batch(self,g_shuffled_idx_ls):
+
+        max_num_label = 0
         data_batches = []
         label_batches = []
         sample_weights = []
@@ -567,24 +676,39 @@ class Net_Provider_kitti():          ## benz_m
         fid_start_end_ls = []
         xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1)
+            # data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch_kitti(idx,idx+1)   ## benz_m
+            data_i,label_i,sg_bidxmaps_i, fid_start_end_i = self.get_global_batch_kitti(idx, idx+1)   ## benz_m
+
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
-            flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
-            fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
+            # flatten_bidxmaps_ls.append(flatten_bidxmaps_i)  # benz_m
+            # fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
             data_batches.append(data_i)
-            label_batches.append(label_i)
-            sample_weights.append(smw_i)
+            label_batches.append( label_i[:,[0,1,2,4,5,6]]) # benz_m, 0:category, 1:l, 2:w, 3:alpha, 4:x, 5:y, for birdview detection
+
+            num_temp = label_i.shape[0]
+            if max_num_label <= num_temp:
+                max_num_label = num_temp
+
+            # label_batches.append(label_i)
+            # sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
-            xyz_mid_ls.append( xyz_mid_i )
+            # xyz_mid_ls.append( xyz_mid_i )
+
         data_batches = np.concatenate(data_batches,axis=0)
-        label_batches = np.concatenate(label_batches,axis=0)
-        sample_weights = np.concatenate(sample_weights,axis=0)
+        # label_batches = np.concatenate(label_batches,axis=0)
+        labels_dims = label_batches[0].shape[1]
+        label_data_resize = np.empty(shape = [len(label_batches), max_num_label, labels_dims])
+        for ii in range(len(label_batches)):
+            label_data_resize[ii,:,:] = np.resize(label_batches[ii], [max_num_label , labels_dims])
+
+        # sample_weights = np.concatenate(sample_weights,axis=0)
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
-        flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
-        fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
+        # flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
+        # fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
         fid_start_end = np.concatenate(fid_start_end_ls,0)
-        xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        # xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
+        # return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        return data_batches, label_data_resize, sg_bidxmaps, fid_start_end
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'
@@ -696,7 +820,7 @@ def main_NormedH5f():
 
     all_fn_globs = ['Merged_sph5/32768_gs-100_-100/']
     bxmh5_folder_name = 'Merged_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
-    eval_fnglob_or_rate = '0_2'
+    eval_fnglob_or_rate = '0.2'
 
     #all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
     #bxmh5_folder_name = 'Org_bxmh5/9000_gs-4_-6d3_fmn1-320_32-320_48-0d9_2d7-0d6_1d8-pd3-TMP'
@@ -737,7 +861,9 @@ def main_NormedH5f():
     steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
     IsShuffleIdx = True
 
-    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(10,100,IsShuffleIdx)
+    # cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(2,7,IsShuffleIdx)
+    cur_data, cur_label, cur_sg_bidxmaps, fid_start_end = net_provider.get_train_batch(2,7,IsShuffleIdx)
+
 
     for bk in  range(0,net_provider.eval_num_blocks,steps[ply_flag]):
         #end = min(bk+s,net_provider.eval_num_blocks)
@@ -775,11 +901,11 @@ def main_NormedH5f():
             break
 
     print(cur_label.shape)
-    print(cur_smp_weights.shape)
+    # print(cur_smp_weights.shape)
     print(cur_data.shape)
     print(cur_data[0,0:3,:])
     print(cur_label[0,0:3,:])
-    print(cur_smp_weights[0,0:3,:])
+    # print(cur_smp_weights[0,0:3,:])
 
 
 def check_bxmap_pl_shape_match():

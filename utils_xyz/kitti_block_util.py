@@ -444,7 +444,7 @@ class Matterport3D_Prepare():
                 else:
                     print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
                     pass
-            label_file_name = merged_path + 'gt' + all_group_name_ls[k] + '.txt'
+            label_file_name = merged_path + all_group_name_ls[k] + '_label' + '.txt'
             with open(label_file_name, 'w') as sf:
                 first_one = True
                 for name_dir in allfn_ls[0][k]:    ## benz_m, saving the labeling data for object detection

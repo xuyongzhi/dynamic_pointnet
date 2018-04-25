@@ -27,17 +27,23 @@
 
 \tableofcontents{}
 
-\section{Quick notes for important events while using one file to test}
+\section{Deep 3D Learning Notes}
 
-\subsection{over fitting}
+\subsection{potential solutions for over fitting}
 \begin{itemize}
 	\item data augmentation: rotation, different resolution together, different size scale
+	\item data regulation
 	\item combine ShapeNet data
 	\item more powerful network to learn more systematic information:\par
 	1. use large global block size\par
 	2. dynamic sampling
 	\item smaller net
-	
+\end{itemize}
+
+\subsection{Important improvements}
+\begin{itemize}
+	\item Generate bxmh5 online. So the randomly missing part in each epoch is different. This maybe solve the info missing problem for sparse voxel 3d cnn, especially considering that block merging cannot be applied for voxel cnn. However, on line sampling can only solve missing problom of training, test missing still need some tricks to perform block merging.
+	\item Check this: my usage of tf.gather\_nd should cost a lot of memory, maybe too much!
 \end{itemize}
 
 \subsection{Theory}

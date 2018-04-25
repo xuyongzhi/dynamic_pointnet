@@ -23,7 +23,7 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
-from pointnet2_obj_detection_tf4 import  placeholder_inputs,get_model,get_loss
+# from pointnet2_obj_detection_tf4 import  placeholder_inputs,get_model,get_loss
 # import get_dataset
 from evaluation import EvaluationMetrics
 # from kitti_data_net_provider_2d import kitti_data_net_provider_2d #Normed_H5f,Net_Provider
@@ -292,6 +292,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         # define operations
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,
+               'sg_bidxmaps_pl ':sg_bidxmaps_pl,
                'is_training_pl': is_training_pl,
                'pred_class': pred_class,
                'pred_box': pred_box,
@@ -374,7 +375,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
-    num_blocks = data_provider.num_train_data
+    num_blocks = net_provider.num_train_data
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
         if num_batches ==0: return ''
@@ -393,12 +394,13 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     while (batch_idx < num_batches-1) or (num_batches==None):
         t0 = time.time()
         batch_idx += 1
-        #start_idx = batch_idx * BATCH_SIZE
-        #end_idx = (batch_idx+1) * BATCH_SIZE
+        start_idx = batch_idx * BATCH_SIZE
+        end_idx = (batch_idx+1) * BATCH_SIZE
         poinr_cloud_data = []
         label_data = []
         if train_feed_buf_q == None:
-            point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
+            point_cloud_data, label_data, sg_bidxmaps_data, fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
+            # point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
@@ -409,6 +411,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
                      ops['labels_pl']: label_data,
+                     ops['sg_bidxmaps_pl']:sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
 
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:

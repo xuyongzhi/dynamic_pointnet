@@ -55,6 +55,7 @@ Search with "name:" to find the definition.
 '''
 '''    Important functions
     get_blockids_of_dif_stride_step
+    get_bidxmap
     get_all_bidxmaps
     gsbb naming: get_pyramid_flag
     file_saveas_pyramid_feed
@@ -578,6 +579,8 @@ class GlobalSubBaseBLOCK():
             if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
         flag_str += '-pd'+str(int(self.padding*10))
+        if NETCONFIG['merge_blocks_while_fix_bmap']:
+            flag_str += '-mbf'
         flag_str += '-' + self.gsbb_config
         return flag_str
 
@@ -783,18 +786,18 @@ class GlobalSubBaseBLOCK():
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
         num_valid_aimbids = valid_sorted_aimbids.size
-        if aim_nsubblock < valid_sorted_aimbids.size:
+        if aim_nsubblock < valid_sorted_aimbids.size:   # Too more blocks: only select most useful blocks, or merge points in abandoned blocks to others
             #baseb_num_inaim_ls0 = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             sorted_aimbids_fixed, bidxmap_dic_fixed  = GlobalSubBaseBLOCK.fix_bmap( cascade_id, valid_sorted_aimbids, bidxmap_dic, aim_nsubblock,
                                                                                    aim_npoint_subblock, aim_attrs, debug_meta, self.IsCheck_gsbb['IsCheckMissingAimb'] )
             valid_aimb_num = aim_nsubblock
             aimbids_tile = np.array([])
             baseb_num_inaim_ls = [ bidxmap_dic[aimbid].size for aimbid in sorted_aimbids_fixed ]
-        else:
+        else:                                           # Too less blocks: replicate blocks with large points, randomly selection inside the block can help to avoid point missing
             valid_aimb_num = valid_sorted_aimbids.size
             #sorted_aimbids_fixed = random_choice(valid_sorted_aimbids, aim_nsubblock, only_tile_last_one=True)
 
-            # tile the blocks with largest aimb to the end
+            # tile the blocks with largest points to the end
             num_tile = aim_nsubblock - valid_sorted_aimbids.size
             baseb_num_inaim_ls = [ bidxmap_dic[aimbid].size for aimbid in valid_sorted_aimbids ]
             indices = np.flip( np.argsort( baseb_num_inaim_ls ),0 )
@@ -826,7 +829,13 @@ class GlobalSubBaseBLOCK():
             #--------------- (2.1) get sg_bidxmap -------------------------------
             aim_bid = sorted_aimbids_fixed[aim_b_index]
             base_bid_valid_indexs = bidxmap_dic_fixed[aim_bid]
-            sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
+            aim_npoint_subblock_err = aim_npoint_subblock - base_bid_valid_indexs.size
+            if NETCONFIG['redundant_points_in_block']!='replicate' and  aim_npoint_subblock_err > 0:
+                #assert NETCONFIG['redundant_points_in_block'] == -17
+                tile_idx = np.array([NETCONFIG['redundant_points_in_block']]*aim_npoint_subblock_err)
+                sg_bidxmap_fixed[aim_b_index,:] = np.concatenate( [base_bid_valid_indexs,tile_idx], 0 )
+            else:
+                sg_bidxmap_fixed[aim_b_index,:] = random_choice( base_bid_valid_indexs, aim_npoint_subblock )
             aimbcenter, aimbmin, aimbmax = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
             aimb_bottom_center_xyz[aim_b_index,0:3] = aimbmin
             aimb_bottom_center_xyz[aim_b_index,3:6] = aimbcenter
@@ -1049,16 +1058,34 @@ class GlobalSubBaseBLOCK():
         else:
             flatten_bidxmap_fixed = np.ones(shape=(base_nsubblock, 0,3)).astype(np.float64)*(-11)
 
-        #if :
-        #    aimbmin_xyz = aimb_center_xyz - aim_attrs['block_step']*0.5
-        #    print('cascade_id',cascade_id)
-        #    print( 'aimbmin',aimbmin_xyz.min(0) )
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-        # append aimb_center_xyz to the end of sg_bidxmap_fixed
         # convert to mm and int32
         aimb_bottom_center_mm = np.rint(aimb_bottom_center_xyz * 1000).astype(np.int32)
         sg_bidxmap_fixed = np.concatenate( [sg_bidxmap_fixed, aimb_bottom_center_mm],-1 )
+
+        CheckScopeWithInGlobal = False
+        if CheckScopeWithInGlobal:
+            # check scope
+            aimb_bottom_min = aimb_bottom_center_xyz[:,0:3].min(0)
+            aimb_top = aimb_bottom_center_xyz[:,3:6] * 2 - aimb_bottom_center_xyz[:,0:3]
+            aimb_top_max = aimb_top.max(0)
+            gb_bottom = debug_meta['gb_bottom']
+            gb_top = debug_meta['gb_center']*2 - debug_meta['gb_bottom']
+
+            bottom_err = (aimb_bottom_min - gb_bottom) / aim_attrs['block_stride']
+            top_err = (gb_top - aimb_top_max) / aim_attrs['block_stride']
+
+            bottom_check = (aimb_bottom_min - gb_bottom > -1e-5).all()
+            top_check = (gb_top - aimb_top_max > -1e-5 ).all()
+            if not (bottom_check and top_check):
+                print('\ncascade_id:',cascade_id)
+                print(' bottom_check:%s\n top_check:%s'%(bottom_check, top_check))
+                print('gb_bottom:', gb_bottom)
+                print('aimb_bottom_min:', aimb_bottom_min)
+                print('gb_top:', gb_top)
+                print('aimb_top_max:', aimb_top_max)
+                print('bottom_err:',bottom_err)
+                print('top_err:',top_err)
         return sg_bidxmap_fixed, sorted_aimbids_fixed, num_valid_aimbids,  flatten_bidxmap_fixed, bxmap_meta
 
     @staticmethod
@@ -1146,13 +1173,14 @@ class GlobalSubBaseBLOCK():
                                 ar_bidx_dis.append( [b_index[0], dis] )
                                 ar_ixyzs.append( ixyz_sr )
                                 ar_bids.append( bid )
+
                                 #print( 'sr_count=%d, find new bid=%d, bindex=%d, dis=%s'%(sr_count, bid, b_index, dis) )
                                 if len(ar_bidx_dis) >= max_need_num: break
         ar_bidx_dis = np.array( ar_bidx_dis )
         if IsRecordTime:
             t = time.time() - t0
             print('sr_count = %d   t = %f'%(sr_count,t*1000))
-            if sr_count > 100:
+            if sr_count > 20:
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 pass
         return ar_bidx_dis, sr_count
@@ -1741,8 +1769,9 @@ class GlobalSubBaseBLOCK():
                     base_b_num[i] = len(all_base_bids_in_aim_dic_fixed[all_sorted_aimbids[i]])
                 return base_b_num
             loop_n = 0
+            max_loop_n = 3
             while ( all_sorted_aimbids.shape[0] != nsubblock ):
-                if loop_n >= 3 or merge_blocks_while_fix_bmap==False:
+                if loop_n >= max_loop_n or merge_blocks_while_fix_bmap==False:
                     # randomly select and abandon some
                     choice = random_choice( np.arange(all_sorted_aimbids.shape[0]), nsubblock, keeporder=True )
                     all_sorted_aimbids = all_sorted_aimbids[choice]
@@ -2265,10 +2294,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
                     h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
             else:
+                # Try to use two blocks for whole scene. This can avoid small
+                # global blocks. But the draback is leading to unalignment
+                # between global cascade and the others.
+                IsUseTwoGlobalBlocks = True
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    if tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
+                    if IsUseTwoGlobalBlocks and tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
                         # use two blocks can totally include whole scene
                         h5fattrs['block_stride'][i] =  max( tmp,0 )
                     else:
@@ -2400,8 +2433,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def block_index_to_xyz_(block_k,attrs):
         ixyz = Sorted_H5f.block_index_to_ixyz_( block_k,attrs )
-        xyz_center, xyz_min, xyz_max = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
-        return xyz_center, xyz_min, xyz_max
+        xyz_center, xyz_bottom, xyz_top = Sorted_H5f.ixyz_to_xyz( ixyz,attrs )
+        return xyz_center, xyz_bottom, xyz_top
     def block_index_to_ixyz(self,block_k):
         return Sorted_H5f.block_index_to_ixyz_(block_k,self.h5f.attrs)
     @staticmethod
@@ -2464,10 +2497,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def ixyz_to_xyz( ixyz, attrs ):
-        xyz_min =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned']
-        xyz_center = xyz_min + attrs['block_step']*0.5
-        xyz_max = xyz_min + attrs['block_step']
-        return xyz_center, xyz_min, xyz_max
+        xyz_bottom =  ixyz * attrs['block_stride'] + attrs['xyz_min_aligned']
+        xyz_center = xyz_bottom + attrs['block_step']*0.5
+        xyz_top = xyz_bottom + attrs['block_step']
+        return xyz_center, xyz_bottom, xyz_top
     @staticmethod
     def xyz_to_ixyz( xyz, attrs ):
         ixyz =  (xyz - attrs['xyz_min_aligned'] - attrs['block_step']*0.5) / attrs['block_stride']
@@ -3657,11 +3690,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = []
             all_flatten_bidxmaps = []
             sum_bxmap_metas = []
+            globalb_bottom_center_xyz = np.zeros( shape=(global_block_num,2,3), dtype=np.float32 )
 
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
             print('global_block_num: %d'%(global_block_num))
             for global_bidx in range( global_block_num ):
+                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
+                globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
+                globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
+                if DEBUGTMP:
+                    debug_meta['gb_bottom'] = gb_bottom
+                    debug_meta['gb_center'] = gb_center
+
                 debug_meta['global_bidx'] = global_bidx
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
                        gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], debug_meta )
@@ -3676,6 +3717,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
             bxmh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
+            bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
             if all_flatten_bidxmaps.shape[2]>0:
                 bxmh5f.append_to_dset('bidxmaps_flat',all_flatten_bidxmaps[...,0:2].astype(np.int32))
                 bxmh5f.append_to_dset('fmap_neighbor_idis',all_flatten_bidxmaps[...,2:3].astype(np.float32))
@@ -4161,15 +4203,17 @@ class Normed_H5f():
             flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
             fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
+            globalb_bottom_center_xyz = h5f['globalb_info'][start_block:end_block]
+            globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
 
-            block_step_cascades = h5f.attrs['block_step_cascades']
-            block_stride_cascades = h5f.attrs['block_stride_cascades']
-            # Add global block xyz_min_aligned to block_step_cascades
-            #   for extra global layer while using 3DCNN
-            block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
-            block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
+            #block_step_cascades = h5f.attrs['block_step_cascades']
+            #block_stride_cascades = h5f.attrs['block_stride_cascades']
+            ## Add global block xyz_min_aligned to block_step_cascades
+            ##   for extra global layer while using 3DCNN
+            #block_step_cascades = np.concatenate( [block_step_cascades, np.expand_dims(h5f.attrs['xyz_scope_aligned'],0) ], 0 )
+            #block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, block_step_cascades, block_stride_cascades
+        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, globalb_bottom_center_xyz
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
@@ -4385,6 +4429,11 @@ class Normed_H5f():
                             maxshape=(None,)+sg_block_shape,chunks = (chunks_n,)+sg_block_shape  )
         sg_bidxmap_dset.attrs['valid_num'] = 0
 
+        globalb_info_dset = self.h5f.create_dataset('globalb_info',shape=(total_block_N,2,3), dtype=np.float32,
+                            maxshape=(None,2,3),chunks = (chunks_n,2,3)  )
+        globalb_info_dset.attrs['valid_num'] = 0
+        globalb_info_dset.attrs['readme'] = 'global block bottom and center xyz'
+
         flatten_bidxmap_shape = gsbb_write_or_load.get_flatten_bidxmaps_shape()
         if flatten_bidxmap_shape[1]>0:
             flatten_bidxmap_dset = self.h5f.create_dataset('bidxmaps_flat',shape=(total_block_N,)+flatten_bidxmap_shape[0:-1]+(2,),dtype=np.int32,
@@ -4410,6 +4459,12 @@ class Normed_H5f():
 
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
         with open(summary_fn,'w') as sf:
+            dataset_ls = [ds for ds in self.h5f]
+            sf.write('Totally %d datasets: %s\n'%( len(dataset_ls), dataset_ls ))
+            for ds in self.h5f:
+                sf.write( '  %s : %s\n'%(ds, self.h5f[ds].shape) )
+            sf.write('\n')
+
             summary = 'basic info'
             attrs = self.h5f.attrs
             for ele_name in attrs:
@@ -4454,6 +4509,11 @@ class Normed_H5f():
     def write_summary_bxmh5( self, bmh5_fn = None, pl_sph5_fn = None ):
         summary_fn = os.path.splitext( self.file_name )[0] + '.txt'
         with open(summary_fn,'w') as sf:
+            dataset_ls = [ds for ds in self.h5f]
+            sf.write('Totally %d datasets: %s\n'%( len(dataset_ls), dataset_ls ))
+            for ds in self.h5f:
+                sf.write( '  %s : %s\n'%(ds, self.h5f[ds].shape) )
+            sf.write('\n')
             if pl_sph5_fn!=None:
                 sf.write( 'Responding sph5 folder: %s\n'%( os.path.basename( os.path.dirname( pl_sph5_fn ) ) ))
                 sf.write( 'Responding bmh5 folder: %s\n\n'%( os.path.basename( os.path.dirname( bmh5_fn ) ) ))
