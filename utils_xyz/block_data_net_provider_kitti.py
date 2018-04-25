@@ -456,15 +456,11 @@ class Net_Provider_kitti():          ## benz_m
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
 
-        max_num_label = 0   ## benz_m
-        data_ls = []
-        label_ls = []
-        # center_mask = []
-        sg_bidxmaps_ls = []
-        # flatten_bidxmaps_ls = []
-        # fmap_neighbor_idis_ls = []
+        # max_num_label = 0   ## benz_m
+        # data_ls = []
+        # label_ls = []
+        # sg_bidxmaps_ls = []
         fid_start_end = []
-        # xyz_mid_ls = []
 
         f_idx = start_file_idx
         assert f_idx == start_file_idx
@@ -486,15 +482,19 @@ class Net_Provider_kitti():          ## benz_m
         data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
         # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
         label_i = self.label_data_all[f_idx][start]
-        num_temp = label_i.shape[0]
-        if max_num_label <= num_temp:
-            max_num_label = num_temp
+        # num_temp = label_i.shape[0]
+        # if max_num_label <= num_temp:
+        #    max_num_label = num_temp
         # data_i: [batch_size,npoint_block,data_nchannels]
         # label_i: [batch_size,npoint_block,label_nchannels]
-        sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        # sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        sg_bidxmaps = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
-        assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
+        # assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
+
+
+        return data_i, label_i, sg_bidxmaps,  fid_start_end
 
 
 
@@ -665,6 +665,8 @@ class Net_Provider_kitti():          ## benz_m
         return center_mask
 
     def get_shuffled_global_batch(self,g_shuffled_idx_ls):
+
+        max_num_label = 0
         data_batches = []
         label_batches = []
         sample_weights = []
@@ -674,25 +676,39 @@ class Net_Provider_kitti():          ## benz_m
         fid_start_end_ls = []
         xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch_kitti(idx,idx+1)   ## benz_m
+            # data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch_kitti(idx,idx+1)   ## benz_m
+            data_i,label_i,sg_bidxmaps_i, fid_start_end_i = self.get_global_batch_kitti(idx, idx+1)   ## benz_m
+
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
-            flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
-            fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
+            # flatten_bidxmaps_ls.append(flatten_bidxmaps_i)  # benz_m
+            # fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
             data_batches.append(data_i)
-            label_batches.append(label_i)
-            sample_weights.append(smw_i)
+            label_batches.append( label_i[:,[0,1,2,4,5,6]]) # benz_m, 0:category, 1:l, 2:w, 3:alpha, 4:x, 5:y, for birdview detection
+
+            num_temp = label_i.shape[0]
+            if max_num_label <= num_temp:
+                max_num_label = num_temp
+
+            # label_batches.append(label_i)
+            # sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
-            xyz_mid_ls.append( xyz_mid_i )
+            # xyz_mid_ls.append( xyz_mid_i )
 
         data_batches = np.concatenate(data_batches,axis=0)
-        label_batches = np.concatenate(label_batches,axis=0)
-        sample_weights = np.concatenate(sample_weights,axis=0)
+        # label_batches = np.concatenate(label_batches,axis=0)
+        labels_dims = label_batches[0].shape[1]
+        label_data_resize = np.empty(shape = [len(label_batches), max_num_label, labels_dims])
+        for ii in range(len(label_batches)):
+            label_data_resize[ii,:,:] = np.resize(label_batches[ii], [max_num_label , labels_dims])
+
+        # sample_weights = np.concatenate(sample_weights,axis=0)
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
-        flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
-        fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
+        # flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
+        # fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
         fid_start_end = np.concatenate(fid_start_end_ls,0)
-        xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        # xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
+        # return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        return data_batches, label_data_resize, sg_bidxmaps, fid_start_end
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'
@@ -845,7 +861,9 @@ def main_NormedH5f():
     steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
     IsShuffleIdx = True
 
-    cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(2,7,IsShuffleIdx)
+    # cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(2,7,IsShuffleIdx)
+    cur_data, cur_label, cur_sg_bidxmaps, fid_start_end = net_provider.get_train_batch(2,7,IsShuffleIdx)
+
 
     for bk in  range(0,net_provider.eval_num_blocks,steps[ply_flag]):
         #end = min(bk+s,net_provider.eval_num_blocks)
@@ -883,11 +901,11 @@ def main_NormedH5f():
             break
 
     print(cur_label.shape)
-    print(cur_smp_weights.shape)
+    # print(cur_smp_weights.shape)
     print(cur_data.shape)
     print(cur_data[0,0:3,:])
     print(cur_label[0,0:3,:])
-    print(cur_smp_weights[0,0:3,:])
+    # print(cur_smp_weights[0,0:3,:])
 
 
 def check_bxmap_pl_shape_match():

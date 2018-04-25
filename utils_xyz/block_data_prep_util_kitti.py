@@ -4093,12 +4093,15 @@ class Normed_H5f():
     @staticmethod
     def get_bidxmaps(bxmh5_fn, start_block,end_block):
         with h5py.File(bxmh5_fn,'r') as h5f:
-            assert h5f['bidxmaps_flat'].shape[0] >= end_block
-            flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
-            fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
+            # assert h5f['bidxmaps_flat'].shape[0] >= end_block
+            assert h5f['bidxmaps_sample_group'].shape[0] >= end_block
+            # flatten_bidxmaps = h5f['bidxmaps_flat'][start_block:end_block,:]
+            # benz_m, flatten_bidxmaps and fmap_neighbor are not needed in the
+            # object detection
+            # fmap_neighbor_idis = h5f['fmap_neighbor_idis'][start_block:end_block,:]
             sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
 
-        return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
+        return  sg_bidxmaps #, flatten_bidxmaps, fmap_neighbor_idis   # benz_m
 
     def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
