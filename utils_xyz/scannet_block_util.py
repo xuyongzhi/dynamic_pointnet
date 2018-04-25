@@ -354,6 +354,7 @@ class Scannet_Prepare():
     def MergeNormed(self):
         plsph5_folder = 'ORG_sph5/90000_gs-3d6_-6d3'
         bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
+        bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4C0'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -437,7 +438,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 6
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )

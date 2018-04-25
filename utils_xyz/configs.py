@@ -8,7 +8,7 @@ import numpy as np
 NETCONFIG = {}
 NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is very large for global block with few points which should be abandoned.
 NETCONFIG['merge_blocks_while_fix_bmap'] = True
-NETCONFIG['redundant_points_in_block'] = -17  # 'replicate' or a negative number to be asigned in bidxmap
+NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative number to be asigned in bidxmap
 #-------------------------------------------------------------------------------
 # gsbb config
 _gsbb_config = '4C0'
@@ -104,7 +104,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([6400, 2400, 320, 32]).astype(np.int32)
         npoint_subblock_candis = np.array([32, 16,  32,  48]).astype(np.int32)
 
-        NETCONFIG['merge_blocks_while_fix_bmap'] = False
+        NETCONFIG['merge_blocks_while_fix_bmap'] = True
 
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)

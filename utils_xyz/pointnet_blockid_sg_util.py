@@ -6,6 +6,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR+'/../utils')
 from block_data_prep_util import GlobalSubBaseBLOCK
+from configs import NETCONFIG
 import tf_util
 import numpy as np
 
@@ -179,19 +180,23 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
 
             if not IsExtraGlobalLayer:
-                # set point_indices_f for invalid points as -17
-                valid_mask = tf.less_equal( tf.constant(-1,tf.int32), bidmap)
-                valid_mask = tf.tile( valid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
-                point_indices_f = tf.where( valid_mask, point_indices_f, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(-17,dtype=tf.float32) )
-            point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+                # set point_indices_f for invalid points as NETCONFIG['redundant_points_in_block']
+                invalid_mask = tf.equal( tf.constant(NETCONFIG['redundant_points_in_block'] ,tf.int32), bidmap )
+                invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
+                point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(NETCONFIG['redundant_points_in_block'],dtype=tf.float32), point_indices_f )
+                point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+                point_indices_checkmin = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(999,dtype=tf.float32), point_indices )
+            else:
+                point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+                point_indices_checkmin = point_indices
 
             # ------------------------------------------------------------------
             # check indice err
-            Max_Assert = 1e-5 + 100 * DEBUG_TMP
+            Max_Assert_0 = 1e-5
 
             point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
             point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
-            check_point_indices = tf.assert_less( point_indices_maxerr, Max_Assert, data=[cascade_id, point_indices_maxerr],
+            check_point_indices = tf.assert_less( point_indices_maxerr, Max_Assert_0, data=[cascade_id, point_indices_maxerr],
                                                  message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
             if not IsExtraGlobalLayer:
                 tf.add_to_collection( 'check', check_point_indices )
@@ -200,8 +205,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
                 point_indices += tf.constant(1, tf.float32)
 
             # check indice scope
-            check_min_indice = tf.assert_less( tf.constant(-Max_Assert,tf.float32), tf.reduce_min(point_indices), data=[cascade_id,tf.reduce_min(point_indices)], name='check_min_indice' )
-
+            Max_Assert = 1e-5 + NETCONFIG['merge_blocks_while_fix_bmap'] * 3
+            point_indices_min = tf.reduce_min(point_indices_checkmin)
+            check_min_indice = tf.assert_less( tf.constant(-Max_Assert,tf.float32), point_indices_min, data=[cascade_id,point_indices_min], name='check_min_indice' )
             tf.add_to_collection( 'check', check_min_indice )
 
             if IsExtraGlobalLayer:
