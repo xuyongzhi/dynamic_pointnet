@@ -253,13 +253,6 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     l_points = []                       # size = l_points+1
     l_points.append( rawdata )
     l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
-    debug = {}
-    if IsDebug:
-        debug['l_xyz'] = []
-        debug['l_xyz'].append( l_xyz )
-        debug['grouped_xyz'] = []
-        debug['flat_xyz'] = []
-        debug['flatten_bidxmap'] = []
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
     sgf_config_pls['max_step_stride'] = (sgf_config_pls['globalb_bottom_center_xyz'][:,:,3:6] - sgf_config_pls['globalb_bottom_center_xyz'][:,:,0:3]) * tf.constant(2,tf.float32)
@@ -282,11 +275,8 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         if TMPDEBUG:
             pooling = '3DCNN'
 
-        l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_bottom_center_mm,
+        l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_bottom_center_mm,
                                                                                  sgf_configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
-        if IsDebug:
-            debug['l_xyz'].append( l_xyz )
-            debug['grouped_xyz'].append( grouped_xyz )
         if k == 0:
             l_points[0] = root_point_features
         l_points.append(new_points)
@@ -310,7 +300,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
             fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), debug=debug )
+        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i) )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
@@ -324,7 +314,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     if IsShowModel:
         print('net:%s'%(shape_str([net])))
 
-    return net, end_points, debug
+    return net, end_points
 
 def get_loss(pred, label, smpw, label_eles_idx ):
     """ pred: BxNxC,

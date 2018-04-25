@@ -93,12 +93,14 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             nsubblock = bidmap.get_shape()[1].value
             npoint_subblock = bidmap.get_shape()[2].value
             batch_idx_ = tf.tile( batch_idx,[1,nsubblock,npoint_subblock,1] )
-            bidmap = tf.expand_dims( bidmap,axis=-1 )
-            bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1 )
+            bidmap = tf.expand_dims( bidmap,axis=-1, name='bidmap' )
+            bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1, name='bidmap_concat' )  # gpu_0/sa_layer0/bidmap_concat:0
+            # The value for invalid item in bidmap is -17.
+            # On GPU, the responding grouped_xyz and grouped_points is 0.
+            # NOT WORK on CPU !!!
 
             grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )
             # use the average position as new xyz
@@ -175,12 +177,17 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             grouped_bottom_xyz_mm = grouped_xyz * c1000 - step_last * c500  # gpu_0/sa_layer1/sub_1:0
                 # For ExtraGlobal layer, the step_last may be cropped, thus the point_indices_f is smaller.
             point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
+
+            if not IsExtraGlobalLayer:
+                # set point_indices_f for invalid points as -17
+                valid_mask = tf.less_equal( tf.constant(-1,tf.int32), bidmap)
+                valid_mask = tf.tile( valid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
+                point_indices_f = tf.where( valid_mask, point_indices_f, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(-17,dtype=tf.float32) )
             point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
 
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             # ------------------------------------------------------------------
             # check indice err
-            Max_Assert = 1e-5
+            Max_Assert = 1e-5 + 100 * DEBUG_TMP
 
             point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
             point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
@@ -277,10 +284,10 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps
             print('pointnet_sa_module return\n new_xyz: %s\n new_points:%s\n\n'%(shape_str([new_xyz]),shape_str([new_points])))
             #import pdb;pdb.set_trace()
         # (2, 512, 64)
-        return new_xyz, new_points, root_point_features, grouped_xyz
+        return new_xyz, new_points, root_point_features
 
 
-def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True, debug=None ):
+def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -298,7 +305,6 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
         new_points1: (2, 256, 256)
     '''
     IsShowModel = True
-    IsDebug = 'flatten_bidxmap' in debug
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
     with tf.variable_scope(scope) as sc:
@@ -374,17 +380,6 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
                 mapped_points2_nei = tf.multiply( mapped_points2_nei, dis_weight )
             mapped_points2 = tf.reduce_sum( mapped_points2_nei,2 )
         #-----------------------------------
-
-       # if IsDebug:
-       #     debug['distance_%d'%(cascade_id)] = fbmap_neighbor_idis
-       #     debug['dis_weight_%d'%(cascade_id)] = dis_weight
-
-        #if IsDebug:
-        #    debug['flatten_bidxmap'].append( flatten_bidxmap )
-        #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        #    flatten_bidxmap_aimbidx_concat_ = tf.concat( [batch_idx, flatten_bidxmap[:,:,0:num_neighbor,0:2]],axis=-1 ) # (2, 256, 2)
-        #    flat_xyz = tf.gather_nd( debug['grouped_xyz'][cascade_id],flatten_bidxmap_aimbidx_concat_) # (2, 256, 512)
-        #    debug['flat_xyz'].append( flat_xyz )
 
         new_points1 = points1
         new_points1 = tf.expand_dims(new_points1,1)
