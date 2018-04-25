@@ -49,42 +49,86 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_
         return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl, sgf_config_pls
 
 def get_sa_module_config(model_flag):
+    if model_flag[1] == 'V':
+        return get_voxel3dcnn_sa_config(model_flag)
+    else:
+        return get_pointmax_sa_config(model_flag)
+
+def get_voxel3dcnn_sa_config( model_flag ):
     cascade_num = int(model_flag[0])
-    mlps_0 = []
+    mlp_pe = []
+    mlp_be = []
+    voxel_channels = []
+    voxel_kernels = []
+    voxel_strides = []
+    if model_flag=='4Va':
+        voxel_channels.append( [32,32,64] )
+        voxel_channels.append( [64,64,128] )
+        voxel_channels.append( [128,128,256] )
+        voxel_channels.append( [256,256,512] )
+        for l in range(4):
+            #voxel_kernels.append(  [2, 2, 1 ]  )
+            #voxel_strides.append(  [1, 1, 1 ]  )
+            mlp_pe.append([])
+            mlp_be.append([])
+    elif model_flag=='5VaG':
+        voxel_channels.append( [32,32,48] )
+        voxel_channels.append( [48,48,64] )
+        voxel_channels.append( [64,64,128] )
+        voxel_channels.append( [128,128,256] )
+        voxel_channels.append( [256,256,512] )
+        for l in range(5):
+            #voxel_kernels.append(  [2, 2, 1 ]  )
+            #voxel_strides.append(  [1, 1, 1 ]  )
+            mlp_pe.append([])
+            mlp_be.append([])
+
+    mlp_configs = {}
+    mlp_configs['voxel_channels'] = voxel_channels
+    #mlp_configs['voxel_kernels'] = voxel_kernels
+    #mlp_configs['voxel_strides'] = voxel_strides
+    mlp_configs['point_encoder'] = mlp_pe
+    mlp_configs['block_learning'] = '3DCNN'
+    mlp_configs['block_encoder'] = mlp_be
+    return mlp_configs
+
+def get_pointmax_sa_config(model_flag):
+    cascade_num = int(model_flag[0])
+    mlp_pe = []
     if model_flag=='1a' or model_flag=='1aG':
-        #mlps_0.append( [64,64,128,128,512,1024] )
-        mlps_0.append( [64,64,64,128,512] )
+        #mlp_pe.append( [64,64,128,128,512,1024] )
+        mlp_pe.append( [64,64,64,128,512] )
     elif model_flag=='1b' or model_flag=='1bG':
-        mlps_0.append( [32, 64,64,128,128,256,512] )
+        mlp_pe.append( [32, 64,64,128,128,256,512] )
     elif model_flag=='2a' or model_flag=='2aG':
-        mlps_0.append( [32,64,64,128] )
-        mlps_0.append( [128,128,256,512] )
+        mlp_pe.append( [32,64,64,128] )
+        mlp_pe.append( [128,128,256,512] )
     elif model_flag=='3a' or model_flag=='3aG':
-        mlps_0.append( [32,32,64] )
-        mlps_0.append( [64,128,256] )
-        mlps_0.append( [256,256,512] )
+        mlp_pe.append( [32,32,64] )
+        mlp_pe.append( [64,128,256] )
+        mlp_pe.append( [256,256,512] )
     elif model_flag=='4a' or model_flag=='4aG':
-        mlps_0.append( [32,32,64] )
-        mlps_0.append( [64,64,128] )
-        mlps_0.append( [128,128,256] )
-        mlps_0.append( [256,256,512] )
+        mlp_pe.append( [32,32,64] )
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
+        mlp_pe.append( [256,256,512] )
     elif model_flag=='4bG':
-        mlps_0.append( [24,24,48] )
-        mlps_0.append( [48,48,64] )
-        mlps_0.append( [64,64,128] )
-        mlps_0.append( [128,128,256] )
+        mlp_pe.append( [24,24,48] )
+        mlp_pe.append( [48,48,64] )
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
     elif model_flag=='5aG':
-        mlps_0.append( [32,32,64] )
-        mlps_0.append( [64,64,128] )
-        mlps_0.append( [128,128,256] )
-        mlps_0.append( [256,256,256] )
-        mlps_0.append( [256,512,512] )
+        mlp_pe.append( [32,32,64] )
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
+        mlp_pe.append( [256,256,256] )
+        mlp_pe.append( [256,512,512] )
     elif model_flag=='5bG':
-        mlps_0.append( [32,32,48] )
-        mlps_0.append( [48,48,64] )
-        mlps_0.append( [64,64,128] )
-        mlps_0.append( [128,128,256] )
-        mlps_0.append( [256,512,512] )
+        mlp_pe.append( [32,32,48] )
+        mlp_pe.append( [48,48,64] )
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
+        mlp_pe.append( [256,512,512] )
 
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
@@ -93,7 +137,7 @@ def get_sa_module_config(model_flag):
         dense_config['initial_feature_num']=int(dense_config['growth_rate']*1.5)
         dense_config['layers_per_block'] = 5
         dense_config['keep_prob'] = 0.3
-        mlps_0.append( dense_config )
+        mlp_pe.append( dense_config )
 
     elif model_flag=='4DSa' or model_flag=='4DSaG':
         dense_config = {}
@@ -102,22 +146,22 @@ def get_sa_module_config(model_flag):
         #dense_config['initial_feature_num']=int(dense_config['growth_rate']*1)
         dense_config['layers_per_block'] = 4
         dense_config['keep_prob'] = 0.3
-        mlps_0.append( copy.deepcopy(dense_config) )
+        mlp_pe.append( copy.deepcopy(dense_config) )
 
         #del dense_config['initial_feature_num']
         #dense_config['initial_feature_rate'] = 0.8
         dense_config['layers_per_block'] = 3
-        mlps_0.append( dense_config )
-        mlps_0.append( dense_config )
-        mlps_0.append( dense_config )
+        mlp_pe.append( dense_config )
+        mlp_pe.append( dense_config )
+        mlp_pe.append( dense_config )
     else:
         assert False,"model_flag not recognized: %s"%(model_flag)
 
-    mlps_1 = []
+    mlp_be = []
     if model_flag=='1a' or model_flag=='1aG':
-        mlps_1.append( [512,256,128] )
+        mlp_be.append( [512,256,128] )
     elif model_flag=='1b' or model_flag=='1bG':
-        mlps_1.append( [512, 512, 512] )
+        mlp_be.append( [512, 512, 512] )
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
         dense_config['num_block'] = 1
@@ -125,12 +169,16 @@ def get_sa_module_config(model_flag):
         dense_config['layers_per_block'] = 2
         dense_config['transition_feature_rate'] = 1
         dense_config['keep_prob'] = 0.3
-        mlps_1.append( dense_config )
+        mlp_be.append( dense_config )
     else:
         for k in range(cascade_num):
-            mlps_1.append( [] )
+            mlp_be.append( [] )
 
-    return mlps_0, mlps_1
+    mlp_configs = {}
+    mlp_configs['point_encoder'] = mlp_pe
+    mlp_configs['block_learning'] = 'max'
+    mlp_configs['block_encoder'] = mlp_be
+    return mlp_configs
 
 def get_fp_module_config( model_flag ):
     cascade_num = int(model_flag[0])
@@ -154,7 +202,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
-    elif model_flag=='4a' or model_flag=='4aG' or model_flag=='4DSaG':
+    elif model_flag=='4a' or model_flag=='4aG' or model_flag=='4DSaG' or model_flag=='4Va':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
@@ -227,6 +275,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
+        model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
     IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
@@ -235,7 +284,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
     assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
 
-    if 'G' in model_flag:
+    if 'G' == model_flag[-1]:
         IsAddGlobalLayer = True
     else:
         IsAddGlobalLayer = False
@@ -249,7 +298,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
 
     cascade_num = int(model_flag[0])
     assert cascade_num <= sg_bm_extract_idx.shape[0]+(1*IsAddGlobalLayer)  # sg_bm_extract_idx do not include the global step
-    mlps_0, mlps_1 = get_sa_module_config(model_flag)
+    mlp_configs = get_sa_module_config(model_flag)
     l_points = []                       # size = l_points+1
     l_points.append( rawdata )
     l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
@@ -272,11 +321,8 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             # gpu_0/1block_bottom_center_mm:0
             # gpu_0/2block_bottom_center_mm:0
 
-        if TMPDEBUG:
-            pooling = '3DCNN'
-
-        l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_bottom_center_mm,
-                                                                                 sgf_configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
+        l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
+                                                                                 sgf_configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if k == 0:
             l_points[0] = root_point_features
         l_points.append(new_points)
