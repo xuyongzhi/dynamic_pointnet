@@ -340,7 +340,8 @@ def conv3d(inputs,
            activation_fn=tf.nn.relu,
            bn=False,
            bn_decay=None,
-           is_training=None):
+           is_training=None,
+           name=None):
   """ 3D convolution with non-linear operation.
 
   Args:
@@ -374,7 +375,7 @@ def conv3d(inputs,
     stride_d, stride_h, stride_w = stride
     outputs = tf.nn.conv3d(inputs, kernel,
                            [1, stride_d, stride_h, stride_w, 1],
-                           padding=padding)
+                           padding=padding )
     biases = _variable_on_cpu('biases', [num_output_channels],
                               tf.constant_initializer(0.0))
     outputs = tf.nn.bias_add(outputs, biases)
@@ -384,7 +385,9 @@ def conv3d(inputs,
                                       bn_decay=bn_decay, scope='bn')
 
     if activation_fn is not None:
-      outputs = activation_fn(outputs)
+      outputs = activation_fn(outputs, name=name)
+    else:
+        outputs = tf.identity( outputs, name )
     return outputs
 
 def fully_connected(inputs,
