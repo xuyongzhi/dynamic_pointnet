@@ -11,7 +11,7 @@ import tf_util
 import numpy as np
 
 DEBUG_TMP = True
-IsCompensateGlobal = True  # Dont know why, global block scope cannot be aligned with other cascades. The point indice can be smaller or larger one indice.
+IsCompensateGlobal = True  # Dont know why, the global point indice can be smaller or larger by one indice, but the scope is right.
 
 '''
 Checking list:
@@ -258,15 +258,14 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
     check_point_indices = tf.assert_less( point_indices_maxerr, Max_Assert_0, data=[cascade_id, point_indices_maxerr],
                                             message='point indices in voxel check on cascade %d '%(cascade_id), name='check_point_indices' )
-    if not IsExtraGlobalLayer:
-        tf.add_to_collection( 'check', check_point_indices )
+    tf.add_to_collection( 'check', check_point_indices )
 
-    if IsCompensateGlobal and IsExtraGlobalLayer:
-        point_indices += tf.constant(1, tf.float32)
 
-    # check indice scope
+    # check indice scope:
+    # Actually only works when NETCONFIG['merge_blocks_while_fix_bmap']=False
     Max_Assert = 1e-5 + NETCONFIG['merge_blocks_while_fix_bmap'] * 3
-    point_indices_min = tf.reduce_min(point_indices_checkmin)
+
+    point_indices_min = tf.reduce_min(point_indices_checkmin, name='point_indices_min') # gpu_0/sa_layer4/point_indices_min:0
     check_min_indice = tf.assert_less( tf.constant(-Max_Assert,tf.float32), point_indices_min, data=[cascade_id,point_indices_min], name='check_min_indice' )
     tf.add_to_collection( 'check', check_min_indice )
 
@@ -278,8 +277,15 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
         # For ExtraGlobal layer, the step_last may be cropped, thus the point_indices_f is smaller.
         max_indice = tf.ceil( ( step_cur - step_last ) / stride_last, name='max_indice_global' ) # gpu_0/sa_layer3/max_indice_global:0
         max_indice = tf.reduce_max(max_indice,0)[0,0]
+
         if IsCompensateGlobal:
-            max_indice += tf.constant(2, tf.float32)    # ??? !!! ??? Why?: (not padding)
+            global_pi_min_comp = tf.minimum( tf.reduce_min( point_indices, axis=[0,1,2] ), tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' )
+            global_pi_max_comp = tf.maximum( tf.reduce_max( point_indices - max_indice, axis=[0,1,2] ), tf.constant([0,0,0],tf.float32), name='global_pi_max_comp' )
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            point_indices -= global_pi_min_comp
+            point_indices -= global_pi_max_comp
+
+
         for i in range(3):
             real_max = tf.reduce_max(point_indices[:,:,:,i])
             check_max_indice = tf.assert_less( real_max - max_indice[i], tf.constant(Max_Assert), data=[cascade_id, real_max, max_indice[i]], name='check_max_indice_'+str(i) )
@@ -301,7 +307,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
 
 
     # ------------------------------------------------------------------
-    point_indices = tf.cast( point_indices, tf.int32 )
+    point_indices = tf.cast( point_indices, tf.int32, name='point_indices' )    # gpu_0/sa_layer1/point_indices_1:0
     batch_size = new_points.shape[0].value
     block_num = new_points.shape[1].value
     point_num = new_points.shape[2].value
@@ -310,7 +316,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     batch_idx = tf.tile( batch_idx, [1,block_num,point_num,1] )
     bn_idx = tf.reshape( tf.range(block_num),[1,block_num,1,1] )
     bn_idx = tf.tile( bn_idx, [batch_size,1,point_num,1] )
-    point_indices = tf.concat( [batch_idx, bn_idx, point_indices], -1, name='point_indices' ) # gpu_0/sa_layer1/point_indices_1:0
+    point_indices = tf.concat( [batch_idx, bn_idx, point_indices], -1, name='point_indices' ) # gpu_0/sa_layer4/point_indices_1:0
 
     voxel_points = tf.scatter_nd( point_indices, new_points, shape=voxel_shape, name='voxel_points' )   # gpu_0/sa_layer1/voxel_points:0
     new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
