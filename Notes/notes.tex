@@ -49,6 +49,24 @@
 \subsection{Theory}
 \subsubsection{bidxmap}
 \includegraphics[width=\textheight]{theory/bxmap.png}
+
+\subsubsection{group sampling configuration}
+$$ steps = [0.1,0.3,0.9,2.7] + [-6.3]$$
+$$ strides = [0.1,0.2,0.6,1.8] + [-3.6] $$
+$$ voxel\ size=[, 3, 4, 4, 3] $$
+principles:\par
+(1)Alignment between differert scales:
+$$ steps[i] = steps[i-1]+strides[i-1]*(k-1)\  (k=voxel\ size) $$
+(2)Alignment between voxels on one scale:
+$$ strides[i] \% steps[i-1] == 0 $$
+$$ 0.3=0.1+0.1*2 \Rightarrow voxel\ size=3 $$
+$$ 0.2=0.1*2 $$
+$$ 0.9=0.3+0.2*3 \Rightarrow voxel\ size=4 $$ 
+$$ 0.6=0.3*2 $$
+$$$$
+$$ 6.3=2.7+1.8*2 $$
+$$ 3.6=1.8*2 $$
+
 \subsubsection{Sparse voxel 3DCNN }
 \tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black, fill=red!10]
 \tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!10]

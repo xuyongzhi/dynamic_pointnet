@@ -34,7 +34,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='4Va_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='5VaG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
@@ -75,7 +75,7 @@ IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = False
+ISTFDEBUG = True
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:

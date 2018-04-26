@@ -141,8 +141,10 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             root_point_features = None
 
         pooling = mlp_configs['block_learning']
-        if pooling == '3DCNN' and cascade_id == 0:
+        if pooling == '3DCNN' and ( cascade_id == 0 or IsExtraGlobalLayer ):
             pooling = 'max'
+            if IsExtraGlobalLayer:
+             v_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz )
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         elif pooling=='weighted_avg':
@@ -168,10 +170,12 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             for i, num_out_channel in enumerate( mlp_configs['voxel_channels'][cascade_id] ):
                 #kernel_i = [mlp_configs['voxel_kernels'][cascade_id][i]]*3
                 #stride_i = [mlp_configs['voxel_strides'][cascade_id][i]]*3
-                if new_points.shape[-2].value == 1:
-                    kernel_i = [1]*3
-                else:
-                    kernel_i = [2]*3
+                kernel_i = [1,1,1]
+                for ki in range(3):
+                    if new_points.shape[1+ki].value == 1:
+                        kernel_i[ki] = 1
+                    else:
+                        kernel_i[ki] = 2
                 stride_i = [1]*3
                 new_points = tf_util.conv3d(new_points,
                                             num_out_channel,
@@ -181,12 +185,14 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             padding = 'VALID',
                                             bn=bn,
                                             is_training = is_training,
-                                            bn_decay = bn_decay)
+                                            bn_decay = bn_decay,
+                                            name = 'points_3dcnn_%d'%(i) )
+                # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
                 if IsShowModel:
                     print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             new_points = tf.squeeze( new_points, [1,2,3] )
             new_points = tf.reshape( new_points, [batch_size, -1, 1, new_points.shape[-1].value] )
+
 
         if IsShowModel:
             print('after %s, new_points:%s'%( pooling, shape_str([new_points])))
@@ -231,6 +237,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     grouped_bottom_xyz_mm = grouped_xyz * c1000 - step_last * c500  # gpu_0/sa_layer1/sub_1:0
         # For ExtraGlobal layer, the step_last may be cropped, thus the point_indices_f is smaller.
     point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
+    point_indices_f = tf.identity( point_indices_f, name='point_indices_f' )    # gpu_0/sa_layer4/point_indices_f:0
 
     if not IsExtraGlobalLayer:
         # set point_indices_f for invalid points as NETCONFIG['redundant_points_in_block']

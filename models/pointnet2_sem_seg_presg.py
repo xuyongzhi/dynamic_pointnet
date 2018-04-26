@@ -76,7 +76,7 @@ def get_voxel3dcnn_sa_config( model_flag ):
         voxel_channels.append( [48,48,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
-        voxel_channels.append( [256,256,512] )
+        voxel_channels.append( [256,256,512,512] )
         for l in range(5):
             #voxel_kernels.append(  [2, 2, 1 ]  )
             #voxel_strides.append(  [1, 1, 1 ]  )
@@ -212,7 +212,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [384,256] ) # for l_points[3-4]
-    elif model_flag=='5aG':
+    elif model_flag=='5aG' or model_flag=='5VaG':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )

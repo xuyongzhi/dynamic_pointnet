@@ -2298,34 +2298,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 # global blocks. But the draback is leading to unalignment
                 # between global cascade and the others.
                 IsUseTwoGlobalBlocks = True
+                gsbb_config_dic = get_gsbb_config()
+                last_gsbb_stride = gsbb_config_dic['sub_block_stride_candis'][-1]
                 for i in range(2):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    if IsUseTwoGlobalBlocks and tmp <=  h5fattrs['block_step'][i]-1 and tmp > 0:
-                        # use two blocks can totally include whole scene
-                        h5fattrs['block_stride'][i] =  max( tmp,0 )
+                    tmp_fixed = math.ceil(tmp/last_gsbb_stride)*last_gsbb_stride
+                    if IsUseTwoGlobalBlocks and tmp_fixed <=  h5fattrs['block_step'][i] and tmp_fixed > 0:
+                        # (1) use two blocks can totally include whole scene
+                        # (2) block_stride has to be integral multiple of gsbb_config['sub_block_stride_candis'][-1]
+                        h5fattrs['block_stride'][i] =  max( tmp_fixed,0 )
                     else:
                         # when two blocks is not enough, use the fixed stride value
                         h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
-
-        #for i in range(0,len(h5fattrs['block_step'])):
-        #    if h5fattrs['block_step'][i]  <0:
-        #        assert  h5fattrs['block_stride'][i]  <0
-        #        if h5fattrs['xyz_scope_aligned'][i] <= -h5fattrs['block_step'][i]:
-        #            h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
-        #            h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
-        #        else:
-        #            h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
-        #            tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-        #            if tmp <=  h5fattrs['block_step'][i]-1:
-        #                # use two blocks can totally include whole scene
-        #                h5fattrs['block_stride'][i] =  tmp
-        #            else:
-        #                # when two blocks is not enough, use the fixed stride value
-        #                h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
-        # get_attrs_str(h5fattrs)
-        # print( h5fattrs['block_stride'] - h5fattrs['xyz_scope_aligned'] )
-
 
     @staticmethod
     def update_align_scope_by_stridetoalign_(h5fattrs):
