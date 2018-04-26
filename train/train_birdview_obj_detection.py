@@ -20,22 +20,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(ROOT_DIR)
-sys.path.append(os.path.join(ROOT_DIR,'utils'))
+sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
+sys.path.append(os.path.join(ROOT_DIR,'utils'))
+
 # from pointnet2_obj_detection_tf4 import  placeholder_inputs,get_model,get_loss
 # import get_dataset
-from evaluation import EvaluationMetrics
+# from evaluation import EvaluationMetrics
 # from kitti_data_net_provider_2d import kitti_data_net_provider_2d #Normed_H5f,Net_Provider
-from block_data_net_provider_kitti import Normed_H5f,Net_Provider_kitti
+from block_data_net_provider_kitti_2d import Normed_H5f,Net_Provider_kitti
 
+import tf_util
 from config import cfg
 import multiprocessing as mp
 from bbox_transform_2d import bbox_transform_inv_2d
 from nms_2d import nms_2d
 from evaluation_2d import evaluation_2d
 # to check the memory usage of GPU
-from pointnet2_sem_seg_presg_kitti import  placeholder_inputs,get_model,get_loss
+from pointnet2_sem_seg_presg_kitti_2d import  placeholder_inputs,get_model,get_loss
 from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
 
 
@@ -45,7 +48,7 @@ ISSUMMARY = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
-parser.add_argument('--dataset_name', default='rawh5_kitti_16384', help='rawh5_kitti')
+parser.add_argument('--dataset_name', default='rawh5_kitti_32768', help='rawh5_kitti')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0', help='')
@@ -53,12 +56,13 @@ parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 
 parser.add_argument('--batch_size', type=int, default= 32, help='Batch Size during training [default: 24]')
-parser.add_argument('--eval_fnglob_or_rate',  default='train', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--eval_fnglob_or_rate',  default='0.5', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
 
-parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
-parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
+parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
+
+
 parser.add_argument('--learning_rate', type=float, default=0.01, help='Initial learning rate [default: 0.01]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
@@ -66,12 +70,18 @@ parser.add_argument('--decay_step', type=int, default=300000, help='Decay step f
 parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
+parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
+
+parser.add_argument('--gpu', type=int, default= 0, help='the gpu index')
+
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
 parser.add_argument('--finetune',action='store_true',help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
-
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
+
+parser.add_argument('--inkp_min', type=float, default=0.3, help='random input drop minimum')
+parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
 
 
 
@@ -86,6 +96,9 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
+
+IS_GEN_PLY= True and FLAGS.only_evaluate
+
 
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
@@ -103,8 +116,10 @@ else:
     MAX_EPOCH = FLAGS.max_epoch
     log_name = 'log_Train.txt'
     FLAGS.log_dir = FLAGS.log_dir+'-B'+str(BATCH_SIZE)+'-'+\
-                    FLAGS.feed_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob+str(date)
-FLAGS.feed_elements = FLAGS.feed_elements.split(',')
+                    FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name+'-eval_'+log_eval_fn_glob+str(date)
+# FLAGS.feed_data_elements = FLAGS.feed_data_elements.split(',')
+Feed_Data_Elements  = FLAGS.feed_data_elements.split('-')
+Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/object_detection_result/'+FLAGS.log_dir)
@@ -147,11 +162,13 @@ HOSTNAME = socket.gethostname()
 
 net_configs = {}
 net_configs['loss_weight'] = FLAGS.loss_weight
+ALL_fn_globs = FLAGS.all_fn_globs.split(',')
+
 
 net_provider = Net_Provider_kitti(
                             net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
-                            all_filename_glob=FLAGS.all_fn_globs,
+                            all_filename_glob=ALL_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
                             only_evaluate = FLAGS.only_evaluate,
@@ -161,6 +178,7 @@ net_provider = Net_Provider_kitti(
 
 NUM_POINT = net_provider.global_num_point
 NUM_DATA_ELES = net_provider.data_num_eles
+NUM_LABEL_ELES= net_provider.label_num_eles
 
 TRAIN_FILE_N = net_provider.train_file_N
 EVAL_FILE_N = net_provider.eval_file_N
@@ -216,7 +234,8 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
 
 
-            pointclouds_pl,  labels_pl, smpws_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
+            # pointclouds_pl,  labels_pl, smpws_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
+            pointclouds_pl,  labels_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -235,7 +254,8 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-
+            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob )
 
             # Get model and loss
             # pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
@@ -292,7 +312,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         # define operations
         ops = {'pointclouds_pl': pointclouds_pl,
                'labels_pl': labels_pl,
-               'sg_bidxmaps_pl ':sg_bidxmaps_pl,
+               'sg_bidxmaps_pl': sg_bidxmaps_pl,
                'is_training_pl': is_training_pl,
                'pred_class': pred_class,
                'pred_box': pred_box,
@@ -314,7 +334,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             saver.restore(sess,MODEL_PATH)
             log_string('finetune, restored model from: \n\t%s'%MODEL_PATH)
 
-        log_string(data_provider.data_summary_str)
+        log_string(net_provider.data_summary_str)
 
         if ISDEBUG:
             builder = tf.profiler.ProfileOptionBuilder
@@ -339,17 +359,19 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 saver.restore(sess,MODEL_PATH)
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             log_string('training is finished \n')
-            eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
-            # Save the variables to disk.
-            if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
-                    save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
-                    log_string("Model saved in file: %s" % os.path.basename(save_path))
 
-            # if epoch == MAX_EPOCH -1:
-            LOG_FOUT_FUSION.write('Epoch_id:'+str(epoch)+', Accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
-            LOG_FOUT_FUSION.flush()
-            log_string('Accuracy is : %0.3f' % (eval_log_str))
+            if epoch%20 == 0:
+                eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
+                # Save the variables to disk.
+                if not FLAGS.only_evaluate:
+                    if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
+                        save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
+                        log_string("Model saved in file: %s" % os.path.basename(save_path))
+
+                # if epoch == MAX_EPOCH -1:
+                LOG_FOUT_FUSION.write('Epoch_id:'+str(epoch)+', Accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
+                LOG_FOUT_FUSION.flush()
+                log_string('Accuracy is : %0.3f' % (eval_log_str))
 
 
 def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
@@ -375,7 +397,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
-    num_blocks = net_provider.num_train_data
+    num_blocks = net_provider.train_num_blocks
     if num_blocks!=None:
         num_batches = num_blocks // BATCH_SIZE
         if num_batches ==0: return ''
@@ -399,7 +421,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         poinr_cloud_data = []
         label_data = []
         if train_feed_buf_q == None:
-            point_cloud_data, label_data, sg_bidxmaps_data, fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
+            point_cloud_data, label_data, sg_bidxmaps_pl, fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
             # point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
@@ -411,7 +433,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
                      ops['labels_pl']: label_data,
-                     ops['sg_bidxmaps_pl']:sg_bidxmaps_pl,
+                     ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
 
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
@@ -424,6 +446,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             summary, step, _, loss_val, pred_class_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
                                        = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
 
+        t2=time.time()
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
         max_memory_usage = sess.run(ops['max_memory_usage'])
@@ -437,6 +460,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             #                                   loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
 
             log_string('------batch is {},----------------'.format(batch_idx))
+            print('reading data time is:{}, the training time is {}'.format((t2-t1),(t1-t0)))
             log_string('loss {},  classificaiton {}, regression {}'.format(loss_val ,classification_loss_val, regression_loss_val))
             log_string('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
             log_string('########dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
@@ -468,13 +492,13 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
 
     log_string('----')
 
-    num_blocks = data_provider.evaluation_num  # evaluation some of data
+    num_blocks = net_provider.eval_num_blocks  # evaluation some of data
     if num_blocks != None:
         num_batches = num_blocks // BATCH_SIZE
         num_batches = limit_eval_num_batches(epoch,num_batches)
         if num_batches == 0:
             print('\ntest num_blocks=%d  BATCH_SIZE=%d  num_batches=%d'%(num_blocks,BATCH_SIZE,num_batches))
-            return ''
+            return 0.0
     else:
         num_batches = None
 
@@ -493,7 +517,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            point_cloud_data, label_data, gt_box = data_provider._get_evaluation_minibatch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+             point_cloud_data, gt_box, sg_bidxmaps_pl, fid_start_end = net_provider.get_eval_batch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
@@ -505,8 +529,10 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             print('batch_idx:%d, get None, reading finished'%(batch_idx))
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
-                     ops['labels_pl']: label_data,
+                     ops['labels_pl']: gt_box,
+                     ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
+
         summary, step, loss_val, pred_class_val, pred_prob_val, pred_box_val, xyz_pl, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
           = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class'], ops['pred_prob'], ops['pred_box'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']],  feed_dict=feed_dict)
 

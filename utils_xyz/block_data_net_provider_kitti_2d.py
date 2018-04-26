@@ -93,10 +93,13 @@ class Net_Provider_kitti():          ## benz_m
         for i,fn in enumerate(sph5_file_list):
             assert(os.path.exists(fn))
 
+            sph5_file_name = os.path.basename(fn).replace(".sph5","")
             h5f = h5py.File(fn,open_type)
             norm_h5f = Normed_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
 
+            label_file_name = os.path.basename(labels_fn_ls[i]).replace("_label.txt","")
+            assert sph5_file_name == label_file_name
             label_data_i = self.read_label_data( labels_fn_ls[i] )  ## benz_m, opening all the bounding box
             self.label_data_all.append( label_data_i )
 
@@ -159,6 +162,11 @@ class Net_Provider_kitti():          ## benz_m
         for plsph5_fn in plsph5_fn_ls:
             bxmh5_fn = self.get_bxmh5_fn_1( plsph5_fn )
             label_fn = self.get_label_fn_1(plsph5_fn)
+            sph5_name  = os.path.basename(plsph5_fn).replace(".sph5","")   ## benz_m, checking
+            bxmh5_name = os.path.basename(bxmh5_fn).replace(".bxmh5","")
+            label_name = os.path.basename(label_fn).replace("_label.txt","")
+            assert sph5_name==bxmh5_name
+            assert bxmh5_name==label_name
             if os.path.exists( bxmh5_fn ):
                 # check shapes match with each other
                 with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
@@ -479,8 +487,10 @@ class Net_Provider_kitti():          ## benz_m
             del  new_feed_data_elements[ new_feed_data_elements.index('xyz_1norm_block') ]
 
         new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
+        # t0=time.time()
         data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
         # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
+        # t1=time.time()
         label_i = self.label_data_all[f_idx][start]
         # num_temp = label_i.shape[0]
         # if max_num_label <= num_temp:
@@ -488,9 +498,11 @@ class Net_Provider_kitti():          ## benz_m
         # data_i: [batch_size,npoint_block,data_nchannels]
         # label_i: [batch_size,npoint_block,label_nchannels]
         # sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
-        sg_bidxmaps = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        # t2=time.time()
+        sg_bidxmaps =Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        # t3=time.time()
 
-
+        # print('sph5 time:{}, label time: {}, bidxmpa time: {}'.format((t1-t0),(t2-t1),(t3-t2)))
         # assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
 
@@ -664,6 +676,11 @@ class Net_Provider_kitti():          ## benz_m
         #print('center n rate= %f'%(np.sum(center_mask).astype(float)/xyz_midnorm.shape[0]/xyz_midnorm.shape[1]))
         return center_mask
 
+
+
+
+
+
     def get_shuffled_global_batch(self,g_shuffled_idx_ls):
 
         max_num_label = 0
@@ -743,7 +760,10 @@ class Net_Provider_kitti():          ## benz_m
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
             return self.get_shuffled_global_batch(g_shuffled_batch_idx)
         else:
-            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
+            #return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
+            g_eval_idx = range(train_start_batch_idx, train_end_batch_idx)
+            return self.get_shuffled_global_batch(g_eval_idx)
+
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=False):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks),"eval_start_batch_idx = %d,  eval_num_blocks=%d"%(eval_start_batch_idx,self.eval_num_blocks)
@@ -755,7 +775,10 @@ class Net_Provider_kitti():          ## benz_m
         else:
             eval_start_batch_idx  += self.eval_global_start_idx
             eval_end_batch_idx  += self.eval_global_start_idx
-            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx)
+            g_eval_idx = range(eval_start_batch_idx, eval_end_batch_idx)
+            return self.get_shuffled_global_batch(g_eval_idx)
+            #return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx)
+
 
 
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):

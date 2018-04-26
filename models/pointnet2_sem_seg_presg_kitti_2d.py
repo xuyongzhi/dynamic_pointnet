@@ -11,7 +11,7 @@ import tensorflow as tf
 import numpy as np
 import numpy.random as npr
 import tf_util
-from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
+from pointnet_blockid_sg_util_kitti import pointnet_sa_module, pointnet_fp_module
 import copy
 
 from bbox_transform_2d import bbox_transform_2d
@@ -24,7 +24,7 @@ from shapely.geometry import box, Polygon
 
 
 
-
+ISDEBUG = True
 TMPDEBUG = True
 def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
         '''
@@ -62,7 +62,7 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sg_b
         # #benz_m
         # fbmap_neighbor_idis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_idis_pl")
         # return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl
-        return pointclouds_pl, gt_box_pl, smpws_pl, sg_bidxmaps_pl    ## benz_m
+        return pointclouds_pl, gt_box_pl, sg_bidxmaps_pl    ## benz_m
 
 def get_sa_module_config(model_flag):
     cascade_num = int(model_flag[0])
@@ -240,17 +240,17 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
 #def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, sgf_configs, bn_decay=None, IsDebug=False):
-def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sgf_configs, bn_decay=None, IsDebug=False):     ## benz_m
 
+def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sgf_configs, bn_decay=None, IsDebug=False):     ## benz_m
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
     """
 
-   num_3d_anchors = cfg.TRAIN.NUM_ANCHORS
-   num_regression = cfg.TRAIN.NUM_REGRESSION  # 7 = l,w,h,theta,x,y,z
+    num_3d_anchors = cfg.TRAIN.NUM_ANCHORS
+    num_regression = cfg.TRAIN.NUM_REGRESSION  # 7 = l,w,h,theta,x,y,z
 
-   IsShowModel = True
+    IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
     if 'G' in model_flag:
         IsAddGlobalLayer = True
@@ -291,7 +291,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sgf_con
             block_center_xyz_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+3 ]
 
         if TMPDEBUG:
-            pooling = '3DCNN'
+            pooling = 'max' # 3DCNN
 
         l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
                                                                     is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
@@ -309,7 +309,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, sgf_con
     end_points['l0_points'] = l_points[0]
 
     # Feature Propagation layers
-   '''
+    '''
      mlps_e1, mlps_fp = get_fp_module_config( model_flag )
     for i in range(cascade_num):
         k = cascade_num-1-i
@@ -564,8 +564,8 @@ def region_proposal_loss(pred_class, pred_box, gt_box, xyz):
         # pred_class = tf.reshape(pred_class, [-1,2])
         labels = labels.reshape(-1)
 
-        if ISDEBUG:
-            print('batch_num:{}, arg_alpha:{}, dif_alpha:{}'.format(labels[labels>=0].shape[0], arg_alpha.shape, dif_alpha.shape ))
+        # if ISDEBUG:
+            # print('batch_num:{}, arg_alpha:{}, dif_alpha:{}'.format(labels[labels>=0].shape[0], arg_alpha.shape, dif_alpha.shape ))
             # print('arg_alpha:{}'.format(arg_alpha.shape))
             # print('')
 

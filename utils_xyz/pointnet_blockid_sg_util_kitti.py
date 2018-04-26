@@ -5,7 +5,7 @@ import os,sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR+'/../utils')
-from block_data_prep_util import GlobalSubBaseBLOCK
+from block_data_prep_util_kitti import GlobalSubBaseBLOCK
 import tf_util
 import numpy as np
 
@@ -49,7 +49,7 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
         return flatten_bidxmap_i_concat
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_bottom_center_mm, sgf_configs, sgf_config_pls,
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlps_0, mlps_0s_1, block_bottom_center_mm, sgf_configs,
                        is_training, bn_decay,scope,bn=True,pooling='max', tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
