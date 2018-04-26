@@ -1799,7 +1799,7 @@ class GlobalSubBaseBLOCK():
                     m = np.argmin( np.array(baseb_nums) )
                     ar_aimb_index = int(ar_bidx_dis[m,0])
                     ar_aim_bid = all_sorted_aimbids[ ar_aimb_index ]
-                    all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] )
+                    all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.unique( np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] ) )
 
                     del all_base_bids_in_aim_dic_fixed[cropped_aim_bid]
                     j = index_in_sorted( all_sorted_aimbids, cropped_aim_bid )[0]

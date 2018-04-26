@@ -10,7 +10,6 @@ from configs import NETCONFIG
 import tf_util
 import numpy as np
 
-DEBUG_TMP = True
 IsCompensateGlobal = True
 
 '''
@@ -141,10 +140,10 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             root_point_features = None
 
         pooling = mlp_configs['block_learning']
-        if pooling == '3DCNN' and ( cascade_id == 0 or IsExtraGlobalLayer ):
+        if pooling == '3DCNN' and ( cascade_id == 0):
             pooling = 'max'
-            if IsExtraGlobalLayer:
-             v_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz )
+            #if IsExtraGlobalLayer:
+            # v_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz )
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         elif pooling=='weighted_avg':

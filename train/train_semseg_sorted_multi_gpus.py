@@ -505,9 +505,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         # When use normal feed, stop with batch_idx
         t0 = time.time()
         batch_idx += 1
-        if batch_idx<0 and DEBUG_TMP:
-            continue
-        print('batch_idx', batch_idx)
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
 
