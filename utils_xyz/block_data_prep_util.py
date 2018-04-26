@@ -2285,12 +2285,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         if h5fattrs['block_step'][0]  < 0:
             assert h5fattrs['block_step'][1]  < 0 and h5fattrs['block_step'][2]  < 0
-            h5fattrs['block_step'][2] = h5fattrs['xyz_scope_aligned'][2]
-            h5fattrs['block_stride'][2] = h5fattrs['xyz_scope_aligned'][2]
             real_xy_area = h5fattrs['xyz_scope_aligned'][0]  *  h5fattrs['xyz_scope_aligned'][1]
             config_xy_area = h5fattrs['block_step'][0] * h5fattrs['block_step'][1]
             if real_xy_area < config_xy_area:
-                for i in range(2):
+                for i in range(3):
                     h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
                     h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
             else:
@@ -2300,7 +2298,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 IsUseTwoGlobalBlocks = True
                 gsbb_config_dic = get_gsbb_config()
                 last_gsbb_stride = gsbb_config_dic['sub_block_stride_candis'][-1]
-                for i in range(2):
+                for i in range(3):
                     h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
                     tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
                     tmp_fixed = math.ceil(tmp/last_gsbb_stride)*last_gsbb_stride
