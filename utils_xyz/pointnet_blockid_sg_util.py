@@ -6,11 +6,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR+'/../utils')
 from block_data_prep_util import GlobalSubBaseBLOCK
-from configs import NETCONFIG
 import tf_util
 import numpy as np
 
 IsCompensateGlobal = True
+DEBUG_TMP = True
+
+# IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
+# configuration. This is origibally set in NETCONFIG. But the configuration is
+# not obtained here from bxmap automatically. Should be set manually.
+IS_merge_blocks_while_fix_bmap = True
 
 '''
 Checking list:
@@ -218,6 +223,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
 
 def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz):
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
+    new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
     c500 = tf.constant([500],tf.float32)
     c1000 = tf.constant([1000],tf.float32)
     c1 = tf.constant([1,1,1],tf.float32)
@@ -239,10 +245,12 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     point_indices_f = tf.identity( point_indices_f, name='point_indices_f' )    # gpu_0/sa_layer4/point_indices_f:0
 
     if not IsExtraGlobalLayer:
-        # set point_indices_f for invalid points as NETCONFIG['redundant_points_in_block']
-        invalid_mask = tf.equal( tf.constant(NETCONFIG['redundant_points_in_block'] ,tf.int32), bidmap )
+        # invalid indices comes from merge_blocks_while_fix_bmap
+        # set point_indices_f for invalid points as
+        # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
+        invalid_mask = tf.less( bidmap, tf.constant(-500,tf.int32) )
         invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
-        point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(NETCONFIG['redundant_points_in_block'],dtype=tf.float32), point_indices_f )
+        point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant( -9999,dtype=tf.float32), point_indices_f )
         point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
         point_indices_checkmin = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(999,dtype=tf.float32), point_indices )
     else:
@@ -260,8 +268,8 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
 
 
     # check indice scope:
-    # Actually only works when NETCONFIG['merge_blocks_while_fix_bmap']=False
-    Max_Assert = 1e-5 + NETCONFIG['merge_blocks_while_fix_bmap'] * 3
+    # Actually only works when IS_merge_blocks_while_fix_bmap=False
+    Max_Assert = 1e-5 + IS_merge_blocks_while_fix_bmap * 3
 
     batch_size = new_points.shape[0].value
     block_num = new_points.shape[1].value
@@ -293,6 +301,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
             point_indices -= global_pi_comp
 
         point_indices_checkmin = point_indices
+        point_indices, first_unique_masks_global = unique_nd( point_indices )
 
         for i in range(3):
             real_max = tf.reduce_max(point_indices[:,:,:,i])
@@ -324,11 +333,26 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     bn_idx = tf.tile( bn_idx, [batch_size,1,point_num,1] )
     point_indices = tf.concat( [batch_idx, bn_idx, point_indices], -1, name='point_indices' ) # gpu_0/sa_layer4/point_indices_1:0
 
+    # Note: if point_indices have replicated items, the responding value will be multiplied which will lead to error!
+    # For global cascade, the replicated indices can come from replicated aim
+    # block of the last gs cascade. This should be solved while generating point_indices for global in this function.
+    # For other cascades, the replicated indices can come from replicated points
+    #       inside aim block in bidxmap file. This shoule be solved by add np.unique  while merging blocks in bidxmap.
     voxel_points = tf.scatter_nd( point_indices, new_points, shape=voxel_shape, name='voxel_points' )   # gpu_0/sa_layer1/voxel_points:0
-    new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
-    voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )
 
-    # check voxel
+    # check voxel: takes long time, only perform for debug
+    check_points = tf.gather_nd( voxel_points, point_indices, name='check_points' ) # gpu_0/sa_layer4/check_points:0
+    scatter_err = tf.abs( check_points - new_points) # gpu_0/sa_layer1/scatter_err:0
+    if IsExtraGlobalLayer:
+        scatter_err = scatter_err * tf.cast(first_unique_masks_global[:,:,:,0:1], tf.float32)
+    else:
+        scatter_err = scatter_err * tf.cast(invalid_mask[:,:,:,0:1], tf.float32)
+    scatter_err = tf.identity( scatter_err, name='scatter_err'  )
+    scatter_err_max = tf.reduce_max( scatter_err, name = 'scatter_err_max') # gpu_0/sa_layer1/scatter_err_max:0
+    points_check = tf.assert_less( scatter_err_max, Max_Assert, data=[cascade_id, scatter_err_max], name='scatter_check' )
+    if DEBUG_TMP:
+        tf.add_to_collection( 'check', points_check )
+
     #vcheck_idxs = [ [0,0,0], [batch_size-1,block_num-1,point_num-1] ]
     #for idx in vcheck_idxs:
     #    idx_str = '%d_%d_%d'%(idx[0],idx[1],idx[2])
@@ -341,7 +365,38 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     #    voxel_check = tf.assert_less( voxel_err, tf.constant(1e-5), data=[cascade_id, voxel_err], name='check_voxel_'+ idx_str )
     #    tf.add_to_collection( 'check', voxel_check )
     # ------------------------------------------------------------------
+    new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
+    voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )
     return voxel_points
+
+def unique_nd( inputs, axis=-1, unit=3 ):
+    org_inputs = inputs
+    org_shape = inputs.shape
+    batch_size = org_shape[0].value
+    block_num = org_shape[1].value
+    point_num = org_shape[2].value
+    assert org_shape[3].value == 3
+
+    units = tf.constant( [[9],[3],[1]], tf.float32 )
+    inputs = tf.identity( inputs, name='uni_in0' ) # gpu_0/sa_layer4/uni_in0:0
+    inputs = tf.reshape( inputs, [batch_size*block_num, point_num,3] )
+    first_unique_masks = []
+    for i in range(batch_size*block_num):
+        inputs_i = tf.reshape( inputs[i], [-1,3], name='uni_inb_%d'%(i) ) # gpu_0/sa_layer4/uni_inb_0:0
+        ids = tf.squeeze( tf.matmul( inputs_i, units, name='ids_%d'%(i) ))
+        ids_unique, idx_unique = tf.unique( ids, name='idx_unique_%d'%(i) ) # gpu_0/sa_layer4/idx_unique_0:0  gpu_0/sa_layer4/idx_unique_0:1
+        is_the_first = idx_unique[1:] - idx_unique[0:idx_unique.shape[0]-1]
+        is_the_first = tf.concat( [tf.constant([1],tf.int32),is_the_first],0, name='is_the_first_%d'%(i) ) # gpu_0/sa_layer4/is_the_first_0:0
+        first_unique_mask = tf.equal( is_the_first, 1, name='first_unique_mask_%d'%(i) ) # gpu_0/sa_layer4/first_unique_mask_0:0
+        first_unique_masks.append( tf.expand_dims(first_unique_mask,0) )
+    first_unique_masks = tf.concat( first_unique_masks, 0)
+    first_unique_masks = tf.reshape( first_unique_masks, org_shape[0:3], name='first_unique_masks' )
+    # set all the replicated items as -9999
+    first_unique_masks = tf.expand_dims( first_unique_masks,-1 )
+    first_unique_masks = tf.tile( first_unique_masks, [1,1,1,3] )
+    output = tf.where( first_unique_masks, org_inputs, tf.ones(org_shape,tf.float32)*(-99), name='uni_out' ) # gpu_0/sa_layer4/uni_out:0
+    return output, first_unique_masks
+
 
 def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True):
     '''

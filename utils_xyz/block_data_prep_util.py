@@ -782,7 +782,6 @@ class GlobalSubBaseBLOCK():
         raw_valid_base_bnum = np.array(raw_valid_base_bnum)
         valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
 
-
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
         num_valid_aimbids = valid_sorted_aimbids.size

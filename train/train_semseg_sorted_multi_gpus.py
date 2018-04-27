@@ -508,6 +508,11 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
 
+        #if DEBUG_TMP:
+        #    if batch_idx<3:
+        #        continue
+        #    print( 'batch_idx:', batch_idx )
+
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid, \
