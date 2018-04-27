@@ -782,7 +782,6 @@ class GlobalSubBaseBLOCK():
         raw_valid_base_bnum = np.array(raw_valid_base_bnum)
         valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
 
-
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
         num_valid_aimbids = valid_sorted_aimbids.size
@@ -1799,7 +1798,7 @@ class GlobalSubBaseBLOCK():
                     m = np.argmin( np.array(baseb_nums) )
                     ar_aimb_index = int(ar_bidx_dis[m,0])
                     ar_aim_bid = all_sorted_aimbids[ ar_aimb_index ]
-                    all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] )
+                    all_base_bids_in_aim_dic_fixed[ar_aim_bid] = np.unique( np.concatenate( [all_base_bids_in_aim_dic_fixed[ar_aim_bid], all_base_bids_in_aim_dic_fixed[cropped_aim_bid]] ) )
 
                     del all_base_bids_in_aim_dic_fixed[cropped_aim_bid]
                     j = index_in_sorted( all_sorted_aimbids, cropped_aim_bid )[0]
@@ -2579,9 +2578,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bid_ls = [base_bid]
             aim_bixyz_ls = [base_bixyz]
             return aim_bid_ls, aim_bixyz_ls
-        elif base_attrs['block_step'][0] >= aim_attrs['block_step'][0]:
+        elif (base_attrs['block_step'] > aim_attrs['block_step']).any():
+            assert base_attrs['block_step'][0] >= aim_attrs['block_step'][0]
             assert base_attrs['block_step'][1] >= aim_attrs['block_step'][1]
-            assert base_attrs['block_step'][2] >= aim_attrs['block_step'][2]
+            if not base_attrs['block_step'][2] >= aim_attrs['block_step'][2]:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                pass
 
             large_step_flag = 'base'
             aim_bixyz_threshold_min = ( base_bixyz * base_attrs['block_stride'] ) / aim_attrs['block_stride']
@@ -2597,6 +2599,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                             import pdb; pdb.set_trace()  # XXX BREAKPOINT
                             aim_bixyz_min[i] = max(0, aim_bixyz_min[i] - vacant_aim_b_num)
         else:
+            assert base_attrs['block_step'][0] <= aim_attrs['block_step'][0]
             assert base_attrs['block_step'][1] <= aim_attrs['block_step'][1]
             assert base_attrs['block_step'][2] <= aim_attrs['block_step'][2]
 

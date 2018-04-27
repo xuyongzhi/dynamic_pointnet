@@ -39,6 +39,7 @@ parser.add_argument('--dataset_name', default='scannet', help='dataset_name: sca
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
+#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 24]')
@@ -74,7 +75,7 @@ IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = True
+ISTFDEBUG = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -271,6 +272,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             sgf_configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
             sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
             sgf_configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
+            sgf_configs['global_step'] = net_provider.gsbb_load.global_step
+            sgf_configs['global_stride'] = net_provider.gsbb_load.global_stride
 
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, sgf_configs )
