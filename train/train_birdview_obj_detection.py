@@ -126,12 +126,12 @@ LOG_DIR = os.path.join(ROOT_DIR,'train_res/object_detection_result/'+FLAGS.log_d
 MODEL_PATH = os.path.join(LOG_DIR,'model.ckpt-'+str(FLAGS.model_epoch))
 LOG_DIR_FUSION = os.path.join(ROOT_DIR,'train_res/object_detection_result/accuracy_log.txt')
 if not os.path.exists(LOG_DIR): os.makedirs(LOG_DIR)
-os.system('cp %s/models/pointnet2_obj_detection_tf4.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+#os.system('cp %s/models/pointnet2_obj_detection_tf4.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
 os.system('cp %s/config/config.py %s' % (ROOT_DIR,LOG_DIR))
-os.system('cp %s/train_birdview_obj_detection.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
-
-os.system('cp %s/models/pointnet2_sem_seg.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
-os.system('cp %s/train_semseg_sorted.py %s' % (BASE_DIR,LOG_DIR)) # bkp of train procedure
+os.system('cp %s/models/pointnet2_sem_seg_presg_kitti_2d.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of model def
+os.system('cp %s/train/train_birdview_obj_detection.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of train procedure
+os.system('cp %s/utils_xyz/configs_kitti.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of train procedure
+os.system('cp %s/utils_xyz/pointnet_blockid_sg_util_kitti.py %s' % (ROOT_DIR,LOG_DIR)) # bkp of train procedure
 
 
 acc_name = 'accuracy.txt'
@@ -225,7 +225,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
         with tf.device('/gpu:'+str(GPU_INDEX)):
             # pointclouds_pl, labels_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS, NUM_REGRESSION)
             sgf_configs = {}
-            sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            sgf_configs['mean_grouping_position'] =  FLAGS.group_pos == 'mean' # if not ture, use block center
             sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
             sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
             sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
