@@ -9,8 +9,9 @@ from block_data_prep_util import GlobalSubBaseBLOCK
 import tf_util
 import numpy as np
 
-IsCompensateGlobal = True
 DEBUG_TMP = True
+
+IsCompensateGlobal = True
 
 # IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
 # configuration. This is origibally set in NETCONFIG. But the configuration is
