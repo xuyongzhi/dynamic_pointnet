@@ -25,6 +25,7 @@ from plyfile import PlyData, PlyElement
 import argparse
 
 
+Merge_Num = 3
 TMPDEBUG = True
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -387,8 +388,8 @@ class Matterport3D_Prepare():
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
     def Merge(self):
-        plsph5_folder = 'Org_sph5/32768_gs-100_-100'
-        bxmh5_folder = 'Org_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
+        plsph5_folder = 'ORG_sph5/32768_gs-100_-100'
+        bxmh5_folder = 'ORG_bxmh5/32768_gs-100_-100_fmn-10-10-10-12800_4800_2400-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -424,7 +425,7 @@ class Matterport3D_Prepare():
             return
 
         # allfn_ls = [ [nonvoid_plfn_ls], [bxmh5_fn_ls] ]
-        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n= Merge_Num )
         # all_group_name_ls = [ 'all' ]
 
         for k in range( len(allfn_ls[0]) ):

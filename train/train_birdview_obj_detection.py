@@ -235,7 +235,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
 
             # pointclouds_pl,  labels_pl, smpws_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
-            pointclouds_pl,  labels_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
+            pointclouds_pl,  labels_pl, sg_bidxmaps_pl , sgf_config_pls = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -264,7 +264,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
 
             pred_class, pred_box, xyz_pl = get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                                                 sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY )
+                                                 sgf_configs, sgf_config_pls, bn_decay=bn_decay, IsDebug=IS_GEN_PLY )
 
 
             loss, classification_loss, regression_loss, loss_details, pred_prob, accuracy_classification, recall_classification, num_positive_label = get_loss(BATCH_SIZE, pred_class, pred_box, labels_pl, xyz_pl)
@@ -316,6 +316,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'is_training_pl': is_training_pl,
                'pred_class': pred_class,
                'pred_box': pred_box,
+               'globalb_bottom_center_xyz': sgf_config_pls['globalb_bottom_center_xyz'],
                'xyz_pl': xyz_pl,
                'loss': loss,
                'classification_loss':classification_loss,
@@ -421,7 +422,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         poinr_cloud_data = []
         label_data = []
         if train_feed_buf_q == None:
-            point_cloud_data, label_data, sg_bidxmaps_pl, fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
+            point_cloud_data, label_data, sg_bidxmaps_pl, globalb_bottom_center_xyz,fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
             # point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
         else:
             if train_feed_buf_q.qsize() == 0:
@@ -433,6 +434,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
                      ops['labels_pl']: label_data,
+                     ops['globalb_bottom_center_xyz']: globalb_bottom_center_xyz,
                      ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
 
@@ -517,7 +519,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-             point_cloud_data, gt_box, sg_bidxmaps_pl, fid_start_end = net_provider.get_eval_batch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
+             point_cloud_data, gt_box, sg_bidxmaps_pl, globalb_bottom_center_xyz, fid_start_end = net_provider.get_eval_batch(start_idx, end_idx) #cur_data,cur_label,cur_smp_weights = net_provider.get_eval_batch(start_idx,end_idx)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 print('eval_feed_buf_q.qsize == 0')
@@ -530,6 +532,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             break # all data reading finished
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
                      ops['labels_pl']: gt_box,
+                     ops['globalb_bottom_center_xyz']: globalb_bottom_center_xyz,
                      ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
 

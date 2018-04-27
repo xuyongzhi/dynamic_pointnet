@@ -12,7 +12,7 @@ import glob
 import time
 import multiprocessing as mp
 import itertools
-from block_data_prep_util_kitti import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
+from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
 
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -499,14 +499,14 @@ class Net_Provider_kitti():          ## benz_m
         # label_i: [batch_size,npoint_block,label_nchannels]
         # sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
         # t2=time.time()
-        sg_bidxmaps =Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
+        sg_bidxmaps, globalb_bottom_center_xyz =Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
         # t3=time.time()
 
         # print('sph5 time:{}, label time: {}, bidxmpa time: {}'.format((t1-t0),(t2-t1),(t3-t2)))
         # assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
 
-        return data_i, label_i, sg_bidxmaps,  fid_start_end
+        return data_i, label_i, sg_bidxmaps, globalb_bottom_center_xyz, fid_start_end
 
 
 
@@ -689,17 +689,20 @@ class Net_Provider_kitti():          ## benz_m
         sample_weights = []
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
+        globalb_bottom_center_xyz_ls = []
         fmap_neighbor_idis_ls = []
         fid_start_end_ls = []
         xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
             # data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch_kitti(idx,idx+1)   ## benz_m
-            data_i,label_i,sg_bidxmaps_i, fid_start_end_i = self.get_global_batch_kitti(idx, idx+1)   ## benz_m
+            data_i,label_i,sg_bidxmaps_i, globalb_bottom_center_xyz_i, fid_start_end_i = self.get_global_batch_kitti(idx, idx+1)   ## benz_m
 
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             # flatten_bidxmaps_ls.append(flatten_bidxmaps_i)  # benz_m
             # fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
             data_batches.append(data_i)
+            globalb_bottom_center_xyz_ls.append(globalb_bottom_center_xyz_i)
+
             label_batches.append( label_i[:,[0,1,2,4,5,6]]) # benz_m, 0:category, 1:l, 2:w, 3:alpha, 4:x, 5:y, for birdview detection
 
             num_temp = label_i.shape[0]
@@ -722,10 +725,11 @@ class Net_Provider_kitti():          ## benz_m
         sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
         # flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
         # fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
+        globalb_bottom_center_xyz = np.concatenate(globalb_bottom_center_xyz_ls, 0)
         fid_start_end = np.concatenate(fid_start_end_ls,0)
         # xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
         # return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
-        return data_batches, label_data_resize, sg_bidxmaps, fid_start_end
+        return data_batches, label_data_resize, sg_bidxmaps,  globalb_bottom_center_xyz, fid_start_end
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'

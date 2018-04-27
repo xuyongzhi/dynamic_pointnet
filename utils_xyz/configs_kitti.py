@@ -7,6 +7,9 @@ import numpy as np
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
 NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num
+NETCONFIG['merge_blocks_while_fix_bmap'] = True
+NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
+
 
 #-------------------------------------------------------------------------------
 # gsbb config
@@ -115,24 +118,24 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([32,  12]).astype(np.int32)
 
 
-    elif gsbb_config == '3D3':
+    elif gsbb_config == '3D3':  ## benz_m
         ## generating the KITTI dataset benchmark
         global_stride = np.array([-100,-100,-100]).astype(np.float)
         global_step = np.array([-100,-100,-100]).astype(np.float)
         max_global_num_point = 32768
         global_num_point = 32768
-        flatbxmap_max_nearest_num = -1  # do not generate flatbxmap
+        flatbxmap_max_nearest_num = [-10, -10, -10]  # do not generate flatbxmap
         NETCONFIG['max_global_sample_rate'] = 5
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
 
         sub_block_stride_candis = np.array([0.2, 0.4, 0.4]).astype(np.float)
         sub_block_step_candis   = np.array([0.4, 0.8, 1.8]).astype(np.float)
-        nsubblock_candis        =np.array([12800, 6400, 560]).astype(np.int32)
+        nsubblock_candis        =np.array([12800, 4800, 2400]).astype(np.int32)
         npoint_subblock_candis = np.array([16,  8, 8]).astype(np.int32)
 
 
-    elif gsbb_config == '3D2':
+    elif gsbb_config == '3D2':   ## benz_m
         ## generating the KITTI dataset benchmark
         global_stride = np.array([-1,-1,-1]).astype(np.float)*100
         global_step = np.array([-1,-1,-1]).astype(np.float)*100
