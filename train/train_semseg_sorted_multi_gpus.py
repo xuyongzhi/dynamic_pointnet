@@ -37,17 +37,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='5VaG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor,matterport3d')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
-parser.add_argument('--eval_fnglob_or_rate',  default=0, help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
-#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 
-parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
+parser.add_argument('--num_gpus', type=int, default=2, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
@@ -325,9 +324,11 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         sg_bidxmaps_device = tf.slice(sg_bidxmaps_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
                         flatten_bidxmaps_device = tf.slice(flatten_bidxmaps_pl, [gi*DEVICE_BATCH_SIZE,0,0,0], [DEVICE_BATCH_SIZE,-1,-1,-1])
                         fbmap_neighbor_dis_device = tf.slice(fbmap_neighbor_dis_pl, [gi*DEVICE_BATCH_SIZE,0,0,0], [DEVICE_BATCH_SIZE,-1,-1,-1])
+                        sgf_config_pls_device={}
+                        sgf_config_pls_device['globalb_bottom_center_xyz'] = tf.slice(sgf_config_pls['globalb_bottom_center_xyz'], [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
 
                         pred, end_points = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
-                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, sgf_config_pls, bn_decay=bn_decay)
+                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, sgf_config_pls_device, bn_decay=bn_decay)
 
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS)
                         losses = tf.get_collection('losses', scope)

@@ -148,8 +148,6 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
         pooling = mlp_configs['block_learning']
         if pooling == '3DCNN' and ( cascade_id == 0):
             pooling = 'max'
-            #if IsExtraGlobalLayer:
-            # v_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz )
         if pooling=='avg':
             new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         elif pooling=='weighted_avg':
@@ -259,7 +257,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
 
     # ------------------------------------------------------------------
     # check indice err
-    Max_Assert_0 = 1e-5
+    Max_Assert_0 = 1e-4
 
     point_indices_err = tf.abs( point_indices - point_indices_f, name='point_indices_err' )     # gpu_0/sa_layer3/point_indices_err:0
     point_indices_maxerr = tf.reduce_max( point_indices_err, name='point_indices_maxerr_xyz' ) # gpu_0/sa_layer3/point_indices_maxerr_xyz:0
@@ -270,7 +268,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
 
     # check indice scope:
     # Actually only works when IS_merge_blocks_while_fix_bmap=False
-    Max_Assert = 1e-5 + IS_merge_blocks_while_fix_bmap * 3
+    Max_Assert = 1e-4 + IS_merge_blocks_while_fix_bmap * 3
 
     batch_size = new_points.shape[0].value
     block_num = new_points.shape[1].value
@@ -351,7 +349,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     scatter_err = tf.identity( scatter_err, name='scatter_err'  )
     scatter_err_max = tf.reduce_max( scatter_err, name = 'scatter_err_max') # gpu_0/sa_layer1/scatter_err_max:0
     points_check = tf.assert_less( scatter_err_max, Max_Assert, data=[cascade_id, scatter_err_max], name='scatter_check' )
-    if DEBUG_TMP:
+    if DEBUG_TMP and not IS_merge_blocks_while_fix_bmap:
         tf.add_to_collection( 'check', points_check )
 
     #vcheck_idxs = [ [0,0,0], [batch_size-1,block_num-1,point_num-1] ]
