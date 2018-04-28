@@ -346,7 +346,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
             fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i) )
+        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), sgf_configs=sgf_configs )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
@@ -354,7 +354,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
-    net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
+    net = tf_util.dropout(net, keep_prob=sgf_configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
     if IsShowModel: print('net:%s'%(shape_str([net])))
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel:
@@ -369,7 +369,7 @@ def get_loss(pred, label, smpw, label_eles_idx ):
     category_idx = label_eles_idx['label_category'][0]
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
-    input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
+    input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0')
     if len(input_drop_mask.get_shape()) != 0:
         input_drop_mask = tf.squeeze( input_drop_mask,2 )
         smpw_category = smpw_category * input_drop_mask

@@ -638,8 +638,9 @@ class Net_Provider():
         fmap_neighbor_idis_ls = []
         fid_start_end_ls = []
         xyz_mid_ls = []
+        globalb_bottom_center_xyzs_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i, globalb_bottom_center_xyzs_i = self.get_global_batch(idx,idx+1)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
@@ -648,6 +649,7 @@ class Net_Provider():
             sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
             xyz_mid_ls.append( xyz_mid_i )
+            globalb_bottom_center_xyzs_ls.append( globalb_bottom_center_xyzs_i )
         data_batches = np.concatenate(data_batches,axis=0)
         label_batches = np.concatenate(label_batches,axis=0)
         sample_weights = np.concatenate(sample_weights,axis=0)
@@ -656,7 +658,8 @@ class Net_Provider():
         fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
         fid_start_end = np.concatenate(fid_start_end_ls,0)
         xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        globalb_bottom_center_xyzs = np.concatenate( globalb_bottom_center_xyzs_ls,0 )
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches, globalb_bottom_center_xyzs
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'

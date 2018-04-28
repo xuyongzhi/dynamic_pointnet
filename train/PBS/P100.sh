@@ -18,7 +18,9 @@ module load  tensorflow/1.6-cudnn7.1-python2.7
 module list
  
 feed_data_elements='xyz_midnorm_block-color_1norm' 
-#feed_data_elements='xyz_midnorm_block-color_1norm-nxnynz' 
-#feed_data_elements='xyz_midnorm_block' 
-#./train_seg_presg_scan.sh 4bG_114 24 2 $feed_data_elements N 1.3 -> out_4bG114.log
-./train_seg_presg_scan.sh 4aG_114 16 2 $feed_data_elements N 1.3 -> out_4aG114.log  # 0.97G per batch ->  10 for 1080TI, 16 for P100
+bs=14
+num_gpus=2
+in_cnn_out_kp=555
+loss_weight='N'
+
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 

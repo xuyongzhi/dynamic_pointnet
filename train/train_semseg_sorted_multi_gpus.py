@@ -41,12 +41,12 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
-parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 50]')
+parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 
-parser.add_argument('--num_gpus', type=int, default=2, help='GPU num]')
+parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
@@ -61,10 +61,9 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
-parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
+parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--inkp_min', type=float, default=0.3, help='random input drop minimum')
-parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
+parser.add_argument('--in_cnn_out_kp', type=float, default=555, help='keep prob for input, cnn result, output')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -72,6 +71,8 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
 IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
+FLAGS.in_cnn_out_kp = int( FLAGS.in_cnn_out_kp )
+Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s) for s in str(FLAGS.in_cnn_out_kp) ]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
 ISTFDEBUG = False
@@ -142,11 +143,8 @@ else:
     if not FLAGS.finetune:
         log_name = 'log_train.txt'
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
-        if FLAGS.inkp_max - FLAGS.inkp_min >0:
-            input_dropout_str = '-idp'+str(int((FLAGS.inkp_max - FLAGS.inkp_min)*10))
-        else:
-            input_dropout_str = ''
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+        keep_prob_str = str(FLAGS.in_cnn_out_kp)
+        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+keep_prob_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
     else:
@@ -195,8 +193,8 @@ log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size: %d'%(BATCH_SIZE) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
-if FLAGS.inkp_max - FLAGS.inkp_min >0:
-    log_string( 'input dropout: %f - %f'%( FLAGS.inkp_min, FLAGS.inkp_max ) )
+if 1.0 - Input_keep_prob >0:
+    log_string( 'input dropout: %f - %f'%( Input_keep_prob, 1 ) )
 else:
     log_string('input dropout: No')
 
@@ -264,6 +262,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
             sgf_configs = {}
             sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            sgf_configs['Cnn_keep_prob'] = Cnn_keep_prob
+            sgf_configs['Out_keep_prob'] = Out_keep_prob
+
             sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
             sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
             sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
@@ -286,14 +287,15 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('bn_decay', bn_decay)
 
             # input drop out
-            if FLAGS.inkp_min >= FLAGS.inkp_max:
+            if Input_keep_prob >= 1.0:
                 input_drop_mask = tf.zeros([])
                 print('no input dropout')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
+            input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1 )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask') # dropout/input_dropout_mask/Merge:0
+            # This will  be use in (1)pointnet_sa_module  (2)get_loss
 
             # Get training operator
             learning_rate = get_learning_rate(global_step)
