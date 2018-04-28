@@ -28,7 +28,7 @@ eval_fnglob_or_rate=0.0
 # *****************************************************************************
 
 modelf_nein='3a_11'
-batch_size=8
+batch_size=5
 #num_gpus=1
 feed_data_elements='xyz'
 loss_weight='E'
