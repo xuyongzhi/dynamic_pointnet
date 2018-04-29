@@ -82,7 +82,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
         cascade_num = sgf_configs['flatten_bm_extract_idx'].shape[0]-1
         assert sgf_configs['sub_block_step_candis'].size == cascade_num
         if cascade_id==0:
-            input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_drop_mask/cond/Merge:0')
+            input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
 
         if IsExtraGlobalLayer:
             #if cascade_id == 0:
@@ -108,10 +108,10 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
-                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )
+                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
             # use the average position as new xyz
 
-            if use_xyz:
+            if use_xyz and cascade_id>0:
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
         if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
@@ -135,13 +135,17 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv%d'%(i), bn_decay=bn_decay)
+                if sgf_configs['Cnn_keep_prob']<1:
+                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['point_encoder'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel:
                     print('point encoder1 %d, new_points:%s'%(i, shape_str([new_points])))
 
         if cascade_id == 0:
             root_point_features = new_points
             if len(input_drop_mask.get_shape()) != 0:
-                new_points = tf.multiply( new_points, grouped_indrop_mask )
+                new_points = tf.identity(new_points,'points_before_droped') # gpu_0/sa_layer0/points_before_droped:0
+                new_points = tf.multiply( new_points, grouped_indrop_mask, name='droped_points' )   # gpu_0/sa_layer0/droped_points:0
         else:
             root_point_features = None
 
@@ -190,6 +194,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             is_training = is_training,
                                             bn_decay = bn_decay,
                                             name = 'points_3dcnn_%d'%(i) )
+                if sgf_configs['Cnn_keep_prob']<1:
+                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='3dcnn_dp%d'%(i))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
                 if IsShowModel:
                     print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
@@ -209,6 +216,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv_post_%d'%(i), bn_decay=bn_decay)
+                if sgf_configs['Cnn_keep_prob']<1:
+                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['block_encoder'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel:
                     print('block encoder %d, new_points:%s'%(i, shape_str([new_points])))
         # (2, 512, 1, 64)
@@ -397,7 +407,7 @@ def unique_nd( inputs, axis=-1, unit=3 ):
     return output, first_unique_masks
 
 
-def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, bn=True):
+def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, sgf_configs, bn=True):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -501,6 +511,9 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv_encoder1_%d'%(i), bn_decay=bn_decay)
+                if sgf_configs['Cnn_keep_prob']<1:
+                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_e1)-1:
+                        new_points1 = tf_util.dropout(new_points1, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
 
         mapped_points2 = tf.expand_dims(mapped_points2,1)
@@ -515,6 +528,9 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv%d'%(i), bn_decay=bn_decay)
+                if sgf_configs['Cnn_keep_prob']<1:
+                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_fp)-1:
+                        new_points1 = tf_util.dropout(new_points1, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
         new_points1 = tf.squeeze(new_points1,[1]) # (2, 256, 256)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));

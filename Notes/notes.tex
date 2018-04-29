@@ -564,4 +564,19 @@ test data shape: [ 4172 12800     9] \par
 \end{tabular}	
 
 
+\subsection{Sparse voxel net}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{2cm}|p{1.5cm}|p{6cm}| }
+	\hline
+	\multicolumn{6}{|p{12cm}|}{nh5: 90000\_gs-3d6\_-6d3/ \par bxmh5:  90000\_gs-3d6\_-6d3\_fmn1444-6400\_2400\_320\_32-32\_16\_32\_48-0d1\_0d3\_0d9\_2d7-0d1\_0d2\_0d6\_1d8-pd3-mbf-4A1 \par eval: test } \\
+	\hline
+	model & bs/bn& lr-decay & elements & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+		
+	5VaG\_114 & 16/113 &1-50 & xyz mid & Num lw\par idp7\par N shuffle &20-0.764-0.556/0.645-0.362\par 40-0.864-0.695/0.675-0.351\par 100-0.935-0.842/0.682-0.380\par 200-0.961-0.897/0.671-0.374\par 300-0.969-0.920/0.676-0.360  \\
+	\hline
+	
+	\multicolumn{6}{|p{12cm}|}{ Conclusion:\par	(1) Nein 114 is better than 111  } \\
+	\hline
+\end{tabular}	
+
 \end{document}
