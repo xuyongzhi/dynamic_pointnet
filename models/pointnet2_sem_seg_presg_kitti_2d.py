@@ -25,7 +25,7 @@ from shapely.geometry import box, Polygon
 
 
 
-ISDEBUG = True
+ISDEBUG = False
 TMPDEBUG = True
 def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
         '''

@@ -74,6 +74,8 @@ parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 
 parser.add_argument('--gpu', type=int, default= 0, help='the gpu index')
 
+parser.add_argument('--substract_center', action='store_true',  help='whethere to substract center point')
+
 parser.add_argument('--only_evaluate',action='store_true',help='do not train')
 parser.add_argument('--finetune',action='store_true',help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
@@ -232,7 +234,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             sgf_configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
             sgf_configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
             sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
+            sgf_configs['substract_center'] = FLAGS.substract_center
 
+            sgf_configs['Cnn_keep_prob'] = 1
 
             # pointclouds_pl,  labels_pl, smpws_pl, sg_bidxmaps_pl = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
             pointclouds_pl,  labels_pl, sg_bidxmaps_pl , sgf_config_pls = placeholder_inputs(BATCH_SIZE, BLOCK_SAMPLE, NUM_DATA_ELES, NUM_LABEL_ELES, sgf_configs['sg_bidxmaps_shape'], NUM_REGRESSION)
@@ -255,7 +259,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
             input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask')
 
             # Get model and loss
             # pred_class, pred_box, xyz_pl = get_model(pointclouds_pl, is_training_pl, NUM_CLASSES, bn_decay=bn_decay)
@@ -361,7 +365,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             log_string('training is finished \n')
 
-            if epoch%20 == 0:
+            if epoch%10 == 0:
                 eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
                 # Save the variables to disk.
                 if not FLAGS.only_evaluate:

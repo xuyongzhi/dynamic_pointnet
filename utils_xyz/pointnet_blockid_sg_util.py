@@ -81,6 +81,12 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
     with tf.variable_scope(scope) as sc:
         cascade_num = sgf_configs['flatten_bm_extract_idx'].shape[0]-1
         assert sgf_configs['sub_block_step_candis'].size == cascade_num
+
+        if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+            new_xyz = tf.reduce_mean(grouped_xyz,-2)
+        else:
+            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
 
@@ -107,6 +113,12 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
 
             grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat)
+
+            if sgf_configs['substract_center']:    ## substracting center point to get relative position
+                grouped_xyz_center = tf.expand_dims(new_xyz, axis=2, name='grouped_xyz_center')
+                grouped_xyz = tf.subtract(grouped_xyz, grouped_xyz_center)
+
+
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
             # use the average position as new xyz
@@ -114,10 +126,6 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             if use_xyz and cascade_id>0:
                 grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
 
-        if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
-            new_xyz = tf.reduce_mean(grouped_xyz,-2)
-        else:
-            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 
         if IsShowModel:
