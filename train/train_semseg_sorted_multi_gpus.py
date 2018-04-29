@@ -41,7 +41,7 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
@@ -63,7 +63,7 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--in_cnn_out_kp', type=float, default=555, help='keep prob for input, cnn result, output')
+parser.add_argument('--in_cnn_out_kp', default='NN7', help='keep prob for input, cnn result, output')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -71,8 +71,7 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
 IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
-FLAGS.in_cnn_out_kp = int( FLAGS.in_cnn_out_kp )
-Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s) for s in str(FLAGS.in_cnn_out_kp) ]
+Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
 ISTFDEBUG = False
@@ -264,6 +263,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
             sgf_configs['Cnn_keep_prob'] = Cnn_keep_prob
             sgf_configs['Out_keep_prob'] = Out_keep_prob
+            sgf_configs['only_last_layer_ineach_cascade'] = True
 
             sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
             sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis

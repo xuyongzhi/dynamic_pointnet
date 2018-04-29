@@ -354,7 +354,8 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
-    net = tf_util.dropout(net, keep_prob=sgf_configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
+    if sgf_configs['Out_keep_prob']<1:
+        net = tf_util.dropout(net, keep_prob=sgf_configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
     if IsShowModel: print('net:%s'%(shape_str([net])))
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel:

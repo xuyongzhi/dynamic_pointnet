@@ -26,3 +26,9 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
 
 #-------------------------------
 # 5VaG_114 bs=8 9.173G
+
+# 5VaG_114 bs=6 NNN 5.671G  1.133
+# 5VaG_114 bs=6 NN5 6.797G  1.133
+# 5VaG_114 bs=6 5N5 6.802G
+# 5VaG_114 bs=4 N55 N 7.993G 1.998
+# 5VaG_114 bs=6 N55 T 8.393G 1.399
