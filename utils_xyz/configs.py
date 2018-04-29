@@ -11,7 +11,7 @@ NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '4A2'
+_gsbb_config = 'benz_d3'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -32,12 +32,12 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         global_num_point = 32768
         flatbxmap_max_nearest_num = [-10, -10, -10]  # do not generate flatbxmap
         NETCONFIG['max_global_sample_rate'] = 5
-        NETCONFIG['merge_blocks_while_fix_bmap'] = False
+        NETCONFIG['merge_blocks_while_fix_bmap'] = True
 
 
-        sub_block_stride_candis = np.array([0.2, 0.4, 0.4]).astype(np.float)
-        sub_block_step_candis   = np.array([0.4, 0.8, 1.8]).astype(np.float)
-        nsubblock_candis        =np.array([12800, 4800, 2400]).astype(np.int32)
+        sub_block_stride_candis = np.array([0.2, 0.4, 0.8]).astype(np.float)
+        sub_block_step_candis   = np.array([0.4, 0.8, 1.6]).astype(np.float)
+        nsubblock_candis        =np.array([11800, 4800, 1800]).astype(np.int32)
         npoint_subblock_candis = np.array([16,  8, 8]).astype(np.int32)
 
 

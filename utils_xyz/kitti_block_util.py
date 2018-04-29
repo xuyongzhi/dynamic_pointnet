@@ -28,7 +28,7 @@ from plyfile import PlyData, PlyElement
 import argparse
 
 
-Merge_Num = 3
+Merge_Num = 5
 TMPDEBUG = True
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -392,7 +392,7 @@ class Matterport3D_Prepare():
 
     def Merge(self):
         plsph5_folder = 'ORG_sph5/32768_gs-100_-100'
-        bxmh5_folder = 'ORG_bxmh5/32768_gs-100_-100_fmn-10-10-10-12800_4800_2400-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
+        bxmh5_folder = 'ORG_bxmh5/32768_gs-100_-100_fmn-10-10-10-11800_4800_1800-16_8_8-0d4_0d8_1d6-0d2_0d4_0d8-pd3-mbf-benz_d3'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
