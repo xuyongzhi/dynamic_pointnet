@@ -19,7 +19,7 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = False
+TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
@@ -156,7 +156,7 @@ def GenPyramidSortedFlie( fn ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_bxmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -323,9 +323,9 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            #file_list = file_list[10:18]   # L
+            file_list = file_list[5:8]   # L
             #file_list = file_list[750:len(file_list)] # R
-            file_list = glob.glob( os.path.join( sh5f_dir, 'scene0509_00.sh5' ) )
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0509_00.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -443,8 +443,8 @@ def main( ):
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        #scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

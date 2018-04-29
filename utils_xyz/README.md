@@ -25,3 +25,15 @@
 
 **CONCLUSIONS**
 - currently, center mask may be not right. While use center mask, the accuracy is up to 0.9, but achieved 0.97 after removing this.
+
+**IMPORTANT OPERATIONS**
+* (1) Generate ply to show block center of each cascade  in get_bidxmap:
+- In class GlobalSubBaseBLOCK() in block_data_prep_util.py:
+	IsCheck_gsbb['gen_ply_gsbb'] = True and ENABLECHECK
+	ENABLECHECK  = True
+- Note: break point is insrted after ply of each global block is generated. So multi process should be disabled in scannet_block_util.py etc.
+- Be patient, it is very slow.
+* (2) Generate bounding box of block and points inside the block while fixing bmap size:
+- IsCheck_gsbb['IsCheckMissingAimb'] = True and ENABLECHECK
+- On Line 1833 to set the global block num to show:
+	if debug_meta['global_bidx'] < 5:
