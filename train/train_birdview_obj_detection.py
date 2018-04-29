@@ -56,7 +56,7 @@ parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 
 parser.add_argument('--batch_size', type=int, default= 32, help='Batch Size during training [default: 24]')
-parser.add_argument('--eval_fnglob_or_rate',  default='0.5', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--eval_fnglob_or_rate',  default='0.2', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--num_point', type=int, default=2**15, help='Point number [default: 2**15]')
 parser.add_argument('--max_epoch', type=int, default=50, help='Epoch to run [default: 50]')
 
@@ -452,6 +452,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
 
         max_memory_usage = sess.run(ops['max_memory_usage'])
+        # print('reading data time is:{}, the training time is {}'.format((t1-t0),(t2-t1)))
 
         if ISSUMMARY: train_writer.add_summary(summary, step)
         if batch_idx%80 == 0:
@@ -462,7 +463,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             #                                   loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
 
             log_string('------batch is {},----------------'.format(batch_idx))
-            print('reading data time is:{}, the training time is {}'.format((t2-t1),(t1-t0)))
+            log_string('reading data time is:{}, the training time is {}'.format((t1-t0),(t2-t1)))
             log_string('loss {},  classificaiton {}, regression {}'.format(loss_val ,classification_loss_val, regression_loss_val))
             log_string('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
             log_string('########dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\

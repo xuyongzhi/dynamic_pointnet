@@ -337,6 +337,11 @@ class Net_Provider_kitti():          ## benz_m
         if len(eval_file_list) == 0 and eval_fnglob_or_rate<0:
             eval_file_list = [train_file_list[0]]
 
+        if len(eval_file_list) == 0:    ## benz_m
+            eval_file_list = [train_file_list[1]]
+
+
+
         log_str = '\ntrain file list (n=%d) = \n%s\n\n'%(len(train_file_list),train_file_list[-2:])
         log_str += 'eval file list (n=%d) = \n%s\n\n'%(len(eval_file_list),eval_file_list[-2:])
         print( log_str )
@@ -682,7 +687,8 @@ class Net_Provider_kitti():          ## benz_m
 
 
     def get_shuffled_global_batch(self,g_shuffled_idx_ls):
-
+        IsRecordTime = False
+        if IsRecordTime: t0 = time.time()
         max_num_label = 0
         data_batches = []
         label_batches = []
@@ -693,6 +699,7 @@ class Net_Provider_kitti():          ## benz_m
         fmap_neighbor_idis_ls = []
         fid_start_end_ls = []
         xyz_mid_ls = []
+        if IsRecordTime: t1 = time.time()
         for idx in g_shuffled_idx_ls:
             # data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch_kitti(idx,idx+1)   ## benz_m
             data_i,label_i,sg_bidxmaps_i, globalb_bottom_center_xyz_i, fid_start_end_i = self.get_global_batch_kitti(idx, idx+1)   ## benz_m
@@ -714,6 +721,7 @@ class Net_Provider_kitti():          ## benz_m
             fid_start_end_ls.append(fid_start_end_i)
             # xyz_mid_ls.append( xyz_mid_i )
 
+        if IsRecordTime: t2 = time.time()
         data_batches = np.concatenate(data_batches,axis=0)
         # label_batches = np.concatenate(label_batches,axis=0)
         labels_dims = label_batches[0].shape[1]
@@ -729,6 +737,9 @@ class Net_Provider_kitti():          ## benz_m
         fid_start_end = np.concatenate(fid_start_end_ls,0)
         # xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
         # return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        if IsRecordTime:
+            t3 = time.time()
+            print('t1:%f\nt2:%f\nt3:%f'%(t1-t0,t2-t1,time.time()-t2))
         return data_batches, label_data_resize, sg_bidxmaps,  globalb_bottom_center_xyz, fid_start_end
 
     def update_train_eval_shuffled_idx(self):

@@ -12,8 +12,11 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
-from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+# from block_data_prep_util_kitti import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+# from block_data_prep_util_kitti import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
+from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
+
 import numpy as np
 import h5py
 import glob
@@ -25,7 +28,7 @@ from plyfile import PlyData, PlyElement
 import argparse
 
 
-Merge_Num = 3
+Merge_Num = 5
 TMPDEBUG = True
 SHOWONLYERR = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -389,7 +392,7 @@ class Matterport3D_Prepare():
 
     def Merge(self):
         plsph5_folder = 'ORG_sph5/32768_gs-100_-100'
-        bxmh5_folder = 'ORG_bxmh5/32768_gs-100_-100_fmn-10-10-10-12800_4800_2400-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
+        bxmh5_folder = 'ORG_bxmh5/32768_gs-100_-100_fmn-10-10-10-11800_4800_1800-16_8_8-0d4_0d8_1d6-0d2_0d4_0d8-pd3-mbf-benz_d3'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -554,8 +557,8 @@ def parse_house_ls():
     # operations  = ['SortRaw']
     # operations  = ['GenPyramid']    ## generating a one region
     # operations  = ['SortRaw','GenPyramid','Merge']   ## merge several regions in one house
-    operations  = ['GenPyramid','Merge']   ## merge several regions in one house
-    # operations  = ['Merge']   ## merge sveral houses together
+    # operations  = ['GenPyramid','Merge']   ## merge several regions in one house
+    operations  = ['Merge']   ## merge sveral houses together
 
     #operations  = ['GenPyramid' , 'MergeNormed_region']
 
