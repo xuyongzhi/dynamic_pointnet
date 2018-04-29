@@ -1,7 +1,3 @@
-feed_data_elements='xyz_midnorm_block' 
-feed_data_elements='xyz_midnorm_block-color_1norm' 
-
-
  # modelf_nein=$1
  # batch_size=$2
  # num_gpus=$3
@@ -9,26 +5,32 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
  # loss_weight=${5}
  # in_cnn_out_kp=${6}
 
- bs=10
- num_gpus=2
- in_cnn_out_kp=555
- loss_weight='N'
+feed_data_elements='xyz_midnorm_block' 
+feed_data_elements='xyz_midnorm_block-color_1norm' 
+
+bs=14
+num_gpus=2
+in_cnn_out_kp='466'
+loss_weight='N'
 
 ./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
 
 
- in_cnn_out_kp=595
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
-
- in_cnn_out_kp=955
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
+#in_cnn_out_kp='4N6'
+#./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
+#
+#in_cnn_out_kp='N66'
+#./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
 
 
 #-------------------------------
-# 5VaG_114 bs=8 9.173G
+# 5VaG_114 bs=8  466 9.825 1.4
 
-# 5VaG_114 bs=6 NNN 5.671G  1.133
-# 5VaG_114 bs=6 NN5 6.797G  1.133
-# 5VaG_114 bs=6 5N5 6.802G
-# 5VaG_114 bs=4 N55 N 7.993G 1.998
-# 5VaG_114 bs=6 N55 T 8.393G 1.399
+# 5VaG_114 bs=6 NNN  5.672  0.9453
+# 5VaG_114 bs=8 NNN  7.553  0.944
+# 5VaG_114 bs=6 NN5  6.802  1.134
+# 5VaG_114 bs=6 N5N T 7.250
+# 5VaG_114 bs=6 N5N N 10.757
+# 5VaG_114 bs=6 5NN  5.669 
+# 5VaG_114 bs=6 55N T 7.221  1.20
+# 5VaG_114 bs=6 555 T 8.402  1.40

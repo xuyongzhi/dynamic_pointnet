@@ -63,7 +63,7 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--in_cnn_out_kp', default='NN7', help='keep prob for input, cnn result, output')
+parser.add_argument('--in_cnn_out_kp', default='465', help='keep prob for input, cnn result, output')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
