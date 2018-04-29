@@ -80,7 +80,7 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 
-parser.add_argument('--inkp_min', type=float, default=0.3, help='random input drop minimum')
+parser.add_argument('--inkp_min', type=float, default=1.0, help='random input drop minimum')
 parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
 
 
