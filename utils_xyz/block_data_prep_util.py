@@ -999,35 +999,39 @@ class GlobalSubBaseBLOCK():
             #if flatten_bidxmap.shape[0] < base_nsubblock:
             #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
             #    pass
-            #-----------------------------------------------------------------------
-            # check by visulization
-            if self.IsCheck_gsbb['gen_ply_gsbb']:
-                # rawdata ~ sg_basexyz_0 ->(gp) -> sg_aimbxyz_0 ! sg_basebxyz_1 ->(gp) sg_aimbxyz_1 ~ sg_basebxyz_2 ->(gp) sg_aimbxyz_2
-                # sg_basebxyz_2 -flat> flat_xyz_2,  sg_basebxyz_1 -flat> flat_xyz_1, sg_basebxyz_0 -flat> flat_xyz_0
-                sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
-                for aim_b_index in range( aim_nsubblock ):
-                    aim_bid = sorted_aimbids_fixed[aim_b_index]
-                    sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-                ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
+        #-----------------------------------------------------------------------
+        # check by visulization
+        if self.IsCheck_gsbb['gen_ply_gsbb']:
+            # rawdata ~ sg_basexyz_0 ->(gp) -> sg_aimbxyz_0 ! sg_basebxyz_1 ->(gp) sg_aimbxyz_1 ~ sg_basebxyz_2 ->(gp) sg_aimbxyz_2
+            # sg_basebxyz_2 -flat> flat_xyz_2,  sg_basebxyz_1 -flat> flat_xyz_1, sg_basebxyz_0 -flat> flat_xyz_0
+            sg_aimb_xyzs = np.zeros( shape=(aim_nsubblock, 3) )
+            for aim_b_index in range( aim_nsubblock ):
+                aim_bid = sorted_aimbids_fixed[aim_b_index]
+                sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
+            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
 
-                sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
-                for aim_b_index in range( aim_nsubblock ):
-                    for pi in range( aim_npoint_subblock ):
-                        if cascade_id == 0:
-                            point_index = valid_sorted_pointids[ sg_bidxmap_fixed[aim_b_index,pi] ]
-                            root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
-                            sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
-                        else:
-                            base_bid = valid_sorted_basebids[ sg_bidxmap_fixed[aim_b_index,pi] ]
-                            sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-                ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
+            sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
+            for aim_b_index in range( aim_nsubblock ):
+                for pi in range( aim_npoint_subblock ):
+                    point_id = sg_bidxmap_fixed[aim_b_index,pi]
+                    if cascade_id == 0:
+                        if point_id<0: continue # invalid points
+                        point_index = valid_sorted_pointids[ point_id ]
+                        root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
+                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
+                    else:
+                        if point_id<0: continue # invalid points
+                        base_bid = valid_sorted_basebids[ point_id ]
+                        sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
+            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
 
+            if  IsGenFlatbxmap:
                 flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
                 for i in range( flat_xyzs.shape[0] ):
                     flat_idx = flatten_bidxmap_fixed[i,0,0:2].astype(np.int32)
                     flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
                 ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
-                if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
