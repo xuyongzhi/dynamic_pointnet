@@ -314,7 +314,7 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
     IsCheck_gsbb['all_base_included'] = False and ENABLECHECK
     IsCheck_gsbb['IsCheckMissingAimb'] = False and ENABLECHECK
-    IsCheck_gsbb['gen_ply_gsbb'] = True and ENABLECHECK
+    IsCheck_gsbb['gen_ply_gsbb'] = False and ENABLECHECK
 
     global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
     para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
@@ -1294,8 +1294,8 @@ class GlobalSubBaseBLOCK():
             assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
             for cascade_id in range(0,self.cascade_num):
-                sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id)
-                assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
+                sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both')
+                assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both'))==0
                 assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
             print( 'bidxmap_extract check OK' )
 
@@ -1315,7 +1315,7 @@ class GlobalSubBaseBLOCK():
         pass
 
 
-    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag="both"):
+    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag):
         return GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, self.sg_bidxmaps_extract_idx, cascade_id, flag )
 
     @staticmethod
@@ -1325,7 +1325,7 @@ class GlobalSubBaseBLOCK():
         # include_bcxyz: the last 3 channels of dim 0 is grouped block center xyz
         start = sg_bidxmaps_extract_idx[cascade_id,:]
         end   = sg_bidxmaps_extract_idx[cascade_id+1,:]
-        if flag=="both" or "only_aimb_center_xyz_mm":
+        if flag=="both" or flag=="only_aimb_center_xyz_mm":
             include_bcxyz = True
         else:
             include_bcxyz = False
@@ -1852,7 +1852,10 @@ class GlobalSubBaseBLOCK():
         print('gen %s\ngen %s\n'%( org_ply_fn, kept_ply_fn ))
 
     def gen_bmap_ply( self, sph5_fn ):
-        assert self.mode=='load'
+        '''
+        all the box in bmh5, no sampling and grouping
+        '''
+        assert self.mode=='load' or self.mode=='write'
         IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
         if not (IsIntact_sph5 and IsIntact_bmh5):
@@ -1903,7 +1906,7 @@ class GlobalSubBaseBLOCK():
 
             for cascade_id in range(self.cascade_num):
                 # gen sg ply
-                sg_bidxmap_i = self.extract_sg_bidxmaps( sg_all_bidxmaps, cascade_id )
+                sg_bidxmap_i = self.extract_sg_bidxmaps( sg_all_bidxmaps, cascade_id, flag='only_sg_bidxmap' )
 
                 batch_size, nsubblock, npoint_subblock = sg_bidxmap_i.shape
                 sg_pl = np.zeros([batch_size,nsubblock,npoint_subblock,3])
@@ -1913,6 +1916,7 @@ class GlobalSubBaseBLOCK():
                         pl_subb = np.zeros( [npoint_subblock,3] )
                         for j in range( npoint_subblock ):
                             k = sg_bidxmap_i[b,i,j]
+                            if k<0: continue
                             pl_subb[j,:] = pl_xyz_grps[cascade_id][b, k, :]
                         pl_batch[i,...] = pl_subb
                     sg_pl[b,...] = pl_batch
@@ -3556,7 +3560,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # gen ply
         if IsGenPly:
-            gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
+            #gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
+            gsbb_write.gen_bmap_ply( pl_sph5_filename )
 
     def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point

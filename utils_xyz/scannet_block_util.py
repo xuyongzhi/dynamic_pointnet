@@ -156,9 +156,14 @@ def GenPyramidSortedFlie( fn ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
-        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
+        sorted_h5f.file_saveas_pyramid_feed(
+                            IsShowSummaryFinished=True,
+                            Always_CreateNew_plh5 = Always_CreateNew_plh5,
+                            Always_CreateNew_bmh5 = Always_CreateNew_bmh5,
+                            Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
+                            IsGenPly=True )
     return fn
 
 def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
