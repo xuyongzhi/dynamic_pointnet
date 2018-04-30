@@ -8,12 +8,14 @@
 feed_data_elements='xyz_midnorm_block' 
 feed_data_elements='xyz_midnorm_block-color_1norm' 
 
-bs=12
-num_gpus=2
-in_cnn_out_kp='486'
+bs=9
+num_gpus=1
+in_cnn_out_kp='5N5'
 loss_weight='N'
+ShuffleFlag='Y'
+#ShuffleFlag='N'
 
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp 
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag
 
 
 #in_cnn_out_kp='4N6'
@@ -26,6 +28,7 @@ loss_weight='N'
 #-------------------------------
 # 5VaG_114 bs=8  466 9.825 1.4
 
+# 5VaG_114 bs=9 5N5  10.38  1.153
 # 5VaG_114 bs=6 NNN  5.672  0.9453
 # 5VaG_114 bs=8 NNN  7.553  0.944
 # 5VaG_114 bs=6 NN5  6.802  1.134
