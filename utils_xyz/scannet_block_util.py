@@ -433,6 +433,15 @@ def GenObj_rh5():
             rawh5f = Raw_H5f(h5f,fn)
             rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
+def GenObj_sh5():
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/stride_0d1_step_0d1'
+    fn_ls = glob.glob( path+'/scene0000_00.sh5' )
+    for fn in fn_ls:
+        with h5py.File( fn,'r' ) as h5f:
+            sh5f = Sorted_H5f(h5f,fn)
+            sh5f.gen_file_obj(IsLabelColor=False)
+
+
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
     fn_ls = glob.glob( path+'/scene0000_00.sph5' )
@@ -454,6 +463,7 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    main()
+    #main()
     #GenObj_rh5()
     #GenObj_sph5()
+    GenObj_sh5()

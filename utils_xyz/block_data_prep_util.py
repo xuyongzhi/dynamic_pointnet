@@ -2866,7 +2866,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             raw_category_idx = self.data_idxs['label_category'][0]
             data_labels_with_rawcategory[:,raw_category_idx] = get_cat40_from_rawcat(data_labels_with_rawcategory[:,raw_category_idx])
 
-    def generate_one_block_to_object(self,block_k,out_obj_file,IsLabelColor=False):
+    def generate_one_block_to_obj(self,block_k,out_obj_file,IsLabelColor=False):
         row_step = self.h5_num_row_1M * 10
         dset_k = self.get_blocked_dset(block_k)
         row_N = dset_k.shape[0]
@@ -2923,7 +2923,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     name_meta = ''
                 out_fn = os.path.join(obj_folder,name_meta+dset_name+'_'+str(row_N)+'.obj')
                 with open(out_fn,'w') as out_f:
-                    self.generate_one_block_to_object(dset_name,out_f,IsLabelColor)
+                    self.generate_one_block_to_obj(dset_name,out_f,IsLabelColor)
                 n += row_N
                 rate = 100.0 * n / self.h5f.attrs['total_row_N']
                 if int(rate) % 2 == 0 and rate - last_rate > 3:
