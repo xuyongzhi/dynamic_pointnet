@@ -112,7 +112,11 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             # use the average position as new xyz
 
             if use_xyz and cascade_id>0:
-                grouped_points = tf.concat([grouped_xyz,grouped_points],axis=-1)
+                if sgf_configs['normxyz_allcas'] == 'mean':
+                    grouped_xyz_midnormed = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
+                    grouped_points = tf.concat([grouped_xyz_midnormed, grouped_points],axis=-1)
+                else:
+                    grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
         if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
             new_xyz = tf.reduce_mean(grouped_xyz,-2)

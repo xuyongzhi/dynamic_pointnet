@@ -41,10 +41,11 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
+parser.add_argument('--normxyz_allcas',default='mean',help='none, mean')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -63,7 +64,7 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--in_cnn_out_kp', default='465', help='keep prob for input, cnn result, output')
+parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -261,6 +262,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
             sgf_configs = {}
             sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            sgf_configs['normxyz_allcas'] = FLAGS.normxyz_allcas
             sgf_configs['Cnn_keep_prob'] = Cnn_keep_prob
             sgf_configs['Out_keep_prob'] = Out_keep_prob
             sgf_configs['only_last_layer_ineach_cascade'] = True
@@ -316,9 +318,11 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            for gi in range(FLAGS.num_gpus):
+            start_gi = 1
+            for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
-                    with tf.device('/gpu:%d'%(gi)), tf.name_scope('gpu_%d'%(gi)) as scope:
+                    with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
+                        gi = gi_ - start_gi
                         # Evenly split input data to each GPU
                         pc_device = tf.slice(pointclouds_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
                         label_device = tf.slice(labels_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])

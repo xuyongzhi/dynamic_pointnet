@@ -133,6 +133,17 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([6400, 2400, 320, 48]).astype(np.int32)
         npoint_subblock_candis = np.array([32, 27,  64,  64]).astype(np.int32)
 
+    elif gsbb_config == '4B1':  # ***
+        global_stride = np.array([-2.4,-2.4,-2.4]).astype(np.float)
+        global_step = np.array([-3.4,-3.4,-3.4]).astype(np.float)
+        global_num_point = 10000 * 3
+        flatbxmap_max_nearest_num = [1,4,4,4]
+
+        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.2]).astype(np.float)
+        sub_block_step_candis   = np.array([0.1,0.4,1.0,2.2]).astype(np.float)
+        nsubblock_candis =       np.array([6400, 2400, 320, 48]).astype(np.int32)
+        npoint_subblock_candis = np.array([32, 27,  64,  64]).astype(np.int32)
+
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 

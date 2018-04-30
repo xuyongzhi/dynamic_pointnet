@@ -4934,7 +4934,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                 else:
                     for attr in in_h5f.attrs:
                         if attr in GlobalSubBaseBLOCK.meta_names:
-                            merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
+                            merged_normed_h5f.h5f.attrs[attr] = merged_normed_h5f.h5f.attrs[attr] + in_h5f.attrs[attr]
 
                     if 'xyz_scope_aligned' in in_h5f.attrs:
                         merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] += in_h5f.attrs['xyz_scope_aligned']
