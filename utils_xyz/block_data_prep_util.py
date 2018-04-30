@@ -66,7 +66,7 @@ Search with "name:" to find the definition.
 '''
 
 SHOW_ONLY_ERR = False
-DEBUGTMP=True
+DEBUGTMP = True
 ENABLECHECK = True
 START_T = time.time()
 
@@ -314,7 +314,7 @@ class GlobalSubBaseBLOCK():
     IsCheck_gsbb['bidxmap_extract'] = False and ENABLECHECK
     IsCheck_gsbb['all_base_included'] = False and ENABLECHECK
     IsCheck_gsbb['IsCheckMissingAimb'] = False and ENABLECHECK
-    IsCheck_gsbb['gen_ply_gsbb'] = False and ENABLECHECK
+    IsCheck_gsbb['gen_ply_gsbb'] = True and ENABLECHECK
 
     global_para_names = ['max_global_num_point','global_num_point','global_stride','global_step']
     para_names = global_para_names + ['sub_block_stride_candis','sub_block_step_candis','nsubblock_candis','npoint_subblock_candis', 'gsbb_config' ,\
@@ -1011,6 +1011,7 @@ class GlobalSubBaseBLOCK():
             ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
 
             sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
+            sh5_xyz_idx = Sorted_H5f.get_data_ele_ids_sh5(['xyz'])['xyz']
             for aim_b_index in range( aim_nsubblock ):
                 for pi in range( aim_npoint_subblock ):
                     point_id = sg_bidxmap_fixed[aim_b_index,pi]
@@ -1018,7 +1019,7 @@ class GlobalSubBaseBLOCK():
                         if point_id<0: continue # invalid points
                         point_index = valid_sorted_pointids[ point_id ]
                         root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
-                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
+                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,sh5_xyz_idx]
                     else:
                         if point_id<0: continue # invalid points
                         base_bid = valid_sorted_basebids[ point_id ]
@@ -2201,7 +2202,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_mesh','label_material']
-    #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
     data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
     data_label_ele_candidates_order += ['org_row_index']
     data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_mesh':1,
@@ -2252,27 +2252,29 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if e in self.h5f.attrs['element_names']:
                     label_set_elements += [e]
             self.label_set_elements = label_set_elements
-            self.label_ele_idxs = self.get_label_ele_ids(label_set_elements)
+            self.label_ele_idxs = Sorted_H5f.get_label_ele_ids_sh5(label_set_elements)
 
         if 'datasource_name' in self.h5f.attrs:
             self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
             self.num_classes = self.DatasetMeta.num_classes
 
-    def get_label_ele_ids(self,label_eles):
+    @staticmethod
+    def get_label_ele_ids_sh5(label_eles):
         label_ele_idxs = {}
         k = 0
         for e in label_eles:
-            assert e in self.labels_order
-            label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
-            k += self.data_label_channels[e]
+            assert e in Sorted_H5f.labels_order
+            label_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
+            k += Sorted_H5f.data_label_channels[e]
         return label_ele_idxs
-    def get_data_ele_ids(self,data_eles):
+    @staticmethod
+    def get_data_ele_ids_sh5(data_eles):
         data_ele_idxs = {}
         k = 0
         for e in data_eles:
-            assert e in self.data_label_channels, "%s not in self.data_label_channels"%(e)
-            data_ele_idxs[e] = range(k,k+self.data_label_channels[e])
-            k += self.data_label_channels[e]
+            assert e in Sorted_H5f.data_label_channels, "%s not in self.data_label_channels"%(e)
+            data_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
+            k += Sorted_H5f.data_label_channels[e]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
@@ -3724,8 +3726,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             print('write finish: %s'%(bxmh5_fn))
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
-        feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
-        feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
+        feed_data_ele_ids = Sorted_H5f.get_data_ele_ids_sh5(feed_data_elements)
+        feed_label_ele_ids = Sorted_H5f.get_label_ele_ids_sh5(feed_label_elements)
         return feed_data_ele_ids,feed_label_ele_ids
 
 
@@ -4148,7 +4150,7 @@ class Normed_H5f():
         norm_ele_info['label_eles_num'] = len(norm_ele_info['label_eles'])
 
         norm_ele_info['norm_data_ele_idxs'] = Normed_H5f.get_normeddata_ele_idxs(norm_ele_info['norm_data_eles'])
-        norm_ele_info['label_ele_idxs'] = Normed_H5f.get_label_ele_ids(norm_ele_info['label_eles'])
+        norm_ele_info['label_ele_idxs'] = Normed_H5f.get_label_ele_ids_nh5(norm_ele_info['label_eles'])
 
         return norm_ele_info
 
@@ -4172,7 +4174,8 @@ class Normed_H5f():
         if feed_label_elements==None:
             feed_label_ele_ids = self.label_ele_idxs
         else:
-            feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            feed_label_ele_ids = self.get_label_ele_ids_nh5(feed_label_elements)
         return feed_data_ele_idxs,feed_label_ele_ids
 
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
@@ -4233,7 +4236,7 @@ class Normed_H5f():
                 data_ele_idxs[e] = idx
         return data_ele_idxs
     @staticmethod
-    def get_label_ele_ids(label_elements):
+    def get_label_ele_ids_nh5(label_elements):
         # order according to  Normed_H5f.labels_order
         label_ele_idxs = {}
         k = 0

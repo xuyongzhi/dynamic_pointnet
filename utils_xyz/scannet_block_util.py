@@ -156,7 +156,7 @@ def GenPyramidSortedFlie( fn ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_bxmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -324,7 +324,7 @@ class Scannet_Prepare():
         file_list.sort()
         if TMPDEBUG:
             choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
-            choice = range(0,80,10)
+            choice = range(0,80,10)[0:1]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -434,9 +434,8 @@ def GenObj_rh5():
             rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
 def GenObj_sph5():
-    #path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/128000_gs-6_-10'
-    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/60000_gs-3_-4d8'
-    fn_ls = glob.glob( path+'/scene0000*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
+    fn_ls = glob.glob( path+'/scene0000_00.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -444,14 +443,14 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
         scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        scanet_prep.MergeNormed()
+        #scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
