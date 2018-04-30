@@ -1008,30 +1008,30 @@ class GlobalSubBaseBLOCK():
             for aim_b_index in range( aim_nsubblock ):
                 aim_bid = sorted_aimbids_fixed[aim_b_index]
                 sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
+            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/g%d_sg_aimbxyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
 
             sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
-            sh5_xyz_idx = Sorted_H5f.get_data_ele_ids_sh5(['xyz'])['xyz']
+            sph5_xyz_idx = debug_meta['pl_sph5f']['data'].attrs['xyz']
             for aim_b_index in range( aim_nsubblock ):
                 for pi in range( aim_npoint_subblock ):
                     point_id = sg_bidxmap_fixed[aim_b_index,pi]
                     if cascade_id == 0:
                         if point_id<0: continue # invalid points
                         point_index = valid_sorted_pointids[ point_id ]
-                        root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
-                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,sh5_xyz_idx]
+                        #root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
+                        sg_baseb_xyzs[aim_b_index,pi,:] = debug_meta['pl_sph5f']['data'][debug_meta['global_bidx'], point_index, sph5_xyz_idx]
                     else:
                         if point_id<0: continue # invalid points
                         base_bid = valid_sorted_basebids[ point_id ]
                         sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
+            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/g%d_sg_basebxyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
 
             if  IsGenFlatbxmap:
                 flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
                 for i in range( flat_xyzs.shape[0] ):
                     flat_idx = flatten_bidxmap_fixed[i,0,0:2].astype(np.int32)
                     flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
-                ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
+                ply_util.create_ply_matterport( flat_xyzs,'/tmp/g%d_flat_xyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
             if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
@@ -3365,9 +3365,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
         global_sample_rate = 1.0 * global_num_point /  global_block_datas.shape[0]
-        global_block_datas, global_block_labels, rootb_split_idxmap, global_sampling_meta = Sorted_H5f.down_sample_global_block( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
+        global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
         # fix root b num
-        rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap )
+        rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
 
@@ -3710,6 +3710,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     debug_meta['gb_center'] = gb_center
 
                 debug_meta['global_bidx'] = global_bidx
+                if GlobalSubBaseBLOCK.IsCheck_gsbb['gen_ply_gsbb']:
+                    debug_meta['pl_sph5f'] = pl_sph5f
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
                        gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], debug_meta )
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))

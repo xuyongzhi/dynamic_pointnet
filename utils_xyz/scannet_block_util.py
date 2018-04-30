@@ -324,7 +324,7 @@ class Scannet_Prepare():
         file_list.sort()
         if TMPDEBUG:
             choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
-            choice = range(0,80,10)[0:1]
+            choice = range(0,80,10)[5:6]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -444,7 +444,7 @@ def GenObj_sh5():
 
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
-    fn_ls = glob.glob( path+'/scene0000_00.sph5' )
+    fn_ls = glob.glob( path+'/scene0024_02.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -463,7 +463,7 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main()
+    main()
     #GenObj_rh5()
     #GenObj_sph5()
-    GenObj_sh5()
+    #GenObj_sh5()
