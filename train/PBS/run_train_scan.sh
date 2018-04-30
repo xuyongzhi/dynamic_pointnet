@@ -10,7 +10,7 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
 
 bs=9
 num_gpus=1
-in_cnn_out_kp='5N5'
+in_cnn_out_kp='NN5'
 loss_weight='N'
 ShuffleFlag='Y'
 #ShuffleFlag='N'

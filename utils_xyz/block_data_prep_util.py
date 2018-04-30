@@ -4188,8 +4188,7 @@ class Normed_H5f():
         if feed_label_elements==None:
             feed_label_ele_ids = self.label_ele_idxs
         else:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            feed_label_ele_ids = self.get_label_ele_ids_nh5(feed_label_elements)
+            feed_label_ele_ids = Normed_H5f.get_label_ele_ids_nh5(feed_label_elements)
         return feed_data_ele_idxs,feed_label_ele_ids
 
     def get_normed_data(self,start_block,end_blcok,feed_elements=None):
