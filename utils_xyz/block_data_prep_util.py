@@ -3702,7 +3702,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if len(sum_bxmap_metas)==0: sum_bxmap_metas = bxmap_metas
                 else:
                     for key in sum_bxmap_metas:
-                        sum_bxmap_metas[key] += bxmap_metas[key]
+                        sum_bxmap_metas[key] = sum_bxmap_metas[key] +  bxmap_metas[key]
 
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)

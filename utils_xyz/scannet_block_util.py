@@ -156,7 +156,7 @@ def GenPyramidSortedFlie( fn ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
     return fn
@@ -323,7 +323,10 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[5:8]   # L
+            choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
+            choice = range(0,80,10)
+            file_list = [ file_list[c] for c in choice ]
+            #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
             #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0509_00.sh5' ) )
 
@@ -355,6 +358,9 @@ class Scannet_Prepare():
         plsph5_folder = 'ORG_sph5/90000_gs-3d6_-6d3'
         #bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
         bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_48-32_27_64_64-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A2'
+
+        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2560_1024_128_24-32_32_48_18-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -396,8 +402,8 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
-        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -438,14 +444,14 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 8
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess )
         scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
