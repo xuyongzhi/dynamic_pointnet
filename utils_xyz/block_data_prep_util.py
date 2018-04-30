@@ -2888,7 +2888,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 out_obj_file.write(str_j)
 
-    def gen_file_obj(self,IsLabelColor=False):
+    def gen_file_obj(self, IsLabelColor=False, mode='file'):
+        '''
+        mode = 'file' or 'block'
+        '''
         if self.file_name == None:
             print('set file_name (gen_file_obj)')
             return
@@ -2905,6 +2908,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         n = 0
         last_rate = -20
         out_info_fn = os.path.join(obj_folder,'info.txt')
+        if mode == 'file':
+            obj_fn = os.path.join(obj_folder,base_fn+'.obj')
+            obj_f = open(obj_fn,'w')
         with open(out_info_fn,'w') as info_f:
             for dset_name in self.h5f:
                 row_N = self.h5f[dset_name].shape[0]
@@ -2921,20 +2927,28 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     name_meta = 'labeled_'
                 else:
                     name_meta = ''
-                out_fn = os.path.join(obj_folder,name_meta+dset_name+'_'+str(row_N)+'.obj')
-                with open(out_fn,'w') as out_f:
-                    self.generate_one_block_to_obj(dset_name,out_f,IsLabelColor)
-                n += row_N
-                rate = 100.0 * n / self.h5f.attrs['total_row_N']
-                if int(rate) % 2 == 0 and rate - last_rate > 3:
-                    last_rate = rate
-                    print('%0.2f%% generating file: %s'%(rate,os.path.basename(out_fn)) )
+                if mode == 'block':
+                    obj_fn = os.path.join(obj_folder,name_meta+dset_name+'_'+str(row_N)+'.obj')
+                    obj_f = open(out_fn,'w')
+                self.generate_one_block_to_obj(dset_name, obj_f, IsLabelColor)
+                if mode == 'block':
+                    obj_f.close()
+
+                    n += row_N
+                    rate = 100.0 * n / self.h5f.attrs['total_row_N']
+                    if int(rate) % 2 == 0 and rate - last_rate > 3:
+                        last_rate = rate
+                        print('%0.2f%% generating file: %s'%(rate,os.path.basename(obj_fn)) )
 
                 info_str = 'dset: %s \tN= %d   \tmin=%s   \tmax=%s \n'%(dset_name,self.h5f[dset_name].shape[0], np.array_str(min_i), np.array_str(max_i)  )
                 info_f.write(info_str)
                 #print(info_str)
                 #if rate > 30:
                     #break
+        if mode == 'file':
+            obj_f.close()
+            print('finish %s'%(obj_fn))
+
     def extract_sub_area(self,sub_xyz_scope,sub_file_name):
         with h5py.File(sub_file_name,'w') as sub_h5f:
             sub_f = Sorted_H5f(sub_h5f,sub_file_name)
