@@ -20,17 +20,11 @@ module list
 feed_data_elements='xyz_midnorm_block-color_1norm' 
 bs=30
 num_gpus=3
-in_cnn_out_kp='466'  # 14.2G
+in_cnn_out_kp='587'  # 14.2G
 loss_weight='N'
 
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp  -> out_466.log
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp  -> out_587.log
 
-in_cnn_out_kp='4N6'
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp -> out_4N6.log
-
-in_cnn_out_kp='N66'
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp  -> out_N66.log
-
-in_cnn_out_kp='436'
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp  -> out_N66.log
+in_cnn_out_kp='5N5'
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp -> out_5N5.log
 

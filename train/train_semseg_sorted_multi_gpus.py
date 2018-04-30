@@ -192,13 +192,13 @@ log_string('\n\nkey parameters:')
 #log_string( 'data: %s'%(FLAGS.feed_data_elements) )
 log_string( 'model: %s'%(FLAGS.modelf_nein) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
-log_string( 'batch size: %d'%(BATCH_SIZE) )
+log_string( 'batch size, num: %d, %d'%(BATCH_SIZE, net_provider.train_num_blocks) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
-if 1.0 - Input_keep_prob >0:
-    log_string( 'input dropout: %f - %f'%( Input_keep_prob, 1 ) )
-else:
-    log_string('input dropout: No')
+log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
+log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
+log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
+log_string( 'normxyz_allcas:%s'%(FLAGS.normxyz_allcas) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
@@ -320,7 +320,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 1
+            start_gi = 0
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -445,7 +445,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -797,7 +797,7 @@ def get_shuffle_flag(epoch):
 
 def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, multi_feed_flags, lock, limit_max_train_num_batches=None):
     with tf.device('/cpu:%d'%(cpu_id)):
-        max_buf_size = 3
+        max_buf_size = 5
         block_idx_start = net_provider.g_block_idxs[file_id_start,0]
         block_idx_end = net_provider.g_block_idxs[file_id_end,1]
         if train_or_test=='test':
