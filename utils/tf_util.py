@@ -115,8 +115,8 @@ def conv1d(inputs,
     outputs = tf.nn.bias_add(outputs, biases)
 
     if bn:
-      outputs = batch_norm_for_conv1d(outputs, is_training,
-                                      bn_decay=bn_decay, scope='bn')
+        outputs = norm_template( outputs, is_training,
+                            bn_decay, scope='bn')
 
     if activation_fn is not None:
       outputs = activation_fn(outputs)
@@ -177,8 +177,8 @@ def conv2d(inputs,
       outputs = tf.nn.bias_add(outputs, biases)
 
       if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn')
+        outputs = norm_template( outputs, is_training,
+                                bn_decay, scope='bn')
 
       if activation_fn is not None:
         outputs = activation_fn(outputs)
@@ -224,8 +224,8 @@ def conv2d_(inputs,
   with tf.variable_scope(scope) as sc:
       outputs = inputs
       if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn')
+        outputs = norm_template( outputs, is_training,
+                                bn_decay, scope='bn')
       if activation_fn is not None:
         outputs = activation_fn(outputs)
 
@@ -319,8 +319,8 @@ def conv2d_transpose(inputs,
       outputs = tf.nn.bias_add(outputs, biases)
 
       if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn')
+        outputs = norm_template( outputs, is_training,
+                                bn_decay, scope='bn')
 
       if activation_fn is not None:
         outputs = activation_fn(outputs)
@@ -381,8 +381,8 @@ def conv3d(inputs,
     outputs = tf.nn.bias_add(outputs, biases)
 
     if bn:
-      outputs = batch_norm_for_conv3d(outputs, is_training,
-                                      bn_decay=bn_decay, scope='bn')
+        outputs = norm_template( outputs, is_training,
+                                bn_decay, scope='bn')
 
     if activation_fn is not None:
       outputs = activation_fn(outputs, name=name)
@@ -422,7 +422,8 @@ def fully_connected(inputs,
     outputs = tf.nn.bias_add(outputs, biases)
 
     if bn:
-      outputs = batch_norm_for_fc(outputs, is_training, bn_decay, 'bn')
+        outputs = norm_template( outputs, is_training,
+                                bn_decay, scope='bn')
 
     if activation_fn is not None:
       outputs = activation_fn(outputs)
@@ -582,8 +583,53 @@ def batch_norm_template_unused(inputs, is_training, scope, moments_dims, bn_deca
     normed = tf.nn.batch_normalization(inputs, mean, var, beta, gamma, 1e-3)
   return normed
 
+def norm_template( inputs, is_training, bn_decay, scope, data_format='NHWC', norm_type='batch', G=32, esp=1e-5):
+    # https://github.com/shaohua0116/Group-Normalization-Tensorflow
+    with tf.variable_scope('{}_norm'.format(norm_type)):
+        if norm_type == 'none':
+            outputs = inputs
+        elif norm_type == 'batch':
+            outputs = batch_norm_template(inputs, is_training, bn_decay, scope, data_format )
+        elif norm_type == 'group':
+            output = group_norm_template(inputs, is_training, bn_decay, scope, data_format, G, esp)
+        else:
+            raise NotImplementedError
+    return output
 
-def batch_norm_template(inputs, is_training, scope, moments_dims_unused, bn_decay, data_format='NHWC'):
+def group_norm_template(  inputs, is_training, bn_decay, scope, data_format='NHWC', G=32, esp=1e-5 ):
+    with tf.variable_scope(scope):
+        # normalize
+        #if data_format=='NCHW':
+        #    inputs = tf.transpose(inputs, [0, 2, 3, 1])
+        assert data_format[-1]=='C' # 'NHWC' 'NDHWC'  'NWC'
+        org_shape = inputs.get_shape().as_list()
+        dim_n = len(org_shape)
+        C = org_shape[-1]
+        G = min(G, C)
+        assert C % G ==0
+        grouped_shape = org_shape[0:dim_n-1] + [G, C//G]  # [N, H, W, G, C // G]
+
+        inputs = tf.reshape(inputs, grouped_shape)
+        moments_dims = range(1, dim_n-1) + [dim_n]   # except batch_dim and group_dim
+            # [1, 2, 4] for NHWC
+        mean, var = tf.nn.moments(inputs, moments_dims, keep_dims=True)
+        outputs = (inputs - mean) / tf.sqrt(var + esp)
+        # per channel gamma and beta
+        gamma = tf.get_variable('gamma', [C],
+                                initializer=tf.constant_initializer(1.0))
+        beta = tf.get_variable('beta', [C],
+                                initializer=tf.constant_initializer(0.0))
+        gamma = tf.reshape(gamma, [1]*(dim_n-1) + [C])
+        beta = tf.reshape(beta, [1]*(dim_n-1) + [C])
+
+        outputs = tf.reshape( outputs, org_shape ) * gamma + beta
+
+        #if data_format=='NCHW':
+        #    outputs = tf.transpose(inputs, [0, 3, 1, 2])
+        return outputs
+
+
+def batch_norm_template(inputs, is_training, bn_decay,  scope, data_format='NHWC'):
   """ Batch normalization on convolutional maps and beyond...
   Ref.: http://stackoverflow.com/questions/33949786/how-could-i-use-batch-normalization-in-tensorflow
 
@@ -603,66 +649,6 @@ def batch_norm_template(inputs, is_training, scope, moments_dims_unused, bn_deca
                                       is_training=is_training, decay=bn_decay,updates_collections=None,
                                       scope=scope,
                                       data_format=data_format)
-
-
-def batch_norm_for_fc(inputs, is_training, bn_decay, scope):
-  """ Batch normalization on FC data.
-
-  Args:
-      inputs:      Tensor, 2D BxC input
-      is_training: boolean tf.Varialbe, true indicates training phase
-      bn_decay:    float or float tensor variable, controling moving average weight
-      scope:       string, variable scope
-  Return:
-      normed:      batch-normalized maps
-  """
-  return batch_norm_template(inputs, is_training, scope, [0,], bn_decay)
-
-
-def batch_norm_for_conv1d(inputs, is_training, bn_decay, scope):
-  """ Batch normalization on 1D convolutional maps.
-
-  Args:
-      inputs:      Tensor, 3D BLC input maps
-      is_training: boolean tf.Varialbe, true indicates training phase
-      bn_decay:    float or float tensor variable, controling moving average weight
-      scope:       string, variable scope
-  Return:
-      normed:      batch-normalized maps
-  """
-  return batch_norm_template(inputs, is_training, scope, [0,1], bn_decay)
-
-
-
-
-def batch_norm_for_conv2d(inputs, is_training, bn_decay, scope):
-  """ Batch normalization on 2D convolutional maps.
-
-  Args:
-      inputs:      Tensor, 4D BHWC input maps
-      is_training: boolean tf.Varialbe, true indicates training phase
-      bn_decay:    float or float tensor variable, controling moving average weight
-      scope:       string, variable scope
-  Return:
-      normed:      batch-normalized maps
-  """
-  return batch_norm_template(inputs, is_training, scope, [0,1,2], bn_decay)
-
-
-
-def batch_norm_for_conv3d(inputs, is_training, bn_decay, scope):
-  """ Batch normalization on 3D convolutional maps.
-
-  Args:
-      inputs:      Tensor, 5D BDHWC input maps
-      is_training: boolean tf.Varialbe, true indicates training phase
-      bn_decay:    float or float tensor variable, controling moving average weight
-      scope:       string, variable scope
-  Return:
-      normed:      batch-normalized maps
-  """
-  return batch_norm_template(inputs, is_training, scope, [0,1,2,3], bn_decay)
-
 
 def dropout(inputs,
             is_training,
@@ -738,8 +724,8 @@ def dense_net( inputs, dense_config, bn, is_training, bn_decay, activation_fn=tf
                 if is_show_model:
                     print('b%d transi conv: \t%s'%(b,shape_str(outputs)))
         if bn:
-            outputs = batch_norm_for_conv2d(outputs, is_training,
-                                            bn_decay=bn_decay, scope='bn')
+            outputs = norm_template( outputs, is_training,
+                                    bn_decay, scope='bn')
         if activation_fn is not None:
             outputs = activation_fn(outputs)
 

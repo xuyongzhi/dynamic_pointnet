@@ -18,8 +18,8 @@ ShuffleFlag='Y'
 #./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag
 
 
-bs=10
-in_cnn_out_kp='NNN'
+bs=7
+in_cnn_out_kp='347'
 ./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag
 
 

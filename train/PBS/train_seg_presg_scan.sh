@@ -7,12 +7,12 @@
 
 train_script=../train_semseg_sorted_multi_gpus.py
 dataset_name=scannet
-maxepoch=201
-learning_rate=0.001
+maxepoch=501
+learning_rate=0.002
 decay_epoch_step=40
 feed_label_elements="label_category"
 
-multip_feed=0
+multip_feed=1
 finetune=0
 model_epoch=170
 only_evaluate=0

@@ -1881,6 +1881,7 @@ class GlobalSubBaseBLOCK():
                 ply_util.gen_box_norotation( ply_fn, bxyz_min, bxyz_max )
 
     def gen_bxmap_ply( self, sph5_fn, bxmh5_fn ):
+        assert False, "Not right yet"
         IsIntact_sph5_bxmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
         IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
@@ -3560,8 +3561,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # gen ply
         if IsGenPly:
-            #gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
             gsbb_write.gen_bmap_ply( pl_sph5_filename )
+            gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
     def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
         global_num_point = gsbb_write.global_num_point
