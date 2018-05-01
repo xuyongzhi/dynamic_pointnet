@@ -65,8 +65,10 @@ parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiPr
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
+parser.add_argument('--norm', default='batch', help='batch or group')
 
 FLAGS = parser.parse_args()
+tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
@@ -146,7 +148,7 @@ else:
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
         if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
         else: normxyz_allcas_str = ''
-        if tf_util.CNN_CONFIGS['norm']=='group':
+        if FLAGS.norm=='group':
             norm_str = '-GN'
         else:
             norm_str = ''

@@ -8,8 +8,10 @@ import numpy as np
 import tensorflow as tf
 
 CNN_CONFIGS = {}
-CNN_CONFIGS['norm'] = 'group'
-
+CNN_CONFIGS['norm'] = 'batch'
+def show_CNN_CONFIGS():
+    print('\nCNN_CONFIGS:')
+    print('\tnorm:',CNN_CONFIGS['norm'])
 
 def shape_str(tensor_ls):
     if type(tensor_ls) != list:
