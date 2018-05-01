@@ -7,6 +7,9 @@ Date: November 2017
 import numpy as np
 import tensorflow as tf
 
+CNN_CONFIGS = {}
+CNN_CONFIGS['norm'] = 'group'
+
 
 def shape_str(tensor_ls):
     if type(tensor_ls) != list:
@@ -583,7 +586,7 @@ def batch_norm_template_unused(inputs, is_training, scope, moments_dims, bn_deca
     normed = tf.nn.batch_normalization(inputs, mean, var, beta, gamma, 1e-3)
   return normed
 
-def norm_template( inputs, is_training, bn_decay, scope, data_format='NHWC', norm_type='batch', G=32, esp=1e-5):
+def norm_template( inputs, is_training, bn_decay, scope, data_format='NHWC', norm_type=CNN_CONFIGS['norm'], G=32, esp=1e-5):
     # https://github.com/shaohua0116/Group-Normalization-Tensorflow
     with tf.variable_scope('{}_norm'.format(norm_type)):
         if norm_type == 'none':
@@ -591,10 +594,10 @@ def norm_template( inputs, is_training, bn_decay, scope, data_format='NHWC', nor
         elif norm_type == 'batch':
             outputs = batch_norm_template(inputs, is_training, bn_decay, scope, data_format )
         elif norm_type == 'group':
-            output = group_norm_template(inputs, is_training, bn_decay, scope, data_format, G, esp)
+            outputs = group_norm_template(inputs, is_training, bn_decay, scope, data_format, G, esp)
         else:
             raise NotImplementedError
-    return output
+    return outputs
 
 def group_norm_template(  inputs, is_training, bn_decay, scope, data_format='NHWC', G=32, esp=1e-5 ):
     with tf.variable_scope(scope):
@@ -606,7 +609,7 @@ def group_norm_template(  inputs, is_training, bn_decay, scope, data_format='NHW
         dim_n = len(org_shape)
         C = org_shape[-1]
         G = min(G, C)
-        assert C % G ==0
+        assert C % G ==0, "Group norm: C=%d, G=%d, not integrally divided"%(C, G)
         grouped_shape = org_shape[0:dim_n-1] + [G, C//G]  # [N, H, W, G, C // G]
 
         inputs = tf.reshape(inputs, grouped_shape)

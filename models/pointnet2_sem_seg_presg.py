@@ -72,8 +72,8 @@ def get_voxel3dcnn_sa_config( model_flag ):
             mlp_pe.append([])
             mlp_be.append([])
     elif model_flag=='5VaG':
-        voxel_channels.append( [32,32,48] )
-        voxel_channels.append( [48,48,64] )
+        voxel_channels.append( [32,32,64] )
+        voxel_channels.append( [64,64,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
         voxel_channels.append( [256,256,512,512] )

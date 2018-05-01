@@ -146,9 +146,13 @@ else:
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
         if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
         else: normxyz_allcas_str = ''
+        if tf_util.CNN_CONFIGS['norm']=='group':
+            norm_str = '-GN'
+        else:
+            norm_str = ''
         FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
-                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
+                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
