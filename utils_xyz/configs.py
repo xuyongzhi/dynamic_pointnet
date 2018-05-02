@@ -164,3 +164,10 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     return  gsbb_config_dic
 
 #-------------------------------------------------------------------------------
+
+def aug_id_to_type( aug_id ):
+    if aug_id == 0:
+        aug_type = 'None'
+    elif aug_id == 1:
+        aug_type = 'RotateRef'
+    return aug_type

@@ -92,6 +92,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             grouped_points = tf.expand_dims(points,axis=1)
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
+            new_xyz = tf.zeros([]) # not needed
         else:
             assert len(xyz.shape) == 3
 
@@ -107,21 +108,23 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
 
             grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat)
-            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
-                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
-            # use the average position as new xyz
 
-            if use_xyz and cascade_id>0:
+            # new_xyz is the "voxel center" or "mean position of points in the voxel"
+            if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+                new_xyz = tf.reduce_mean(grouped_xyz,-2)
+            else:
+                new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+
+            if cascade_id>0:
                 if sgf_configs['normxyz_allcas'] == 'mid':
-                    grouped_xyz_midnormed = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
-                    grouped_points = tf.concat([grouped_xyz_midnormed, grouped_points],axis=-1)
-                else:
+                    grouped_xyz = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
+                    block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
+                if use_xyz:
                     grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
-        if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
-            new_xyz = tf.reduce_mean(grouped_xyz,-2)
-        else:
-            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
+                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
+
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 
         if IsShowModel:

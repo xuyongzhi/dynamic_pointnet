@@ -329,7 +329,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
 
         # l_xyz: (2, 512, 128, 6) (2, 512, 3)  (2, 256, 3) (2, 64, 3)
         # l_points: None  (2, 512, 64) (2, 256, 256) (2, 64, 512)
-        if IsShowModel: print('pointnet_sa_module %d, l_xyz: %s'%(k,shape_str([l_xyz])))
+        #if IsShowModel: print('pointnet_sa_module %d, l_xyz: %s'%(k,shape_str([l_xyz])))
     if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
     end_points['l0_points'] = l_points[0]
 

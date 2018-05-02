@@ -4199,7 +4199,7 @@ class Normed_H5f():
             feed_label_ele_ids = Normed_H5f.get_label_ele_ids_nh5(feed_label_elements)
         return feed_data_ele_idxs,feed_label_ele_ids
 
-    def get_normed_data(self,start_block,end_blcok,feed_elements=None):
+    def get_data_byeles(self,start_block,end_blcok,feed_elements=None):
         # the data ele order store according to feed_elements
         if feed_elements==None:
             datas = self.data_set[start_block:end_blcok,...]
@@ -4234,7 +4234,7 @@ class Normed_H5f():
                 globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
                 return  sg_bidxmaps, globalb_bottom_center_xyz
 
-    def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
+    def get_label_byeles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,...]
