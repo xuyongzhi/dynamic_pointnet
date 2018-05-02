@@ -6,6 +6,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR+'/../utils')
 from block_data_prep_util import GlobalSubBaseBLOCK
+import geometric_util as geo_util
 import tf_util
 import numpy as np
 
@@ -383,7 +384,55 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     # ------------------------------------------------------------------
     new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
     voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )
+    voxel_points = rotate_voxel_randomly( voxel_points )
     return voxel_points
+
+
+def rotate_voxel_randomly( voxel_points ):
+    voxel_shape = np.array( voxel_points.shape[1:4].as_list() )
+    grid = np.indices( voxel_shape )
+    grid = np.transpose( grid,(1,2,3,0) )
+
+    version = 'tf'
+    #---------------------------------------------------------------------------
+    if version == 'numpy':
+        rz_angle = np.pi * 0.5
+        R = np.rint( geo_util.Rz( rz_angle ) ).astype(np.int32)
+        grid_r = np.matmul( grid, R )
+        # The rotation center is not voxel center, but the bottom. An offsetis required.
+        offset_mask = np.sum(R,0) == -1
+        offset = offset_mask * (voxel_shape-1)
+        grid_ro = grid_r + offset
+
+    #---------------------------------------------------------------------------
+    if version == 'tf':
+        rz_angle = tf.random_uniform( shape=(), minval=-3, maxval=4, dtype=tf.int32 )
+        rz_angle = tf.cast(rz_angle,tf.float32) * tf.constant(np.pi * 0.5)
+        rz_angle = tf.identity( rz_angle, 'rz_angle' )
+        #rz_angle = np.pi*0.5
+        R = geo_util.tf_Rz( rz_angle )
+        R = tf.rint( R )
+        R = tf.cast( R, tf.int32, name='R' )    # gpu_0/sa_layer1/R:0
+        grid = tf.Variable( grid, dtype=tf.int32, name='grid', trainable=False )
+        grid_ = tf.reshape(grid, (-1,3) )
+        grid_r = tf.matmul( grid_, R )
+        grid_r = tf.reshape(grid_r, grid.shape, name='grid_r')
+        # The rotation center is not voxel center, but the bottom. An offsetis required.
+        offset_mask = tf.equal( tf.reduce_sum( R, axis=0 ), -1 )
+        offset_mask = tf.cast( offset_mask, tf.int32, 'offset_mask' )
+        offset = tf.multiply( offset_mask, (voxel_shape-1), name='offset' )
+        grid_ro = tf.add( grid_r, offset, name='grid_ro')       # gpu_0/sa_layer1/grid_ro:0
+
+    #---------------------------------------------------------------------------
+
+    voxel_points = tf.identity( voxel_points,'voxel_points_before_r' )                    # gpu_0/sa_layer1/voxel_points_before_r:0
+    voxel_points = tf.transpose( voxel_points, [1,2,3,4,0] )
+    voxel_points = tf.gather_nd( voxel_points, grid_ro )
+    voxel_points = tf.transpose( voxel_points, [4,0,1,2,3], name='voxel_points_rotated' ) # gpu_0/sa_layer1/voxel_points_rotated:0
+
+    tf.add_to_collection( 'check', voxel_points )
+    return voxel_points
+
 
 def unique_nd( inputs, axis=-1, unit=3 ):
     org_inputs = inputs

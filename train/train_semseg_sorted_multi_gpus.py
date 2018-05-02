@@ -41,7 +41,7 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=4, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
@@ -78,7 +78,7 @@ Is_REPORT_PRED = IS_GEN_PLY
 Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = False
+ISTFDEBUG = True
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -248,6 +248,9 @@ def average_gradients(tower_grads):
     #for g, _ in grad_and_vars:
     for g, v in grad_and_vars:
       # Add 0 dimension to the gradients to represent the tower.
+      if g==None:
+          import pdb; pdb.set_trace()  # XXX BREAKPOINT
+          pass
       expanded_g = tf.expand_dims(g, 0)
 
       # Append on a 'tower' dimension which we will average over below.
@@ -563,6 +566,9 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['globalb_bottom_center_xyz']] = cur_globalb_bottom_center_xyzs
 
         check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
+        return
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage  = sess.run( [ops['merged'], ops['step'], ops['train_op'],\
                                     ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']], feed_dict=feed_dict )
         t2 = time.time()

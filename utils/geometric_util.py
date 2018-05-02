@@ -1,50 +1,65 @@
 # May 2018 xyz
 import numpy as np
+import tensorflow as tf
 
-def point_transform(points, tx, ty, tz, rx=0, ry=0, rz=0):
-    # Input:
-    #   points: (N, 3)
-    #   rx/y/z: in radians
-    # Output:
-    #   points: (N, 3)
-    N = points.shape[0]
-    points = np.hstack([points, np.ones((N, 1))])
 
-    mat1 = np.eye(4)
-    mat1[3, 0:3] = tx, ty, tz
-    points = np.matmul(points, mat1)
+def Rx( x ):
+    # ref to my master notes 2015
+    # anticlockwise, x: radian
+    Rx = np.zeros((3,3))
+    Rx[0,0] = 1
+    Rx[1,1] = np.cos(x)
+    Rx[1,2] = np.sin(x)
+    Rx[2,1] = -np.sin(x)
+    Rx[2,2] = np.cos(x)
+    return Rx
 
-    if rx != 0:
-        mat = np.zeros((4, 4))
-        mat[0, 0] = 1
-        mat[3, 3] = 1
-        mat[1, 1] = np.cos(rx)
-        mat[1, 2] = -np.sin(rx)
-        mat[2, 1] = np.sin(rx)
-        mat[2, 2] = np.cos(rx)
-        points = np.matmul(points, mat)
+def Ry( y ):
+    # anticlockwise, y: radian
+    Ry = np.zeros((3,3))
+    Ry[0,0] = np.cos(y)
+    Ry[0,2] = -np.sin(y)
+    Ry[1,1] = 1
+    Ry[2,0] = np.sin(y)
+    Ry[2,2] = np.cos(y)
+    return Ry
 
-    if ry != 0:
-        mat = np.zeros((4, 4))
-        mat[1, 1] = 1
-        mat[3, 3] = 1
-        mat[0, 0] = np.cos(ry)
-        mat[0, 2] = np.sin(ry)
-        mat[2, 0] = -np.sin(ry)
-        mat[2, 2] = np.cos(ry)
-        points = np.matmul(points, mat)
+def Rz( z ):
+    # anticlockwise, z: radian
+    Rz = np.zeros((3,3))
 
-    if rz != 0:
-        mat = np.zeros((4, 4))
-        mat[2, 2] = 1
-        mat[3, 3] = 1
-        mat[0, 0] = np.cos(rz)
-        mat[0, 1] = -np.sin(rz)
-        mat[1, 0] = np.sin(rz)
-        mat[1, 1] = np.cos(rz)
-        points = np.matmul(points, mat)
+    Rz[0,0] = np.cos(z)
+    Rz[0,1] = np.sin(z)
+    Rz[1,0] = -np.sin(z)
+    Rz[1,1] = np.cos(z)
+    Rz[2,2] = 1
+    return Rz
 
-    return points[:, 0:3]
+
+def tf_Rz( z ):
+    # anticlockwise, z: radian
+    Rz = tf.Variable(np.zeros((3,3)), dtype=tf.float32, trainable=False ) # gpu_0/sa_layer1/Rz:0
+    Rz = tf.scatter_nd_update( Rz, [[0,0],       [0,1],      [1,0],      [1,1],      [2,2] ],
+                                    [tf.cos(z),  tf.sin(z),  -tf.sin(z), tf.cos(z),  1   ],
+                               name = 'Rz')
+    return Rz
+
+def R1D( angle, axis ):
+    if axis == 'x':
+        return Rx(angle)
+    elif axis == 'y':
+        return Ry(angle)
+    elif axis == 'z':
+        return Rz(angle)
+    else:
+        raise NotImplementedError
+
+def EulerRotate( angles, order ='zxy' ):
+    R = np.eye(3)
+    for i in range(3):
+        R_i = R1D(angles[i], order[i])
+        R = np.matmul( R_i, R )
+    return R
 
 def point_rotation_randomly( points, rxyz_max=np.pi*np.array([0.1,0.1,0.1]) ):
     # Input:
@@ -54,6 +69,7 @@ def point_rotation_randomly( points, rxyz_max=np.pi*np.array([0.1,0.1,0.1]) ):
     #   points: (B, N, 3)
     batch_size = points.shape[0]
     for b in range(batch_size):
-        rx, ry, rz = [ np.random.uniform(-r_max, r_max) for r_max in rxyz_max ]
-        points[b,:,:] = point_transform( points[b,:,:], 0,0,0,rx,ry,rz )
+        rxyz = [ np.random.uniform(-r_max, r_max) for r_max in rxyz_max ]
+        R = EulerRotate( rxyz, 'xyz' )
+        points[b,:,:] = np.matmul( points[b,:,:], np.transpose(R) )
     return points
