@@ -66,7 +66,7 @@ parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
-parser.add_argument('--aug',type=int,default=1, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--aug',type=int,default=2, help='data augmentation. 0: None, 1: RotateRef')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
@@ -78,7 +78,7 @@ Is_REPORT_PRED = IS_GEN_PLY
 Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-ISTFDEBUG = True
+ISTFDEBUG = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -96,7 +96,7 @@ BASE_LEARNING_RATE = FLAGS.learning_rate
 MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_RATE = FLAGS.decay_rate
-AUG_TYPE = aug_id_to_type(FLAGS.aug)
+AUG_TYPES = aug_id_to_type(FLAGS.aug)
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
@@ -153,10 +153,18 @@ else:
             norm_str = '-GN'
         else:
             norm_str = ''
+        if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
+            aug_str = '-aug'
+            if AUG_TYPES['RotateRef']:
+                aug_str += 'Ref'
+            if AUG_TYPES['RotateVox']:
+                aug_str += 'Vox'
+        else:
+            aug_str = ''
         FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str +\
-                        '-aug'+str(FLAGS.aug)
+                        aug_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
@@ -206,6 +214,11 @@ log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
 log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
 log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
 log_string( 'normxyz_allcas:%s'%(FLAGS.normxyz_allcas) )
+log_string( 'Aug data: RotateRef:%s   RotateVox:%s'%(AUG_TYPES['RotateRef'], AUG_TYPES['RotateVox']) )
+if AUG_TYPES['RotateRef']:
+    log_string('\tRotateRefXYZMax:%s degree'%(AUG_TYPES['RotateRefXYZMax']*180/np.pi))
+if AUG_TYPES['RotateVox']:
+    log_string('\tRotateVoxZChoices:%s degree'%(' '.join( [str(c*180/np.pi) for c in AUG_TYPES['RotateVoxXYZChoices']] ) ) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
@@ -272,25 +285,26 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
     with tf.Graph().as_default():
         with tf.device('/cpu:0'):
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
-            sgf_configs = {}
-            sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
-            sgf_configs['normxyz_allcas'] = FLAGS.normxyz_allcas
-            sgf_configs['Cnn_keep_prob'] = Cnn_keep_prob
-            sgf_configs['Out_keep_prob'] = Out_keep_prob
-            sgf_configs['only_last_layer_ineach_cascade'] = True
+            configs = {}
+            configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            configs['normxyz_allcas'] = FLAGS.normxyz_allcas
+            configs['Cnn_keep_prob'] = Cnn_keep_prob
+            configs['Out_keep_prob'] = Out_keep_prob
+            configs['only_last_layer_ineach_cascade'] = True
+            configs['aug_types'] = AUG_TYPES
 
-            sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
-            sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
-            sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
-            sgf_configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
-            sgf_configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
-            sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
-            sgf_configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
-            sgf_configs['global_step'] = net_provider.gsbb_load.global_step
-            sgf_configs['global_stride'] = net_provider.gsbb_load.global_stride
+            configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
+            configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
+            configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
+            configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
+            configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
+            configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
+            configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
+            configs['global_step'] = net_provider.gsbb_load.global_step
+            configs['global_stride'] = net_provider.gsbb_load.global_stride
 
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
-                                        NUM_DATA_ELES,NUM_LABEL_ELES, sgf_configs )
+                                        NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
@@ -324,7 +338,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             # Get model and loss on multiple GPUS
             #------------------------------------------
             #get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
 
             tower_grads = []
             pred_gpu = []
@@ -346,7 +360,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         sgf_config_pls_device['globalb_bottom_center_xyz'] = tf.slice(sgf_config_pls['globalb_bottom_center_xyz'], [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
 
                         pred, end_points = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
-                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, sgf_config_pls_device, bn_decay=bn_decay)
+                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay)
 
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS)
                         losses = tf.get_collection('losses', scope)
@@ -530,7 +544,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid, \
-                cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx, aug_type=AUG_TYPE)
+                cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -566,8 +580,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['globalb_bottom_center_xyz']] = cur_globalb_bottom_center_xyzs
 
         check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
-        return
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage  = sess.run( [ops['merged'], ops['step'], ops['train_op'],\
                                     ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']], feed_dict=feed_dict )
@@ -741,7 +753,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
 
         if eval_feed_buf_q == None:
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                cur_globalb_bottom_center_xyzs  = net_provider.get_eval_batch(start_idx,end_idx,False, aug_type=AUG_TYPE)
+                cur_globalb_bottom_center_xyzs  = net_provider.get_eval_batch(start_idx,end_idx,False, aug_types=AUG_TYPES)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -844,10 +856,10 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                            cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx, aug_type=AUG_TYPE)
+                            cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
                     elif train_or_test == 'test':
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                            cur_globalb_bottom_center_xyzs = net_provider.get_eval_batch(block_start_idx,block_end_idx,False, aug_type=AUG_TYPE)
+                            cur_globalb_bottom_center_xyzs = net_provider.get_eval_batch(block_start_idx,block_end_idx,False, aug_types=AUG_TYPES)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, cur_globalb_bottom_center_xyzs, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))

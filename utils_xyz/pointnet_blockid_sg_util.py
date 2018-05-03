@@ -56,7 +56,7 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
         return flatten_bidxmap_i_concat
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_configs, block_bottom_center_mm, sgf_configs, sgf_config_pls,
+def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_configs, block_bottom_center_mm, configs, sgf_config_pls,
                        is_training, bn_decay,scope,bn=True, tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
@@ -80,8 +80,8 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
     block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
-        cascade_num = sgf_configs['flatten_bm_extract_idx'].shape[0]-1
-        assert sgf_configs['sub_block_step_candis'].size == cascade_num
+        cascade_num = configs['flatten_bm_extract_idx'].shape[0]-1
+        assert configs['sub_block_step_candis'].size == cascade_num
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
 
@@ -111,13 +111,13 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             grouped_points = tf.gather_nd(points,bidmap_concat)
 
             # new_xyz is the "voxel center" or "mean position of points in the voxel"
-            if sgf_configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+            if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
                 new_xyz = tf.reduce_mean(grouped_xyz,-2)
             else:
                 new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
 
             if cascade_id>0:
-                if sgf_configs['normxyz_allcas'] == 'mid':
+                if configs['normxyz_allcas'] == 'mid':
                     grouped_xyz = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
                     block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
                 if use_xyz:
@@ -143,9 +143,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv%d'%(i), bn_decay=bn_decay)
-                if sgf_configs['Cnn_keep_prob']<1:
-                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['point_encoder'][cascade_id])-1:
-                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
+                if configs['Cnn_keep_prob']<1:
+                    if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['point_encoder'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel:
                     print('point encoder1 %d, new_points:%s'%(i, shape_str([new_points])))
 
@@ -178,7 +178,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            new_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz )
+            new_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
             mlps_3dcnn = [ 128, 256, 256]
@@ -202,9 +202,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             is_training = is_training,
                                             bn_decay = bn_decay,
                                             name = 'points_3dcnn_%d'%(i) )
-                if sgf_configs['Cnn_keep_prob']<1:
-                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
-                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='3dcnn_dp%d'%(i))
+                if configs['Cnn_keep_prob']<1:
+                    if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='3dcnn_dp%d'%(i))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
                 if IsShowModel:
                     print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
@@ -224,9 +224,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv_post_%d'%(i), bn_decay=bn_decay)
-                if sgf_configs['Cnn_keep_prob']<1:
-                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['block_encoder'][cascade_id])-1:
-                        new_points = tf_util.dropout(new_points, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
+                if configs['Cnn_keep_prob']<1:
+                    if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['block_encoder'][cascade_id])-1:
+                        new_points = tf_util.dropout(new_points, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel:
                     print('block encoder %d, new_points:%s'%(i, shape_str([new_points])))
         # (2, 512, 1, 64)
@@ -238,16 +238,16 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
         # (2, 512, 64)
         return new_xyz, new_points, root_point_features
 
-def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, sgf_configs, sgf_config_pls, grouped_xyz):
+def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
     c500 = tf.constant([500],tf.float32)
     c1000 = tf.constant([1000],tf.float32)
     c1 = tf.constant([1,1,1],tf.float32)
-    step_last_org = sgf_configs['sub_block_step_candis'][cascade_id-1] * c1
+    step_last_org = configs['sub_block_step_candis'][cascade_id-1] * c1
     step_last = tf.minimum( step_last_org, sgf_config_pls['max_step_stride'], name='step_last' )    # gpu_0/sa_layer1/step_last:0
     step_last = tf.expand_dims(step_last,1)
-    stride_last_org = sgf_configs['sub_block_stride_candis'][cascade_id-1] * c1
+    stride_last_org = configs['sub_block_stride_candis'][cascade_id-1] * c1
     stride_last = tf.minimum( stride_last_org, sgf_config_pls['max_step_stride'], name='stride_last' )  # gpu_0/sa_layer1/stride_last:0
     stride_last = tf.expand_dims(stride_last,1)
 
@@ -294,7 +294,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     channel_num = new_points.shape[3].value
 
     if IsExtraGlobalLayer:
-        max_indice_f = ( -sgf_configs['global_step'] - np.array([1,1,1])*sgf_configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*sgf_configs['sub_block_stride_candis'][cascade_id-1])
+        max_indice_f = ( -configs['global_step'] - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
         assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert
         if IsCompensateGlobal:
@@ -326,7 +326,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
             tf.add_to_collection( 'check', check_max_indice )
 
     else:
-        max_indice_f = ( sgf_configs['sub_block_step_candis'][cascade_id] - sgf_configs['sub_block_step_candis'][cascade_id-1] ) / sgf_configs['sub_block_stride_candis'][cascade_id-1]
+        max_indice_f = ( configs['sub_block_step_candis'][cascade_id] - configs['sub_block_step_candis'][cascade_id-1] ) / configs['sub_block_stride_candis'][cascade_id-1]
         max_indice_v = np.rint( max_indice_f )
         assert abs(max_indice_f-max_indice_v) < Max_Assert
         voxel_size = max_indice_v.astype(np.int32)+1
@@ -384,11 +384,12 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     # ------------------------------------------------------------------
     new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
     voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )
-    voxel_points = rotate_voxel_randomly( voxel_points )
+    if configs['aug_types']['RotateVox']:
+        voxel_points = rotate_voxel_randomly( voxel_points, configs )
     return voxel_points
 
 
-def rotate_voxel_randomly( voxel_points ):
+def rotate_voxel_randomly( voxel_points, configs ):
     voxel_shape = np.array( voxel_points.shape[1:4].as_list() )
     grid = np.indices( voxel_shape )
     grid = np.transpose( grid,(1,2,3,0) )
@@ -406,11 +407,18 @@ def rotate_voxel_randomly( voxel_points ):
 
     #---------------------------------------------------------------------------
     if version == 'tf':
-        rz_angle = tf.random_uniform( shape=(), minval=-3, maxval=4, dtype=tf.int32 )
-        rz_angle = tf.cast(rz_angle,tf.float32) * tf.constant(np.pi * 0.5)
-        rz_angle = tf.identity( rz_angle, 'rz_angle' )
-        #rz_angle = np.pi*0.5
-        R = geo_util.tf_Rz( rz_angle )
+        #rz_angle = tf.random_uniform( shape=(), minval=-3, maxval=4, dtype=tf.int32 )
+        #rz_angle = tf.cast(rz_angle,tf.float32) * tf.constant(np.pi * 0.5)
+        RotateVoxXYZChoices = configs['aug_types']['RotateVoxXYZChoices']
+        axis = ['x','y','z']
+        rxyz = tf.Variable([0,0,0], dtype=tf.float32, trainable=False)
+        for i in range(3):
+            if len ( RotateVoxXYZChoices[i] )>0:
+                r_angle_i = tf.random_crop( RotateVoxXYZChoices[i], size=[1], name='r_angle_%d'%(i) )[0]
+                rxyz = tf.scatter_update( rxyz, i, r_angle_i )      # gpu_0/sa_layer1/rxyz
+        rxyz = tf.identity(rxyz,'rxyz')
+        R = geo_util.tf_EulerRotate( rxyz, order='xyz' )
+        #R = geo_util.tf_Rz( r_angle_i, axis[i] )
         R = tf.rint( R )
         R = tf.cast( R, tf.int32, name='R' )    # gpu_0/sa_layer1/R:0
         grid = tf.Variable( grid, dtype=tf.int32, name='grid', trainable=False )
@@ -424,13 +432,12 @@ def rotate_voxel_randomly( voxel_points ):
         grid_ro = tf.add( grid_r, offset, name='grid_ro')       # gpu_0/sa_layer1/grid_ro:0
 
     #---------------------------------------------------------------------------
-
-    voxel_points = tf.identity( voxel_points,'voxel_points_before_r' )                    # gpu_0/sa_layer1/voxel_points_before_r:0
+    #voxel_points = tf.identity( voxel_points,'voxel_points_before_r' )                    # gpu_0/sa_layer1/voxel_points_before_r:0
     voxel_points = tf.transpose( voxel_points, [1,2,3,4,0] )
     voxel_points = tf.gather_nd( voxel_points, grid_ro )
     voxel_points = tf.transpose( voxel_points, [4,0,1,2,3], name='voxel_points_rotated' ) # gpu_0/sa_layer1/voxel_points_rotated:0
 
-    tf.add_to_collection( 'check', voxel_points )
+    tf.add_to_collection('check', voxel_points)
     return voxel_points
 
 
@@ -463,7 +470,7 @@ def unique_nd( inputs, axis=-1, unit=3 ):
     return output, first_unique_masks
 
 
-def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, sgf_configs, bn=True):
+def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, configs, bn=True):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -567,9 +574,9 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv_encoder1_%d'%(i), bn_decay=bn_decay)
-                if sgf_configs['Cnn_keep_prob']<1:
-                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_e1)-1:
-                        new_points1 = tf_util.dropout(new_points1, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
+                if configs['Cnn_keep_prob']<1:
+                    if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_e1)-1:
+                        new_points1 = tf_util.dropout(new_points1, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
 
         mapped_points2 = tf.expand_dims(mapped_points2,1)
@@ -584,9 +591,9 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv%d'%(i), bn_decay=bn_decay)
-                if sgf_configs['Cnn_keep_prob']<1:
-                    if ( not sgf_configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_fp)-1:
-                        new_points1 = tf_util.dropout(new_points1, keep_prob=sgf_configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
+                if configs['Cnn_keep_prob']<1:
+                    if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlps_fp)-1:
+                        new_points1 = tf_util.dropout(new_points1, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='cnn_dp%d'%(i))
                 if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])))
         new_points1 = tf.squeeze(new_points1,[1]) # (2, 256, 256)
         if IsShowModel: print('new_points1:%s'%(shape_str([new_points1])));

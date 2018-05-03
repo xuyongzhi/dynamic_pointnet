@@ -478,7 +478,7 @@ class Net_Provider():
                 points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
                 points_indices_in_voxel_all.append( points_indices_in_voxe )
 
-    def get_global_batch(self, g_start_idx, g_end_idx, aug_type):
+    def get_global_batch(self, g_start_idx, g_end_idx, aug_types):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
@@ -523,12 +523,8 @@ class Net_Provider():
 
             # get xyz_mid
             xyz_i = data_i[..., new_feed_data_ele_idxs['xyz']]
-            if aug_type=='None':
-                pass
-            elif aug_type == 'RotateRef':
-                xyz_i = geo_util.point_rotation_randomly( xyz_i, np.array([15,15,360])*np.pi/180.0 )
-            else:
-                raise NotImplementedError
+            if aug_types['RotateRef']:
+                xyz_i = geo_util.point_rotation_randomly( xyz_i, aug_types['RotateRefXYZMax'] )
 
             xyz_min = xyz_i.min( axis=1 )
             xyz_max = xyz_i.max( axis=1 )
@@ -639,7 +635,7 @@ class Net_Provider():
         #print('center n rate= %f'%(np.sum(center_mask).astype(float)/xyz_midnorm.shape[0]/xyz_midnorm.shape[1]))
         return center_mask
 
-    def get_shuffled_global_batch(self,g_shuffled_idx_ls,aug_type ):
+    def get_shuffled_global_batch(self,g_shuffled_idx_ls,aug_types ):
         data_batches = []
         label_batches = []
         sample_weights = []
@@ -650,7 +646,7 @@ class Net_Provider():
         xyz_mid_ls = []
         globalb_bottom_center_xyzs_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i, globalb_bottom_center_xyzs_i = self.get_global_batch(idx,idx+1,aug_type=aug_type)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i, globalb_bottom_center_xyzs_i = self.get_global_batch(idx,idx+1,aug_types=aug_types)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
@@ -696,27 +692,27 @@ class Net_Provider():
             self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
             np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx=True,aug_type='None' ):
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types ):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_type)
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
         else:
-            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx,aug_type=aug_type)
+            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx,aug_types=aug_types)
 
-    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=False,aug_type='None'):
+    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx, aug_types):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks),"eval_start_batch_idx = %d,  eval_num_blocks=%d"%(eval_start_batch_idx,self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks),"eval_end_batch_idx = %d,  eval_num_blocks=%d"%(eval_end_batch_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_type)
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
         else:
             eval_start_batch_idx  += self.eval_global_start_idx
             eval_end_batch_idx  += self.eval_global_start_idx
-            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx,aug_type=aug_type)
+            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx,aug_types=aug_types)
 
 
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
