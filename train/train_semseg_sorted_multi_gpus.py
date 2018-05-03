@@ -45,7 +45,7 @@ parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
-parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
+parser.add_argument('--normxyz_allcas',default='none',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -65,7 +65,7 @@ parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiPr
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
-parser.add_argument('--norm', default='batch', help='batch or group')
+parser.add_argument('--norm', default='group', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
 
 FLAGS = parser.parse_args()
@@ -344,7 +344,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 0
+            start_gi = 1
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -465,7 +465,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             if ISNoEval: eval_log_str = ''
             else:
-                eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
+                if epoch % 10 ==0:
+                    eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
@@ -508,7 +509,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
-    log_complex = FLAGS.only_evaluate or (epoch % 20 ==0 and epoch>0) and (batch_idx%5 == 0 or batch_idx==num_batches-1)
+    log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%3 == 0 or batch_idx==num_batches-1)
     return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):

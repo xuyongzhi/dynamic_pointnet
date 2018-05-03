@@ -615,7 +615,8 @@ def group_norm_template(  inputs, is_training, bn_decay, scope, data_format='NHW
         grouped_shape = org_shape[0:dim_n-1] + [G, C//G]  # [N, H, W, G, C // G]
 
         inputs = tf.reshape(inputs, grouped_shape)
-        moments_dims = range(1, dim_n-1) + [dim_n]   # except batch_dim and group_dim
+        #moments_dims = range(1, dim_n-1) + [dim_n]   # except batch_dim and group_dim
+        moments_dims = range(0, dim_n-1) + [dim_n]   # except batch_dim and group_dim
             # [1, 2, 4] for NHWC
         mean, var = tf.nn.moments(inputs, moments_dims, keep_dims=True)
         outputs = (inputs - mean) / tf.sqrt(var + esp)

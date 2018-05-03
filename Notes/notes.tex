@@ -584,7 +584,7 @@ test data shape: [ 4172 12800     9] \par
 \subsection{Sparse voxel net}
 \begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{2cm}|p{1cm}|p{1.5cm}|p{5cm}| }
 	\hline
-	\multicolumn{7}{|p{12cm}|}{nh5: 90000\_gs-3d6\_-6d3/ \par bxmh5:  90000\_gs-3d6\_-6d3\_fmn1444-6400\_2400\_320\_32-32\_16\_32\_48-0d1\_0d3\_0d9\_2d7-0d1\_0d2\_0d6\_1d8-pd3-mbf-4A1 \par eval: test } \\
+	\multicolumn{7}{|p{14cm}|}{nh5: 90000\_gs-3d6\_-6d3/ \par bxmh5:  90000\_gs-3d6\_-6d3\_fmn1444-6400\_2400\_320\_32-32\_16\_32\_48-0d1\_0d3\_0d9\_2d7-0d1\_0d2\_0d6\_1d8-pd3-mbf-4A1 \par eval: test } \\
 	\hline
 	model & bs/bn& lr-decay & elements & norm in sub block & loss weight\par in drop & epoch-pacc-cacc train/eval \\
 	\hline
@@ -604,11 +604,14 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	5VaG\_114 & 36/40 &1-40 & xyz mid\par color & Mid & Num lw\par dp:NN5\par Y shuffle &40-0.833-0.655/0.628-0.329\par 100-0.916-0.772/0.682-0.339\par 178-0.941/0.686\\
 	\hline
+	5VaG\_114 & 7/240 &2-40 & xyz mid\par color & Mid \par Group Norm& Num lw\par dp:NN5\par Y shuffle &40-0.664/0.577\par 100-0.816-0.586\par 150-0.869-0.592\\
+	\hline
 	
-	\multicolumn{7}{|p{12cm}|}{ Conclusion:\par	
+	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	
 		Mid norm in sub block seems worse than no. \par 
 		The infuence of input drop seems not obvious. \par 
-		Dropout of cnn (0.5) makes the net really hard to train. Seems no good for overfitting. } \\
+		Dropout of cnn (0.5) makes the net really hard to train. Seems no good for overfitting.\par 
+		Group norm is poor.   } \\
 	\hline
 \end{tabular}	
 

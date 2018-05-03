@@ -3360,6 +3360,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         sum_global_point_num = 0
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
             datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
+            # delete unlabeled data
+            datas_k, labels_k = Sorted_H5f.delete_unlabeled_points( datas_k, labels_k, feed_label_elements, h5f.attrs['datasource_name'] )
+
             num_point_k = datas_k.shape[0]
             if num_point_k !=0:
                 global_block_datas.append( datas_k )
@@ -3381,6 +3384,25 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
+
+    @staticmethod
+    def delete_unlabeled_points( datas, labels, feed_label_elements, datasource_name ):
+        # delete unlabeld label_category
+        unlabeled_labels = Normed_H5f.g_unlabelled_categories[datasource_name]
+        if len(unlabeled_labels) == 0:
+            return datas, labels
+        for i,ele in enumerate(feed_label_elements):
+            if ele == 'label_category':
+                label_category_idx = i
+                break
+        unlabeld_mask = np.array( [False]*labels.shape[0] )
+        for unlabeled_label in unlabeled_labels:
+            unlabeld_mask +=  (labels[:,label_category_idx] == unlabeled_label)
+        del_choices = np.nonzero( unlabeld_mask )[0]
+        datas = np.delete( datas, del_choices, axis=0 )
+        labels = np.delete( labels, del_choices, axis=0 )
+        return datas, labels
+
 
     @staticmethod
     def fix_rootb_split_idxmap( rootb_split_idxmap ):
@@ -4097,19 +4119,25 @@ class Normed_H5f():
     # CONSTANTS
     # -----------------------------------------------------------------------------
     g_label2class_dic = {}
+    g_unlabelled_categories = {}
     g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
+    g_unlabelled_categories['MATTERPORT'] = [0,41]
     g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
                      3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
                      6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
+    g_unlabelled_categories['ETH'] = [0]
 
     g_label2class_dic['STANFORD_INDOOR3D'] = \
                     {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
                      8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
+    g_unlabelled_categories['STANFORD_INDOOR3D'] = [12]
 
     g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
                                 6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                                 12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                                 17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
+    g_unlabelled_categories['SCANNET'] = [0]
+
     g_label2color_dic = {}
     g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
     g_label2color_dic['ETH'] = \
@@ -4125,6 +4153,7 @@ class Normed_H5f():
                      17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
     g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
+    g_unlabelled_categories['KITTI'] = []
     g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
 
     #g_easy_view_labels = [7,8,9,10,11,1]
@@ -4164,7 +4193,7 @@ class Normed_H5f():
         for i in self.g_label2class:
             cls = self.g_label2class[i]
             self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class)
+        self.num_classes = len(self.g_label2class) - len(self.g_unlabelled_categories[self.datasource_name])
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
