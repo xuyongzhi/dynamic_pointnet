@@ -66,7 +66,7 @@ parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
-parser.add_argument('--aug',type=int,default=2, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm

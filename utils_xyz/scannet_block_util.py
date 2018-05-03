@@ -143,8 +143,8 @@ def WriteRawH5f( scene_name, rawh5f_dir ):
         raw_h5f.rh5_create_done()
     return scene_name
 
-def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
-    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished):
+    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,rxyz_before_sort, IsShowInfoFinished)
     return rawh5_file_ls
 
 def GenPyramidSortedFlie( fn ):
@@ -296,20 +296,24 @@ class Scannet_Prepare():
                     raw_h5f.create_done()
 
 
-    def SortRaw(self,block_step_xyz,MultiProcess=0):
+    def SortRaw(self, block_step_xyz, MultiProcess=0 , rxyz_before_sort=None ):
         t0 = time.time()
         rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
         sorted_path = self.BasicDataDir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
+        if type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
+            rdgr = rxyz_before_sort * 180/np.pi
+            rxyz_before_sort_str = '-R_%d_%d_%d'%( rdgr[0], rdgr[1], rdgr[2] )
+            sorted_path += rxyz_before_sort_str
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
         if not IsMultiProcess:
-            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished)
         else:
             pool = mp.Pool(MultiProcess)
             for rawh5f_fn in rawh5_file_ls:
-                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path,IsShowInfoFinished))
+                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished))
             pool.close()
             pool.join()
 
@@ -462,8 +466,8 @@ def main( ):
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
+        scanet_prep.SortRaw( base_step_stride, MultiProcess, rxyz_before_sort=np.array([0,0,45])*np.pi/180 )
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
         #scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 

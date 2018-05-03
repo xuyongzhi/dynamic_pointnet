@@ -26,7 +26,9 @@ from __future__ import print_function
 import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
+sys.path.append(os.path.join(ROOT_DIR,'utils'))
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import math
 import numpy as np
@@ -36,6 +38,7 @@ import time
 import multiprocessing as mp
 import itertools
 import ply_util
+import geometric_util as geo_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
@@ -3829,16 +3832,16 @@ class Sort_RawH5f():
     sampled: .rsh5  (fix number in each block)
     block_step_xyz=[0.5,0.5,0.5]
     '''
-    def __init__(self,raw_file_list,block_step_xyz,out_folder,IsShowInfoFinished=False):
+    def __init__(self, raw_file_list, block_step_xyz, out_folder, rxyz_before_sort, IsShowInfoFinished=False):
         self.IsShowInfoFinished = IsShowInfoFinished
         self.out_folder = out_folder
-        self.Do_sort_to_blocks(raw_file_list,block_step_xyz)
+        self.Do_sort_to_blocks(raw_file_list,block_step_xyz,rxyz_before_sort)
 
-    def Do_sort_to_blocks(self,raw_file_list,block_step_xyz):
+    def Do_sort_to_blocks(self,raw_file_list, block_step_xyz, rxyz_before_sort):
         IsMulti = False
         if not IsMulti:
             for fn in raw_file_list:
-                self.sort_to_blocks(fn,block_step_xyz)
+                self.sort_to_blocks(fn, block_step_xyz, rxyz_before_sort )
                 #sort_to_blocks_onef(self,fn,block_step_xyz)
         else:
             #pool = mp.Pool( max(mp.cpu_count()/2,1) )
@@ -3851,7 +3854,7 @@ class Sort_RawH5f():
             pool.join()
 
 
-    def sort_to_blocks(self,file_name,block_step_xyz):
+    def sort_to_blocks(self,file_name, block_step_xyz, rxyz_before_sort):
         '''
         split th ewhole scene to space sorted small blocks
         The whole scene is a group. Each block is one dataset in the group.
@@ -3894,9 +3897,16 @@ class Sort_RawH5f():
                 for k in range(0,raw_row_N,row_step):
                     end = min(k+row_step,raw_row_N)
                     _,data_name_list = self.raw_h5f.get_total_num_channels_name_list()
-                    raw_buf = np.zeros((end-k,self.s_h5f.total_num_channels))
+                    raw_buf = np.zeros((end-k, self.s_h5f.total_num_channels))
                     for dn in data_name_list:
-                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = self.raw_h5f.h5f[dn][k:end,:]
+                        tmp = self.raw_h5f.h5f[dn][k:end,:]
+                        if dn == 'xyz' and type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
+                            # Data augmentation: rotation
+                            R = geo_util.EulerRotate( rxyz_before_sort, 'xyz' )
+                            tmp = np.matmul(tmp,R)
+
+                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = tmp
+
                     if self.s_h5f.IS_CHECK:
                         if end < 16777215: # this is the largest int float32 can acurately present
                             org_row_index = np.arange(k,end)

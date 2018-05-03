@@ -7,6 +7,7 @@ sys.path.append(BASE_DIR)
 sys.path.append(BASE_DIR+'/../utils')
 from block_data_prep_util import GlobalSubBaseBLOCK
 import geometric_util as geo_util
+import geometric_tf_util as geo_tf_util
 import tf_util
 import numpy as np
 
@@ -417,8 +418,7 @@ def rotate_voxel_randomly( voxel_points, configs ):
                 r_angle_i = tf.random_crop( RotateVoxXYZChoices[i], size=[1], name='r_angle_%d'%(i) )[0]
                 rxyz = tf.scatter_update( rxyz, i, r_angle_i )      # gpu_0/sa_layer1/rxyz
         rxyz = tf.identity(rxyz,'rxyz')
-        R = geo_util.tf_EulerRotate( rxyz, order='xyz' )
-        #R = geo_util.tf_Rz( r_angle_i, axis[i] )
+        R = geo_tf_util.tf_EulerRotate( rxyz, order='xyz' )
         R = tf.rint( R )
         R = tf.cast( R, tf.int32, name='R' )    # gpu_0/sa_layer1/R:0
         grid = tf.Variable( grid, dtype=tf.int32, name='grid', trainable=False )
