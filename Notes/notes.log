@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  2 MAY 2018 14:50
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  3 MAY 2018 16:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1372,23 +1372,28 @@ Underfull \hbox (badness 10000) in paragraph at lines 589--589
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 589--589
+[]\OT1/cmr/m/n/10 norm
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 589--589
 []\OT1/cmr/m/n/10 loss
  []
 
 
-Overfull \hbox (111.11214pt too wide) in paragraph at lines 585--604
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 585--614
 [] 
  []
 
 [20] [21]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 605.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 605.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 615.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 615.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 605.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 605.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 615.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 615.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: D6C0406C267D780FF166BAA1D2784F47;1762.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 605.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 615.
  ) 
 Here is how much of TeX's memory you used:
  17703 strings out of 494931
@@ -1409,7 +1414,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb>
-Output written on notes.pdf (22 pages, 2489627 bytes).
+Output written on notes.pdf (22 pages, 2490205 bytes).
 PDF statistics:
  318 PDF objects out of 1000 (max. 8388607)
  252 compressed objects within 3 object streams
