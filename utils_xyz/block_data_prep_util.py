@@ -1519,7 +1519,7 @@ class GlobalSubBaseBLOCK():
             h5f.flush()
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
-                bmh5_meta_f.write('Key notes:\n\tReduce lost: increse block_stride of next cascade, increase padding.\n\n')
+                bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
                 for ele in h5f.attrs:
                     bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
                 bmh5_meta_f.write('\n\n')
@@ -2626,9 +2626,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_min[i] = max( aim_bixyz_min[i], 0 )
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
-        # forcely reduce base block lost
+        # Forcely reduce base block lost by expanding padding on the global edge
         max_force_rate = 0.3
-        IsNoAim =  np.sum( aim_bixyz_max-aim_bixyz_min ) < 0
+        IsNoAim =  np.min( aim_bixyz_max-aim_bixyz_min ) < 0
         IsForceMoved = False
         if large_step_flag=='aim' and IsNoAim:
             for i in range(3):
@@ -2662,6 +2662,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bixyz_ls.append( aim_bixyz )
                     aim_bid_ls.append( aim_bid )
 
+        if len(aim_bid_ls) ==0:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
         #check scope
         if IsCheck_Scope and len(aim_bid_ls)>0 and not IsForceMoved:
             ixyz_check = True
