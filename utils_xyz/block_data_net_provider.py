@@ -20,10 +20,10 @@ import geometric_util as geo_util
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'ScannetH5F')
-DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
+DATASET_DIR['SCANNET'] = os.path.join(DATA_DIR,'ScannetH5F')
+DATASET_DIR['STANFORD_INDOOR3D'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
-DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
+DATASET_DIR['MATTERPORT'] = matterport3D_h5f_dir
 
 DEBUGTMP = True
 ERRTMP = True
@@ -746,6 +746,9 @@ class Net_Provider():
             test_label_hist = np.zeros(self.num_classes).astype(np.int64)
             for k,norme_h5f in enumerate(self.norm_h5f_L):
                 label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
+                # delete unlabeled label hist
+                if label_hist_k.size != self.num_classes:
+                    label_hist_k = np.delete( label_hist_k, Normed_H5f.g_unlabelled_categories[self.dataset_name] )
                 label_hist += label_hist_k.astype(np.int64)
                 if k < self.train_file_N:
                     train_label_hist += label_hist_k.astype(np.int64)

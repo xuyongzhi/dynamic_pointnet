@@ -4193,7 +4193,8 @@ class Normed_H5f():
         for i in self.g_label2class:
             cls = self.g_label2class[i]
             self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class) - len(self.g_unlabelled_categories[self.datasource_name])
+        self.num_classes = len(self.g_label2class)
+        #self.num_classes = len(self.g_label2class) - len(self.g_unlabelled_categories[self.datasource_name])
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:

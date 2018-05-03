@@ -175,10 +175,10 @@ def aug_id_to_type( aug_id ):
                             np.array([], dtype=np.float32 ) * np.pi * 0.5,
                             np.array([], dtype=np.float32 ) * np.pi * 0.5,
                             np.array([-2,0,2], dtype=np.float32 ) * np.pi * 0.5 ]
-    #aug_types['RotateVoxXYZChoices'] = [
-    #                        np.array([], dtype=np.float32 ) * np.pi * 0.5,
-    #                        np.array([], dtype=np.float32 ) * np.pi * 0.5,
-    #                        np.array([-3,-2,-1,0,1,2,3], dtype=np.float32 ) * np.pi * 0.5 ]
+    aug_types['RotateVoxXYZChoices'] = [
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([-3,-2,-1,0,1,2,3], dtype=np.float32 ) * np.pi * 0.5 ]
     if aug_id == 0:
         pass
     elif aug_id == 1:

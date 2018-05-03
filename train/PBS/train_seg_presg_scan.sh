@@ -6,7 +6,7 @@
 #***********
 
 train_script=../train_semseg_sorted_multi_gpus.py
-dataset_name=scannet
+dataset_name=SCANNET
 maxepoch=501
 learning_rate=0.002
 decay_epoch_step=40

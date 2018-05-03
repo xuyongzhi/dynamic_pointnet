@@ -21,13 +21,10 @@ feed_data_elements='xyz_midnorm_block-color_1norm'
 num_gpus=3
 loss_weight='N'
 ShuffleFlag='Y'
-
 bs=39
-in_cnn_out_kp='5N5'
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag  -> out_5N5.log
+in_cnn_out_kp='NN5'
+aug=1
 
-bs=30
-in_cnn_out_kp='587'
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag  -> out_587.log
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug  -> out_NN5.log
 
 
