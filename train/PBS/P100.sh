@@ -18,10 +18,10 @@ module load  tensorflow/1.6-cudnn7.1-python2.7
 module list
  
 feed_data_elements='xyz_midnorm_block-color_1norm' 
-num_gpus=3
+num_gpus=2
 loss_weight='N'
 ShuffleFlag='Y'
-bs=39
+bs=26
 in_cnn_out_kp='NN5'
 aug=1
 

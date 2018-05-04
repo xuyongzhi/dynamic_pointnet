@@ -35,7 +35,7 @@ DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='5VaG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
-parser.add_argument('--dataset_name', default='scannet', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI')
+parser.add_argument('--dataset_name', default='SCANNET', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
@@ -86,6 +86,7 @@ try:
 except:
     pass
 ISNoEval = FLAGS.eval_fnglob_or_rate == 0
+EVAL_EPOCH_STEP = 2
 #-------------------------------------------------------------------------------
 BATCH_SIZE = FLAGS.batch_size
 NUM_GPUS = FLAGS.num_gpus
@@ -184,6 +185,7 @@ LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 BN_INIT_DECAY = 0.5
+BN_INIT_DECAY = 0.1
 BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
@@ -344,7 +346,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 1
+            start_gi = 0
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -428,6 +430,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['globalb_bottom_center_xyz'] = sgf_config_pls['globalb_bottom_center_xyz']
+        ops['bn_decay'] = bn_decay
         ops['check_ops'] = tf.get_collection( 'check' )
 
         if 'l_xyz' in debugs[0]:
@@ -465,7 +468,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             if ISNoEval: eval_log_str = ''
             else:
-                if epoch % 10 ==0:
+                if epoch % EVAL_EPOCH_STEP == 0:
                     eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
 
             # Save the variables to disk.
@@ -582,10 +585,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
 
-        summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage  = sess.run( [ops['merged'], ops['step'], ops['train_op'],\
-                                    ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']], feed_dict=feed_dict )
+        summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage, bn_decay  = \
+            sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],\
+                       ops['max_memory_usage'], ops['bn_decay']], feed_dict=feed_dict )
         t2 = time.time()
 
+        print('bn_decay:', bn_decay)
         #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
 
         loss_sum += loss_val
@@ -766,7 +771,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
             bufread_t0 = time.time()
             while eval_feed_buf_q.qsize() == 0:
                 if time.time() - bufread_t0 > 2:
-                    print('\nWARING!!! no data in eval_feed_buf_q for long time\n')
+                    print('\nWARING!!! no data in eval_feed_buf_q for long time')
+                    print('feed_finish_epoch=%d, read_OK_epoch=%d, cur_epoch=%d'%( eval_multi_feed_flags['feed_finish_epoch'].value, eval_multi_feed_flags['read_OK_epoch'].value, epoch ))
                     bufread_t0 = time.time()
                 time.sleep(0.2)
             #print('eval_feed_buf_q size= %d'%(eval_feed_buf_q.qsize()))
@@ -839,11 +845,17 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+            if train_or_test == 'test' and epoch > 0:
+                if epoch % EVAL_EPOCH_STEP!=0:
+                    continue
+                last_epoch = epoch-EVAL_EPOCH_STEP
+            else:
+                last_epoch = epoch-1
             while True:
-                if multi_feed_flags['read_OK_epoch'].value == epoch-1:
+                if multi_feed_flags['read_OK_epoch'].value == last_epoch:
                     break
                 if DEBUG_MULTIFEED: print('%s, cpuid=%d, epoch=%d, read_OK_epoch=%d, waiting for computation and reading in other threads finished'%(train_or_test, cpu_id,epoch, multi_feed_flags['read_OK_epoch'].value))
-                time.sleep(3)
+                time.sleep(0.3)
             IsShuffleIdx = get_shuffle_flag(epoch)
             #IsShuffleIdx = False
             if cpu_id==0:
