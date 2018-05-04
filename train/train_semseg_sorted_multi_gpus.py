@@ -128,6 +128,12 @@ DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
+BN_INIT_DECAY = 0.5
+BN_INIT_DECAY = 0.3
+BN_DECAY_DECAY_RATE = 0.7
+BN_DECAY_DECAY_STEP = float(DECAY_STEP)
+BN_DECAY_CLIP = 0.99
+# ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
     log_eval_fn_glob = ''
@@ -162,10 +168,11 @@ else:
                 aug_str += 'Vox'
         else:
             aug_str = ''
+        bn_decay_str = '-bd'+str(int(10*BN_INIT_DECAY))
         FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
                         FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str +\
-                        aug_str
+                        aug_str+bn_decay_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
@@ -184,14 +191,7 @@ LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
-BN_INIT_DECAY = 0.5
-BN_INIT_DECAY = 0.1
-BN_DECAY_DECAY_RATE = 0.7
-BN_DECAY_DECAY_STEP = float(DECAY_STEP)
-BN_DECAY_CLIP = 0.99
-
-HOSTNAME = socket.gethostname()
-
+#HOSTNAME = socket.gethostname()
 # ------------------------------------------------------------------------------
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
@@ -212,6 +212,7 @@ log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size, num: %d, %d'%(BATCH_SIZE, net_provider.train_num_blocks) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
+log_string( 'bn_decay initial: %f, decay rate:%f'%(BN_INIT_DECAY,BN_DECAY_DECAY_RATE) )
 log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
 log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
 log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
@@ -234,7 +235,7 @@ def get_learning_rate(global_step):
 
 def get_bn_decay(global_step):
     bn_momentum = tf.train.exponential_decay(
-                      BN_INIT_DECAY,
+                      1-BN_INIT_DECAY,
                       global_step * BATCH_SIZE,
                       BN_DECAY_DECAY_STEP,
                       BN_DECAY_DECAY_RATE,
@@ -346,7 +347,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 0
+            start_gi = 1
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -590,7 +591,6 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                        ops['max_memory_usage'], ops['bn_decay']], feed_dict=feed_dict )
         t2 = time.time()
 
-        print('bn_decay:', bn_decay)
         #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
 
         loss_sum += loss_val
