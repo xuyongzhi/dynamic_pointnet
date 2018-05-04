@@ -148,6 +148,10 @@ def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_befor
     return rawh5_file_ls
 
 def GenPyramidSortedFlie( fn ):
+    data_aug_configs = {}
+    data_aug_configs['only_less_points_categories'] = 3
+
+
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_plh5 = False
@@ -163,7 +167,8 @@ def GenPyramidSortedFlie( fn ):
                             Always_CreateNew_plh5 = Always_CreateNew_plh5,
                             Always_CreateNew_bmh5 = Always_CreateNew_bmh5,
                             Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
-                            IsGenPly=False )
+                            IsGenPly=False,
+                            data_aug_configs = data_aug_configs )
     return fn
 
 def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
@@ -461,7 +466,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 7
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )

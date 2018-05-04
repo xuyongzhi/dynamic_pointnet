@@ -41,7 +41,9 @@ import ply_util
 import geometric_util as geo_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
+from get_mpcat40 import get_cat40_from_rawcat
+sys.path.append(BASE_DIR+'/all_datasets_meta')
+from datasets_meta import DatasetsMeta
 import csv,pickle
 from configs import get_gsbb_config, NETCONFIG
 import magic
@@ -2263,8 +2265,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             self.label_ele_idxs = Sorted_H5f.get_label_ele_ids_sh5(label_set_elements)
 
         if 'datasource_name' in self.h5f.attrs:
-            self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
-            self.num_classes = self.DatasetMeta.num_classes
+            self.DatasetsMeta = DatasetsMeta(self.h5f.attrs['datasource_name'])
+            self.num_classes = self.DatasetsMeta.num_classes
 
     @staticmethod
     def get_label_ele_ids_sh5(label_eles):
@@ -3329,7 +3331,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return datas, labels
 
-    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point, max_rootb_num ):
+    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point, max_rootb_num, data_aug_configs ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -3357,8 +3359,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         sum_global_point_num = 0
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
             datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
-            # delete unlabeled data
-            datas_k, labels_k = Sorted_H5f.delete_unlabeled_points( datas_k, labels_k, feed_label_elements, h5f.attrs['datasource_name'] )
 
             num_point_k = datas_k.shape[0]
             if num_point_k !=0:
@@ -3375,8 +3375,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
+        # delete unlabeled data
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        global_block_datas, global_block_labels = Sorted_H5f.delete_unlabeled_points( global_block_datas, global_block_labels, feed_label_elements, h5f.attrs['datasource_name'] )
+
         global_sample_rate = 1.0 * global_num_point /  global_block_datas.shape[0]
-        global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
+        global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( \
+            global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point, data_aug_configs )
         # fix root b num
         rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
@@ -3396,9 +3401,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for unlabeled_label in unlabeled_labels:
             unlabeld_mask +=  (labels[:,label_category_idx] == unlabeled_label)
         del_choices = np.nonzero( unlabeld_mask )[0]
-        datas = np.delete( datas, del_choices, axis=0 )
-        labels = np.delete( labels, del_choices, axis=0 )
-        return datas, labels
+        datas_ = np.delete( datas, del_choices, axis=0 )
+        labels_ = np.delete( labels, del_choices, axis=0 )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        return datas_, labels_
 
 
     @staticmethod
@@ -3409,7 +3415,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return rootb_split_idxmap_fixed
 
     @staticmethod
-    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num ):
+    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num, data_aug_configs ):
         org_num = bsplit_idxmap[-1,1]
         assert org_num == data.shape[0]
         sampling_meta = {}
@@ -3423,6 +3429,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             bsplit_idxmap = np.concatenate( [bsplit_idxmap, bsplit_idxmap_add], 0 )
             sampling_meta['missed_rootb_num'] = 0
         else:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             del_choice = np.sort( random_choice(  np.arange(org_num), org_num - sample_num, keeporder=True ) )
             data = np.delete( data, del_choice, axis=0 )
             label = np.delete( label, del_choice, axis=0 )
@@ -3505,13 +3512,21 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             IsIntact = h5f.attrs['is_intact_sgfh5'] == 1
             return IsIntact,"is_intact_sgfh5=1"
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False):
+    @staticmethod
+    def aug_flag_str(data_aug_configs):
+        aug_str = ''
+        if 'only_less_points_categories' in data_aug_configs and data_aug_configs['only_less_points_categories'] > 0:
+            aug_str += '-olpc'+str(data_aug_configs['only_less_points_categories'])
+        return aug_str
+
+    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False, data_aug_configs={}):
         '''
         save by global block
         '''
         t0 = time.time()
         datasource_name = self.h5f.attrs['datasource_name']
         gsbb_write = GlobalSubBaseBLOCK( root_s_h5f = self.h5f, root_s_h5f_fn = self.file_name )
+        aug_str = Sorted_H5f.aug_flag_str( data_aug_configs )
 
         if datasource_name == 'MATTERPORT':
             region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3519,14 +3534,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + '/' + house_name
-            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + '/' + house_name
+            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str + '/' + house_name
+            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + aug_str + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
+
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  ) + aug_str
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3563,7 +3579,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             else:
                 if not SHOW_ONLY_ERR: print('pyh5 intact: %s'%(pl_sph5_filename))
         else:
-            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished)
+            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
 
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
@@ -3589,7 +3605,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb_write.gen_bmap_ply( pl_sph5_filename )
             gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
-    def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
+    def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
         global_num_point = gsbb_write.global_num_point
         assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
         print('start gen sph5 file: ',pl_sph5_filename)
@@ -3616,7 +3632,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             num_point_abandoned = 0
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
-                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
+                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
                 if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
                     num_global_block_abandoned += 1
@@ -4017,50 +4033,6 @@ class Sort_RawH5f():
             block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])[0]
 
 
-class DatasetMeta():
-    g_label2class_dic = {}
-    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
-    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
-                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
-                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
-
-    g_label2class_dic['STANFORD_INDOOR3D'] = \
-                    {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
-                     8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
-
-    g_label2class_dic['SCANNET'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
-                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
-                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
-                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-    g_label2color_dic = {}
-    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
-    g_label2color_dic['ETH'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
-    g_label2color_dic['STANFORD_INDOOR3D'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
-    g_label2color_dic['SCANNET'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
-                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
-                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
-
-    def __init__(self,datasource_name):
-        self.datasource_name = datasource_name
-        self.g_label2class = self.g_label2class_dic[self.datasource_name]
-        self.g_label2color = self.g_label2color_dic[self.datasource_name]
-        self.g_class2label = {cls:label for label,cls in self.g_label2class.iteritems()}
-        self.g_class2color = {}
-        for i in self.g_label2class:
-            cls = self.g_label2class[i]
-            self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class)
-
-
 class Normed_H5f():
     '''
     format: .nhf5
@@ -4112,47 +4084,6 @@ class Normed_H5f():
     # -----------------------------------------------------------------------------
     # CONSTANTS
     # -----------------------------------------------------------------------------
-    g_label2class_dic = {}
-    g_unlabelled_categories = {}
-    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
-    g_unlabelled_categories['MATTERPORT'] = [0,41]
-    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
-                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
-                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
-    g_unlabelled_categories['ETH'] = [0]
-
-    g_label2class_dic['STANFORD_INDOOR3D'] = \
-                    {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
-                     8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
-    g_unlabelled_categories['STANFORD_INDOOR3D'] = [12]
-
-    g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
-                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
-                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
-                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-    g_unlabelled_categories['SCANNET'] = [0]
-
-    g_label2color_dic = {}
-    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
-    g_label2color_dic['ETH'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
-    g_label2color_dic['STANFORD_INDOOR3D'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
-    g_label2color_dic['SCANNET'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
-                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
-                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
-    g_unlabelled_categories['KITTI'] = []
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
-
-    #g_easy_view_labels = [7,8,9,10,11,1]
-    #g_is_labeled = True
-
     ## normed data channels
     normed_data_elements_candi = {}
     #normed_data_elements_candi['xyz'] = ['xyz','xyz_midnorm_block','xyz_1norm_file']
@@ -4180,15 +4111,12 @@ class Normed_H5f():
             self.h5f.attrs['datasource_name'] = datasource_name
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
         self.datasource_name = self.h5f.attrs['datasource_name']
-        self.g_label2class = self.g_label2class_dic[self.datasource_name]
-        self.g_label2color = self.g_label2color_dic[self.datasource_name]
-        self.g_class2label = {cls:label for label,cls in self.g_label2class.iteritems()}
-        self.g_class2color = {}
-        for i in self.g_label2class:
-            cls = self.g_label2class[i]
-            self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class)
-        #self.num_classes = len(self.g_label2class) - len(self.g_unlabelled_categories[self.datasource_name])
+        self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
+        self.g_label2class = dataset_meta.g_label2class
+        self.g_label2color = dataset_meta.g_label2color
+        self.g_class2label = dataset_meta.g_class2label
+        self.g_class2color = dataset_meta.g_class2color
+        self.num_classes = dataset_meta.num_classes
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
