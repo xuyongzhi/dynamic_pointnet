@@ -90,7 +90,9 @@ def isin_sorted( a,v ):
     return r
 
 def get_stride_step_name(block_stride,block_step):
-    assert block_step[0] == block_step[1]
+    if not block_step[0] == block_step[1]:
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
     assert block_stride[0] == block_stride[1]
     #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
@@ -1651,10 +1653,10 @@ class GlobalSubBaseBLOCK():
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
 
-                if j>0 and j % int(all_base_bids.size/5) == 0:
-                    rate = 100.0*j/all_base_bids.size
-                    print('%f%%  new stride step: %s      base stride step: %s'%(rate,
-                        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+                #if j>0 and j % int(all_base_bids.size/5) == 0:
+                #    rate = 100.0*j/all_base_bids.size
+                #    print('%f%%  new stride step: %s      base stride step: %s'%(rate,
+                #        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
             # sort basebids_in_largeraimbid_dic_2
             if IsSortRes:
@@ -3357,15 +3359,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = []
         rootb_split_idxmap = []
         sum_global_point_num = 0
+        del_num = 0
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
             datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
+            # delete some categories: unlabeld, easy
+            datas_k, labels_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, labels_k, feed_label_elements, h5f.attrs['datasource_name'], data_aug_configs )
 
+            del_num += del_n
             num_point_k = datas_k.shape[0]
             if num_point_k !=0:
                 global_block_datas.append( datas_k )
                 global_block_labels.append( labels_k )
                 sum_global_point_num += num_point_k
                 rootb_split_idxmap.append( np.expand_dims( np.array([root_bid, sum_global_point_num]),0 ) )
+
 
         if len( global_block_datas )==0:
             # all void points
@@ -3375,36 +3382,46 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
-        # delete unlabeled data
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        global_block_datas, global_block_labels = Sorted_H5f.delete_unlabeled_points( global_block_datas, global_block_labels, feed_label_elements, h5f.attrs['datasource_name'] )
+        #print('new_n:%d, del_n:%d, del_rate:%3f'%( global_block_datas.shape[0],del_num,1.0*del_num/(del_num+global_block_datas.shape[0]) ))
 
         global_sample_rate = 1.0 * global_num_point /  global_block_datas.shape[0]
         global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( \
-            global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point, data_aug_configs )
+            global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
         # fix root b num
         rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
 
     @staticmethod
-    def delete_unlabeled_points( datas, labels, feed_label_elements, datasource_name ):
-        # delete unlabeld label_category
-        unlabeled_labels = Normed_H5f.g_unlabelled_categories[datasource_name]
-        if len(unlabeled_labels) == 0:
+    def delete_some_categories( datas, labels, feed_label_elements, datasource_name, data_aug_configs ):
+        # (1) Always: delete unlabeld label_category
+        # (2) aug data: delete easy categories
+        unlabeled_labels = DatasetsMeta.g_unlabelled_categories[datasource_name]
+        del_labels = unlabeled_labels
+        if 'delete_easy_categories_num' in data_aug_configs:
+            g_easy_categories = DatasetsMeta.g_easy_categories_dic[datasource_name]
+            delete_num = min( data_aug_configs['delete_easy_categories_num'], len(g_easy_categories) )
+            g_easy_categories = g_easy_categories[0:delete_num]
+            del_labels = unlabeled_labels + g_easy_categories
+
+        if len(del_labels) == 0:
             return datas, labels
         for i,ele in enumerate(feed_label_elements):
             if ele == 'label_category':
                 label_category_idx = i
                 break
         unlabeld_mask = np.array( [False]*labels.shape[0] )
-        for unlabeled_label in unlabeled_labels:
+        for unlabeled_label in del_labels:
             unlabeld_mask +=  (labels[:,label_category_idx] == unlabeled_label)
         del_choices = np.nonzero( unlabeld_mask )[0]
         datas_ = np.delete( datas, del_choices, axis=0 )
         labels_ = np.delete( labels, del_choices, axis=0 )
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        return datas_, labels_
+        org_n = datas.shape[0]
+        new_n = datas_.shape[0]
+        del_n = org_n - new_n
+        #del_rate = 1.0*del_n/org_n
+        #print('del_rate:%3f   %d -> %d'%(del_rate, org_n, new_n))
+        return datas_, labels_, del_n
 
 
     @staticmethod
@@ -3415,7 +3432,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return rootb_split_idxmap_fixed
 
     @staticmethod
-    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num, data_aug_configs ):
+    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num ):
         org_num = bsplit_idxmap[-1,1]
         assert org_num == data.shape[0]
         sampling_meta = {}
@@ -3429,7 +3446,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             bsplit_idxmap = np.concatenate( [bsplit_idxmap, bsplit_idxmap_add], 0 )
             sampling_meta['missed_rootb_num'] = 0
         else:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             del_choice = np.sort( random_choice(  np.arange(org_num), org_num - sample_num, keeporder=True ) )
             data = np.delete( data, del_choice, axis=0 )
             label = np.delete( label, del_choice, axis=0 )
@@ -3515,8 +3531,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def aug_flag_str(data_aug_configs):
         aug_str = ''
-        if 'only_less_points_categories' in data_aug_configs and data_aug_configs['only_less_points_categories'] > 0:
-            aug_str += '-olpc'+str(data_aug_configs['only_less_points_categories'])
+        if 'delete_easy_categories_num' in data_aug_configs:
+            del_num = data_aug_configs['delete_easy_categories_num']
+            aug_str += '-dec'+str(data_aug_configs['delete_easy_categories_num'])
         return aug_str
 
     def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False, data_aug_configs={}):

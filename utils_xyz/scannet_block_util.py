@@ -149,7 +149,7 @@ def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_befor
 
 def GenPyramidSortedFlie( fn ):
     data_aug_configs = {}
-    data_aug_configs['only_less_points_categories'] = 3
+    data_aug_configs['delete_easy_categories_num'] = 5
 
 
     with h5py.File(fn,'r') as f:
@@ -338,7 +338,7 @@ class Scannet_Prepare():
         file_list.sort()
         if TMPDEBUG:
             choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
-            choice = range(0,80,10)[2:8]
+            choice = range(0,800,10)[0:8]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -458,7 +458,8 @@ def GenObj_sh5():
 
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
-    fn_ls = glob.glob( path+'/scene00*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
+    fn_ls = glob.glob( path+'/scene*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -466,7 +467,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 8
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )

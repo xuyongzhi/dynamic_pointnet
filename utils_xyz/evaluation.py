@@ -16,7 +16,7 @@ def nan_to_num( arr ):
 
 class EvaluationMetrics():
     @staticmethod
-    def get_class_accuracy(c_TP_FN_FP, numpoint_block, class_ls=None, IsIncludeAveClass=True, dataset_name='matterport3d'):
+    def get_class_accuracy(c_TP_FN_FP, numpoint_block, dataset_name, class_ls=None, IsIncludeAveClass=True):
         '''
             c_TP_FN_FP: [num_batch, batch_size,num_class,3]
         '''
@@ -79,7 +79,7 @@ class EvaluationMetrics():
         class_acc_str += 'class_IOU: '+getstr(class_IOU)+'\n'
         class_acc_str += 'number(K): '+getstr(np.trunc(np.sum(np.sum(real_Pos,0),0)/1000.0),str_format='%d,') + '\n'
         #class_acc_str += 'class  id: '+getstr(np.arange(precision.shape[1]),str_format='%d,') + '\n'
-        if dataset_name == 'matterport3d':
+        if dataset_name == 'MATTERPORT':
             label2class = MatterportMeta['label2class']
             class_name_ls = [label2class[label][0:5] for label in np.arange(precision.shape[-1])]
         class_acc_str += 'classname: '+getstr( class_name_ls ,str_format='%s,')
@@ -101,7 +101,7 @@ class EvaluationMetrics():
 
     @staticmethod
     def report_pred( file_name, pred_val, label_category, dataset_name):
-        if dataset_name == 'matterport3d':
+        if dataset_name == 'MATTERPORT':
             label2class = MatterportMeta['label2class']
         pred_logit = np.argmax( pred_val,-1 )
         is_correct = label_category == pred_logit
