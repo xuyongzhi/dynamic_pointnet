@@ -70,7 +70,7 @@ Search with "name:" to find the definition.
 
 SHOW_ONLY_ERR = False
 DEBUGTMP = True
-ENABLECHECK = True
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -2662,9 +2662,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     aim_bixyz_ls.append( aim_bixyz )
                     aim_bid_ls.append( aim_bid )
 
-        if len(aim_bid_ls) ==0:
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-            pass
         #check scope
         if IsCheck_Scope and len(aim_bid_ls)>0 and not IsForceMoved:
             ixyz_check = True
@@ -3739,9 +3736,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
                 globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
                 globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
-                if DEBUGTMP:
-                    debug_meta['gb_bottom'] = gb_bottom
-                    debug_meta['gb_center'] = gb_center
 
                 debug_meta['global_bidx'] = global_bidx
                 if GlobalSubBaseBLOCK.IsCheck_gsbb['gen_ply_gsbb']:

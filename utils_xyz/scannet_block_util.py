@@ -19,7 +19,7 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
@@ -461,7 +461,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 7
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
