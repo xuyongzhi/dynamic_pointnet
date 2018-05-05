@@ -148,9 +148,6 @@ def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_befor
     return rawh5_file_ls
 
 def GenPyramidSortedFlie( fn ):
-    data_aug_configs = {}
-    data_aug_configs['delete_easy_categories_num'] = 5
-
 
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
@@ -374,7 +371,10 @@ class Scannet_Prepare():
         bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_48-32_27_64_64-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A2'
 
         plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
-        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2000_1024_128_24-48_32_48_18-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
+
+        #plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-dec5'
+        #bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -416,14 +416,15 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
-        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
+        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
 
             for j in range(2):
                 merged_path = SCANNET_MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
@@ -467,14 +468,18 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess, rxyz_before_sort=np.array([0,0,45])*np.pi/180 )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+
+        data_aug_configs = {}
+        data_aug_configs['delete_easy_categories_num'] = 5
+
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride,  MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
