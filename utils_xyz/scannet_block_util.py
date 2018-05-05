@@ -147,7 +147,7 @@ def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_befor
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,rxyz_before_sort, IsShowInfoFinished)
     return rawh5_file_ls
 
-def GenPyramidSortedFlie( fn ):
+def GenPyramidSortedFlie( fn, data_aug_configs ):
 
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
@@ -181,7 +181,7 @@ def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
         all_group_name_ls.append( '%d_%d'%(i, end) )
     return allfn_ls, all_group_name_ls
 
-def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls ):
+def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n ):
     plsph5_folder = SCANNET_DATA_DIR + '/' + plsph5_folder
     bxmh5_folder = SCANNET_DATA_DIR + '/' + bxmh5_folder
     scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
@@ -198,10 +198,12 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     test_sph5_ls = [ fn for fn in test_sph5_ls if fn in nonvoid_plfn_ls ]
     assert len(trainval_bxmh5_ls) ==  len(trainval_sph5_ls)
     assert len(test_bxmh5_ls) == len(test_sph5_ls)
-    assert len(trainval_bxmh5_ls) ==  1201
-    assert len(trainval_sph5_ls) == 1201
-    assert len(test_bxmh5_ls) == 312
-    assert len(test_sph5_ls) == 312
+    if void_f_n==0:
+        assert len(trainval_bxmh5_ls) ==  1201
+        assert len(trainval_sph5_ls) == 1201
+        assert len(test_bxmh5_ls) == 312
+        assert len(test_sph5_ls) == 312
+    assert len(trainval_bxmh5_ls) + len(test_bxmh5_ls) + void_f_n == 1201 + 312
     trainval_bxmh5_ls.sort()
     trainval_sph5_ls.sort()
     test_bxmh5_ls.sort()
@@ -329,7 +331,7 @@ class Scannet_Prepare():
             print("\n\nSortRaw:all %d files successed\n******************************\n"%(len(success_fns)))
         print('sort raw t= %f'%(time.time()-t0))
 
-    def GenPyramid(self, base_stride, base_step, MultiProcess=0):
+    def GenPyramid(self, base_stride, base_step, data_aug_configs, MultiProcess=0):
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
@@ -346,10 +348,10 @@ class Scannet_Prepare():
             pool = mp.Pool(MultiProcess)
         for k,fn in enumerate( file_list ):
             if not IsMultiProcess:
-                GenPyramidSortedFlie(fn)
+                GenPyramidSortedFlie(fn, data_aug_configs)
                 print( 'Finish %d / %d files'%( k+1, len(file_list) ))
             else:
-                results = pool.apply_async(GenPyramidSortedFlie,( fn,))
+                results = pool.apply_async(GenPyramidSortedFlie,( fn,data_aug_configs))
         if IsMultiProcess:
             pool.close()
             pool.join()
@@ -365,7 +367,7 @@ class Scannet_Prepare():
 
 
 
-    def MergeNormed(self):
+    def MergeNormed(self, data_aug_configs):
         plsph5_folder = 'ORG_sph5/90000_gs-3d6_-6d3'
         #bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
         bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_48-32_27_64_64-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A2'
@@ -373,8 +375,8 @@ class Scannet_Prepare():
         plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
         bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
 
-        #plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-dec5'
-        #bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
+        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-dec5'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -388,6 +390,7 @@ class Scannet_Prepare():
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
+        void_f_n = 0
         IsOnlyIntact = True
         for pl_fn in plfn_ls:
             is_intact, ck_str = Normed_H5f.check_sph5_intact( pl_fn )
@@ -397,6 +400,7 @@ class Scannet_Prepare():
                 assert False
             if ck_str == 'void file':
                 print('void file: %s'%(pl_fn))
+                void_f_n += 1
                 continue
             bxmh5_fn = SCANNET_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
@@ -416,7 +420,7 @@ class Scannet_Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
+        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
         #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
@@ -424,7 +428,6 @@ class Scannet_Prepare():
 
             for j in range(2):
                 merged_path = SCANNET_MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
@@ -478,8 +481,8 @@ def main( ):
         data_aug_configs = {}
         data_aug_configs['delete_easy_categories_num'] = 5
 
-        #scanet_prep.GenPyramid(base_step_stride, base_step_stride,  MultiProcess)
-        scanet_prep.MergeNormed()
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        scanet_prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
