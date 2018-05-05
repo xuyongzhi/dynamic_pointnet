@@ -365,18 +365,18 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             log_string('training is finished \n')
 
-            if epoch%10 == 0:
+            if epoch%10 == 0 and False:
                 eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch,eval_feed_buf_q)
                 # Save the variables to disk.
-                if not FLAGS.only_evaluate:
-                    if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
-                        save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
-                        log_string("Model saved in file: %s" % os.path.basename(save_path))
+            if not FLAGS.only_evaluate:
+                if (epoch > 0 and epoch % 1 == 0) or epoch == MAX_EPOCH-1:
+                    save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
+                    log_string("Model saved in file: %s" % os.path.basename(save_path))
 
                 # if epoch == MAX_EPOCH -1:
-                LOG_FOUT_FUSION.write('Epoch_id:'+str(epoch)+', Accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
-                LOG_FOUT_FUSION.flush()
-                log_string('Accuracy is : %0.3f' % (eval_log_str))
+                # LOG_FOUT_FUSION.write('Epoch_id:'+str(epoch)+', Accuracy:'+str(eval_log_str)+'\n'+'\n\n' )
+                # LOG_FOUT_FUSION.flush()
+                # log_string('Accuracy is : %0.3f' % (eval_log_str))
 
 
 def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,SimpleFlag = 0):
