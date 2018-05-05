@@ -11,7 +11,7 @@ NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '4A1'
+_gsbb_config = '4B1'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -133,6 +133,17 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([6400, 2400, 320, 48]).astype(np.int32)
         npoint_subblock_candis = np.array([32, 27,  64,  64]).astype(np.int32)
 
+    elif gsbb_config == '4B1':  # ***
+        global_stride = np.array([-2.4,-2.4,-2.4]).astype(np.float)
+        global_step = np.array([-3.4,-3.4,-3.4]).astype(np.float)
+        global_num_point = 10000 * 3
+        flatbxmap_max_nearest_num = [1,4,4,4]
+
+        sub_block_stride_candis = np.array([0.1,0.2,0.6,1.2]).astype(np.float)
+        sub_block_step_candis   = np.array([0.1,0.4,1.0,2.2]).astype(np.float)
+        nsubblock_candis =       np.array([2048, 1024, 128, 24]).astype(np.int32)
+        npoint_subblock_candis = np.array([48, 32,  48,  27]).astype(np.int32)
+
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
@@ -153,3 +164,30 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     return  gsbb_config_dic
 
 #-------------------------------------------------------------------------------
+
+def aug_id_to_type( aug_id ):
+    aug_types = {}
+    aug_types['RotateRef'] = False
+    aug_types['RotateVox'] = False
+    aug_types['RotateRefXYZMax'] = np.array([15,15,360], dtype=np.float32)*np.pi/180.0
+
+    aug_types['RotateVoxXYZChoices'] = [
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([-2,0,2], dtype=np.float32 ) * np.pi * 0.5 ]
+    aug_types['RotateVoxXYZChoices'] = [
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([-3,-2,-1,0,1,2,3], dtype=np.float32 ) * np.pi * 0.5 ]
+    if aug_id == 0:
+        pass
+    elif aug_id == 1:
+        aug_types['RotateRef'] = True
+    elif aug_id == 2:
+        aug_types['RotateVox'] = True
+    elif aug_id == 3:
+        aug_types['RotateRef'] = True
+        aug_types['RotateVox'] = True
+    else:
+        raise NotImplementedError
+    return aug_types

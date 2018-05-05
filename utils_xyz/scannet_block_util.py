@@ -19,7 +19,7 @@ from plyfile import PlyData, PlyElement
 import json
 import scannet_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
@@ -143,11 +143,12 @@ def WriteRawH5f( scene_name, rawh5f_dir ):
         raw_h5f.rh5_create_done()
     return scene_name
 
-def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished):
-    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished):
+    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,rxyz_before_sort, IsShowInfoFinished)
     return rawh5_file_ls
 
 def GenPyramidSortedFlie( fn ):
+
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
         Always_CreateNew_plh5 = False
@@ -156,9 +157,15 @@ def GenPyramidSortedFlie( fn ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_bxmh5 = False
 
-        sorted_h5f.file_saveas_pyramid_feed( IsShowSummaryFinished=True, Always_CreateNew_plh5 = Always_CreateNew_plh5, Always_CreateNew_bmh5 = Always_CreateNew_bmh5, Always_CreateNew_bxmh5=Always_CreateNew_bxmh5 )
+        sorted_h5f.file_saveas_pyramid_feed(
+                            IsShowSummaryFinished=True,
+                            Always_CreateNew_plh5 = Always_CreateNew_plh5,
+                            Always_CreateNew_bmh5 = Always_CreateNew_bmh5,
+                            Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
+                            IsGenPly=False,
+                            data_aug_configs = data_aug_configs )
     return fn
 
 def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
@@ -291,20 +298,24 @@ class Scannet_Prepare():
                     raw_h5f.create_done()
 
 
-    def SortRaw(self,block_step_xyz,MultiProcess=0):
+    def SortRaw(self, block_step_xyz, MultiProcess=0 , rxyz_before_sort=None ):
         t0 = time.time()
         rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
         sorted_path = self.BasicDataDir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
+        if type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
+            rdgr = rxyz_before_sort * 180/np.pi
+            rxyz_before_sort_str = '-R_%d_%d_%d'%( rdgr[0], rdgr[1], rdgr[2] )
+            sorted_path += rxyz_before_sort_str
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
         if not IsMultiProcess:
-            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path,IsShowInfoFinished)
+            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished)
         else:
             pool = mp.Pool(MultiProcess)
             for rawh5f_fn in rawh5_file_ls:
-                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path,IsShowInfoFinished))
+                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished))
             pool.close()
             pool.join()
 
@@ -323,7 +334,10 @@ class Scannet_Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            file_list = file_list[5:8]   # L
+            choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
+            choice = range(0,800,10)[0:8]
+            file_list = [ file_list[c] for c in choice ]
+            #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
             #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0509_00.sh5' ) )
 
@@ -353,7 +367,14 @@ class Scannet_Prepare():
 
     def MergeNormed(self):
         plsph5_folder = 'ORG_sph5/90000_gs-3d6_-6d3'
-        bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
+        #bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
+        bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_48-32_27_64_64-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A2'
+
+        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
+
+        #plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-dec5'
+        #bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -396,13 +417,14 @@ class Scannet_Prepare():
             return
 
         allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls )
-        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
 
             for j in range(2):
                 merged_path = SCANNET_MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
@@ -426,10 +448,19 @@ def GenObj_rh5():
             rawh5f = Raw_H5f(h5f,fn)
             rawh5f.generate_objfile(IsLabelColor=False,xyz_cut_rate=xyz_cut_rate)
 
+def GenObj_sh5():
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/stride_0d1_step_0d1'
+    fn_ls = glob.glob( path+'/scene0000_00.sh5' )
+    for fn in fn_ls:
+        with h5py.File( fn,'r' ) as h5f:
+            sh5f = Sorted_H5f(h5f,fn)
+            sh5f.gen_file_obj(IsLabelColor=False)
+
+
 def GenObj_sph5():
-    #path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/128000_gs-6_-10'
-    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/60000_gs-3_-4d8'
-    fn_ls = glob.glob( path+'/scene0000*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
+    path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
+    fn_ls = glob.glob( path+'/scene*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -442,12 +473,17 @@ def main( ):
 
         #scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        #scanet_prep.SortRaw( base_step_stride, MultiProcess )
-        scanet_prep.GenPyramid(base_step_stride, base_step_stride, MultiProcess)
-        #scanet_prep.MergeNormed()
+        #scanet_prep.SortRaw( base_step_stride, MultiProcess, rxyz_before_sort=np.array([0,0,45])*np.pi/180 )
+
+        data_aug_configs = {}
+        data_aug_configs['delete_easy_categories_num'] = 5
+
+        #scanet_prep.GenPyramid(base_step_stride, base_step_stride,  MultiProcess)
+        scanet_prep.MergeNormed()
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
     main()
     #GenObj_rh5()
     #GenObj_sph5()
+    #GenObj_sh5()

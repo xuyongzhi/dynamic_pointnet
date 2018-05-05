@@ -25,7 +25,7 @@ from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
-from configs import NETCONFIG
+from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 DEBUG_TMP = True
@@ -35,16 +35,17 @@ DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='5VaG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
-parser.add_argument('--dataset_name', default='scannet', help='dataset_name: scannet, stanford_indoor,matterport3d')
+parser.add_argument('--dataset_name', default='SCANNET', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
+parser.add_argument('--normxyz_allcas',default='none',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -63,9 +64,12 @@ parser.add_argument('--auto_break',action='store_true',help='If true, auto break
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--in_cnn_out_kp', default='465', help='keep prob for input, cnn result, output')
+parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
+parser.add_argument('--norm', default='batch', help='batch or group')
+parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
 
 FLAGS = parser.parse_args()
+tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
@@ -82,6 +86,7 @@ try:
 except:
     pass
 ISNoEval = FLAGS.eval_fnglob_or_rate == 0
+EVAL_EPOCH_STEP = 5
 #-------------------------------------------------------------------------------
 BATCH_SIZE = FLAGS.batch_size
 NUM_GPUS = FLAGS.num_gpus
@@ -92,7 +97,7 @@ BASE_LEARNING_RATE = FLAGS.learning_rate
 MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_RATE = FLAGS.decay_rate
-
+AUG_TYPES = aug_id_to_type(FLAGS.aug)
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
@@ -123,6 +128,12 @@ DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
+BN_INIT_DECAY = 0.5
+BN_INIT_DECAY = 0.3
+BN_DECAY_DECAY_RATE = 0.7
+BN_DECAY_DECAY_STEP = float(DECAY_STEP)
+BN_DECAY_CLIP = 0.99
+# ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
     log_eval_fn_glob = ''
@@ -143,9 +154,25 @@ else:
         log_name = 'log_train.txt'
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+keep_prob_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+        if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
+        else: normxyz_allcas_str = ''
+        if FLAGS.norm=='group':
+            norm_str = '-GN'
+        else:
+            norm_str = ''
+        if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
+            aug_str = '-aug'
+            if AUG_TYPES['RotateRef']:
+                aug_str += 'Ref'
+            if AUG_TYPES['RotateVox']:
+                aug_str += 'Vox'
+        else:
+            aug_str = ''
+        bn_decay_str = '-bd'+str(int(10*BN_INIT_DECAY))
+        FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
-                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
+                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str +\
+                        aug_str+bn_decay_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
@@ -164,13 +191,7 @@ LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
-BN_INIT_DECAY = 0.5
-BN_DECAY_DECAY_RATE = 0.7
-BN_DECAY_DECAY_STEP = float(DECAY_STEP)
-BN_DECAY_CLIP = 0.99
-
-HOSTNAME = socket.gethostname()
-
+#HOSTNAME = socket.gethostname()
 # ------------------------------------------------------------------------------
 BLOCK_SAMPLE = net_provider.block_sample
 if  DEBUG_SMALLDATA:
@@ -179,7 +200,6 @@ if  DEBUG_SMALLDATA:
     LIMIT_MAX_NUM_BATCHES['test'] = 60
 
 START_TIME = time.time()
-
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
@@ -189,13 +209,19 @@ log_string('\n\nkey parameters:')
 #log_string( 'data: %s'%(FLAGS.feed_data_elements) )
 log_string( 'model: %s'%(FLAGS.modelf_nein) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
-log_string( 'batch size: %d'%(BATCH_SIZE) )
+log_string( 'batch size, num: %d, %d'%(BATCH_SIZE, net_provider.train_num_blocks) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
 log_string( 'decay_epoch_step: %d'%(FLAGS.decay_epoch_step) )
-if 1.0 - Input_keep_prob >0:
-    log_string( 'input dropout: %f - %f'%( Input_keep_prob, 1 ) )
-else:
-    log_string('input dropout: No')
+log_string( 'bn_decay initial: %f, decay rate:%f'%(BN_INIT_DECAY,BN_DECAY_DECAY_RATE) )
+log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
+log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
+log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
+log_string( 'normxyz_allcas:%s'%(FLAGS.normxyz_allcas) )
+log_string( 'Aug data: RotateRef:%s   RotateVox:%s'%(AUG_TYPES['RotateRef'], AUG_TYPES['RotateVox']) )
+if AUG_TYPES['RotateRef']:
+    log_string('\tRotateRefXYZMax:%s degree'%(AUG_TYPES['RotateRefXYZMax']*180/np.pi))
+if AUG_TYPES['RotateVox']:
+    log_string('\tRotateVoxZChoices:%s degree'%(' '.join( [str(c*180/np.pi) for c in AUG_TYPES['RotateVoxXYZChoices']] ) ) )
 
 def get_learning_rate(global_step):
     learning_rate = tf.train.exponential_decay(
@@ -209,7 +235,7 @@ def get_learning_rate(global_step):
 
 def get_bn_decay(global_step):
     bn_momentum = tf.train.exponential_decay(
-                      BN_INIT_DECAY,
+                      1-BN_INIT_DECAY,
                       global_step * BATCH_SIZE,
                       BN_DECAY_DECAY_STEP,
                       BN_DECAY_DECAY_RATE,
@@ -238,6 +264,9 @@ def average_gradients(tower_grads):
     #for g, _ in grad_and_vars:
     for g, v in grad_and_vars:
       # Add 0 dimension to the gradients to represent the tower.
+      if g==None:
+          import pdb; pdb.set_trace()  # XXX BREAKPOINT
+          pass
       expanded_g = tf.expand_dims(g, 0)
 
       # Append on a 'tower' dimension which we will average over below.
@@ -259,24 +288,26 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
     with tf.Graph().as_default():
         with tf.device('/cpu:0'):
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
-            sgf_configs = {}
-            sgf_configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
-            sgf_configs['Cnn_keep_prob'] = Cnn_keep_prob
-            sgf_configs['Out_keep_prob'] = Out_keep_prob
-            sgf_configs['only_last_layer_ineach_cascade'] = True
+            configs = {}
+            configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            configs['normxyz_allcas'] = FLAGS.normxyz_allcas
+            configs['Cnn_keep_prob'] = Cnn_keep_prob
+            configs['Out_keep_prob'] = Out_keep_prob
+            configs['only_last_layer_ineach_cascade'] = True
+            configs['aug_types'] = AUG_TYPES
 
-            sgf_configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
-            sgf_configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
-            sgf_configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
-            sgf_configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
-            sgf_configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
-            sgf_configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
-            sgf_configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
-            sgf_configs['global_step'] = net_provider.gsbb_load.global_step
-            sgf_configs['global_stride'] = net_provider.gsbb_load.global_stride
+            configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
+            configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
+            configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
+            configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
+            configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
+            configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
+            configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
+            configs['global_step'] = net_provider.gsbb_load.global_step
+            configs['global_stride'] = net_provider.gsbb_load.global_stride
 
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
-                                        NUM_DATA_ELES,NUM_LABEL_ELES, sgf_configs )
+                                        NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
@@ -310,15 +341,17 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             # Get model and loss on multiple GPUS
             #------------------------------------------
             #get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
+            #           flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
 
             tower_grads = []
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            for gi in range(FLAGS.num_gpus):
+            start_gi = 1
+            for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
-                    with tf.device('/gpu:%d'%(gi)), tf.name_scope('gpu_%d'%(gi)) as scope:
+                    with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
+                        gi = gi_ - start_gi
                         # Evenly split input data to each GPU
                         pc_device = tf.slice(pointclouds_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
                         label_device = tf.slice(labels_pl, [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
@@ -330,7 +363,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         sgf_config_pls_device['globalb_bottom_center_xyz'] = tf.slice(sgf_config_pls['globalb_bottom_center_xyz'], [gi*DEVICE_BATCH_SIZE,0,0], [DEVICE_BATCH_SIZE,-1,-1])
 
                         pred, end_points = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
-                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, sgf_configs, sgf_config_pls_device, bn_decay=bn_decay)
+                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay)
 
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS)
                         losses = tf.get_collection('losses', scope)
@@ -398,6 +431,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['globalb_bottom_center_xyz'] = sgf_config_pls['globalb_bottom_center_xyz']
+        ops['bn_decay'] = bn_decay
         ops['check_ops'] = tf.get_collection( 'check' )
 
         if 'l_xyz' in debugs[0]:
@@ -435,11 +469,12 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 log_string('only evaluate, restored model from: \n\t%s'%MODEL_PATH)
             if ISNoEval: eval_log_str = ''
             else:
-                eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
+                if epoch % EVAL_EPOCH_STEP == 0:
+                    eval_log_str = eval_one_epoch(sess, ops, test_writer,epoch, eval_feed_buf_q, eval_multi_feed_flags, lock )
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch > 0 and epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
@@ -457,7 +492,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
         block_acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
         ave_block_acc, std_block_acc, block_acc_histg, class_acc_str, ave_acc_str = EvaluationMetrics.get_class_accuracy(
-                                    c_TP_FN_FP,numpoint_block )
+                                    c_TP_FN_FP, numpoint_block, FLAGS.dataset_name  )
     log_str = '\n'
     if len(t_batch_ls)>0:
         t_per_batch = np.mean(np.concatenate(t_batch_ls,axis=1),axis=1)
@@ -478,7 +513,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
-    log_complex = FLAGS.only_evaluate or (epoch % 20 ==0 and epoch>0) and (batch_idx%5 == 0 or batch_idx==num_batches-1)
+    log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%3 == 0 or batch_idx==num_batches-1)
     return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):
@@ -514,7 +549,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid, \
-                cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+                cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -550,8 +585,10 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['globalb_bottom_center_xyz']] = cur_globalb_bottom_center_xyzs
 
         check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
-        summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage  = sess.run( [ops['merged'], ops['step'], ops['train_op'],\
-                                    ops['loss'], ops['pred'], ops['accuracy_block'],ops['max_memory_usage']], feed_dict=feed_dict )
+
+        summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage, bn_decay  = \
+            sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],\
+                       ops['max_memory_usage'], ops['bn_decay']], feed_dict=feed_dict )
         t2 = time.time()
 
         #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
@@ -722,7 +759,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
 
         if eval_feed_buf_q == None:
             cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                cur_globalb_bottom_center_xyzs  = net_provider.get_eval_batch(start_idx,end_idx,False)
+                cur_globalb_bottom_center_xyzs  = net_provider.get_eval_batch(start_idx,end_idx,False, aug_types=AUG_TYPES)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -734,7 +771,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
             bufread_t0 = time.time()
             while eval_feed_buf_q.qsize() == 0:
                 if time.time() - bufread_t0 > 2:
-                    print('\nWARING!!! no data in eval_feed_buf_q for long time\n')
+                    print('\nWARING!!! no data in eval_feed_buf_q for long time')
+                    print('feed_finish_epoch=%d, read_OK_epoch=%d, cur_epoch=%d'%( eval_multi_feed_flags['feed_finish_epoch'].value, eval_multi_feed_flags['read_OK_epoch'].value, epoch ))
                     bufread_t0 = time.time()
                 time.sleep(0.2)
             #print('eval_feed_buf_q size= %d'%(eval_feed_buf_q.qsize()))
@@ -791,7 +829,7 @@ def get_shuffle_flag(epoch):
 
 def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, multi_feed_flags, lock, limit_max_train_num_batches=None):
     with tf.device('/cpu:%d'%(cpu_id)):
-        max_buf_size = 3
+        max_buf_size = 5
         block_idx_start = net_provider.g_block_idxs[file_id_start,0]
         block_idx_end = net_provider.g_block_idxs[file_id_end,1]
         if train_or_test=='test':
@@ -807,11 +845,17 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
         if FLAGS.finetune:
             epoch_start+=(FLAGS.model_epoch+1)
         for epoch in range(epoch_start,epoch_start+MAX_EPOCH):
+            if train_or_test == 'test' and epoch > 0:
+                if epoch % EVAL_EPOCH_STEP!=0:
+                    continue
+                last_epoch = epoch-EVAL_EPOCH_STEP
+            else:
+                last_epoch = epoch-1
             while True:
-                if multi_feed_flags['read_OK_epoch'].value == epoch-1:
+                if multi_feed_flags['read_OK_epoch'].value == last_epoch:
                     break
                 if DEBUG_MULTIFEED: print('%s, cpuid=%d, epoch=%d, read_OK_epoch=%d, waiting for computation and reading in other threads finished'%(train_or_test, cpu_id,epoch, multi_feed_flags['read_OK_epoch'].value))
-                time.sleep(3)
+                time.sleep(0.3)
             IsShuffleIdx = get_shuffle_flag(epoch)
             #IsShuffleIdx = False
             if cpu_id==0:
@@ -825,10 +869,10 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                            cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                            cur_globalb_bottom_center_xyzs = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
                     elif train_or_test == 'test':
                         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid,\
-                            cur_globalb_bottom_center_xyzs = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                            cur_globalb_bottom_center_xyzs = net_provider.get_eval_batch(block_start_idx,block_end_idx,False, aug_types=AUG_TYPES)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, cur_globalb_bottom_center_xyzs, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))

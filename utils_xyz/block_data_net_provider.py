@@ -4,7 +4,9 @@ from __future__ import print_function
 import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
+sys.path.append(os.path.join(ROOT_DIR,'utils'))
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import numpy as np
 import h5py
@@ -14,14 +16,14 @@ import multiprocessing as mp
 import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
+import geometric_util as geo_util
 
-ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['scannet'] = os.path.join(DATA_DIR,'ScannetH5F')
-DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
+DATASET_DIR['SCANNET'] = os.path.join(DATA_DIR,'ScannetH5F')
+DATASET_DIR['STANFORD_INDOOR3D'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
-DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
+DATASET_DIR['MATTERPORT'] = matterport3D_h5f_dir
 
 DEBUGTMP = True
 ERRTMP = True
@@ -476,7 +478,7 @@ class Net_Provider():
                 points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
                 points_indices_in_voxel_all.append( points_indices_in_voxe )
 
-    def get_global_batch(self,g_start_idx,g_end_idx):
+    def get_global_batch(self, g_start_idx, g_end_idx, aug_types):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
@@ -510,8 +512,9 @@ class Net_Provider():
                 del  new_feed_data_elements[ new_feed_data_elements.index('xyz_1norm_block') ]
 
             new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
-            data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
-            label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
+            data_i = self.norm_h5f_L[f_idx].get_data_byeles(start,end, new_feed_data_elements)
+            # add data aug here
+            label_i = self.norm_h5f_L[f_idx].get_label_byeles(start,end, self.feed_label_elements)
             # data_i: [batch_size,npoint_block,data_nchannels]
             # label_i: [batch_size,npoint_block,label_nchannels]
             sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, globalb_bottom_center_xyz = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
@@ -520,6 +523,9 @@ class Net_Provider():
 
             # get xyz_mid
             xyz_i = data_i[..., new_feed_data_ele_idxs['xyz']]
+            if aug_types['RotateRef']:
+                xyz_i = geo_util.point_rotation_randomly( xyz_i, aug_types['RotateRefXYZMax'] )
+
             xyz_min = xyz_i.min( axis=1 )
             xyz_max = xyz_i.max( axis=1 )
             xyz_mid = (xyz_min + xyz_max)/2
@@ -629,7 +635,7 @@ class Net_Provider():
         #print('center n rate= %f'%(np.sum(center_mask).astype(float)/xyz_midnorm.shape[0]/xyz_midnorm.shape[1]))
         return center_mask
 
-    def get_shuffled_global_batch(self,g_shuffled_idx_ls):
+    def get_shuffled_global_batch(self,g_shuffled_idx_ls,aug_types ):
         data_batches = []
         label_batches = []
         sample_weights = []
@@ -640,7 +646,7 @@ class Net_Provider():
         xyz_mid_ls = []
         globalb_bottom_center_xyzs_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i, globalb_bottom_center_xyzs_i = self.get_global_batch(idx,idx+1)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i, globalb_bottom_center_xyzs_i = self.get_global_batch(idx,idx+1,aug_types=aug_types)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
@@ -686,27 +692,27 @@ class Net_Provider():
             self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
             np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx=True):
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types ):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
         else:
-            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx)
+            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx,aug_types=aug_types)
 
-    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx=False):
+    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx, aug_types):
         assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks),"eval_start_batch_idx = %d,  eval_num_blocks=%d"%(eval_start_batch_idx,self.eval_num_blocks)
         assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks),"eval_end_batch_idx = %d,  eval_num_blocks=%d"%(eval_end_batch_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx)
+            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
         else:
             eval_start_batch_idx  += self.eval_global_start_idx
             eval_end_batch_idx  += self.eval_global_start_idx
-            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx)
+            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx,aug_types=aug_types)
 
 
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
@@ -740,6 +746,9 @@ class Net_Provider():
             test_label_hist = np.zeros(self.num_classes).astype(np.int64)
             for k,norme_h5f in enumerate(self.norm_h5f_L):
                 label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
+                # delete unlabeled label hist
+                if label_hist_k.size != self.num_classes:
+                    label_hist_k = np.delete( label_hist_k, Normed_H5f.g_unlabelled_categories[self.dataset_name] )
                 label_hist += label_hist_k.astype(np.int64)
                 if k < self.train_file_N:
                     train_label_hist += label_hist_k.astype(np.int64)

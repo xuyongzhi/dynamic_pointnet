@@ -31,10 +31,10 @@ TMPDEBUG = True
 #        flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
 #        return flatten_bidxmap_i_concat
 
-def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, sgf_configs):
-    sg_bidxmaps_shape = sgf_configs['sg_bidxmaps_shape']
-    flatten_bidxmaps_shape = sgf_configs['flatten_bidxmaps_shape']
-    flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
+def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, configs):
+    sg_bidxmaps_shape = configs['sg_bidxmaps_shape']
+    flatten_bidxmaps_shape = configs['flatten_bidxmaps_shape']
+    flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
     cascade_num = flatten_bm_extract_idx.shape[0]-1
     sgf_config_pls = {}
     with tf.variable_scope("pls") as pl_sc:
@@ -72,8 +72,8 @@ def get_voxel3dcnn_sa_config( model_flag ):
             mlp_pe.append([])
             mlp_be.append([])
     elif model_flag=='5VaG':
-        voxel_channels.append( [32,32,48] )
-        voxel_channels.append( [48,48,64] )
+        voxel_channels.append( [32,32,64] )
+        voxel_channels.append( [64,64,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
         voxel_channels.append( [256,256,512,512] )
@@ -271,7 +271,7 @@ def get_flatten_bidxmap_global( batch_size, nsubblock_last, nearest_block_num ):
     fbmap_neighbor_dis_global = tf.zeros(shape = [batch_size, nsubblock_last, nearest_block_num, 1], dtype=tf.float32)
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
-def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, sgf_configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
@@ -280,17 +280,17 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
     num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
-    assert num_neighbors[0] <= sgf_configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-    assert num_neighbors[1] <= sgf_configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-    assert num_neighbors[2] <= np.min(sgf_configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[1] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[2] <= np.min(configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
 
     if 'G' == model_flag[-1]:
         IsAddGlobalLayer = True
     else:
         IsAddGlobalLayer = False
 
-    flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
-    sg_bm_extract_idx = sgf_configs['sg_bm_extract_idx']
+    flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
+    sg_bm_extract_idx = configs['sg_bm_extract_idx']
 
     batch_size = rawdata.get_shape()[0].value
     global_num_point = rawdata.get_shape()[1].value
@@ -322,14 +322,14 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             # gpu_0/2block_bottom_center_mm:0
 
         l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
-                                                                                 sgf_configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
+                                                                                 configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if k == 0:
             l_points[0] = root_point_features
         l_points.append(new_points)
 
         # l_xyz: (2, 512, 128, 6) (2, 512, 3)  (2, 256, 3) (2, 64, 3)
         # l_points: None  (2, 512, 64) (2, 256, 256) (2, 64, 512)
-        if IsShowModel: print('pointnet_sa_module %d, l_xyz: %s'%(k,shape_str([l_xyz])))
+        #if IsShowModel: print('pointnet_sa_module %d, l_xyz: %s'%(k,shape_str([l_xyz])))
     if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
     end_points['l0_points'] = l_points[0]
 
@@ -346,7 +346,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
             fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), sgf_configs=sgf_configs )
+        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
     # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
@@ -354,8 +354,8 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
-    if sgf_configs['Out_keep_prob']<1:
-        net = tf_util.dropout(net, keep_prob=sgf_configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
+    if configs['Out_keep_prob']<1:
+        net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
     if IsShowModel: print('net:%s'%(shape_str([net])))
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel:

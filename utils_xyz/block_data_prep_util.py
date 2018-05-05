@@ -26,7 +26,9 @@ from __future__ import print_function
 import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
+sys.path.append(os.path.join(ROOT_DIR,'utils'))
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import math
 import numpy as np
@@ -36,9 +38,12 @@ import time
 import multiprocessing as mp
 import itertools
 import ply_util
+import geometric_util as geo_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
+from get_mpcat40 import get_cat40_from_rawcat
+sys.path.append(BASE_DIR+'/all_datasets_meta')
+from datasets_meta import DatasetsMeta
 import csv,pickle
 from configs import get_gsbb_config, NETCONFIG
 import magic
@@ -66,8 +71,8 @@ Search with "name:" to find the definition.
 '''
 
 SHOW_ONLY_ERR = False
-DEBUGTMP=True
-ENABLECHECK = True
+DEBUGTMP = True
+ENABLECHECK = False
 START_T = time.time()
 
 g_h5_num_row_1M = 5*1000
@@ -85,7 +90,9 @@ def isin_sorted( a,v ):
     return r
 
 def get_stride_step_name(block_stride,block_step):
-    assert block_step[0] == block_step[1]
+    if not block_step[0] == block_step[1]:
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
     assert block_stride[0] == block_stride[1]
     #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
@@ -1008,29 +1015,30 @@ class GlobalSubBaseBLOCK():
             for aim_b_index in range( aim_nsubblock ):
                 aim_bid = sorted_aimbids_fixed[aim_b_index]
                 sg_aimb_xyzs[aim_b_index,:],_,_ = Sorted_H5f.block_index_to_xyz_( aim_bid, aim_attrs )
-            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/sg_aimbxyz_%d.ply'%(cascade_id) )
+            ply_util.create_ply_matterport( sg_aimb_xyzs,'/tmp/g%d_sg_aimbxyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
 
             sg_baseb_xyzs = np.zeros( shape=(aim_nsubblock, aim_npoint_subblock, 3) )
+            sph5_xyz_idx = debug_meta['pl_sph5f']['data'].attrs['xyz']
             for aim_b_index in range( aim_nsubblock ):
                 for pi in range( aim_npoint_subblock ):
                     point_id = sg_bidxmap_fixed[aim_b_index,pi]
                     if cascade_id == 0:
                         if point_id<0: continue # invalid points
                         point_index = valid_sorted_pointids[ point_id ]
-                        root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
-                        sg_baseb_xyzs[aim_b_index,pi,:] = self.root_s_h5f[str(root_bid)][point_idx_inroot,0:3]
+                        #root_bid, rootb_index, point_idx_inroot = GlobalSubBaseBLOCK.point_index_to_rootbid( rootb_split_idxmap, point_index, 0 )
+                        sg_baseb_xyzs[aim_b_index,pi,:] = debug_meta['pl_sph5f']['data'][debug_meta['global_bidx'], point_index, sph5_xyz_idx]
                     else:
                         if point_id<0: continue # invalid points
                         base_bid = valid_sorted_basebids[ point_id ]
                         sg_baseb_xyzs[aim_b_index,pi,:],_,_ = Sorted_H5f.block_index_to_xyz_( base_bid, base_attrs )
-            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/sg_basebxyz_%d.ply'%(cascade_id) )
+            ply_util.create_ply_matterport( sg_baseb_xyzs,'/tmp/g%d_sg_basebxyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
 
             if  IsGenFlatbxmap:
                 flat_xyzs = np.zeros( shape=(flatten_bidxmap_fixed.shape[0],3) )
                 for i in range( flat_xyzs.shape[0] ):
                     flat_idx = flatten_bidxmap_fixed[i,0,0:2].astype(np.int32)
                     flat_xyzs[ i,: ] = sg_baseb_xyzs[ flat_idx[0], flat_idx[1],: ]
-                ply_util.create_ply_matterport( flat_xyzs,'/tmp/flat_xyz_%d.ply'%(cascade_id) )
+                ply_util.create_ply_matterport( flat_xyzs,'/tmp/g%d_flat_xyz_%d.ply'%(debug_meta['global_bidx'], cascade_id) )
             if cascade_id == self.cascade_num-1 : import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
         bxmap_meta = {}
@@ -1293,8 +1301,8 @@ class GlobalSubBaseBLOCK():
             assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
             for cascade_id in range(0,self.cascade_num):
-                sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id)
-                assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id))==0
+                sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both')
+                assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both'))==0
                 assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
             print( 'bidxmap_extract check OK' )
 
@@ -1314,7 +1322,7 @@ class GlobalSubBaseBLOCK():
         pass
 
 
-    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag="both"):
+    def extract_sg_bidxmaps(self, sg_bidxmaps, cascade_id, flag):
         return GlobalSubBaseBLOCK.extract_sg_bidxmaps_( sg_bidxmaps, self.sg_bidxmaps_extract_idx, cascade_id, flag )
 
     @staticmethod
@@ -1324,7 +1332,7 @@ class GlobalSubBaseBLOCK():
         # include_bcxyz: the last 3 channels of dim 0 is grouped block center xyz
         start = sg_bidxmaps_extract_idx[cascade_id,:]
         end   = sg_bidxmaps_extract_idx[cascade_id+1,:]
-        if flag=="both" or "only_aimb_center_xyz_mm":
+        if flag=="both" or flag=="only_aimb_center_xyz_mm":
             include_bcxyz = True
         else:
             include_bcxyz = False
@@ -1515,7 +1523,7 @@ class GlobalSubBaseBLOCK():
             h5f.flush()
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
-                bmh5_meta_f.write('Key notes:\n\tReduce lost: increse block_stride of next cascade, increase padding.\n\n')
+                bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
                 for ele in h5f.attrs:
                     bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
                 bmh5_meta_f.write('\n\n')
@@ -1645,10 +1653,10 @@ class GlobalSubBaseBLOCK():
                         basebids_in_largeraimbid_dic_2[new_bid] = np.array([],dtype=np.uint32)
                     basebids_in_largeraimbid_dic_2[new_bid] = np.append( basebids_in_largeraimbid_dic_2[new_bid], base_bid )
 
-                if j>0 and j % int(all_base_bids.size/5) == 0:
-                    rate = 100.0*j/all_base_bids.size
-                    print('%f%%  new stride step: %s      base stride step: %s'%(rate,
-                        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
+                #if j>0 and j % int(all_base_bids.size/5) == 0:
+                #    rate = 100.0*j/all_base_bids.size
+                #    print('%f%%  new stride step: %s      base stride step: %s'%(rate,
+                #        get_stride_step_name(larger_stride,larger_step),get_stride_step_name(base_attrs['block_stride'],base_attrs['block_step'])))
 
             # sort basebids_in_largeraimbid_dic_2
             if IsSortRes:
@@ -1851,7 +1859,10 @@ class GlobalSubBaseBLOCK():
         print('gen %s\ngen %s\n'%( org_ply_fn, kept_ply_fn ))
 
     def gen_bmap_ply( self, sph5_fn ):
-        assert self.mode=='load'
+        '''
+        all the box in bmh5, no sampling and grouping
+        '''
+        assert self.mode=='load' or self.mode=='write'
         IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
         if not (IsIntact_sph5 and IsIntact_bmh5):
@@ -1877,6 +1888,7 @@ class GlobalSubBaseBLOCK():
                 ply_util.gen_box_norotation( ply_fn, bxyz_min, bxyz_max )
 
     def gen_bxmap_ply( self, sph5_fn, bxmh5_fn ):
+        assert False, "Not right yet"
         IsIntact_sph5_bxmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
         IsIntact_sph5, ck_str = Normed_H5f.check_sph5_intact( sph5_fn )
         IsIntact_bmh5, ck_str = GlobalSubBaseBLOCK.check_bmh5_intact( self.bmh5_fn )
@@ -1902,7 +1914,7 @@ class GlobalSubBaseBLOCK():
 
             for cascade_id in range(self.cascade_num):
                 # gen sg ply
-                sg_bidxmap_i = self.extract_sg_bidxmaps( sg_all_bidxmaps, cascade_id )
+                sg_bidxmap_i = self.extract_sg_bidxmaps( sg_all_bidxmaps, cascade_id, flag='only_sg_bidxmap' )
 
                 batch_size, nsubblock, npoint_subblock = sg_bidxmap_i.shape
                 sg_pl = np.zeros([batch_size,nsubblock,npoint_subblock,3])
@@ -1912,6 +1924,7 @@ class GlobalSubBaseBLOCK():
                         pl_subb = np.zeros( [npoint_subblock,3] )
                         for j in range( npoint_subblock ):
                             k = sg_bidxmap_i[b,i,j]
+                            if k<0: continue
                             pl_subb[j,:] = pl_xyz_grps[cascade_id][b, k, :]
                         pl_batch[i,...] = pl_subb
                     sg_pl[b,...] = pl_batch
@@ -2201,7 +2214,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_mesh','label_material']
-    #label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
     data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
     data_label_ele_candidates_order += ['org_row_index']
     data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_mesh':1,
@@ -2252,27 +2264,29 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if e in self.h5f.attrs['element_names']:
                     label_set_elements += [e]
             self.label_set_elements = label_set_elements
-            self.label_ele_idxs = self.get_label_ele_ids(label_set_elements)
+            self.label_ele_idxs = Sorted_H5f.get_label_ele_ids_sh5(label_set_elements)
 
         if 'datasource_name' in self.h5f.attrs:
-            self.DatasetMeta = DatasetMeta(self.h5f.attrs['datasource_name'])
-            self.num_classes = self.DatasetMeta.num_classes
+            self.DatasetsMeta = DatasetsMeta(self.h5f.attrs['datasource_name'])
+            self.num_classes = self.DatasetsMeta.num_classes
 
-    def get_label_ele_ids(self,label_eles):
+    @staticmethod
+    def get_label_ele_ids_sh5(label_eles):
         label_ele_idxs = {}
         k = 0
         for e in label_eles:
-            assert e in self.labels_order
-            label_ele_idxs[e] = range(k,k+self.data_label_channels[e])
-            k += self.data_label_channels[e]
+            assert e in Sorted_H5f.labels_order
+            label_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
+            k += Sorted_H5f.data_label_channels[e]
         return label_ele_idxs
-    def get_data_ele_ids(self,data_eles):
+    @staticmethod
+    def get_data_ele_ids_sh5(data_eles):
         data_ele_idxs = {}
         k = 0
         for e in data_eles:
-            assert e in self.data_label_channels, "%s not in self.data_label_channels"%(e)
-            data_ele_idxs[e] = range(k,k+self.data_label_channels[e])
-            k += self.data_label_channels[e]
+            assert e in Sorted_H5f.data_label_channels, "%s not in self.data_label_channels"%(e)
+            data_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
+            k += Sorted_H5f.data_label_channels[e]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
@@ -2616,9 +2630,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aim_bixyz_min[i] = max( aim_bixyz_min[i], 0 )
             aim_bixyz_max[i] = min( aim_bixyz_max[i], aim_attrs['block_dims_N'][i]-1 )
 
-        # forcely reduce base block lost
+        # Forcely reduce base block lost by expanding padding on the global edge
         max_force_rate = 0.3
-        IsNoAim =  np.sum( aim_bixyz_max-aim_bixyz_min ) < 0
+        IsNoAim =  np.min( aim_bixyz_max-aim_bixyz_min ) < 0
         IsForceMoved = False
         if large_step_flag=='aim' and IsNoAim:
             for i in range(3):
@@ -2864,7 +2878,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             raw_category_idx = self.data_idxs['label_category'][0]
             data_labels_with_rawcategory[:,raw_category_idx] = get_cat40_from_rawcat(data_labels_with_rawcategory[:,raw_category_idx])
 
-    def generate_one_block_to_object(self,block_k,out_obj_file,IsLabelColor=False):
+    def generate_one_block_to_obj(self,block_k,out_obj_file,IsLabelColor=False):
         row_step = self.h5_num_row_1M * 10
         dset_k = self.get_blocked_dset(block_k)
         row_N = dset_k.shape[0]
@@ -2886,7 +2900,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 out_obj_file.write(str_j)
 
-    def gen_file_obj(self,IsLabelColor=False):
+    def gen_file_obj(self, IsLabelColor=False, mode='file'):
+        '''
+        mode = 'file' or 'block'
+        '''
         if self.file_name == None:
             print('set file_name (gen_file_obj)')
             return
@@ -2903,6 +2920,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         n = 0
         last_rate = -20
         out_info_fn = os.path.join(obj_folder,'info.txt')
+        if mode == 'file':
+            obj_fn = os.path.join(obj_folder,base_fn+'.obj')
+            obj_f = open(obj_fn,'w')
         with open(out_info_fn,'w') as info_f:
             for dset_name in self.h5f:
                 row_N = self.h5f[dset_name].shape[0]
@@ -2919,20 +2939,28 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     name_meta = 'labeled_'
                 else:
                     name_meta = ''
-                out_fn = os.path.join(obj_folder,name_meta+dset_name+'_'+str(row_N)+'.obj')
-                with open(out_fn,'w') as out_f:
-                    self.generate_one_block_to_object(dset_name,out_f,IsLabelColor)
-                n += row_N
-                rate = 100.0 * n / self.h5f.attrs['total_row_N']
-                if int(rate) % 2 == 0 and rate - last_rate > 3:
-                    last_rate = rate
-                    print('%0.2f%% generating file: %s'%(rate,os.path.basename(out_fn)) )
+                if mode == 'block':
+                    obj_fn = os.path.join(obj_folder,name_meta+dset_name+'_'+str(row_N)+'.obj')
+                    obj_f = open(out_fn,'w')
+                self.generate_one_block_to_obj(dset_name, obj_f, IsLabelColor)
+                if mode == 'block':
+                    obj_f.close()
+
+                    n += row_N
+                    rate = 100.0 * n / self.h5f.attrs['total_row_N']
+                    if int(rate) % 2 == 0 and rate - last_rate > 3:
+                        last_rate = rate
+                        print('%0.2f%% generating file: %s'%(rate,os.path.basename(obj_fn)) )
 
                 info_str = 'dset: %s \tN= %d   \tmin=%s   \tmax=%s \n'%(dset_name,self.h5f[dset_name].shape[0], np.array_str(min_i), np.array_str(max_i)  )
                 info_f.write(info_str)
                 #print(info_str)
                 #if rate > 30:
                     #break
+        if mode == 'file':
+            obj_f.close()
+            print('finish %s'%(obj_fn))
+
     def extract_sub_area(self,sub_xyz_scope,sub_file_name):
         with h5py.File(sub_file_name,'w') as sub_h5f:
             sub_f = Sorted_H5f(sub_h5f,sub_file_name)
@@ -3305,7 +3333,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return datas, labels
 
-    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point, max_rootb_num ):
+    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point, max_rootb_num, data_aug_configs ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -3331,14 +3359,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = []
         rootb_split_idxmap = []
         sum_global_point_num = 0
+        del_num = 0
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
             datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
+            # delete some categories: unlabeld, easy
+            datas_k, labels_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, labels_k, feed_label_elements, h5f.attrs['datasource_name'], data_aug_configs )
+
+            del_num += del_n
             num_point_k = datas_k.shape[0]
             if num_point_k !=0:
                 global_block_datas.append( datas_k )
                 global_block_labels.append( labels_k )
                 sum_global_point_num += num_point_k
                 rootb_split_idxmap.append( np.expand_dims( np.array([root_bid, sum_global_point_num]),0 ) )
+
 
         if len( global_block_datas )==0:
             # all void points
@@ -3348,12 +3382,47 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
+        #print('new_n:%d, del_n:%d, del_rate:%3f'%( global_block_datas.shape[0],del_num,1.0*del_num/(del_num+global_block_datas.shape[0]) ))
+
         global_sample_rate = 1.0 * global_num_point /  global_block_datas.shape[0]
-        global_block_datas, global_block_labels, rootb_split_idxmap, global_sampling_meta = Sorted_H5f.down_sample_global_block( global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
+        global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( \
+            global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
         # fix root b num
-        rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap )
+        rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
+
+    @staticmethod
+    def delete_some_categories( datas, labels, feed_label_elements, datasource_name, data_aug_configs ):
+        # (1) Always: delete unlabeld label_category
+        # (2) aug data: delete easy categories
+        unlabeled_labels = DatasetsMeta.g_unlabelled_categories[datasource_name]
+        del_labels = unlabeled_labels
+        if 'delete_easy_categories_num' in data_aug_configs:
+            g_easy_categories = DatasetsMeta.g_easy_categories_dic[datasource_name]
+            delete_num = min( data_aug_configs['delete_easy_categories_num'], len(g_easy_categories) )
+            g_easy_categories = g_easy_categories[0:delete_num]
+            del_labels = unlabeled_labels + g_easy_categories
+
+        if len(del_labels) == 0:
+            return datas, labels
+        for i,ele in enumerate(feed_label_elements):
+            if ele == 'label_category':
+                label_category_idx = i
+                break
+        unlabeld_mask = np.array( [False]*labels.shape[0] )
+        for unlabeled_label in del_labels:
+            unlabeld_mask +=  (labels[:,label_category_idx] == unlabeled_label)
+        del_choices = np.nonzero( unlabeld_mask )[0]
+        datas_ = np.delete( datas, del_choices, axis=0 )
+        labels_ = np.delete( labels, del_choices, axis=0 )
+        org_n = datas.shape[0]
+        new_n = datas_.shape[0]
+        del_n = org_n - new_n
+        #del_rate = 1.0*del_n/org_n
+        #print('del_rate:%3f   %d -> %d'%(del_rate, org_n, new_n))
+        return datas_, labels_, del_n
+
 
     @staticmethod
     def fix_rootb_split_idxmap( rootb_split_idxmap ):
@@ -3459,13 +3528,22 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             IsIntact = h5f.attrs['is_intact_sgfh5'] == 1
             return IsIntact,"is_intact_sgfh5=1"
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False):
+    @staticmethod
+    def aug_flag_str(data_aug_configs):
+        aug_str = ''
+        if 'delete_easy_categories_num' in data_aug_configs:
+            del_num = data_aug_configs['delete_easy_categories_num']
+            aug_str += '-dec'+str(data_aug_configs['delete_easy_categories_num'])
+        return aug_str
+
+    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False, data_aug_configs={}):
         '''
         save by global block
         '''
         t0 = time.time()
         datasource_name = self.h5f.attrs['datasource_name']
         gsbb_write = GlobalSubBaseBLOCK( root_s_h5f = self.h5f, root_s_h5f_fn = self.file_name )
+        aug_str = Sorted_H5f.aug_flag_str( data_aug_configs )
 
         if datasource_name == 'MATTERPORT':
             region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3473,14 +3551,15 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             house_name = os.path.basename(house_dir_name)
             rootsort_dirname = os.path.dirname(house_dir_name)
 
-            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + '/' + house_name
-            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + '/' + house_name
+            out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str + '/' + house_name
+            out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + aug_str + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
+
         elif datasource_name == 'SCANNET':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
-            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' )
-            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  )
+            out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str
+            out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  ) + aug_str
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3517,7 +3596,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             else:
                 if not SHOW_ONLY_ERR: print('pyh5 intact: %s'%(pl_sph5_filename))
         else:
-            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished)
+            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
 
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
@@ -3540,9 +3619,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # gen ply
         if IsGenPly:
+            gsbb_write.gen_bmap_ply( pl_sph5_filename )
             gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
-    def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished):
+    def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
         global_num_point = gsbb_write.global_num_point
         assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
         print('start gen sph5 file: ',pl_sph5_filename)
@@ -3569,7 +3649,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             num_point_abandoned = 0
             for global_block_id in all_sorted_global_bids:
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
-                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num )
+                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
                 if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
                     num_global_block_abandoned += 1
@@ -3689,11 +3769,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
                 globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
                 globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
-                if DEBUGTMP:
-                    debug_meta['gb_bottom'] = gb_bottom
-                    debug_meta['gb_center'] = gb_center
 
                 debug_meta['global_bidx'] = global_bidx
+                if GlobalSubBaseBLOCK.IsCheck_gsbb['gen_ply_gsbb']:
+                    debug_meta['pl_sph5f'] = pl_sph5f
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
                        gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], debug_meta )
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
@@ -3702,7 +3781,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if len(sum_bxmap_metas)==0: sum_bxmap_metas = bxmap_metas
                 else:
                     for key in sum_bxmap_metas:
-                        sum_bxmap_metas[key] += bxmap_metas[key]
+                        sum_bxmap_metas[key] = sum_bxmap_metas[key] +  bxmap_metas[key]
 
             sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
             all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
@@ -3724,8 +3803,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             print('write finish: %s'%(bxmh5_fn))
 
     def get_feed_ele_ids(self,feed_data_elements,feed_label_elements):
-        feed_data_ele_ids = self.get_data_ele_ids(feed_data_elements)
-        feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
+        feed_data_ele_ids = Sorted_H5f.get_data_ele_ids_sh5(feed_data_elements)
+        feed_label_ele_ids = Sorted_H5f.get_label_ele_ids_sh5(feed_label_elements)
         return feed_data_ele_ids,feed_label_ele_ids
 
 
@@ -3805,16 +3884,16 @@ class Sort_RawH5f():
     sampled: .rsh5  (fix number in each block)
     block_step_xyz=[0.5,0.5,0.5]
     '''
-    def __init__(self,raw_file_list,block_step_xyz,out_folder,IsShowInfoFinished=False):
+    def __init__(self, raw_file_list, block_step_xyz, out_folder, rxyz_before_sort, IsShowInfoFinished=False):
         self.IsShowInfoFinished = IsShowInfoFinished
         self.out_folder = out_folder
-        self.Do_sort_to_blocks(raw_file_list,block_step_xyz)
+        self.Do_sort_to_blocks(raw_file_list,block_step_xyz,rxyz_before_sort)
 
-    def Do_sort_to_blocks(self,raw_file_list,block_step_xyz):
+    def Do_sort_to_blocks(self,raw_file_list, block_step_xyz, rxyz_before_sort):
         IsMulti = False
         if not IsMulti:
             for fn in raw_file_list:
-                self.sort_to_blocks(fn,block_step_xyz)
+                self.sort_to_blocks(fn, block_step_xyz, rxyz_before_sort )
                 #sort_to_blocks_onef(self,fn,block_step_xyz)
         else:
             #pool = mp.Pool( max(mp.cpu_count()/2,1) )
@@ -3827,7 +3906,7 @@ class Sort_RawH5f():
             pool.join()
 
 
-    def sort_to_blocks(self,file_name,block_step_xyz):
+    def sort_to_blocks(self,file_name, block_step_xyz, rxyz_before_sort):
         '''
         split th ewhole scene to space sorted small blocks
         The whole scene is a group. Each block is one dataset in the group.
@@ -3870,9 +3949,16 @@ class Sort_RawH5f():
                 for k in range(0,raw_row_N,row_step):
                     end = min(k+row_step,raw_row_N)
                     _,data_name_list = self.raw_h5f.get_total_num_channels_name_list()
-                    raw_buf = np.zeros((end-k,self.s_h5f.total_num_channels))
+                    raw_buf = np.zeros((end-k, self.s_h5f.total_num_channels))
                     for dn in data_name_list:
-                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = self.raw_h5f.h5f[dn][k:end,:]
+                        tmp = self.raw_h5f.h5f[dn][k:end,:]
+                        if dn == 'xyz' and type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
+                            # Data augmentation: rotation
+                            R = geo_util.EulerRotate( rxyz_before_sort, 'xyz' )
+                            tmp = np.matmul(tmp,R)
+
+                        raw_buf[:,self.s_h5f.data_idxs[dn] ] = tmp
+
                     if self.s_h5f.IS_CHECK:
                         if end < 16777215: # this is the largest int float32 can acurately present
                             org_row_index = np.arange(k,end)
@@ -3964,50 +4050,6 @@ class Sort_RawH5f():
             block_ks[i+i_start] = self.s_h5f.xyz_to_block_index(sub_buf_xyz[i,0:3])[0]
 
 
-class DatasetMeta():
-    g_label2class_dic = {}
-    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
-    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
-                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
-                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
-
-    g_label2class_dic['STANFORD_INDOOR3D'] = \
-                    {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
-                     8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
-
-    g_label2class_dic['SCANNET'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
-                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
-                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
-                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-    g_label2color_dic = {}
-    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
-    g_label2color_dic['ETH'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
-    g_label2color_dic['STANFORD_INDOOR3D'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
-    g_label2color_dic['SCANNET'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
-                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
-                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}  ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0]  }     ## benz_m
-
-    def __init__(self,datasource_name):
-        self.datasource_name = datasource_name
-        self.g_label2class = self.g_label2class_dic[self.datasource_name]
-        self.g_label2color = self.g_label2color_dic[self.datasource_name]
-        self.g_class2label = {cls:label for label,cls in self.g_label2class.iteritems()}
-        self.g_class2color = {}
-        for i in self.g_label2class:
-            cls = self.g_label2class[i]
-            self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class)
-
-
 class Normed_H5f():
     '''
     format: .nhf5
@@ -4059,40 +4101,6 @@ class Normed_H5f():
     # -----------------------------------------------------------------------------
     # CONSTANTS
     # -----------------------------------------------------------------------------
-    g_label2class_dic = {}
-    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
-    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
-                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
-                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
-
-    g_label2class_dic['STANFORD_INDOOR3D'] = \
-                    {0:'ceiling', 1:'floor', 2:'wall', 3:'beam', 4:'column', 5:'window', 6:'door', 7:'table',
-                     8:'chair', 9:'sofa', 10:'bookcase', 11:'board', 12:'clutter'}
-
-    g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
-                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
-                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
-                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-    g_label2color_dic = {}
-    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
-    g_label2color_dic['ETH'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
-    g_label2color_dic['STANFORD_INDOOR3D'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
-    g_label2color_dic['SCANNET'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
-                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
-                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
-
-    g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m
-    g_label2color_dic['KITTI'] = { 0:[0,0,0], 1:[0,0,255], 2:[0,255,255], 3:[255,255,0] }     ## benz_m
-
-    #g_easy_view_labels = [7,8,9,10,11,1]
-    #g_is_labeled = True
-
     ## normed data channels
     normed_data_elements_candi = {}
     #normed_data_elements_candi['xyz'] = ['xyz','xyz_midnorm_block','xyz_1norm_file']
@@ -4120,14 +4128,12 @@ class Normed_H5f():
             self.h5f.attrs['datasource_name'] = datasource_name
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
         self.datasource_name = self.h5f.attrs['datasource_name']
-        self.g_label2class = self.g_label2class_dic[self.datasource_name]
-        self.g_label2color = self.g_label2color_dic[self.datasource_name]
-        self.g_class2label = {cls:label for label,cls in self.g_label2class.iteritems()}
-        self.g_class2color = {}
-        for i in self.g_label2class:
-            cls = self.g_label2class[i]
-            self.g_class2color[cls] = self.g_label2color[i]
-        self.num_classes = len(self.g_label2class)
+        self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
+        self.g_label2class = dataset_meta.g_label2class
+        self.g_label2color = dataset_meta.g_label2color
+        self.g_class2label = dataset_meta.g_class2label
+        self.g_class2color = dataset_meta.g_class2color
+        self.num_classes = dataset_meta.num_classes
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
@@ -4148,7 +4154,7 @@ class Normed_H5f():
         norm_ele_info['label_eles_num'] = len(norm_ele_info['label_eles'])
 
         norm_ele_info['norm_data_ele_idxs'] = Normed_H5f.get_normeddata_ele_idxs(norm_ele_info['norm_data_eles'])
-        norm_ele_info['label_ele_idxs'] = Normed_H5f.get_label_ele_ids(norm_ele_info['label_eles'])
+        norm_ele_info['label_ele_idxs'] = Normed_H5f.get_label_ele_ids_nh5(norm_ele_info['label_eles'])
 
         return norm_ele_info
 
@@ -4172,10 +4178,10 @@ class Normed_H5f():
         if feed_label_elements==None:
             feed_label_ele_ids = self.label_ele_idxs
         else:
-            feed_label_ele_ids = self.get_label_ele_ids(feed_label_elements)
+            feed_label_ele_ids = Normed_H5f.get_label_ele_ids_nh5(feed_label_elements)
         return feed_data_ele_idxs,feed_label_ele_ids
 
-    def get_normed_data(self,start_block,end_blcok,feed_elements=None):
+    def get_data_byeles(self,start_block,end_blcok,feed_elements=None):
         # the data ele order store according to feed_elements
         if feed_elements==None:
             datas = self.data_set[start_block:end_blcok,...]
@@ -4210,7 +4216,7 @@ class Normed_H5f():
                 globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
                 return  sg_bidxmaps, globalb_bottom_center_xyz
 
-    def get_label_eles(self,start_block,end_blcok,feed_label_elements=None):
+    def get_label_byeles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,...]
@@ -4233,7 +4239,7 @@ class Normed_H5f():
                 data_ele_idxs[e] = idx
         return data_ele_idxs
     @staticmethod
-    def get_label_ele_ids(label_elements):
+    def get_label_ele_ids_nh5(label_elements):
         # order according to  Normed_H5f.labels_order
         label_ele_idxs = {}
         k = 0
@@ -4934,7 +4940,7 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
                 else:
                     for attr in in_h5f.attrs:
                         if attr in GlobalSubBaseBLOCK.meta_names:
-                            merged_normed_h5f.h5f.attrs[attr] += in_h5f.attrs[attr]
+                            merged_normed_h5f.h5f.attrs[attr] = merged_normed_h5f.h5f.attrs[attr] + in_h5f.attrs[attr]
 
                     if 'xyz_scope_aligned' in in_h5f.attrs:
                         merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] += in_h5f.attrs['xyz_scope_aligned']

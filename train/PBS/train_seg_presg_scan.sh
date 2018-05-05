@@ -6,8 +6,8 @@
 #***********
 
 train_script=../train_semseg_sorted_multi_gpus.py
-dataset_name=scannet
-maxepoch=121
+dataset_name=SCANNET
+maxepoch=301
 learning_rate=0.002
 decay_epoch_step=40
 feed_label_elements="label_category"
@@ -16,8 +16,6 @@ multip_feed=1
 finetune=0
 model_epoch=170
 only_evaluate=0
-ShuffleFlag='Y'
-#ShuffleFlag='N'
 baselogname=log
 
 # *****************************************************************************
@@ -32,9 +30,11 @@ run_train()
   batch_size=$2
   num_gpus=$3
   feed_data_elements=$4
-  loss_weight=${5}
-  in_cnn_out_kp=${6}
-  python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --num_gpus $num_gpus --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight --in_cnn_out_kp $in_cnn_out_kp
+  loss_weight=$5
+  in_cnn_out_kp=$6
+  ShuffleFlag=$7
+  aug=$8
+  python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --num_gpus $num_gpus --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight --in_cnn_out_kp $in_cnn_out_kp --aug $aug
 }
 
-run_train $1 $2 $3 $4  $5 $6
+run_train $1 $2 $3 $4  $5 $6 $7 $8
