@@ -14,6 +14,7 @@ import numpy as np
 DEBUG_TMP = True
 
 IsCompensateGlobal = True
+IS_TMP_BUG=True
 
 # IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
 # configuration. This is origibally set in NETCONFIG. But the configuration is
@@ -308,10 +309,10 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
             # Dont know why. global voxel indices can be larger or smaller by 1 on [x,y].
             # As a result, the scope [x,y] can also be larger by 1.
             # Do compensate: either sub 1 or add 1. But it maybe different for each block or x or y.
-            point_indices_min = tf.reduce_min( point_indices, axis=[1,2], keepdims=True )
+            point_indices__min = tf.reduce_min( point_indices, axis=[1,2], keepdims=True )
             point_indices_max = tf.reduce_max( point_indices, axis=[1,2], keepdims=True )
 
-            global_pi_min_comp = tf.minimum( point_indices_min, tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' ) # -1 or 0
+            global_pi_min_comp = tf.minimum( point_indices__min, tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' ) # -1 or 0
             global_pi_min_comp = tf.maximum( global_pi_min_comp, tf.constant([-1,-1,0],tf.float32) )
             global_pi_max_comp = tf.maximum( point_indices_max - max_indice_v, tf.constant([0,0,0],tf.float32), name='global_pi_max_comp' ) # 0 or 1
             global_pi_max_comp = tf.minimum( global_pi_max_comp, tf.constant([1,1,0],tf.float32) )
@@ -339,7 +340,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
         check_max_indice = tf.assert_less( real_max - max_indice_1, tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v, tf.float32 ),
                                           data=[cascade_id, real_max, max_indice_1], name='check_max_indice' )
         tf.add_to_collection( 'check', check_max_indice )
-        point_indices_checkmin += max_indice_v * IS_merge_blocks_while_fix_bmap
+        point_indices_checkmin += (max_indice_v+1*IS_TMP_BUG) * IS_merge_blocks_while_fix_bmap
 
 
     point_indices_min = tf.reduce_min(point_indices_checkmin, name='point_indices_min') # gpu_0/sa_layer4/point_indices_min:0

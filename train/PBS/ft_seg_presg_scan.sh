@@ -14,10 +14,10 @@ feed_label_elements="label_category"
 
 multip_feed=1
 finetune=1
-model_epoch=300
+model_epoch=0
 only_evaluate=0
 ShuffleFlag='Y'
-baselogname='log-5VaG_114-NlwNN5-gsbb_4A1-bs9-lr2-ds_40-Sf_Y-xyz_midnorm_block-color_1norm-90000-sca_1833-augRef'
+baselogname='log-5VaG_114-Nlw5N5-gsbb_4B1-bs22-lr2-ds_40-Sf_Y-xyz_midnorm_block-color_1norm-30000-SCA_6796-augRef-bd3'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'

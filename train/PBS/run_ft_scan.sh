@@ -2,7 +2,7 @@
 feed_data_elements='xyz_midnorm_block' 
 feed_data_elements='xyz_midnorm_block-color_1norm' 
 
-bs=22
+bs=20
 num_gpus=1
 in_cnn_out_kp='NN5'
 loss_weight='N'

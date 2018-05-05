@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -86,7 +86,7 @@ try:
 except:
     pass
 ISNoEval = FLAGS.eval_fnglob_or_rate == 0
-EVAL_EPOCH_STEP = 5
+EVAL_EPOCH_STEP = 1
 #-------------------------------------------------------------------------------
 BATCH_SIZE = FLAGS.batch_size
 NUM_GPUS = FLAGS.num_gpus
@@ -101,12 +101,13 @@ AUG_TYPES = aug_id_to_type(FLAGS.aug)
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+FLAGS.bxmh5_folder_name = FLAGS.bxmh5_folder_name.split(',')
 net_configs = {}
 net_configs['loss_weight'] = FLAGS.loss_weight
 net_provider = Net_Provider(
                             net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
-                            all_filename_glob=FLAGS.all_fn_globs,
+                            all_filename_globs=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
                             only_evaluate = FLAGS.only_evaluate,
@@ -347,7 +348,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 1
+            start_gi = 0
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -541,6 +542,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     while ( train_feed_buf_q!=None ) or  ( batch_idx < num_batches-1) or (num_batches==None):
         # When use multi feed, stop with train_feed_thread_finish_num.value
         # When use normal feed, stop with batch_idx
+        if DEBUG_TMP and batch_idx>4:
+            continue
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
@@ -752,6 +755,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     batch_idx = -1
 
     while (eval_feed_buf_q!=None) or (batch_idx < num_batches-1) or (num_batches==None):
+        if DEBUG_TMP and batch_idx>4:
+            continue
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
