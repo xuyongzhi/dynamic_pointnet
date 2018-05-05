@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
+sys.path.append(os.path.join(BASE_DIR,'all_datasets_meta'))
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import numpy as np
 import h5py
@@ -17,6 +18,7 @@ import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
 import geometric_util as geo_util
+from datasets_meta import DatasetsMeta
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
@@ -254,7 +256,7 @@ class Net_Provider():
        # self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(np.transpose(self.test_labels_hist_1norm) ))
         self.data_summary_str += 'label histogram:'+','.join('%5.2f'%(lh) for lh in self.labels_hist_1norm[:,0].tolist()) + '\n'
         self.data_summary_str += 'label   weights:'+','.join('%5.2f'%(lw) for lw in self.labels_weights[:,0].tolist()) + '\n'
-        self.data_summary_str += 'class      name:'+','.join( '%5s'%(Normed_H5f.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(Normed_H5f.g_label2class_dic[self.dataset_name])) )
+        self.data_summary_str += 'class      name:'+','.join( '%5s'%(DatasetsMeta.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(DatasetsMeta.g_label2class_dic[self.dataset_name])) )
         #print(self.data_summary_str)
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):

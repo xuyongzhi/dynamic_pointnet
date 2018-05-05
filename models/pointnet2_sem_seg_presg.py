@@ -32,6 +32,7 @@ TMPDEBUG = True
 #        return flatten_bidxmap_i_concat
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, configs):
+    batch_size = None
     sg_bidxmaps_shape = configs['sg_bidxmaps_shape']
     flatten_bidxmaps_shape = configs['flatten_bidxmaps_shape']
     flatten_bm_extract_idx = configs['flatten_bm_extract_idx']

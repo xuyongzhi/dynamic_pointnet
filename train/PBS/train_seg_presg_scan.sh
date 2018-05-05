@@ -12,16 +12,18 @@ learning_rate=0.002
 decay_epoch_step=40
 feed_label_elements="label_category"
 
-multip_feed=1
+multip_feed=0
 finetune=0
 model_epoch=170
 only_evaluate=0
 baselogname=log
-
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
 eval_fnglob_or_rate='test'
+
+all_fn_globs='Merged_sph5/30000_gs-2d4_-3d4/'
+bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
 # *****************************************************************************
 
 run_train()
