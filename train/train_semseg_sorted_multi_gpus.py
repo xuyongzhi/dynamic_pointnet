@@ -67,6 +67,7 @@ parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Ce
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
@@ -130,7 +131,7 @@ if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
 BN_INIT_DECAY = 0.5
-BN_INIT_DECAY = 0.3
+BN_INIT_DECAY = 0.7
 BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
@@ -348,7 +349,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 0
+            start_gi = FLAGS.start_gi
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -514,7 +515,8 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
-    log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%3 == 0 or batch_idx==num_batches-1)
+    log_complex = FLAGS.only_evaluate or (epoch % 40 == 0 and epoch>0) and (batch_idx%2 == 0 or batch_idx==num_batches-1)
+    #log_complex = FLAGS.only_evaluate or (epoch % 1 == 0 and epoch>=0) and (batch_idx%1 == 0 or batch_idx==num_batches-1)
     return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):
