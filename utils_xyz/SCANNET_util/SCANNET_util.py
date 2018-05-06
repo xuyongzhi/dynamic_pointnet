@@ -1,28 +1,28 @@
 import os
 BASE_DIR = os.path.dirname( os.path.abspath(__file__) )
 
-ScannetMeta = {}
-ScannetMeta['label2class'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
+SCANNET_Meta = {}
+SCANNET_Meta['label2class'] = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
                             6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
                             12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
                             17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-ScannetMeta['unlabelled_categories'] = [0]
-ScannetMeta['easy_categories_dic'] = [ 2,1,3,6,11,10,4 ]
+SCANNET_Meta['unlabelled_categories'] = [0]
+SCANNET_Meta['easy_categories'] = [ 2,1,3,6,11,10,4 ]
 
-ScannetMeta['label2color_dic'] = \
+SCANNET_Meta['label2color'] = \
                 {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
                 6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
                 13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
-ScannetMeta['label_names'] = [ScannetMeta['label2class'][l] for l in range(len(ScannetMeta['label2class'])) ]
+SCANNET_Meta['label_names'] = [SCANNET_Meta['label2class'][l] for l in range(len(SCANNET_Meta['label2class'])) ]
 
 def get_raw2scannet_label_map():
     lines = [line.rstrip() for line in open(BASE_DIR+'/scannet-labels.combined.tsv')]
     lines = lines[1:]
     raw2scannet = {}
     for i in range(len(lines)):
-        label_classes_set = set(g_label_names)
+        label_classes_set = set(SCANNET_Meta['label_names'] )
         elements = lines[i].split('\t')
         raw_name = elements[0]
         nyu40_name = elements[6]

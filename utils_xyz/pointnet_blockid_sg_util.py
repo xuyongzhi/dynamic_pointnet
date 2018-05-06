@@ -118,15 +118,19 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             else:
                 new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
 
-            if cascade_id>0:
-                if configs['normxyz_allcas'] == 'mid':
-                    grouped_xyz = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
-                    block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
-                if use_xyz:
-                    grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
+
+        if configs['normxyz_allcas'] == 'mid':
+            block_center = tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
+            grouped_xyz = grouped_xyz - block_center
+            block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
+            if cascade_id==0:
+                # xyz is at the first!!!!
+                grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
+        if cascade_id>0 and use_xyz and (not IsExtraGlobalLayer):
+            grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 

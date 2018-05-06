@@ -5,12 +5,17 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(ROOT_DIR+'/matterport_metadata')
-from matterport3d_meta import MatterportMeta,get_cat40_from_rawcat
-sys.path.append(ROOT_DIR+'/scannet_meta')
-from scannet_meta import ScannetMeta
-sys.path.append(ROOT_DIR+'/ETH_meta')
-from ETH_meta import ETHMeta
+
+
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
+
+for ds in DATASETS:
+    sys.path.append('%s/%s_util'%(ROOT_DIR,ds))
+
+from MATTERPORT_util import MATTERPORT_Meta
+from SCANNET_util import SCANNET_Meta
+from ETH_util import ETH_Meta
+DATASETS_Meta = [MATTERPORT_Meta, SCANNET_Meta, ETH_Meta]
 
 
 class DatasetsMeta():
@@ -20,14 +25,14 @@ class DatasetsMeta():
     g_easy_categories_dic = {}
     g_label2color_dic = {}
 
-    datasets = ['MATTERPORT', 'SCANNET', 'ETH']
-    dataset_metas = [MatterportMeta, ScannetMeta, ETHMeta]
-    for i in range(len(datasets)):
-        g_label2class_dic[datasets[i]] = dataset_metas[i]['label2class']
-        g_label_names_dic[datasets[i]] = dataset_metas[i]['label_names']
-        g_label2color_dic[datasets[i]] = dataset_metas[i]['label2color']
-        g_easy_categories_dic[datasets[i]] = dataset_metas[i]['easy_categories_dic']
-        g_unlabelled_categories[datasets[i]] = dataset_metas[i]['unlabelled_categories']
+    for i in range(len(DATASETS)):
+        DS_i = DATASETS[i]
+        DS_Meta_i = DATASETS_Meta[i]
+        g_label2class_dic[DS_i] = DS_Meta_i['label2class']
+        g_label_names_dic[DS_i] = DS_Meta_i['label_names']
+        g_label2color_dic[DS_i] = DS_Meta_i['label2color']
+        g_easy_categories_dic[DS_i] = DS_Meta_i['easy_categories']
+        g_unlabelled_categories[DS_i] = DS_Meta_i['unlabelled_categories']
     ##---------------------------------------------------------------------------
 
     #---------------------------------------------------------------------------

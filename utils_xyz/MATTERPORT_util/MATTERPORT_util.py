@@ -13,30 +13,30 @@ def hexcolor2int(hexcolor):
     hex_int = [int(hex0,16),int(hex1,16),int(hex2,16)]
     return hex_int
 
-MatterportMeta = {}
-MatterportMeta['label2class'] = {}
-MatterportMeta['label2color'] = {}
-MatterportMeta['label2WordNet_synset_key'] = {}
-MatterportMeta['label2NYUv2_40label'] = {}
-MatterportMeta['label25'] = {}
-MatterportMeta['label26'] = {}
+MATTERPORT_Meta = {}
+MATTERPORT_Meta['label2class'] = {}
+MATTERPORT_Meta['label2color'] = {}
+MATTERPORT_Meta['label2WordNet_synset_key'] = {}
+MATTERPORT_Meta['label2NYUv2_40label'] = {}
+MATTERPORT_Meta['label25'] = {}
+MATTERPORT_Meta['label26'] = {}
 
-MatterportMeta['unlabelled_categories'] = [0,41]
-MatterportMeta['easy_categories_dic'] = []
+MATTERPORT_Meta['unlabelled_categories'] = [0,41]
+MATTERPORT_Meta['easy_categories'] = []
 
 with open(mpcat40_fn,'r') as f:
     reader = csv.reader(f,delimiter='\t')
     for i,line in enumerate(reader):
         if i==0: continue
         k = int(line[0])
-        MatterportMeta['label2class'][k] = line[1]
-        MatterportMeta['label2color'][k] = hexcolor2int( line[2] )
-        MatterportMeta['label2WordNet_synset_key'][k]=line[3]
-        MatterportMeta['label2NYUv2_40label'][k] = line[4]
-        MatterportMeta['label25'][k] = line[5]
-        MatterportMeta['label26'][k] = line[6]
+        MATTERPORT_Meta['label2class'][k] = line[1]
+        MATTERPORT_Meta['label2color'][k] = hexcolor2int( line[2] )
+        MATTERPORT_Meta['label2WordNet_synset_key'][k]=line[3]
+        MATTERPORT_Meta['label2NYUv2_40label'][k] = line[4]
+        MATTERPORT_Meta['label25'][k] = line[5]
+        MATTERPORT_Meta['label26'][k] = line[6]
 
-MatterportMeta['label_names'] = [MatterportMeta['label2class'][l] for l in range(len(MatterportMeta['label2class'])) ]
+MATTERPORT_Meta['label_names'] = [MATTERPORT_Meta['label2class'][l] for l in range(len(MATTERPORT_Meta['label2class'])) ]
 
 with open(category_mapping_fn,'r') as f:
     '''
@@ -90,7 +90,7 @@ def get_cat40_from_rawcat(raw_category_indexs):
             mpcat40_j = rawcategory_2_mpcat40[raw_category_index-1]
             mpcat40_idx_j = rawcategory_2_mpcat40ind[raw_category_index-1]
         mpcat40_idxs[j] = mpcat40_idx_j
-        assert mpcat40_j == MatterportMeta['label2class'][mpcat40_idx_j],"%s != %s"%(mpcat40_j,MatterportMeta['label2class'][mpcat40_idx_j])
+        assert mpcat40_j == MATTERPORT_Meta['label2class'][mpcat40_idx_j],"%s != %s"%(mpcat40_j,MATTERPORT_Meta['label2class'][mpcat40_idx_j])
         mpcat40s[j] += mpcat40_j
     return mpcat40_idxs
 
