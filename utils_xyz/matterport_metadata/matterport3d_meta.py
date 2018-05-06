@@ -21,6 +21,9 @@ MatterportMeta['label2NYUv2_40label'] = {}
 MatterportMeta['label25'] = {}
 MatterportMeta['label26'] = {}
 
+MatterportMeta['unlabelled_categories'] = [0,41]
+MatterportMeta['easy_categories_dic'] = []
+
 with open(mpcat40_fn,'r') as f:
     reader = csv.reader(f,delimiter='\t')
     for i,line in enumerate(reader):
@@ -32,6 +35,8 @@ with open(mpcat40_fn,'r') as f:
         MatterportMeta['label2NYUv2_40label'][k] = line[4]
         MatterportMeta['label25'][k] = line[5]
         MatterportMeta['label26'][k] = line[6]
+
+MatterportMeta['label_names'] = [MatterportMeta['label2class'][l] for l in range(len(MatterportMeta['label2class'])) ]
 
 with open(category_mapping_fn,'r') as f:
     '''

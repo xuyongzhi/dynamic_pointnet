@@ -6,29 +6,29 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(ROOT_DIR+'/matterport_metadata')
-from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
+from matterport3d_meta import MatterportMeta,get_cat40_from_rawcat
+sys.path.append(ROOT_DIR+'/scannet_meta')
+from scannet_meta import ScannetMeta
+sys.path.append(ROOT_DIR+'/ETH_meta')
+from ETH_meta import ETHMeta
+
 
 class DatasetsMeta():
     g_label2class_dic = {}
+    g_label_names_dic = {}
     g_unlabelled_categories = {}
     g_easy_categories_dic = {}
     g_label2color_dic = {}
 
-    #---------------------------------------------------------------------------
-    g_label2class_dic['MATTERPORT'] = MatterportMeta['label2class']
-    g_unlabelled_categories['MATTERPORT'] = [0,41]
-    g_easy_categories_dic['MATTERPORT'] = []
-    g_label2color_dic['MATTERPORT'] = MatterportMeta['label2color']
-
-    #---------------------------------------------------------------------------
-    g_label2class_dic['ETH'] = {0: 'unlabeled points', 1: 'man-made terrain', 2: 'natural terrain',\
-                     3: 'high vegetation', 4: 'low vegetation', 5: 'buildings', \
-                     6: 'hard scape', 7: 'scanning artefacts', 8: 'cars'}
-    g_unlabelled_categories['ETH'] = [0]
-    g_easy_categories_dic['ETH'] = []
-    g_label2color_dic['ETH'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],5:[10,200,100]}
+    datasets = ['MATTERPORT', 'SCANNET', 'ETH']
+    dataset_metas = [MatterportMeta, ScannetMeta, ETHMeta]
+    for i in range(len(datasets)):
+        g_label2class_dic[datasets[i]] = dataset_metas[i]['label2class']
+        g_label_names_dic[datasets[i]] = dataset_metas[i]['label_names']
+        g_label2color_dic[datasets[i]] = dataset_metas[i]['label2color']
+        g_easy_categories_dic[datasets[i]] = dataset_metas[i]['easy_categories_dic']
+        g_unlabelled_categories[datasets[i]] = dataset_metas[i]['unlabelled_categories']
+    ##---------------------------------------------------------------------------
 
     #---------------------------------------------------------------------------
     g_label2class_dic['STANFORD_INDOOR3D'] = \
@@ -39,19 +39,6 @@ class DatasetsMeta():
     g_label2color_dic['STANFORD_INDOOR3D'] = \
                     {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
                     6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100]}
-
-    #---------------------------------------------------------------------------
-    g_label2class_dic['SCANNET'] = g_label2class_dic['scannet']   = {0:'unannotated', 1:'wall', 2:'floor', 3:'chair', 4:'table', 5:'desk',\
-                                6:'bed', 7:'bookshelf', 8:'sofa', 9:'sink', 10:'bathtub', 11:'toilet',\
-                                12:'curtain', 13:'counter', 14:'door', 15:'window', 16:'shower curtain',\
-                                17:'refridgerator', 18:'picture', 19:'cabinet', 20:'otherfurniture'}
-    g_unlabelled_categories['SCANNET'] = [0]
-    g_easy_categories_dic['SCANNET'] = [ 2,1,3,6,11,10,4 ]
-    g_label2color_dic['SCANNET'] = \
-                    {0:	[0,0,0],1:	[0,0,255],2:	[0,255,255],3: [255,255,0],4: [255,0,255],10: [100,100,255],
-                    6: [0,255,0],7: [170,120,200],8: [255,0,0],9: [200,100,100],5:[10,200,100],11:[200,200,200],12:[200,200,100],
-                    13: [100,200,200],14: [200,100,200],15: [100,200,100],16: [100,100,200],
-                     17:[100,100,100],18:[200,200,200],19:[200,200,100],20:[200,200,100]}
 
     #---------------------------------------------------------------------------
     g_label2class_dic['KITTI'] = {0:'background', 1:'car', 2:'pedestrian', 3:'cyclist'}   ## benz_m

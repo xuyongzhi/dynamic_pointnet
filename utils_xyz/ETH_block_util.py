@@ -5,7 +5,7 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-sys.path.append(BASE_DIR+'/scannet_meta')
+sys.path.append(BASE_DIR+'/scannet_util')
 from block_data_prep_util import Raw_H5f, Sort_RawH5f,Sorted_H5f,Normed_H5f,show_h5f_summary_info,MergeNormed_H5f,get_stride_step_name
 from block_data_prep_util import GlobalSubBaseBLOCK,get_mean_sg_sample_rate,get_mean_flatten_sample_rate,check_h5fs_intact
 import numpy as np
@@ -17,16 +17,19 @@ import itertools
 import pickle
 from plyfile import PlyData, PlyElement
 import json
-import scannet_meata
+import scannet_util
 
 TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
-SCANNET_DATA_DIR = os.path.join(DATA_DIR, 'Scannet__H5F' )
-SCANNET_MERGED_DATA_DIR = os.path.join(DATA_DIR, 'ScannetH5F' )
 
-CLASS_NAMES = scannet_meata.ScannetMeta['label_names']
-RAW2SCANNET = scannet_meata.g_raw2scannet
+DATASET = ['MATTERPORT', 'SCANNET', 'ETH'][2]
+
+ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
+MERGED_DATA_DIR = os.path.join(DATA_DIR, DATASET+'H5F' )
+
+CLASS_NAMES = scannet_util.g_label_names
+RAW2SCANNET = scannet_util.g_raw2scannet
 
 def parse_scan_ply( ply_fn ):
     with open( ply_fn, 'r' ) as ply_fo:
@@ -85,41 +88,6 @@ def parse_aggregation( aggregation_fn ):
             labels.append(x['label'])
         return instance_segids, labels
 
-def parse_scan_raw( scene_name ):
-    scene_name_base = os.path.basename( scene_name )
-    ply_fn = scene_name + '/%s_vh_clean.ply'%(scene_name_base)
-    mesh_segs_fn = scene_name + '/%s_vh_clean.segs.json'%(scene_name_base)
-    aggregation_fn = scene_name + '/%s_vh_clean.aggregation.json'%(scene_name_base)
-
-    segid_to_pointid, mesh_labels = parse_mesh_segs(mesh_segs_fn)
-    points = parse_scan_ply( ply_fn )
-    instance_segids, labels = parse_aggregation( aggregation_fn )
-
-    # Each instance's points
-    instance_points_list = []
-    instance_labels_list = []
-    semantic_labels_list = []
-    for i in range(len(instance_segids)):
-        segids = instance_segids[i]
-        pointids = []
-        for segid in segids:
-            pointids += segid_to_pointid[segid]
-        instance_points = points[np.array(pointids),:]
-        instance_points_list.append(instance_points)
-        instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)
-        if labels[i] not in RAW2SCANNET:
-            label = 'unannotated'
-        else:
-            label = RAW2SCANNET[labels[i]]
-        label = CLASS_NAMES.index(label)
-        semantic_labels_list.append(np.ones((instance_points.shape[0], 1))*label)
-
-    # Refactor data format
-    scene_points = np.concatenate(instance_points_list, 0)
-    instance_labels = np.concatenate(instance_labels_list, 0)
-    semantic_labels = np.concatenate(semantic_labels_list, 0)
-
-    return scene_points, instance_labels, semantic_labels, mesh_labels
 
 def WriteRawH5f( scene_name, rawh5f_dir ):
     # save as rh5
@@ -130,7 +98,7 @@ def WriteRawH5f( scene_name, rawh5f_dir ):
         return scene_name
     print('start write rh5: %s'%(rawh5f_fn))
 
-    scene_points, instance_labels, semantic_labels, mesh_labels = parse_scan_raw( scene_name )
+    scene_points, instance_labels, semantic_labels, mesh_labels = scannet_util.parse_raw( scene_name )
     num_points = scene_points.shape[0]
     with h5py.File(rawh5f_fn,'w') as h5f:
         raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
@@ -182,8 +150,8 @@ def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
     return allfn_ls, all_group_name_ls
 
 def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n ):
-    plsph5_folder = SCANNET_DATA_DIR + '/' + plsph5_folder
-    bxmh5_folder = SCANNET_DATA_DIR + '/' + bxmh5_folder
+    plsph5_folder = ORG_DATA_DIR + '/' + plsph5_folder
+    bxmh5_folder = ORG_DATA_DIR + '/' + bxmh5_folder
     scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
     scannet_test_ls = list(np.loadtxt('./scannet_meta/scannet_test.txt','string'))
     trainval_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_trainval_ls]
@@ -230,23 +198,13 @@ class Scannet_Prepare():
     '''
 
     '''
-    BasicDataDir = os.path.join( SCANNET_DATA_DIR,'BasicData' )
+    BasicDataDir = os.path.join( ORG_DATA_DIR,'BasicData' )
 
     def __init__(self):
         self.rawh5f_dir =  self.BasicDataDir+'/rawh5'
 
-        self.sorted_path_stride_0d5_step_0d5 = os.path.join(SCANNET_DATA_DIR,'stride_0d5_step_0d5')
-        self.sorted_path_stride_1_step_2 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')
-        self.sorted_path_stride_1_step_2_8192 = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192'
-        self.sorted_path_stride_1_step_2_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192_normed'
-        self.filename_stride_1_step_2_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_1_step_2')+'_8192_normed.sph5'
-        self.sorted_path_stride_2_step_4 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')
-        self.sorted_path_stride_2_step_4_8192 = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192'
-        self.sorted_path_stride_2_step_4_8192_norm = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed'
-        self.filename_stride_2_step_4_8192_norm_merged = os.path.join(SCANNET_DATA_DIR,'stride_2_step_4')+'_8192_normed.sph5'
-
     def ParseRaw(self, MultiProcess):
-        raw_path = DATA_DIR+'/scannet_data'
+        raw_path = DATA_DIR+'/' + DATASET
 
         rawh5f_dir = self.rawh5f_dir
         if not os.path.exists(rawh5f_dir):
@@ -274,30 +232,6 @@ class Scannet_Prepare():
                 assert len(success_fns)==success_N,"ParseRaw failed. only %d files successed"%(len(success_fns))
             print("\n\nParseRaw:all %d files successed\n******************************\n"%(len(success_fns)))
 
-    def Load_Raw_Scannet_Pickle(self):
-        file_name = os.path.join(SCANNET_DATA_DIR,'scannet_%s.pickle'%(self.split))
-        rawh5f_dir = self.rawh5f_dir
-        if not os.path.exists(rawh5f_dir):
-            os.makedirs(rawh5f_dir)
-
-        with open(file_name,'rb') as fp:
-            scene_points_list = pickle.load(fp)
-            semantic_labels_list = pickle.load(fp)
-
-            print('%d scans for file:\n %s'%(len(semantic_labels_list),file_name))
-            for n in range(len(semantic_labels_list)):
-                # write one RawH5f file for one scane
-                rawh5f_fn = os.path.join(rawh5f_dir,self.split+'_%d.rh5'%(n))
-                if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
-                    print('rh5 intact: %s'%(rawh5f_fn))
-                    continue
-                num_points = semantic_labels_list[n].shape[0]
-                with h5py.File(rawh5f_fn,'w') as h5f:
-                    raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
-                    raw_h5f.set_num_default_row(num_points)
-                    raw_h5f.append_to_dset('xyz',scene_points_list[n])
-                    raw_h5f.append_to_dset('label_category',semantic_labels_list[n])
-                    raw_h5f.create_done()
 
 
     def SortRaw(self, block_step_xyz, MultiProcess=0 , rxyz_before_sort=None ):
@@ -381,7 +315,7 @@ class Scannet_Prepare():
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
-        pl_region_h5f_path = SCANNET_DATA_DIR + '/' + sph5_folder_names[0]
+        pl_region_h5f_path = ORG_DATA_DIR + '/' + sph5_folder_names[0]
         plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
         plfn_ls.sort()
         if len(plfn_ls) == 0:
@@ -402,7 +336,7 @@ class Scannet_Prepare():
                 print('void file: %s'%(pl_fn))
                 void_f_n += 1
                 continue
-            bxmh5_fn = SCANNET_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
+            bxmh5_fn = ORG_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
             if not os.path.exists( bxmh5_fn ):
                 if IsOnlyIntact: continue
                 print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
@@ -427,7 +361,7 @@ class Scannet_Prepare():
             merged_file_names = ['','']
 
             for j in range(2):
-                merged_path = SCANNET_MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
+                merged_path = MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
                 merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
@@ -474,7 +408,7 @@ def main( ):
         MultiProcess = 0
         scanet_prep = Scannet_Prepare()
 
-        #scanet_prep.ParseRaw( MultiProcess )
+        scanet_prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #scanet_prep.SortRaw( base_step_stride, MultiProcess, rxyz_before_sort=np.array([0,0,45])*np.pi/180 )
 
@@ -482,7 +416,7 @@ def main( ):
         data_aug_configs['delete_easy_categories_num'] = 5
 
         #scanet_prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        scanet_prep.MergeNormed( data_aug_configs )
+        #scanet_prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
