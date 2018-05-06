@@ -18,13 +18,13 @@ module load  tensorflow/1.6-cudnn7.1-python2.7
 module list
  
 feed_data_elements='xyz_midnorm_block-color_1norm' 
-num_gpus=2
+num_gpus=1
 loss_weight='N'
 ShuffleFlag='Y'
-bs=26
-in_cnn_out_kp='NN5'
+bs=23
+in_cnn_out_kp='5N5'
 aug=1
 
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug  -> out_NN5.log
+./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug  -> out_5N5.log
 
 

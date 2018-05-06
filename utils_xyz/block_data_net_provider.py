@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
+sys.path.append(os.path.join(BASE_DIR,'all_datasets_meta'))
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import numpy as np
 import h5py
@@ -17,6 +18,7 @@ import itertools
 from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
 import geometric_util as geo_util
+from datasets_meta import DatasetsMeta
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
@@ -35,7 +37,7 @@ class Net_Provider():
     (1) provide data for training
     (2) load file list to list of Norm_H5f[]
     dataset_name: 'stanford_indoor3d' 'scannet'
-    all_filename_glob:  stride_1_step_2_test_small_4096_normed/*.sph5
+    all_filename_globs:  stride_1_step_2_test_small_4096_normed/*.sph5
     eval_fnglob_or_rate: file name str glob or file number rate. 'scan1*.sph5' 0.2
     num_point_block: if the block point number is not this, do randomly sample
     feed_data_elements: sub list of ['xyz_1norm','xyz_midnorm','nxnynz','color_1norm','intensity_1norm']
@@ -47,17 +49,18 @@ class Net_Provider():
     # provider with train_start_idx and test_start_idx
 
 
-    def __init__(self, net_configs, dataset_name,all_filename_glob,eval_fnglob_or_rate, bxmh5_folder_name,\
+    def __init__(self, net_configs, dataset_name,all_filename_globs,eval_fnglob_or_rate, bxmh5_folder_name,\
                  only_evaluate,feed_data_elements, feed_label_elements, num_point_block = None, \
                  train_num_block_rate=1,eval_num_block_rate=1 ):
         t_init0 = time.time()
         self.net_configs = net_configs
+        self.all_filename_globs = all_filename_globs
         self.bxmh5_folder_name = bxmh5_folder_name
         self.dataset_name = dataset_name
         self.feed_data_elements = feed_data_elements
         self.feed_label_elements = feed_label_elements
         self.num_point_block = num_point_block
-        all_file_list = self.get_all_file_name_list(dataset_name,all_filename_glob)
+        all_file_list = self.get_all_file_name_list(dataset_name,all_filename_globs)
         train_file_list,eval_file_list = self.split_train_eval_file_list\
                             (all_file_list,eval_fnglob_or_rate)
         if only_evaluate:
@@ -166,14 +169,14 @@ class Net_Provider():
                 print( 'not exist: %s'%(bxmh5_fn) )
         return plsph5_fn_ls_new, bxmh5_fn_ls
 
-    def get_bxmh5_fn( self, plsph5_fn ):
-        house_name = os.path.splitext( os.path.basename(plsph5_fn) )[0]
-        pl_config_dir_name = os.path.dirname(plsph5_fn)
-        pl_config_name = os.path.basename(pl_config_dir_name)
-        each_house_dirname = os.path.dirname( pl_config_dir_name )
-        bxmh5_dirname = os.path.join( each_house_dirname, self.bxmh5_folder_name )
-        bxmh5_fn = os.path.join( bxmh5_dirname, house_name + '.bxmh5' )
-        return bxmh5_fn
+    #def get_bxmh5_fn( self, plsph5_fn ):
+    #    house_name = os.path.splitext( os.path.basename(plsph5_fn) )[0]
+    #    pl_config_dir_name = os.path.dirname(plsph5_fn)
+    #    pl_config_name = os.path.basename(pl_config_dir_name)
+    #    each_house_dirname = os.path.dirname( pl_config_dir_name )
+    #    bxmh5_dirname = os.path.join( each_house_dirname, self.bxmh5_folder_name )
+    #    bxmh5_fn = os.path.join( bxmh5_dirname, house_name + '.bxmh5' )
+    #    return bxmh5_fn
 
     def get_bxmh5_fn_1( self, plsph5_fn ):
         #fn1 = os.path.dirname(os.path.dirname( os.path.dirname(plsph5_fn) ))
@@ -183,7 +186,12 @@ class Net_Provider():
         #base_fn = os.path.splitext('/'+os.path.join( *tmp ))[0]
         #bxmh5_fn = base_fn+'.bxmh5'
 
-        path = os.path.dirname(os.path.dirname( os.path.dirname(plsph5_fn) )) +'/'+ self.bxmh5_folder_name + '/'
+        tmp = plsph5_fn.split('/')[-3:-1]
+        sph5_folder = tmp[0]+'/'+tmp[1]+'/'
+        for i,s in enumerate(self.all_filename_globs):
+            if sph5_folder == s:
+                fgi = i
+        path = os.path.dirname(os.path.dirname( os.path.dirname(plsph5_fn) )) +'/'+ self.bxmh5_folder_name[fgi] + '/'
         base_name = os.path.splitext( os.path.basename( plsph5_fn ) )[0]
         bxmh5_fn = path + base_name + '.bxmh5'
         return bxmh5_fn
@@ -254,7 +262,7 @@ class Net_Provider():
        # self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(np.transpose(self.test_labels_hist_1norm) ))
         self.data_summary_str += 'label histogram:'+','.join('%5.2f'%(lh) for lh in self.labels_hist_1norm[:,0].tolist()) + '\n'
         self.data_summary_str += 'label   weights:'+','.join('%5.2f'%(lw) for lw in self.labels_weights[:,0].tolist()) + '\n'
-        self.data_summary_str += 'class      name:'+','.join( '%5s'%(Normed_H5f.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(Normed_H5f.g_label2class_dic[self.dataset_name])) )
+        self.data_summary_str += 'class      name:'+','.join( '%5s'%(DatasetsMeta.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(DatasetsMeta.g_label2class_dic[self.dataset_name])) )
         #print(self.data_summary_str)
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):
@@ -262,8 +270,8 @@ class Net_Provider():
         fn_globs = []
         file_format = '.sph5'
 
-        for all_filename_glob in all_filename_globs:
-            fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_glob+'*'+file_format)
+        for all_filename_globs in all_filename_globs:
+            fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_globs+'*'+file_format)
             fn_candis  = glob.glob( fn_glob )
             for fn in fn_candis:
                 IsIntact,_ = Normed_H5f.check_sph5_intact( fn )
@@ -792,7 +800,7 @@ def main_NormedH5f():
 
     #eval_fnglob_or_rate = 'region0'
 
-    #all_filename_glob = ['all_merged_nf5']
+    #all_filename_globs = ['all_merged_nf5']
     #eval_fnglob_or_rate = '17DRP5sb8fy'
     num_point_block = None
 
@@ -806,7 +814,7 @@ def main_NormedH5f():
     net_provider = Net_Provider(
                                 net_configs=net_configs,
                                 dataset_name=dataset_name,
-                                all_filename_glob=all_fn_globs,
+                                all_filename_globs=all_fn_globs,
                                 eval_fnglob_or_rate=eval_fnglob_or_rate,
                                 bxmh5_folder_name = bxmh5_folder_name,
                                 only_evaluate = False,

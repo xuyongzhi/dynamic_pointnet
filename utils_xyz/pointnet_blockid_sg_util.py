@@ -14,6 +14,7 @@ import numpy as np
 DEBUG_TMP = True
 
 IsCompensateGlobal = True
+IS_TMP_BUG=True
 
 # IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
 # configuration. This is origibally set in NETCONFIG. But the configuration is
@@ -117,15 +118,19 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             else:
                 new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
 
-            if cascade_id>0:
-                if configs['normxyz_allcas'] == 'mid':
-                    grouped_xyz = grouped_xyz - tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
-                    block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
-                if use_xyz:
-                    grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
             if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
                 grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
+
+        if configs['normxyz_allcas'] == 'mid':
+            block_center = tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
+            grouped_xyz = grouped_xyz - block_center
+            block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
+            if cascade_id==0:
+                # xyz is at the first!!!!
+                grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
+        if cascade_id>0 and use_xyz and (not IsExtraGlobalLayer):
+            grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 
@@ -287,7 +292,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
 
     # check indice scope:
     # Actually only works when IS_merge_blocks_while_fix_bmap=False
-    Max_Assert = 1e-4 + IS_merge_blocks_while_fix_bmap * 3
+    Max_Assert = 1e-4
 
     batch_size = new_points.shape[0].value
     block_num = new_points.shape[1].value
@@ -308,40 +313,43 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
             # Dont know why. global voxel indices can be larger or smaller by 1 on [x,y].
             # As a result, the scope [x,y] can also be larger by 1.
             # Do compensate: either sub 1 or add 1. But it maybe different for each block or x or y.
-            point_indices_min = tf.reduce_min( point_indices, axis=[1,2], keepdims=True )
+            point_indices__min = tf.reduce_min( point_indices, axis=[1,2], keepdims=True )
             point_indices_max = tf.reduce_max( point_indices, axis=[1,2], keepdims=True )
 
-            global_pi_min_comp = tf.minimum( point_indices_min, tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' ) # -1 or 0
+            global_pi_min_comp = tf.minimum( point_indices__min, tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' ) # -1 or 0
             global_pi_min_comp = tf.maximum( global_pi_min_comp, tf.constant([-1,-1,0],tf.float32) )
             global_pi_max_comp = tf.maximum( point_indices_max - max_indice_v, tf.constant([0,0,0],tf.float32), name='global_pi_max_comp' ) # 0 or 1
             global_pi_max_comp = tf.minimum( global_pi_max_comp, tf.constant([1,1,0],tf.float32) )
             global_pi_comp = tf.add( global_pi_min_comp, global_pi_max_comp, 'global_pi_comp')      # gpu_0/sa_layer4/global_pi_comp:0
             point_indices -= global_pi_comp
 
-        point_indices_checkmin = point_indices
+        point_indices_checkmin = point_indices + max_indice_v * IS_merge_blocks_while_fix_bmap
         point_indices, first_unique_masks_global = unique_nd( point_indices )
 
         for i in range(3):
             real_max = tf.reduce_max(point_indices[:,:,:,i])
-            check_max_indice = tf.assert_less( real_max - max_indice_v[i], tf.constant(Max_Assert), data=[cascade_id, real_max, max_indice_v[i]], name='check_max_indice_'+str(i) )
+            check_max_indice = tf.assert_less( real_max - max_indice_v[i], tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v[i], dtype=tf.float32 ),
+                                              data=[cascade_id, real_max, max_indice_v[i]], name='check_max_indice_'+str(i) )
             tf.add_to_collection( 'check', check_max_indice )
 
     else:
         max_indice_f = ( configs['sub_block_step_candis'][cascade_id] - configs['sub_block_step_candis'][cascade_id-1] ) / configs['sub_block_stride_candis'][cascade_id-1]
-        max_indice_v = np.rint( max_indice_f )
-        assert abs(max_indice_f-max_indice_v) < Max_Assert
+        max_indice_v = np.rint( max_indice_f ).astype(np.float32)
+        assert abs(max_indice_f-max_indice_v) < Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v
         voxel_size = max_indice_v.astype(np.int32)+1
         voxel_shape = [batch_size, block_num, voxel_size, voxel_size, voxel_size, channel_num]
 
         max_indice_1 = tf.constant(max_indice_v,tf.float32)
         real_max = tf.reduce_max(point_indices)
-        check_max_indice = tf.assert_less( real_max - max_indice_1, tf.constant(Max_Assert), data=[cascade_id, real_max, max_indice_1], name='check_max_indice' )
+        check_max_indice = tf.assert_less( real_max - max_indice_1, tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v, tf.float32 ),
+                                          data=[cascade_id, real_max, max_indice_1], name='check_max_indice' )
         tf.add_to_collection( 'check', check_max_indice )
-        max_indice = tf.constant([1,1,1],tf.float32)*max_indice_1
+        point_indices_checkmin += (max_indice_v+1*IS_TMP_BUG) * IS_merge_blocks_while_fix_bmap
 
 
     point_indices_min = tf.reduce_min(point_indices_checkmin, name='point_indices_min') # gpu_0/sa_layer4/point_indices_min:0
-    check_min_indice = tf.assert_less( tf.constant(-Max_Assert,tf.float32), point_indices_min, data=[cascade_id,point_indices_min], name='check_min_indice' )
+    check_min_indice = tf.assert_less( tf.constant(-Max_Assert, tf.float32),
+                                      point_indices_min, data=[cascade_id,point_indices_min], name='check_min_indice' )
     tf.add_to_collection( 'check', check_min_indice )
     # ------------------------------------------------------------------
     point_indices = tf.cast( point_indices, tf.int32, name='point_indices' )    # gpu_0/sa_layer1/point_indices_1:0

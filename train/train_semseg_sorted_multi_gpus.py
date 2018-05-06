@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -39,13 +39,13 @@ parser.add_argument('--dataset_name', default='SCANNET', help='dataset_name: ETH
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
-parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
-parser.add_argument('--normxyz_allcas',default='none',help='none, mid: mid norm xyz in all cascades')
+parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -67,6 +67,7 @@ parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Ce
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
@@ -86,7 +87,7 @@ try:
 except:
     pass
 ISNoEval = FLAGS.eval_fnglob_or_rate == 0
-EVAL_EPOCH_STEP = 5
+EVAL_EPOCH_STEP = 1
 #-------------------------------------------------------------------------------
 BATCH_SIZE = FLAGS.batch_size
 NUM_GPUS = FLAGS.num_gpus
@@ -101,12 +102,13 @@ AUG_TYPES = aug_id_to_type(FLAGS.aug)
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+FLAGS.bxmh5_folder_name = FLAGS.bxmh5_folder_name.split(',')
 net_configs = {}
 net_configs['loss_weight'] = FLAGS.loss_weight
 net_provider = Net_Provider(
                             net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
-                            all_filename_glob=FLAGS.all_fn_globs,
+                            all_filename_globs=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
                             only_evaluate = FLAGS.only_evaluate,
@@ -129,7 +131,7 @@ if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
 BN_INIT_DECAY = 0.5
-BN_INIT_DECAY = 0.3
+BN_INIT_DECAY = 0.7
 BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
@@ -347,7 +349,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             pred_gpu = []
             total_loss_gpu = []
             debugs = [[]]
-            start_gi = 1
+            start_gi = FLAGS.start_gi
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
@@ -513,7 +515,8 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
-    log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%3 == 0 or batch_idx==num_batches-1)
+    log_complex = FLAGS.only_evaluate or (epoch % 40 == 0 and epoch>0) and (batch_idx%2 == 0 or batch_idx==num_batches-1)
+    #log_complex = FLAGS.only_evaluate or (epoch % 1 == 0 and epoch>=0) and (batch_idx%1 == 0 or batch_idx==num_batches-1)
     return log_complex
 
 def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_feed_flags, lock):
@@ -541,6 +544,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     while ( train_feed_buf_q!=None ) or  ( batch_idx < num_batches-1) or (num_batches==None):
         # When use multi feed, stop with train_feed_thread_finish_num.value
         # When use normal feed, stop with batch_idx
+        if DEBUG_TMP and batch_idx>4:
+            continue
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
@@ -752,6 +757,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     batch_idx = -1
 
     while (eval_feed_buf_q!=None) or (batch_idx < num_batches-1) or (num_batches==None):
+        if DEBUG_TMP and batch_idx>4:
+            continue
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE
