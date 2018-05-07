@@ -4129,10 +4129,10 @@ class Normed_H5f():
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
         self.datasource_name = self.h5f.attrs['datasource_name']
         self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
-        self.g_label2class = dataset_meta.g_label2class
-        self.g_label2color = dataset_meta.g_label2color
-        self.g_class2label = dataset_meta.g_class2label
-        self.g_class2color = dataset_meta.g_class2color
+        self.g_label2class = dataset_meta.label2class
+        self.g_label2color = dataset_meta.label2color
+        self.g_class2label = dataset_meta.class2label
+        self.g_class2color = dataset_meta.class2color
         self.num_classes = dataset_meta.num_classes
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']

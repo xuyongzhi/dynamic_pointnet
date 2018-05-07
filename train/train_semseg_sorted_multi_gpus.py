@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = False
+DEBUG_TMP = True
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -44,8 +44,8 @@ parser.add_argument('--feed_label_elements', default='label_category', help='lab
 parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
-parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
-parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
+parser.add_argument('--group_pos',default='bc',help='mean or bc(block center)')
+parser.add_argument('--normxyz_allcas',default='none',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -370,7 +370,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS)
                         losses = tf.get_collection('losses', scope)
                         total_loss = tf.add_n(losses, name='total_loss')
-                        for l in losses + [total_loss]:
+                        loss_summary = [total_loss]
+                        #loss_summary = [total_loss] + losses
+                        for l in loss_summary:
                             tf.summary.scalar(l.op.name, l)
 
                         grads = optimizer.compute_gradients(total_loss)
@@ -515,7 +517,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
-    log_complex = FLAGS.only_evaluate or (epoch % 40 == 0 and epoch>0) and (batch_idx%2 == 0 or batch_idx==num_batches-1)
+    log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%2 == 0 or batch_idx==num_batches-1)
     #log_complex = FLAGS.only_evaluate or (epoch % 1 == 0 and epoch>=0) and (batch_idx%1 == 0 or batch_idx==num_batches-1)
     return log_complex
 
@@ -544,10 +546,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     while ( train_feed_buf_q!=None ) or  ( batch_idx < num_batches-1) or (num_batches==None):
         # When use multi feed, stop with train_feed_thread_finish_num.value
         # When use normal feed, stop with batch_idx
-        if DEBUG_TMP and batch_idx>4:
-            continue
         t0 = time.time()
         batch_idx += 1
+        if DEBUG_TMP and batch_idx<1640:
+            print(batch_idx)
+            continue
+
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx+1) * BATCH_SIZE
 
@@ -757,8 +761,6 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
     batch_idx = -1
 
     while (eval_feed_buf_q!=None) or (batch_idx < num_batches-1) or (num_batches==None):
-        if DEBUG_TMP and batch_idx>4:
-            continue
         t0 = time.time()
         batch_idx += 1
         start_idx = batch_idx * BATCH_SIZE

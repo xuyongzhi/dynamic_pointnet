@@ -582,6 +582,7 @@ test data shape: [ 4172 12800     9] \par
 
 
 \subsection{Sparse voxel net}
+\subsubsection{}
 \begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
 	\hline
 	\multicolumn{7}{|p{14cm}|}{nh5: 90000\_gs-3d6\_-6d3/ \par bxmh5:  90000\_gs-3d6\_-6d3\_fmn1444-6400\_2400\_320\_32-32\_16\_32\_48-0d1\_0d3\_0d9\_2d7-0d1\_0d2\_0d6\_1d8-pd3-mbf-4A1 \par eval: test } \\
@@ -617,4 +618,22 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 \end{tabular}	
 
+\subsubsection{}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+	\hline
+	\multicolumn{7}{|p{14cm}|}{bxmh5: 30000\_gs-2d4\_-3d4\_fmn1444-2048\_1024\_128\_24-48\_32\_48\_27-0d1\_0d4\_1\_2d2-0d1\_0d2\_0d6\_1d2-pd3-mbf-4B1  \par eval: test \par Void point id deleted} \\
+	\hline
+	model & bs& lr-decay & elements & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+	
+	5VaG\_114 & 9 &2-40 & xyz mid\par color & Rotate Ref & Num lw\par dp:5N5\par Y shuffle & 20-0.749/0.645\par 30-0.810/0.705\par 40-0.870/0.744\par 80-0.917-0.737/0.7540.422\par 120-0.929-0.765\par 200-0.953-0.774\par 300-0.962/0.774\\
+	\hline
+	\multicolumn{7}{|p{14cm}|}{ \includegraphics[width=\textheight]{images/svoxel/novoid/train} \par 
+	\includegraphics[width=\textheight]{images/svoxel/novoid/test}} \\
+	\hline
+	
+	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	 } \\
+	\hline
+\end{tabular}
+	
 \end{document}

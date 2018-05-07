@@ -59,10 +59,10 @@ def parse_raw( scene_name ):
         instance_points = points[np.array(pointids),:]
         instance_points_list.append(instance_points)
         instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)
-        if labels[i] not in RAW2SCANNET:
+        if labels[i] not in g_raw2scannet:
             label = 'unannotated'
         else:
-            label = RAW2SCANNET[labels[i]]
+            label = g_raw2scannet[labels[i]]
         label = CLASS_NAMES.index(label)
         semantic_labels_list.append(np.ones((instance_points.shape[0], 1))*label)
 
@@ -72,4 +72,27 @@ def parse_raw( scene_name ):
     semantic_labels = np.concatenate(semantic_labels_list, 0)
 
     return scene_points, instance_labels, semantic_labels, mesh_labels
+
+
+def WriteRawH5f_SCANNET( scene_name, rawh5f_dir ):
+    # save as rh5
+    scene_name_base = os.path.basename( scene_name )
+    rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return scene_name
+    print('start write rh5: %s'%(rawh5f_fn))
+
+    scene_points, instance_labels, semantic_labels, mesh_labels = scannet_util.parse_raw( scene_name )
+    num_points = scene_points.shape[0]
+    with h5py.File(rawh5f_fn,'w') as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', scene_points[:,0:3])
+        raw_h5f.append_to_dset('color', scene_points[:,3:6])
+        raw_h5f.append_to_dset('label_category', semantic_labels)
+        raw_h5f.append_to_dset('label_instance', instance_labels)
+        raw_h5f.append_to_dset('label_mesh', mesh_labels)
+        raw_h5f.rh5_create_done()
+    return scene_name
 

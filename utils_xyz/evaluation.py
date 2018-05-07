@@ -80,7 +80,7 @@ class EvaluationMetrics():
         class_acc_str += 'number(K): '+getstr(np.trunc(np.sum(np.sum(real_Pos,0),0)/1000.0),str_format='%d,') + '\n'
         #class_acc_str += 'class  id: '+getstr(np.arange(precision.shape[1]),str_format='%d,') + '\n'
 
-        label2class = DatasetsMeta.g_label2class_dic[dataset_name]
+        label2class = DatasetsMeta.g_label2class[dataset_name]
         class_name_ls = [label2class[label][0:5] for label in np.arange(precision.shape[-1])]
         class_acc_str += 'classname: '+getstr( class_name_ls ,str_format='%s,')
         return ave_block_acc, std_block_acc, block_acc_histg,  class_acc_str,ave_class_acc_str
@@ -101,7 +101,7 @@ class EvaluationMetrics():
 
     @staticmethod
     def report_pred( file_name, pred_val, label_category, dataset_name):
-        label2class = DatasetsMeta.g_label2class_dic[dataset_name]
+        label2class = DatasetsMeta.g_label2class[dataset_name]
         pred_logit = np.argmax( pred_val,-1 )
         is_correct = label_category == pred_logit
         print('writing pred log:%s'%(file_name))

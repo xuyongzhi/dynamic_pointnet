@@ -262,7 +262,7 @@ class Net_Provider():
        # self.data_summary_str += 'test labels histogram: %s \n'%( np.array_str(np.transpose(self.test_labels_hist_1norm) ))
         self.data_summary_str += 'label histogram:'+','.join('%5.2f'%(lh) for lh in self.labels_hist_1norm[:,0].tolist()) + '\n'
         self.data_summary_str += 'label   weights:'+','.join('%5.2f'%(lw) for lw in self.labels_weights[:,0].tolist()) + '\n'
-        self.data_summary_str += 'class      name:'+','.join( '%5s'%(DatasetsMeta.g_label2class_dic[self.dataset_name][label][0:5])  for label in range(len(DatasetsMeta.g_label2class_dic[self.dataset_name])) )
+        self.data_summary_str += 'class      name:'+','.join( '%5s'%(DatasetsMeta.g_label2class[self.dataset_name][label][0:5])  for label in range(len(DatasetsMeta.g_label2class[self.dataset_name])) )
         #print(self.data_summary_str)
 
     def get_all_file_name_list(self,dataset_name,all_filename_globs):
