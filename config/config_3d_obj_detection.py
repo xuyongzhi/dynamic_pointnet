@@ -46,6 +46,8 @@ __C.EVALUATION_NUM = 700 # 1000
 # is too difficulat to predict)
 __C.NUM_REGRESSION = 6
 
+
+
 # radius for grouping
 __C.Radius_1 = 0.4
 __C.Radius_2 = 0.8
@@ -56,9 +58,11 @@ __C.Radius_6 = 2.6
 
 # 3D anchor size, the same size (l=3.9m, w=1.6m, h=1.7m) but with different
 # orientation alpha (pi = 0, pi/4, pi/2)
-l=3.9
-w=1.6
-h=1.7
+__C.L=3.9
+__C.W=1.6
+__C.H=1.7
+__C.Z= -1.0 - cfg.H/2
+
 __C.Anchors = np.array([l, w])
 __C.Alpha = np.array([[0], [np.pi/2]])  ## if 2 anchor is not enought, change it to 4, [0, np.pi/4, np.pi/2, np.pi*3/4]
 __C.Anchor_bv = np.array([[l/2,  w/2,  -l/2,  -w/2 ] , [w/2,  l/2,  -w/2,  -l/2]])   ## [frowart_left back_right]
@@ -96,7 +100,10 @@ __C.BETA = 1.0
 __C.POSITIVE_ALPHA = np.pi/4
 
 # The overlap to tell positive and negative samples
-__C.POSITIVE_THRESHOLD = 0.7
+__C.POSITIVE_THRESHOLD = 0.6
+
+__C.RPN_POS_IOU = 0.6
+__C.RPN_NEG_IOU = 0.45
 
 __C.NEGATIVE_THRESHOLD = 0.2
 

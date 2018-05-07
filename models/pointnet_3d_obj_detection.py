@@ -6,7 +6,7 @@ sys.path.append(os.path.join(BASE_DIR, '../utils'))
 sys.path.append(os.path.join(BASE_DIR, '../utils_xyz'))
 sys.path.append(os.path.join(BASE_DIR, '../config'))
 
-from config import cfg
+from config_3d_obj_detection import cfg
 import tensorflow as tf
 import numpy as np
 import numpy.random as npr
@@ -400,7 +400,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, num_anchors, num_reg
     end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
 
-    ## num_class = 1, num_anchors = 2, num_regression = 6
+    ## num_class = 1, num_anchors = 2, num_regression = 6, ignore z
     net_class = tf_util.conv1d(net, num_anchors*num_class     , 1 , padding='VALID', activation_fn=None, scope='fc2') # outputing the classification for every point
     net_boxes = tf_util.conv1d(net, num_anchors*num_regression, 1 , padding='VALID', activation_fn=None, scope='fc3') # outputing the 3D bounding boxes
 
@@ -425,6 +425,11 @@ def get_loss( BATCH_SIZE, pred_class_feature, pred_box_feature, xyz_pl, targets 
 
     output_classification_positive_loss = tf.reduce_sum(classification_positive_loss)
     output_classification_negative_loss = tf.reduce_sum(classification_negative_loss)
+
+
+    #TODO: adding the recall and accuracy record later
+    # recall =
+    # accuracy =
 
     return all_loss, classification_loss, output_regression_loss, output_classification_positive_loss, output_classification_negative_loss
 
