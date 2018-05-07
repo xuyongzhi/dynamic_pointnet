@@ -15,9 +15,9 @@ import time
 import multiprocessing as mp
 import itertools
 import pickle
-from plyfile import PlyData, PlyElement
 import json
 from  datasets_meta import DatasetsMeta
+import geometric_util as geo_util
 
 TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -33,68 +33,12 @@ DS_Meta = DatasetsMeta( DATASET )
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
 MERGED_DATA_DIR = os.path.join(DATA_DIR, DATASET+'H5F' )
 
-CLASS_NAMES = DS_Meta.label_names
-
-def parse_scan_ply( ply_fn ):
-    with open( ply_fn, 'r' ) as ply_fo:
-        plydata = PlyData.read( ply_fo )
-        num_ele = len(plydata.elements)
-        num_vertex = plydata['vertex'].count
-        num_face = plydata['face'].count
-        data_vertex = plydata['vertex'].data
-        data_face = plydata['face'].data
-
-        ## face
-        face_vertex_indices = data_face['vertex_indices']
-        face_vertex_indices = np.concatenate(face_vertex_indices,axis=0)
-        face_vertex_indices = np.reshape(face_vertex_indices,[-1,3])
-
-        face_eles = ['vertex_indices']
-        datas_face = {}
-        for e in face_eles:
-            datas_face[e] = np.expand_dims(data_face[e],axis=-1)
-
-        ## vertex
-        vertex_eles = ['x','y','z','red','green','blue','alpha']
-        datas_vertex = {}
-        for e in vertex_eles:
-            datas_vertex[e] = np.expand_dims(data_vertex[e],axis=-1)
-        vertex_xyz = np.concatenate([datas_vertex['x'],datas_vertex['y'],datas_vertex['z']],axis=1)
-        vertex_rgb = np.concatenate([datas_vertex['red'],datas_vertex['green'],datas_vertex['blue']],axis=1)
-        vertex_alpha = np.concatenate([datas_vertex['alpha']])
-        points = np.concatenate( [vertex_xyz, vertex_rgb], -1 )
-
-        return points
-
-def parse_mesh_segs( mesh_segs_fn ):
-    with open(mesh_segs_fn,'r') as jsondata:
-        d = json.load(jsondata)
-        mesh_seg = np.array( d['segIndices'] )
-        #print len(mesh_seg)
-    mesh_segid_to_pointid = {}
-    for i in range(mesh_seg.shape[0]):
-        if mesh_seg[i] not in mesh_segid_to_pointid:
-            mesh_segid_to_pointid[mesh_seg[i]] = []
-        mesh_segid_to_pointid[mesh_seg[i]].append(i)
-    return mesh_segid_to_pointid, mesh_seg
-
-def parse_aggregation( aggregation_fn ):
-    with open( aggregation_fn,'r' ) as json_fo:
-        d = json.load( json_fo )
-        ids = []
-        objectIds = []
-        instance_segids = []
-        labels = []
-        for x in d['segGroups']:
-            ids.append(x['id'])
-            objectIds.append(x['objectId'])
-            instance_segids.append(x['segments'])
-            labels.append(x['label'])
-        return instance_segids, labels
+#CLASS_NAMES = DS_Meta.label_names
 
 
-def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished):
-    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,rxyz_before_sort, IsShowInfoFinished)
+
+def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, RotateBeforeSort, IsShowInfoFinished):
+    Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,RotateBeforeSort, IsShowInfoFinished)
     return rawh5_file_ls
 
 def GenPyramidSortedFlie( fn, data_aug_configs ):
@@ -249,24 +193,27 @@ class H5Prepare():
 
 
 
-    def SortRaw(self, block_step_xyz, MultiProcess=0 , rxyz_before_sort=None ):
+    def SortRaw(self, block_step_xyz, MultiProcess=0 , RxyzBeforeSort=None ):
         t0 = time.time()
         rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
         sorted_path = self.BasicDataDir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
-        if type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
-            rdgr = rxyz_before_sort * 180/np.pi
-            rxyz_before_sort_str = '-R_%d_%d_%d'%( rdgr[0], rdgr[1], rdgr[2] )
-            sorted_path += rxyz_before_sort_str
+        if type(RxyzBeforeSort)!=type(None) and np.sum(RxyzBeforeSort==0)!=0:
+            RotateBeforeSort = geo_util.EulerRotate( RxyzBeforeSort, 'xyz' )
+            rdgr = RxyzBeforeSort * 180/np.pi
+            RotateBeforeSort_str = '-R_%d_%d_%d'%( rdgr[0], rdgr[1], rdgr[2] )
+            sorted_path += RotateBeforeSort_str
+        else:
+            RotateBeforeSort = None
         IsShowInfoFinished = True
 
         IsMultiProcess = MultiProcess>1
         if not IsMultiProcess:
-            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished)
+            WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, RotateBeforeSort, IsShowInfoFinished)
         else:
             pool = mp.Pool(MultiProcess)
             for rawh5f_fn in rawh5_file_ls:
-                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path, rxyz_before_sort, IsShowInfoFinished))
+                results = pool.apply_async(WriteSortH5f_FromRawH5f,([rawh5f_fn],block_step_xyz,sorted_path, RotateBeforeSort, IsShowInfoFinished))
             pool.close()
             pool.join()
 
@@ -425,7 +372,9 @@ def main( ):
 
         h5prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        #h5prep.SortRaw( base_step_stride, MultiProcess, rxyz_before_sort=np.array([0,0,45])*np.pi/180 )
+        RxyzBeforeSort = np.array([0,0,45])*np.pi/180
+        #RxyzBeforeSort = None
+        h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
         data_aug_configs['delete_easy_categories_num'] = 5
