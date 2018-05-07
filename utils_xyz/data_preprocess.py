@@ -232,8 +232,7 @@ class H5Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            choice = np.sort( np.random.choice( len(file_list),16,replace=False ) )
-            choice = range(0,800,10)[0:8]
+            choice = range(0,800,10)[0:min(8,len(file_list))]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -370,16 +369,17 @@ def main( ):
         MultiProcess = 0
         h5prep = H5Prepare()
 
-        h5prep.ParseRaw( MultiProcess )
+        #h5prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
-        RxyzBeforeSort = np.array([0,0,45])*np.pi/180
-        #RxyzBeforeSort = None
-        h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
+        #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
+        RxyzBeforeSort = None
+        #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        data_aug_configs['delete_easy_categories_num'] = 5
+        data_aug_configs['delete_unlabelled'] = True
+        #data_aug_configs['delete_easy_categories_num'] = 5
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 

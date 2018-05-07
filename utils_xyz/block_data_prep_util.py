@@ -2898,7 +2898,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     label = buf_k[j,self.data_idxs['label'][0]]
                   #  if label == 0:
                   #      continue
-                    label_color = Normed_H5f.g_label2color_dic[self.h5f.attrs['datasource_name']][label]
+                    label_color = Normed_H5f.g_label2color[self.h5f.attrs['datasource_name']][label]
                     str_j = 'v ' + ' '.join( ['%0.3f'%(d) for d in  buf_k[j,0:3]]) + ' \t'\
                     + ' '.join( ['%d'%(d) for d in  label_color ]) + '\n'
 
@@ -3401,15 +3401,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # (1) Always: delete unlabeld label_category
         # (2) aug data: delete easy categories
         unlabeled_labels = DatasetsMeta.g_unlabelled_categories[datasource_name]
-        del_labels = unlabeled_labels
+        if 'delete_unlabelled' in data_aug_configs:
+            del_labels = unlabeled_labels
+        else:
+            del_labels = []
+
         if 'delete_easy_categories_num' in data_aug_configs:
-            g_easy_categories = DatasetsMeta.g_easy_categories_dic[datasource_name]
+            g_easy_categories = DatasetsMeta.g_easy_categories[datasource_name]
             delete_num = min( data_aug_configs['delete_easy_categories_num'], len(g_easy_categories) )
             g_easy_categories = g_easy_categories[0:delete_num]
-            del_labels = unlabeled_labels + g_easy_categories
+            del_labels += g_easy_categories
 
         if len(del_labels) == 0:
-            return datas, labels
+            return datas, labels, 0
         for i,ele in enumerate(feed_label_elements):
             if ele == 'label_category':
                 label_category_idx = i
@@ -3535,6 +3539,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def aug_flag_str(data_aug_configs):
         aug_str = ''
+        if 'delete_unlabelled' in data_aug_configs:
+            aug_str += '-du'
         if 'delete_easy_categories_num' in data_aug_configs:
             del_num = data_aug_configs['delete_easy_categories_num']
             aug_str += '-dec'+str(data_aug_configs['delete_easy_categories_num'])
@@ -4254,8 +4260,8 @@ class Normed_H5f():
     @staticmethod
     def show_all_colors( datasource_name ):
         from PIL import Image
-        label2color = Normed_H5f.g_label2color_dic[datasource_name]
-        label2class = Normed_H5f.g_label2class_dic[datasource_name]
+        label2color = Normed_H5f.g_label2color[datasource_name]
+        label2class = Normed_H5f.g_label2class[datasource_name]
         path = os.path.join( BASE_DIR,'label_colors' )
         if not os.path.exists(path):
             os.makedirs(path)
