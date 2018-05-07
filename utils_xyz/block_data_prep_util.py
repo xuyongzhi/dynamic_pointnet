@@ -96,11 +96,13 @@ def get_stride_step_name(block_stride,block_step):
     #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
-        assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
-        if v%1!=0:
-            if (v*10)%1 < 1e-8: return '%dd%d'%(v,v%1*10)
-            else: return '%dd%d%d'%(v,v%1*10, v*10%1*10)
-        else: return str(int(v))
+        return str(v).replace('.','d')
+        #assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
+        #if v%1!=0:
+        #    if (v*10)%1 < 1e-8: return '%dd%d'%(v,v%1*10)
+        #    else: return '%dd%d%d'%(v,v%1*10, v*10%1*10)
+        #else: return str(int(v))
+
     if block_stride[2] == -1:
         return 'stride-%s-step-%s'%(get_str(block_stride[0]),get_str(block_step[0]))
     else:
@@ -402,10 +404,12 @@ class GlobalSubBaseBLOCK():
             flatten_bidxmaps_extract_idx[i,1] = 2
         self.flatten_bidxmaps_extract_idx = flatten_bidxmaps_extract_idx
 
-        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num)+['global']
+        # cascade_id = cascade_num is also global. Because global has two base:
+        # one is root, the other one is cascade_num-1
+        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num+1)+['global']
         base_cascade_ids = {}
         base_cascade_ids['global'] = 'root'
-        for i in range(cascade_num):
+        for i in range(cascade_num+1):
             if i==0:
                 base_cascade_ids[0] = 'root'
             else:
@@ -613,7 +617,7 @@ class GlobalSubBaseBLOCK():
         IsLimitStrideStepCascades_Inbxmap: Always limit step and stride larger than last cascade in bxmh5
         '''
         IsLimitStrideStepCascades_Inbxmap = True
-        if cascade_id == 'global':
+        if cascade_id == 'global' or cascade_id==self.cascade_num:
             stride = self.global_stride
             step = self.global_step
         elif cascade_id == 'root':
@@ -624,7 +628,7 @@ class GlobalSubBaseBLOCK():
                 stride = self.root_block_stride
                 step = self.root_block_step
         else:
-            assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
+            assert cascade_id <= self.cascade_num and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
             stride  =  np.array([1.0,1.0,1.0])*self.sub_block_stride_candis[cascade_id]
             step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
             if IsLimitStrideStepCascades_Inbxmap:
@@ -1502,7 +1506,7 @@ class GlobalSubBaseBLOCK():
 
                 grp = h5f.create_group(group_name)
 
-                print('\ncascade_id: %s'%(cascade_id))
+                print('\ncascade_id: %s\t grp:%s'%(cascade_id, group_name))
                 for ele in wanted_attr_eles:
                     grp.attrs[ele] = cascade_attrs[cascade_id][ele]
                     print( ele,':\t', grp.attrs[ele] )
@@ -1516,6 +1520,7 @@ class GlobalSubBaseBLOCK():
                     for base_bid, aim_bids in aimbids_in_smallerbasebid_dic.items():
                         aim_in_base_map_dset = grp.create_dataset( 'base/'+str(base_bid),shape=(len(aim_bids),),dtype=np.int32  )
                         aim_in_base_map_dset[...] = aim_bids
+                pass
             t_bmh5 = time.time() -t0
             h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
@@ -1523,8 +1528,12 @@ class GlobalSubBaseBLOCK():
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
                 bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
+                bmh5_meta_f.write('groups:')
+                for ds in h5f.keys():
+                    bmh5_meta_f.write( '\t%s\n'%(ds) )
+                bmh5_meta_f.write('\nattrs:')
                 for ele in h5f.attrs:
-                    bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
+                    bmh5_meta_f.write( '\t%s: %s\n'%(ele, h5f.attrs[ele]) )
                 bmh5_meta_f.write('\n\n')
                 for cas, bmh5_meta in enumerate(bmh5_metas):
                     if cas == len(bmh5_metas)-1:

@@ -35,8 +35,6 @@ MERGED_DATA_DIR = os.path.join(DATA_DIR, DATASET+'H5F' )
 
 #CLASS_NAMES = DS_Meta.label_names
 
-
-
 def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, RotateBeforeSort, IsShowInfoFinished):
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,RotateBeforeSort, IsShowInfoFinished)
     return rawh5_file_ls
@@ -366,7 +364,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 8
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )
