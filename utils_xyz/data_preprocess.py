@@ -364,7 +364,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 0
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )

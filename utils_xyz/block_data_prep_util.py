@@ -387,15 +387,19 @@ class GlobalSubBaseBLOCK():
         self.sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
         self.sum_flatten_bmap_sample_num = np.zeros(shape=(cascade_num))
 
-        sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
+        sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+2,2)).astype(np.int32)
         # [cascade_id+1,0] is end subblock indice of sg_bidxmaps[cascade_id]
         # [cascade_id+1,1] is npoint_subblock of sg_bidxmaps[cascade_id]
-        for i in range(0,cascade_num):
-            sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
-            sg_bidxmaps_extract_idx[i+1,1] = self.npoint_subblock_candis[i]
+        for i in range(0,cascade_num+1):
+            if i<cascade_num:
+                sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
+                sg_bidxmaps_extract_idx[i+1,1] = self.npoint_subblock_candis[i]
+            else:
+                sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + 1
+                sg_bidxmaps_extract_idx[i+1,1] = self.nsubblock_candis[cascade_num-1]
         self.sg_bidxmaps_extract_idx = sg_bidxmaps_extract_idx
-        flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
-        for i in range(1,cascade_num+1):
+        flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+2,2)).astype(np.int32)
+        for i in range(1,cascade_num+2):
             if i==1:
                 last_flatten_bmap_shape0 = self.global_num_point
             else:
@@ -738,7 +742,10 @@ class GlobalSubBaseBLOCK():
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
         IsRecordTime = False
-        cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+        if cascade_id<self.cascade_num:
+            cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+        else:
+            cur_flatbxmap_max_nearest_num = 1
         IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
@@ -758,8 +765,12 @@ class GlobalSubBaseBLOCK():
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         #valid_sorted_basebids = np.sort(valid_sorted_basebids)
 
-        aim_nsubblock =  self.nsubblock_candis[cascade_id]
-        aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
+        if cascade_id<self.cascade_num:
+            aim_nsubblock =  self.nsubblock_candis[cascade_id]
+            aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
+        else:
+            aim_nsubblock = 1
+            aim_npoint_subblock = self.nsubblock_candis[self.cascade_num-1]
         #-----------------------------------------------------------------------
         # (1) Remove all the aim blocks contain no valid base blocks
         if IsRecordTime: t1 = time.time()
@@ -1281,7 +1292,7 @@ class GlobalSubBaseBLOCK():
 
         valid_sorted_basebids_fixed = rootb_split_idxmap
         num_valid_basebids = None
-        for cascade_id in range(0,self.cascade_num):
+        for cascade_id in range(0,self.cascade_num+1):
             sg_bidxmap, valid_sorted_basebids_fixed, num_valid_basebids, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed, num_valid_basebids, debug_meta )
             if IsCheck_bidxmap_extract:  sg_bidxmaps_ls.append( sg_bidxmap )
             sg_bidxmap_fixed = np.ones( shape=(sg_bidxmap.shape[0],sg_bidxmaps_fixed_shape1) ).astype(np.int32) * (-1)
@@ -1303,7 +1314,7 @@ class GlobalSubBaseBLOCK():
         if IsCheck_bidxmap_extract:
             assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
-            for cascade_id in range(0,self.cascade_num):
+            for cascade_id in range(0,self.cascade_num+1):
                 sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both')
                 assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both'))==0
                 assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
@@ -1361,9 +1372,11 @@ class GlobalSubBaseBLOCK():
     def get_sg_bidxmaps_fixed_shape(self):
         # tile all the sg_bidxmaps to same(max) shape[0], so that they can be
         # concatenated in one array
-        shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])
+        # +1 for global
+        shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])+1
         # add 3 for block center xyz
-        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num]) + 6
+        tmp = self.npoint_subblock_candis[0:self.cascade_num] + [self.nsubblock_candis[self.cascade_num-1]]
+        shape1 = max(tmp) + 6
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
@@ -1374,8 +1387,9 @@ class GlobalSubBaseBLOCK():
             return self.global_num_point
         else:
             return self.nsubblock_candis[cascade_id-1]
+
     def get_flatten_bidxmaps_shape(self):
-        shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
+        shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num+1)])
         return (shape0,np.max(self.flatbxmap_max_nearest_num),3)
 
     def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic','allaimbids_in_base_dic'],aim_bid=None):
