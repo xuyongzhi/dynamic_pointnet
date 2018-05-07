@@ -22,10 +22,8 @@ from datasets_meta import DatasetsMeta
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 DATASET_DIR={}
-DATASET_DIR['SCANNET'] = os.path.join(DATA_DIR,'ScannetH5F')
-DATASET_DIR['STANFORD_INDOOR3D'] = os.path.join(DATA_DIR,'stanford_indoor3d')
-matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
-DATASET_DIR['MATTERPORT'] = matterport3D_h5f_dir
+DATASET = 'SCANNET'
+DATASET_DIR[DATASET] = os.path.join(DATA_DIR, DATASET+'H5F')
 
 DEBUGTMP = True
 ERRTMP = True

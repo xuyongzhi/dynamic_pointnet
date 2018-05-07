@@ -143,6 +143,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis   = np.array([0.1,0.4,1.0,2.2]).astype(np.float)
         nsubblock_candis =       np.array([2048, 1024, 128, 24]).astype(np.int32)
         npoint_subblock_candis = np.array([48, 32,  48,  27]).astype(np.int32)
+        NETCONFIG['merge_blocks_while_fix_bmap'] = False
 
     elif gsbb_config == 'tmp':  # ***
         global_stride = np.array([-2.4,-2.4,-2.4]).astype(np.float)

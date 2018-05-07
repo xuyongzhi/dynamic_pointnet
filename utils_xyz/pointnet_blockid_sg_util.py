@@ -19,7 +19,7 @@ IS_TMP_BUG=True
 # IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
 # configuration. This is origibally set in NETCONFIG. But the configuration is
 # not obtained here from bxmap automatically. Should be set manually.
-IS_merge_blocks_while_fix_bmap = True
+IS_merge_blocks_while_fix_bmap = 0
 
 '''
 Checking list:
@@ -82,7 +82,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
     block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
-        cascade_num = configs['flatten_bm_extract_idx'].shape[0]-1
+        cascade_num = configs['flatten_bm_extract_idx'].shape[0]-2
         assert configs['sub_block_step_candis'].size == cascade_num
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
@@ -245,6 +245,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
         return new_xyz, new_points, root_point_features
 
 def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
+    cascade_num = configs['sub_block_step_candis'].size
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
     c500 = tf.constant([500],tf.float32)
@@ -299,7 +300,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     point_num = new_points.shape[2].value
     channel_num = new_points.shape[3].value
 
-    if IsExtraGlobalLayer:
+    if IsExtraGlobalLayer or cascade_id==cascade_num:
         max_indice_f = ( -configs['global_step'] - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
         assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert

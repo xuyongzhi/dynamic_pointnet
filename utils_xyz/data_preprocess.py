@@ -76,8 +76,8 @@ def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
 def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n ):
     plsph5_folder = ORG_DATA_DIR + '/' + plsph5_folder
     bxmh5_folder = ORG_DATA_DIR + '/' + bxmh5_folder
-    scannet_trainval_ls = list(np.loadtxt('./scannet_meta/scannet_trainval.txt','string'))
-    scannet_test_ls = list(np.loadtxt('./scannet_meta/scannet_test.txt','string'))
+    scannet_trainval_ls = list(np.loadtxt('./SCANNET_util/scannet_trainval.txt','string'))
+    scannet_test_ls = list(np.loadtxt('./SCANNET_util/scannet_test.txt','string'))
     trainval_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_trainval_ls]
     trainval_sph5_ls = [ os.path.join(plsph5_folder, scene_name+'.sph5')  for scene_name in scannet_trainval_ls]
     test_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_test_ls]
@@ -261,15 +261,9 @@ class H5Prepare():
 
 
     def MergeNormed(self, data_aug_configs):
-        plsph5_folder = 'ORG_sph5/90000_gs-3d6_-6d3'
-        #bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
-        bxmh5_folder = 'ORG_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_48-32_27_64_64-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A2'
-
-        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
-        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
-
-        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-dec5'
-        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
+        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
+        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-4B1-du'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -313,8 +307,8 @@ class H5Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -377,8 +371,8 @@ def main( ):
         data_aug_configs['delete_unlabelled'] = True
         #data_aug_configs['delete_easy_categories_num'] = 5
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
