@@ -23,7 +23,11 @@ TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATASET = ['MATTERPORT', 'SCANNET', 'ETH'][1]
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
+for ds in DATASETS:
+    sys.path.append('%s/%s_util'%(BASE_DIR,ds))
+
+DATASET = 'SCANNET'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -174,8 +178,30 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
 
 def WriteRawH5f( scene_name, rawh5f_dir ):
     if DATASET == 'SCANNET':
-        from SCANNET_util import WriteRawH5f_SCANNET
         return WriteRawH5f_SCANNET( scene_name, rawh5f_dir )
+
+def WriteRawH5f_SCANNET( scene_name, rawh5f_dir ):
+    # save as rh5
+    import SCANNET_util
+    scene_name_base = os.path.basename( scene_name )
+    rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return scene_name
+    print('start write rh5: %s'%(rawh5f_fn))
+
+    scene_points, instance_labels, semantic_labels, mesh_labels = SCANNET_util.parse_raw_SCANNET( scene_name )
+    num_points = scene_points.shape[0]
+    with h5py.File(rawh5f_fn,'w') as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', scene_points[:,0:3])
+        raw_h5f.append_to_dset('color', scene_points[:,3:6])
+        raw_h5f.append_to_dset('label_category', semantic_labels)
+        raw_h5f.append_to_dset('label_instance', instance_labels)
+        raw_h5f.append_to_dset('label_mesh', mesh_labels)
+        raw_h5f.rh5_create_done()
+    return scene_name
 
 class H5Prepare():
     '''
@@ -200,7 +226,7 @@ class H5Prepare():
             print('no file matches %s'%( glob_fn ))
 
         if TMPDEBUG:
-            scene_name_ls = scene_name_ls[0]
+            scene_name_ls = scene_name_ls[0:1]
 
         if MultiProcess < 2:
             for scene_name in scene_name_ls:

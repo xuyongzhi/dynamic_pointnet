@@ -8,7 +8,6 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 
 
 DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
-
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(ROOT_DIR,ds))
 

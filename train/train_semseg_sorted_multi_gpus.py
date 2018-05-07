@@ -28,7 +28,7 @@ from time import gmtime, strftime
 from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -37,11 +37,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--modelf_nein', default='5VaG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='SCANNET', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
-parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
+
+#parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/30000_gs-2d4_-3d4/', help='The file name glob for both training and evaluation')
+#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1', help='')
+
+parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block-color_1norm', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=6, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='bc',help='mean or bc(block center)')
@@ -62,12 +66,12 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
-parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
+parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='4N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
-parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
+parser.add_argument('--start_gi',type=int,default=1, help='start gpu id')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
@@ -548,7 +552,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         # When use normal feed, stop with batch_idx
         t0 = time.time()
         batch_idx += 1
-        if DEBUG_TMP and batch_idx<1640:
+        if DEBUG_TMP and batch_idx<260:
             print(batch_idx)
             continue
 
