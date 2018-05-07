@@ -127,7 +127,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             grouped_xyz = grouped_xyz - block_center
             block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
             if cascade_id==0:
-                # xyz is at the first!!!!
+                # xyz must be at the first in feed_data_elements !!!!
                 grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
         if cascade_id>0 and use_xyz and (not IsExtraGlobalLayer):
             grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
@@ -329,7 +329,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
         for i in range(3):
             real_max = tf.reduce_max(point_indices[:,:,:,i])
             check_max_indice = tf.assert_less( real_max - max_indice_v[i], tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v[i], dtype=tf.float32 ),
-                                              data=[cascade_id, real_max, max_indice_v[i]], name='check_max_indice_'+str(i) )
+                                              data=[cascade_id, i, real_max, max_indice_v[i]], name='check_max_indice_'+str(i) )
             tf.add_to_collection( 'check', check_max_indice )
 
     else:

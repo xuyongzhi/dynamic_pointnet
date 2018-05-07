@@ -38,7 +38,6 @@ import time
 import multiprocessing as mp
 import itertools
 import ply_util
-import geometric_util as geo_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/matterport_metadata')
 from get_mpcat40 import get_cat40_from_rawcat
@@ -97,11 +96,13 @@ def get_stride_step_name(block_stride,block_step):
     #assert (block_step[0] == block_step[2] and block_stride[0] == block_stride[2]) or (block_step[2]<0 and block_stride[2]<0)
 
     def get_str(v):
-        assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
-        if v%1!=0:
-            if (v*10)%1 < 1e-8: return '%dd%d'%(v,v%1*10)
-            else: return '%dd%d%d'%(v,v%1*10, v*10%1*10)
-        else: return str(int(v))
+        return str(v).replace('.','d')
+        #assert (v*100) % 1 < 1e-8, "v=%s"%(str(v))
+        #if v%1!=0:
+        #    if (v*10)%1 < 1e-8: return '%dd%d'%(v,v%1*10)
+        #    else: return '%dd%d%d'%(v,v%1*10, v*10%1*10)
+        #else: return str(int(v))
+
     if block_stride[2] == -1:
         return 'stride-%s-step-%s'%(get_str(block_stride[0]),get_str(block_step[0]))
     else:
@@ -386,15 +387,19 @@ class GlobalSubBaseBLOCK():
         self.sum_sg_bidxmap_sample_num = np.zeros(shape=(cascade_num,2))
         self.sum_flatten_bmap_sample_num = np.zeros(shape=(cascade_num))
 
-        sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
+        sg_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+2,2)).astype(np.int32)
         # [cascade_id+1,0] is end subblock indice of sg_bidxmaps[cascade_id]
         # [cascade_id+1,1] is npoint_subblock of sg_bidxmaps[cascade_id]
-        for i in range(0,cascade_num):
-            sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
-            sg_bidxmaps_extract_idx[i+1,1] = self.npoint_subblock_candis[i]
+        for i in range(0,cascade_num+1):
+            if i<cascade_num:
+                sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
+                sg_bidxmaps_extract_idx[i+1,1] = self.npoint_subblock_candis[i]
+            else:
+                sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + 1
+                sg_bidxmaps_extract_idx[i+1,1] = self.nsubblock_candis[cascade_num-1]
         self.sg_bidxmaps_extract_idx = sg_bidxmaps_extract_idx
-        flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+1,2)).astype(np.int32)
-        for i in range(1,cascade_num+1):
+        flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+2,2)).astype(np.int32)
+        for i in range(1,cascade_num+2):
             if i==1:
                 last_flatten_bmap_shape0 = self.global_num_point
             else:
@@ -403,10 +408,12 @@ class GlobalSubBaseBLOCK():
             flatten_bidxmaps_extract_idx[i,1] = 2
         self.flatten_bidxmaps_extract_idx = flatten_bidxmaps_extract_idx
 
-        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num)+['global']
+        # cascade_id = cascade_num is also global. Because global has two base:
+        # one is root, the other one is cascade_num-1
+        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num+1)+['global']
         base_cascade_ids = {}
         base_cascade_ids['global'] = 'root'
-        for i in range(cascade_num):
+        for i in range(cascade_num+1):
             if i==0:
                 base_cascade_ids[0] = 'root'
             else:
@@ -614,7 +621,7 @@ class GlobalSubBaseBLOCK():
         IsLimitStrideStepCascades_Inbxmap: Always limit step and stride larger than last cascade in bxmh5
         '''
         IsLimitStrideStepCascades_Inbxmap = True
-        if cascade_id == 'global':
+        if cascade_id == 'global' or cascade_id==self.cascade_num:
             stride = self.global_stride
             step = self.global_step
         elif cascade_id == 'root':
@@ -625,7 +632,7 @@ class GlobalSubBaseBLOCK():
                 stride = self.root_block_stride
                 step = self.root_block_step
         else:
-            assert cascade_id <= self.cascade_num-1 and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
+            assert cascade_id <= self.cascade_num and cascade_id>=0, 'cascade_id=%s'%(str(cascade_id))
             stride  =  np.array([1.0,1.0,1.0])*self.sub_block_stride_candis[cascade_id]
             step =  np.array([1.0,1.0,1.0])*self.sub_block_step_candis[cascade_id]
             if IsLimitStrideStepCascades_Inbxmap:
@@ -735,7 +742,10 @@ class GlobalSubBaseBLOCK():
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
         IsRecordTime = False
-        cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+        if cascade_id<self.cascade_num:
+            cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+        else:
+            cur_flatbxmap_max_nearest_num = 1
         IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
@@ -755,8 +765,12 @@ class GlobalSubBaseBLOCK():
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         #valid_sorted_basebids = np.sort(valid_sorted_basebids)
 
-        aim_nsubblock =  self.nsubblock_candis[cascade_id]
-        aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
+        if cascade_id<self.cascade_num:
+            aim_nsubblock =  self.nsubblock_candis[cascade_id]
+            aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
+        else:
+            aim_nsubblock = 1
+            aim_npoint_subblock = self.nsubblock_candis[self.cascade_num-1]
         #-----------------------------------------------------------------------
         # (1) Remove all the aim blocks contain no valid base blocks
         if IsRecordTime: t1 = time.time()
@@ -1278,7 +1292,7 @@ class GlobalSubBaseBLOCK():
 
         valid_sorted_basebids_fixed = rootb_split_idxmap
         num_valid_basebids = None
-        for cascade_id in range(0,self.cascade_num):
+        for cascade_id in range(0,self.cascade_num+1):
             sg_bidxmap, valid_sorted_basebids_fixed, num_valid_basebids, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed, num_valid_basebids, debug_meta )
             if IsCheck_bidxmap_extract:  sg_bidxmaps_ls.append( sg_bidxmap )
             sg_bidxmap_fixed = np.ones( shape=(sg_bidxmap.shape[0],sg_bidxmaps_fixed_shape1) ).astype(np.int32) * (-1)
@@ -1300,7 +1314,7 @@ class GlobalSubBaseBLOCK():
         if IsCheck_bidxmap_extract:
             assert sg_bidxmaps.shape == self.get_sg_bidxmaps_fixed_shape()
             assert flatten_bidxmaps.shape ==  self.get_flatten_bidxmaps_shape()
-            for cascade_id in range(0,self.cascade_num):
+            for cascade_id in range(0,self.cascade_num+1):
                 sg_bidxmap0_extracted = self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both')
                 assert np.sum(sg_bidxmaps_ls[cascade_id] != self.extract_sg_bidxmaps(sg_bidxmaps,cascade_id,'both'))==0
                 assert np.sum(flatten_bidxmaps_ls[cascade_id] != self.extract_flatten_bidxmaps(flatten_bidxmaps,cascade_id))==0
@@ -1358,9 +1372,11 @@ class GlobalSubBaseBLOCK():
     def get_sg_bidxmaps_fixed_shape(self):
         # tile all the sg_bidxmaps to same(max) shape[0], so that they can be
         # concatenated in one array
-        shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])
+        # +1 for global
+        shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])+1
         # add 3 for block center xyz
-        shape1 = max(self.npoint_subblock_candis[0:self.cascade_num]) + 6
+        tmp = self.npoint_subblock_candis[0:self.cascade_num] + [self.nsubblock_candis[self.cascade_num-1]]
+        shape1 = max(tmp) + 6
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
@@ -1371,8 +1387,9 @@ class GlobalSubBaseBLOCK():
             return self.global_num_point
         else:
             return self.nsubblock_candis[cascade_id-1]
+
     def get_flatten_bidxmaps_shape(self):
-        shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num)])
+        shape0 = np.sum([self.flatten_bmap_shape0(cid) for cid in range(self.cascade_num+1)])
         return (shape0,np.max(self.flatbxmap_max_nearest_num),3)
 
     def load_one_bidxmap_(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic','allaimbids_in_base_dic'],aim_bid=None):
@@ -1503,7 +1520,7 @@ class GlobalSubBaseBLOCK():
 
                 grp = h5f.create_group(group_name)
 
-                print('\ncascade_id: %s'%(cascade_id))
+                print('\ncascade_id: %s\t grp:%s'%(cascade_id, group_name))
                 for ele in wanted_attr_eles:
                     grp.attrs[ele] = cascade_attrs[cascade_id][ele]
                     print( ele,':\t', grp.attrs[ele] )
@@ -1517,6 +1534,7 @@ class GlobalSubBaseBLOCK():
                     for base_bid, aim_bids in aimbids_in_smallerbasebid_dic.items():
                         aim_in_base_map_dset = grp.create_dataset( 'base/'+str(base_bid),shape=(len(aim_bids),),dtype=np.int32  )
                         aim_in_base_map_dset[...] = aim_bids
+                pass
             t_bmh5 = time.time() -t0
             h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
@@ -1524,8 +1542,12 @@ class GlobalSubBaseBLOCK():
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
                 bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
+                bmh5_meta_f.write('groups:')
+                for ds in h5f.keys():
+                    bmh5_meta_f.write( '\t%s\n'%(ds) )
+                bmh5_meta_f.write('\nattrs:')
                 for ele in h5f.attrs:
-                    bmh5_meta_f.write( '%s: %s\n'%(ele, h5f.attrs[ele]) )
+                    bmh5_meta_f.write( '\t%s: %s\n'%(ele, h5f.attrs[ele]) )
                 bmh5_meta_f.write('\n\n')
                 for cas, bmh5_meta in enumerate(bmh5_metas):
                     if cas == len(bmh5_metas)-1:
@@ -2421,12 +2443,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         Sorted_H5f.update_align_scope_by_stridetoalign_(self.h5f.attrs)
         self.update_data_index_by_elementnames()
 
-    def copy_root_attrs_from_raw(self,h5f_raw):
+    def copy_root_attrs_from_raw(self, h5f_raw, RotateBeforeSort):
         attrs=['datasource_name','element_names','xyz_max','xyz_min']
         for attr in attrs:
             if attr in h5f_raw.attrs:
                 self.h5f.attrs[attr] = h5f_raw.attrs[attr]
         self.h5f.attrs['is_intact'] = 0
+        if type(RotateBeforeSort)!=type(None):
+            xyz = h5f_raw['xyz']
+            xyz_new = np.matmul( xyz, RotateBeforeSort )
+            self.h5f.attrs['xyz_max'] = xyz_new.max(0)
+            self.h5f.attrs['xyz_min'] = xyz_new.min(0)
         self.update_data_index_by_elementnames()
 
 
@@ -2894,7 +2921,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     label = buf_k[j,self.data_idxs['label'][0]]
                   #  if label == 0:
                   #      continue
-                    label_color = Normed_H5f.g_label2color_dic[self.h5f.attrs['datasource_name']][label]
+                    label_color = Normed_H5f.g_label2color[self.h5f.attrs['datasource_name']][label]
                     str_j = 'v ' + ' '.join( ['%0.3f'%(d) for d in  buf_k[j,0:3]]) + ' \t'\
                     + ' '.join( ['%d'%(d) for d in  label_color ]) + '\n'
 
@@ -3397,15 +3424,19 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         # (1) Always: delete unlabeld label_category
         # (2) aug data: delete easy categories
         unlabeled_labels = DatasetsMeta.g_unlabelled_categories[datasource_name]
-        del_labels = unlabeled_labels
+        if 'delete_unlabelled' in data_aug_configs:
+            del_labels = unlabeled_labels
+        else:
+            del_labels = []
+
         if 'delete_easy_categories_num' in data_aug_configs:
-            g_easy_categories = DatasetsMeta.g_easy_categories_dic[datasource_name]
+            g_easy_categories = DatasetsMeta.g_easy_categories[datasource_name]
             delete_num = min( data_aug_configs['delete_easy_categories_num'], len(g_easy_categories) )
             g_easy_categories = g_easy_categories[0:delete_num]
-            del_labels = unlabeled_labels + g_easy_categories
+            del_labels += g_easy_categories
 
         if len(del_labels) == 0:
-            return datas, labels
+            return datas, labels, 0
         for i,ele in enumerate(feed_label_elements):
             if ele == 'label_category':
                 label_category_idx = i
@@ -3531,6 +3562,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     @staticmethod
     def aug_flag_str(data_aug_configs):
         aug_str = ''
+        if 'delete_unlabelled' in data_aug_configs:
+            aug_str += '-du'
         if 'delete_easy_categories_num' in data_aug_configs:
             del_num = data_aug_configs['delete_easy_categories_num']
             aug_str += '-dec'+str(data_aug_configs['delete_easy_categories_num'])
@@ -3808,75 +3841,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return feed_data_ele_ids,feed_label_ele_ids
 
 
-def sort_to_blocks_onef(Sort_RawH5f_Instance,file_name,block_step_xyz=[1,1,1]):
-    '''
-    split th ewhole scene to space sorted small blocks
-    The whole scene is a group. Each block is one dataset in the group.
-    The block attrs represents the field.
-    '''
-    print('start sorting file to blocks: %s'%file_name)
-    block_step = np.array( block_step_xyz )
-    Sort_RawH5f_Instance.row_num_limit = None
-
-    if not os.path.exists(Sort_RawH5f_Instance.out_folder):
-        os.makedirs(Sort_RawH5f_Instance.out_folder)
-    basefn = os.path.splitext(os.path.basename(file_name))[0]
-    blocked_file_name = os.path.join(Sort_RawH5f_Instance.out_folder,basefn)+'.sh5'
-    with h5py.File(blocked_file_name,'w') as h5f_blocked:
-        with h5py.File(file_name,'r') as h5_f:
-            Sort_RawH5f_Instance.raw_h5f = Raw_H5f(h5_f,file_name)
-            Sort_RawH5f_Instance.s_h5f = Sorted_H5f(h5f_blocked,blocked_file_name)
-
-            Sort_RawH5f_Instance.s_h5f.copy_root_attrs_from_raw( Sort_RawH5f_Instance.raw_h5f.raw_h5f )
-            Sort_RawH5f_Instance.s_h5f.set_step_stride(block_step,block_step)
-
-            #Sort_RawH5f_Instance.row_num_limit = int(self.raw_h5f.total_row_N/1000)
-
-            row_step = g_h5_num_row_1M*2
-            sorted_buf_dic = {}
-            raw_row_N = Sort_RawH5f_Instance.raw_h5f.xyz_dset.shape[0]
-
-            for k in range(0,raw_row_N,row_step):
-                end = min(k+row_step,raw_row_N)
-                _,data_name_list = Sort_RawH5f_Instance.raw_h5f.get_total_num_channels_name_list()
-                raw_buf = np.zeros((end-k,Sort_RawH5f_Instance.s_h5f.total_num_channels))
-                for dn in data_name_list:
-                    raw_buf[:,Sort_RawH5f_Instance.s_h5f.data_idxs[dn] ] = Sort_RawH5f_Instance.raw_h5f.raw_h5f[dn][k:end,:]
-                if Sort_RawH5f_Instance.s_h5f.IS_CHECK:
-                    if end < 16777215: # this is the largest int float32 can acurately present
-                        org_row_index = np.arange(k,end)
-                    else:
-                        org_row_index = -1
-                    raw_buf[:,Sort_RawH5f_Instance.s_h5f.data_idxs['org_row_index'][0]] = org_row_index
-
-                sorted_buf_dic={}
-                Sort_RawH5f_Instance.sort_buf(raw_buf,k,sorted_buf_dic)
-
-                Sort_RawH5f_Instance.h5_write_buf(sorted_buf_dic)
-
-                if int(k/row_step) % 1 == 0:
-                    print('%%%.1f  line[ %d:%d ] block_N = %d'%(100.0*end/Sort_RawH5f_Instance.raw_h5f.total_row_N, k,end,len(sorted_buf_dic)))
-                     #print('line: [%d,%d] blocked   block_T=%f s, read_T=%f ms, cal_t = %f ms, write_t= %f ms'%\
-                           #(k,end,time.time()-t0_k,(t1_k-t0_k)*1000,(t2_1_k-t2_0_k)*1000, (t2_2_k-t2_1_k)*1000 ))
-                if hasattr(Sort_RawH5f_Instance,'row_num_limit') and Sort_RawH5f_Instance.row_num_limit!=None and  end>=Sort_RawH5f_Instance.row_num_limit:
-                #if k /row_step >3:
-                    print('break read at k= ',end)
-                    break
-
-            total_row_N,total_block_N = Sort_RawH5f_Instance.s_h5f.add_total_row_block_N()
-
-            if total_row_N != Sort_RawH5f_Instance.raw_h5f.total_row_N:
-                print('ERROR: blocked total_row_N= %d, raw = %d'%(total_row_N,Sort_RawH5f_Instance.raw_h5f.total_row_N))
-            print('total_block_N = ',total_block_N)
-
-            if Sort_RawH5f_Instance.s_h5f.IS_CHECK:
-                check = Sort_RawH5f_Instance.s_h5f.check_equal_to_raw(Sort_RawH5f_Instance.raw_h5f) & Sort_RawH5f_Instance.s_h5f.check_xyz_scope()
-                print('overall check of equal and scope:')
-                if check:
-                    print('both passed')
-                else:
-                    print('somewhere check failed')
-            #Sort_RawH5f_Instance.s_h5f.show_summary_info()
 class Sort_RawH5f():
     '''
     (1) Do sort: from "Raw_H5f" to "Sorted_H5f"
@@ -3884,29 +3848,28 @@ class Sort_RawH5f():
     sampled: .rsh5  (fix number in each block)
     block_step_xyz=[0.5,0.5,0.5]
     '''
-    def __init__(self, raw_file_list, block_step_xyz, out_folder, rxyz_before_sort, IsShowInfoFinished=False):
+    def __init__(self, raw_file_list, block_step_xyz, out_folder, RotateBeforeSort, IsShowInfoFinished=False):
         self.IsShowInfoFinished = IsShowInfoFinished
         self.out_folder = out_folder
-        self.Do_sort_to_blocks(raw_file_list,block_step_xyz,rxyz_before_sort)
+        self.Do_sort_to_blocks(raw_file_list,block_step_xyz,RotateBeforeSort)
 
-    def Do_sort_to_blocks(self,raw_file_list, block_step_xyz, rxyz_before_sort):
+    def Do_sort_to_blocks(self,raw_file_list, block_step_xyz, RotateBeforeSort):
         IsMulti = False
         if not IsMulti:
             for fn in raw_file_list:
-                self.sort_to_blocks(fn, block_step_xyz, rxyz_before_sort )
-                #sort_to_blocks_onef(self,fn,block_step_xyz)
+                self.sort_to_blocks(fn, block_step_xyz, RotateBeforeSort )
         else:
             #pool = mp.Pool( max(mp.cpu_count()/2,1) )
             print('cpu_count= ',mp.cpu_count())
             pool = mp.Pool(processes=4)
             for i,fn in enumerate(raw_file_list):
-                pool.apply_async(sort_to_blocks_onef,(self,fn,block_step_xyz,))
+                pool.apply_async(sort_to_blocks_onef_unused,(self,fn,block_step_xyz,))
                 print('apply_async %d  fn=%s'%(i,fn))
             pool.close()
             pool.join()
 
 
-    def sort_to_blocks(self,file_name, block_step_xyz, rxyz_before_sort):
+    def sort_to_blocks(self,file_name, block_step_xyz, RotateBeforeSort):
         '''
         split th ewhole scene to space sorted small blocks
         The whole scene is a group. Each block is one dataset in the group.
@@ -3937,14 +3900,15 @@ class Sort_RawH5f():
                 self.raw_h5f = Raw_H5f(h5_f,file_name)
                 self.s_h5f = Sorted_H5f(h5f_blocked,blocked_file_name)
 
-                self.s_h5f.copy_root_attrs_from_raw( self.raw_h5f.h5f )
+                self.s_h5f.copy_root_attrs_from_raw( self.raw_h5f.h5f, RotateBeforeSort )
                 self.s_h5f.set_step_stride(block_step,block_step)
 
                 #self.row_num_limit = int(self.raw_h5f.total_row_N/1000)
 
-                row_step = g_h5_num_row_1M*3
+                row_step = g_h5_num_row_1M*50
                 sorted_buf_dic = {}
                 raw_row_N = self.raw_h5f.xyz_dset.shape[0]
+
 
                 for k in range(0,raw_row_N,row_step):
                     end = min(k+row_step,raw_row_N)
@@ -3952,10 +3916,9 @@ class Sort_RawH5f():
                     raw_buf = np.zeros((end-k, self.s_h5f.total_num_channels))
                     for dn in data_name_list:
                         tmp = self.raw_h5f.h5f[dn][k:end,:]
-                        if dn == 'xyz' and type(rxyz_before_sort)!=type(None) and np.sum(rxyz_before_sort==0)!=0:
+                        if dn == 'xyz' and type(RotateBeforeSort)!=type(None):
                             # Data augmentation: rotation
-                            R = geo_util.EulerRotate( rxyz_before_sort, 'xyz' )
-                            tmp = np.matmul(tmp,R)
+                            tmp = np.matmul(tmp,RotateBeforeSort)
 
                         raw_buf[:,self.s_h5f.data_idxs[dn] ] = tmp
 
@@ -4129,10 +4092,10 @@ class Normed_H5f():
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
         self.datasource_name = self.h5f.attrs['datasource_name']
         self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
-        self.g_label2class = dataset_meta.g_label2class
-        self.g_label2color = dataset_meta.g_label2color
-        self.g_class2label = dataset_meta.g_class2label
-        self.g_class2color = dataset_meta.g_class2color
+        self.g_label2class = dataset_meta.label2class
+        self.g_label2color = dataset_meta.label2color
+        self.g_class2label = dataset_meta.class2label
+        self.g_class2color = dataset_meta.class2color
         self.num_classes = dataset_meta.num_classes
 
         self.dataset_names = ['data','labels','raw_xyz','pred_logits']
@@ -4320,8 +4283,8 @@ class Normed_H5f():
     @staticmethod
     def show_all_colors( datasource_name ):
         from PIL import Image
-        label2color = Normed_H5f.g_label2color_dic[datasource_name]
-        label2class = Normed_H5f.g_label2class_dic[datasource_name]
+        label2color = Normed_H5f.g_label2color[datasource_name]
+        label2class = Normed_H5f.g_label2class[datasource_name]
         path = os.path.join( BASE_DIR,'label_colors' )
         if not os.path.exists(path):
             os.makedirs(path)

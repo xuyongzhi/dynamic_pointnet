@@ -1,4 +1,7 @@
-import os
+import os, json
+import numpy as np
+from plyfile import PlyData, PlyElement
+
 BASE_DIR = os.path.dirname( os.path.abspath(__file__) )
 
 SCANNET_Meta = {}
@@ -36,8 +39,64 @@ def get_raw2scannet_label_map():
 g_raw2scannet = get_raw2scannet_label_map()
 
 
+def parse_aggregation( aggregation_fn ):
+    with open( aggregation_fn,'r' ) as json_fo:
+        d = json.load( json_fo )
+        ids = []
+        objectIds = []
+        instance_segids = []
+        labels = []
+        for x in d['segGroups']:
+            ids.append(x['id'])
+            objectIds.append(x['objectId'])
+            instance_segids.append(x['segments'])
+            labels.append(x['label'])
+        return instance_segids, labels
 
-def parse_raw( scene_name ):
+def parse_scan_ply( ply_fn ):
+    with open( ply_fn, 'r' ) as ply_fo:
+        plydata = PlyData.read( ply_fo )
+        num_ele = len(plydata.elements)
+        num_vertex = plydata['vertex'].count
+        num_face = plydata['face'].count
+        data_vertex = plydata['vertex'].data
+        data_face = plydata['face'].data
+
+        ## face
+        face_vertex_indices = data_face['vertex_indices']
+        face_vertex_indices = np.concatenate(face_vertex_indices,axis=0)
+        face_vertex_indices = np.reshape(face_vertex_indices,[-1,3])
+
+        face_eles = ['vertex_indices']
+        datas_face = {}
+        for e in face_eles:
+            datas_face[e] = np.expand_dims(data_face[e],axis=-1)
+
+        ## vertex
+        vertex_eles = ['x','y','z','red','green','blue','alpha']
+        datas_vertex = {}
+        for e in vertex_eles:
+            datas_vertex[e] = np.expand_dims(data_vertex[e],axis=-1)
+        vertex_xyz = np.concatenate([datas_vertex['x'],datas_vertex['y'],datas_vertex['z']],axis=1)
+        vertex_rgb = np.concatenate([datas_vertex['red'],datas_vertex['green'],datas_vertex['blue']],axis=1)
+        vertex_alpha = np.concatenate([datas_vertex['alpha']])
+        points = np.concatenate( [vertex_xyz, vertex_rgb], -1 )
+
+        return points
+
+def parse_mesh_segs( mesh_segs_fn ):
+    with open(mesh_segs_fn,'r') as jsondata:
+        d = json.load(jsondata)
+        mesh_seg = np.array( d['segIndices'] )
+        #print len(mesh_seg)
+    mesh_segid_to_pointid = {}
+    for i in range(mesh_seg.shape[0]):
+        if mesh_seg[i] not in mesh_segid_to_pointid:
+            mesh_segid_to_pointid[mesh_seg[i]] = []
+        mesh_segid_to_pointid[mesh_seg[i]].append(i)
+    return mesh_segid_to_pointid, mesh_seg
+
+def parse_raw_SCANNET( scene_name ):
     scene_name_base = os.path.basename( scene_name )
     ply_fn = scene_name + '/%s_vh_clean.ply'%(scene_name_base)
     mesh_segs_fn = scene_name + '/%s_vh_clean.segs.json'%(scene_name_base)
@@ -59,11 +118,11 @@ def parse_raw( scene_name ):
         instance_points = points[np.array(pointids),:]
         instance_points_list.append(instance_points)
         instance_labels_list.append(np.ones((instance_points.shape[0], 1))*i)
-        if labels[i] not in RAW2SCANNET:
+        if labels[i] not in g_raw2scannet:
             label = 'unannotated'
         else:
-            label = RAW2SCANNET[labels[i]]
-        label = CLASS_NAMES.index(label)
+            label = g_raw2scannet[labels[i]]
+        label = SCANNET_Meta['label_names'].index(label)
         semantic_labels_list.append(np.ones((instance_points.shape[0], 1))*label)
 
     # Refactor data format
@@ -72,4 +131,6 @@ def parse_raw( scene_name ):
     semantic_labels = np.concatenate(semantic_labels_list, 0)
 
     return scene_points, instance_labels, semantic_labels, mesh_labels
+
+
 

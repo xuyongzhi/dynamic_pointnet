@@ -22,3 +22,5 @@
 \contentsline {subsubsection}{\numberline {1.13.1}scannet seg}{19}{subsubsection.1.13.1}
 \contentsline {subsection}{\numberline {1.14}whole room global block \& multi scales \& scan 305}{20}{subsection.1.14}
 \contentsline {subsection}{\numberline {1.15}Sparse voxel net}{22}{subsection.1.15}
+\contentsline {subsubsection}{\numberline {1.15.1}}{22}{subsubsection.1.15.1}
+\contentsline {subsubsection}{\numberline {1.15.2}}{23}{subsubsection.1.15.2}

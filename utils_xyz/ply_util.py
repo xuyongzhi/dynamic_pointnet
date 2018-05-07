@@ -4,8 +4,8 @@ import os, sys
 import numpy as np
 from plyfile import PlyData, PlyElement
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import MatterportMeta,get_cat40_from_rawcat
+sys.path.append(BASE_DIR+'/all_datasets_meta')
+from datasets_meta import DatasetsMeta
 
 def test_plyfile():
     vertex = np.array([(0, 0, 0), (0,1,0), (1,1,0), (1,0,0),
@@ -225,7 +225,7 @@ def create_ply( xyz0, ply_fn, label=None, label2color=None, force_color=None, bo
 
 
 def create_ply_matterport( xyz, ply_fn, label=None, cut_threshold=[1,1,1]):
-    create_ply( xyz,ply_fn, label = label, label2color = MatterportMeta['label2color'], cut_threshold=cut_threshold )
+    create_ply( xyz,ply_fn, label = label, label2color = DatasetsMeta['MATTERPORT']['label2color'], cut_threshold=cut_threshold )
 
 if __name__ == '__main__':
     #test_plyfile()
