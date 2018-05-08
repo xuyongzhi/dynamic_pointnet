@@ -1557,6 +1557,15 @@ class GlobalSubBaseBLOCK():
                     for key, value in bmh5_meta.items():
                         bmh5_meta_f.write( '\t%s: %s \n'%(key, value) )
                 bmh5_meta_f.write( '\ngen t: %0.2f sec'%(t_bmh5) )
+
+            LostBaseb_rates = [bmh5_meta['LostBaseb_rate'] for bmh5_meta in bmh5_metas]
+            LostBaseb_rate_max = np.max(LostBaseb_rates)
+            if LostBaseb_rate_max > 0.2:
+                lost_baseb_fn = os.path.dirname(self.bmh5_fn) + '/bmh5_lost_too_many_baseb.txt'
+                with open( lost_baseb_fn, 'a' ) as lbf:
+                    lbf.write(  '%s: %s'%( os.path.basename(self.bmh5_fn),LostBaseb_rates ) )
+                print('\n\n\t\tLost %f baseb: %s\nWrite to %s\n\n'%(LostBaseb_rate_max, self.bmh5_fn, lost_baseb_fn))
+
             print('write finish: %s'%(self.bmh5_fn))
 
 
@@ -1711,7 +1720,8 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
-        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.2, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
+        LostBaseb_rate = 1.0 * num_lost_baseb / all_base_bids.size
+        bmh5_meta['LostBaseb_rate'] = LostBaseb_rate
 
         #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
         #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
