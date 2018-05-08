@@ -28,7 +28,7 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
-#DATASET = 'ETH'
+DATASET = 'ETH'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -262,9 +262,8 @@ class H5Prepare():
 
 
     def MergeNormed(self, data_aug_configs):
-        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4'
+        plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
         bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
-        bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -308,8 +307,8 @@ class H5Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -362,18 +361,18 @@ def main( ):
         MultiProcess = 0
         h5prep = H5Prepare()
 
-        #h5prep.ParseRaw( MultiProcess )
+        h5prep.ParseRaw( MultiProcess )
         base_step_stride = [0.1,0.1,0.1]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
         #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        #data_aug_configs['delete_unlabelled'] = True
+        data_aug_configs['delete_unlabelled'] = True
         #data_aug_configs['delete_easy_categories_num'] = 5
 
         #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        h5prep.MergeNormed( data_aug_configs )
+        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

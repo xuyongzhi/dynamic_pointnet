@@ -293,6 +293,7 @@ def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom
         max_indice_f = ( -configs['global_step'] - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
         assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert
+        max_indice_v += 1* IsTolerateBug
 
         voxel_size = max_indice_v.astype(np.int32)+1
         voxel_shape = [batch_size, block_num, voxel_size[0], voxel_size[1], voxel_size[2], channel_num]
@@ -322,7 +323,7 @@ def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom
         check_max_indice = tf.assert_less( real_max - max_indice_1, tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v, tf.float32 ),
                                           data=[cascade_id, real_max, max_indice_1], name='check_max_indice' )
         tf.add_to_collection( 'check', check_max_indice )
-        point_indices_checkmin += (max_indice_v) * IS_merge_blocks_while_fix_bmap
+        point_indices_checkmin += (max_indice_v) * IS_merge_blocks_while_fix_bmap + IsTolerateBug*1
         if IsShowVoxelModel:
             print( 'cascade:%d \tvoxel size:%s'%(cascade_id, voxel_size) )
 
