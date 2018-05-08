@@ -39,8 +39,8 @@ import multiprocessing as mp
 import itertools
 import ply_util
 #from global_para import GLOBAL_PARA
-sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import get_cat40_from_rawcat
+sys.path.append(BASE_DIR+'/MATTERPORT_util')
+from MATTERPORT_util import get_cat40_from_rawcat
 sys.path.append(BASE_DIR+'/all_datasets_meta')
 from datasets_meta import DatasetsMeta
 import csv,pickle

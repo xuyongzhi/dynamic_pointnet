@@ -13,13 +13,12 @@ import numpy as np
 
 DEBUG_TMP = True
 
-IsCompensateGlobal = True
-IS_TMP_BUG=True
 
 # IS_merge_blocks_while_fix_bmap should be set exactly based on the bidxmap
 # configuration. This is origibally set in NETCONFIG. But the configuration is
 # not obtained here from bxmap automatically. Should be set manually.
-IS_merge_blocks_while_fix_bmap = 0
+IS_merge_blocks_while_fix_bmap = 1
+IsTolerateBug = True
 
 '''
 Checking list:
@@ -58,7 +57,7 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
         return flatten_bidxmap_i_concat
 
-def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_configs, block_bottom_center_mm, configs, sgf_config_pls,
+def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_bottom_center_mm, configs, sgf_config_pls,
                        is_training, bn_decay,scope,bn=True, tnet_spec=None, use_xyz=True):
     '''
     Input cascade_id==0:
@@ -82,45 +81,35 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
     block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
-        cascade_num = configs['flatten_bm_extract_idx'].shape[0]-2
-        assert configs['sub_block_step_candis'].size == cascade_num
+        cascade_num = configs['flatten_bm_extract_idx'].shape[0]-1  # include global here (Note: cascade_num does not include global in block_pre_util )
+        assert configs['sub_block_step_candis'].size == cascade_num-1
         if cascade_id==0:
             input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
 
-        if IsExtraGlobalLayer:
-            #if cascade_id == 0:
-            #    points = tf.gather_nd( xyz,flatten_bidxmap0_concat)
-            #    xyz = points[...,0:3]
-            grouped_xyz = tf.expand_dims( xyz,axis=1, name='grouped_xyz' )  # gpu_0/sa_layer4/grouped_xyz:0
-            grouped_points = tf.expand_dims(points,axis=1)
-            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
-                grouped_indrop_mask = tf.expand_dims( input_drop_mask, axis=1, name='grouped_indrop_mask' )
-            new_xyz = tf.zeros([]) # not needed
+        assert len(xyz.shape) == 3
+
+        batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1,1] )
+        nsubblock = bidmap.get_shape()[1].value
+        npoint_subblock = bidmap.get_shape()[2].value
+        batch_idx_ = tf.tile( batch_idx,[1,nsubblock,npoint_subblock,1] )
+        bidmap = tf.expand_dims( bidmap,axis=-1, name='bidmap' )
+        bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1, name='bidmap_concat' )  # gpu_0/sa_layer0/bidmap_concat:0
+        # The value for invalid item in bidmap is -17.
+        # On GPU, the responding grouped_xyz and grouped_points is 0.
+        # NOT WORK on CPU !!!
+
+        grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
+        grouped_points = tf.gather_nd(points,bidmap_concat)
+
+        # new_xyz is the "voxel center" or "mean position of points in the voxel"
+        if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+            new_xyz = tf.reduce_mean(grouped_xyz,-2)
         else:
-            assert len(xyz.shape) == 3
-
-            batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1,1] )
-            nsubblock = bidmap.get_shape()[1].value
-            npoint_subblock = bidmap.get_shape()[2].value
-            batch_idx_ = tf.tile( batch_idx,[1,nsubblock,npoint_subblock,1] )
-            bidmap = tf.expand_dims( bidmap,axis=-1, name='bidmap' )
-            bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1, name='bidmap_concat' )  # gpu_0/sa_layer0/bidmap_concat:0
-            # The value for invalid item in bidmap is -17.
-            # On GPU, the responding grouped_xyz and grouped_points is 0.
-            # NOT WORK on CPU !!!
-
-            grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
-            grouped_points = tf.gather_nd(points,bidmap_concat)
-
-            # new_xyz is the "voxel center" or "mean position of points in the voxel"
-            if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
-                new_xyz = tf.reduce_mean(grouped_xyz,-2)
-            else:
-                new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
 
 
-            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
-                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
+        if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
+            grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
 
         if configs['normxyz_allcas'] == 'mid':
             block_center = tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
@@ -129,7 +118,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             if cascade_id==0:
                 # xyz must be at the first in feed_data_elements !!!!
                 grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
-        if cascade_id>0 and use_xyz and (not IsExtraGlobalLayer):
+        if cascade_id>0 and use_xyz and (not cascade_id==cascade_num-1):
             grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
@@ -184,7 +173,7 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
             max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
             new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            new_points = grouped_points_to_voxel_points( cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
+            new_points = grouped_points_to_voxel_points( cascade_id, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
             mlps_3dcnn = [ 128, 256, 256]
@@ -244,8 +233,9 @@ def pointnet_sa_module(cascade_id, IsExtraGlobalLayer, xyz, points, bidmap, mlp_
         # (2, 512, 64)
         return new_xyz, new_points, root_point_features
 
-def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
-    cascade_num = configs['sub_block_step_candis'].size
+def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
+    IsShowVoxelModel = True
+    cascade_num = configs['sub_block_step_candis'].size+1
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
     c500 = tf.constant([500],tf.float32)
@@ -268,17 +258,14 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     point_indices_f = (grouped_bottom_xyz_mm - min_point_bottom_xyz_mm) / (stride_last*c1000)  # gpu_0/sa_layer3/div:0
     point_indices_f = tf.identity( point_indices_f, name='point_indices_f' )    # gpu_0/sa_layer4/point_indices_f:0
 
-    if not IsExtraGlobalLayer:
-        # invalid indices comes from merge_blocks_while_fix_bmap
-        # set point_indices_f for invalid points as
-        # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
-        invalid_mask = tf.less( bidmap, tf.constant(-500,tf.int32) )
-        invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
-        point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant( -9999,dtype=tf.float32), point_indices_f )
-        point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
-        point_indices_checkmin = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(999,dtype=tf.float32), point_indices )
-    else:
-        point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer4/point_indices:0
+    # invalid indices comes from merge_blocks_while_fix_bmap
+    # set point_indices_f for invalid points as
+    # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
+    invalid_mask = tf.less( bidmap, tf.constant(-500,tf.int32) )
+    invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
+    point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant( -9999,dtype=tf.float32), point_indices_f )
+    point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
+    point_indices_checkmin = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(999,dtype=tf.float32), point_indices, name='point_indices_checkmin' )
 
     # ------------------------------------------------------------------
     # check indice err
@@ -300,31 +287,19 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     point_num = new_points.shape[2].value
     channel_num = new_points.shape[3].value
 
-    if IsExtraGlobalLayer or cascade_id==cascade_num:
+    if cascade_id==cascade_num-1:
+        # only in this global cascde, the steps and strides in each dimension
+        # can be different
         max_indice_f = ( -configs['global_step'] - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
         assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert
-        if IsCompensateGlobal:
-            max_indice_v += np.array([1,1,0])
 
         voxel_size = max_indice_v.astype(np.int32)+1
         voxel_shape = [batch_size, block_num, voxel_size[0], voxel_size[1], voxel_size[2], channel_num]
 
-        if IsCompensateGlobal:
-            # Dont know why. global voxel indices can be larger or smaller by 1 on [x,y].
-            # As a result, the scope [x,y] can also be larger by 1.
-            # Do compensate: either sub 1 or add 1. But it maybe different for each block or x or y.
-            point_indices__min = tf.reduce_min( point_indices, axis=[1,2], keepdims=True )
-            point_indices_max = tf.reduce_max( point_indices, axis=[1,2], keepdims=True )
-
-            global_pi_min_comp = tf.minimum( point_indices__min, tf.constant([0,0,0],tf.float32), name='global_pi_min_comp' ) # -1 or 0
-            global_pi_min_comp = tf.maximum( global_pi_min_comp, tf.constant([-1,-1,0],tf.float32) )
-            global_pi_max_comp = tf.maximum( point_indices_max - max_indice_v, tf.constant([0,0,0],tf.float32), name='global_pi_max_comp' ) # 0 or 1
-            global_pi_max_comp = tf.minimum( global_pi_max_comp, tf.constant([1,1,0],tf.float32) )
-            global_pi_comp = tf.add( global_pi_min_comp, global_pi_max_comp, 'global_pi_comp')      # gpu_0/sa_layer4/global_pi_comp:0
-            point_indices -= global_pi_comp
-
-        point_indices_checkmin = point_indices + max_indice_v * IS_merge_blocks_while_fix_bmap
+        point_indices_checkmin = tf.identity(point_indices_checkmin, 'point_indices_checkmin_A') #
+        point_indices_checkmin += (max_indice_v+2*IsTolerateBug) * IS_merge_blocks_while_fix_bmap
+        point_indices_checkmin = tf.identity(point_indices_checkmin, 'point_indices_checkmin_B') # gpu_1/sa_layer4/point_indices_checkmin_B:0
         point_indices, first_unique_masks_global = unique_nd( point_indices )
 
         for i in range(3):
@@ -332,6 +307,8 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
             check_max_indice = tf.assert_less( real_max - max_indice_v[i], tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v[i], dtype=tf.float32 ),
                                               data=[cascade_id, i, real_max, max_indice_v[i]], name='check_max_indice_'+str(i) )
             tf.add_to_collection( 'check', check_max_indice )
+        if IsShowVoxelModel:
+            print( 'cascade:%d (global) \tvoxel size:%s'%(cascade_id, voxel_size) )
 
     else:
         max_indice_f = ( configs['sub_block_step_candis'][cascade_id] - configs['sub_block_step_candis'][cascade_id-1] ) / configs['sub_block_stride_candis'][cascade_id-1]
@@ -345,7 +322,9 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
         check_max_indice = tf.assert_less( real_max - max_indice_1, tf.constant(Max_Assert + IS_merge_blocks_while_fix_bmap * max_indice_v, tf.float32 ),
                                           data=[cascade_id, real_max, max_indice_1], name='check_max_indice' )
         tf.add_to_collection( 'check', check_max_indice )
-        point_indices_checkmin += (max_indice_v+1*IS_TMP_BUG) * IS_merge_blocks_while_fix_bmap
+        point_indices_checkmin += (max_indice_v) * IS_merge_blocks_while_fix_bmap
+        if IsShowVoxelModel:
+            print( 'cascade:%d \tvoxel size:%s'%(cascade_id, voxel_size) )
 
 
     point_indices_min = tf.reduce_min(point_indices_checkmin, name='point_indices_min') # gpu_0/sa_layer4/point_indices_min:0
@@ -370,10 +349,7 @@ def grouped_points_to_voxel_points (cascade_id, IsExtraGlobalLayer, new_points, 
     # check voxel: takes long time, only perform for debug
     check_points = tf.gather_nd( voxel_points, point_indices, name='check_points' ) # gpu_0/sa_layer4/check_points:0
     scatter_err = tf.abs( check_points - new_points) # gpu_0/sa_layer1/scatter_err:0
-    if IsExtraGlobalLayer:
-        scatter_err = scatter_err * tf.cast(first_unique_masks_global[:,:,:,0:1], tf.float32)
-    else:
-        scatter_err = scatter_err * tf.cast(invalid_mask[:,:,:,0:1], tf.float32)
+    scatter_err = scatter_err * tf.cast(invalid_mask[:,:,:,0:1], tf.float32)
     scatter_err = tf.identity( scatter_err, name='scatter_err'  )
     scatter_err_max = tf.reduce_max( scatter_err, name = 'scatter_err_max') # gpu_0/sa_layer1/scatter_err_max:0
     points_check = tf.assert_less( scatter_err_max, Max_Assert, data=[cascade_id, scatter_err_max], name='scatter_check' )
