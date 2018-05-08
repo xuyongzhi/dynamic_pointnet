@@ -1711,7 +1711,7 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
-        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.6, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
+        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.2, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
 
         #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
         #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
