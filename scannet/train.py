@@ -23,12 +23,13 @@ sys.path.append(os.path.join(ROOT_DIR, 'data_prep'))
 import scannet_dataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gpu', type=int, default=-1, help='GPU to use [default: GPU 0]')
+parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='pointnet2_sem_seg', help='Model name [default: model]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--num_point', type=int, default=8192, help='Point Number [default: 8192]')
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 201]')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 32]')
+parser.add_argument('--batch_size', type=int, default=31, help='Batch Size during training [default: 32]')
+# 28:9.798G
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
@@ -162,6 +163,10 @@ def train():
                'step': batch,
                'end_points': end_points}
 
+        from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
+        max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
+        ops['max_memory_usage'] = max_memory_usage
+
         best_acc = -1
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
@@ -236,8 +241,8 @@ def train_one_epoch(sess, ops, train_writer):
                      ops['labels_pl']: batch_label,
 		             ops['smpws_pl']:batch_smpw,
                      ops['is_training_pl']: is_training,}
-        summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'],
-            ops['train_op'], ops['loss'], ops['pred']], feed_dict=feed_dict)
+        summary, step, _, loss_val, pred_val, max_memory_usage = sess.run([ops['merged'], ops['step'],
+            ops['train_op'], ops['loss'], ops['pred'], ops['max_memory_usage']], feed_dict=feed_dict)
         train_writer.add_summary(summary, step)
         pred_val = np.argmax(pred_val, 2)
         correct = np.sum(pred_val == batch_label)
@@ -251,6 +256,8 @@ def train_one_epoch(sess, ops, train_writer):
             total_correct = 0
             total_seen = 0
             loss_sum = 0
+        if batch_idx == 0:
+            log_string( 'memory usage: %0.3f G'%(1.0*max_memory_usage/1e9))
 
 # evaluate on randomly chopped scenes
 def eval_one_epoch(sess, ops, test_writer):
