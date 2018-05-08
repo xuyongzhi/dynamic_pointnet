@@ -370,6 +370,7 @@ def GenObj_rh5():
 
     path = '/home/z/Research/dynamic_pointnet/data/ETH__H5F/BasicData/rawh5'
     fn_ls = glob.glob( path+'/marketplacefeldkirch_station7_intensity_rgb.rh5' )
+    fn_ls = glob.glob( path+'/StGallenCathedral_station6_rgb_intensity-reduced.rh5' )
 
     for fn in fn_ls:
         if not Raw_H5f.check_rh5_intact( fn )[0]:
@@ -417,7 +418,7 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    main()
-    #GenObj_rh5()
+    #main()
+    GenObj_rh5()
     #GenObj_sph5()
     #GenObj_sh5()
