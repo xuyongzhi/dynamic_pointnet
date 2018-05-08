@@ -2101,8 +2101,10 @@ class Raw_H5f():
             if 'color' in self.h5f:
                 color_dset = self.color_dset
             else:
-                IsLabelColor = True
-            label_category_dset = self.label_category_dset
+                if 'label_category' in self.h5f:
+                    IsLabelColor = True
+            if IsLabelColor:
+                label_category_dset = self.label_category_dset
 
             if xyz_cut_rate != None:
                 # when rate < 0.5: cut small
@@ -2125,7 +2127,8 @@ class Raw_H5f():
                     buf_k = np.hstack((xyz_buf_k,color_buf_k))
                 else:
                     buf_k = xyz_buf_k
-                label_k = label_category_dset[k:end,0]
+                if IsLabelColor:
+                    label_k = label_category_dset[k:end,0]
                 for j in range(0,buf_k.shape[0]):
                     is_cut_this_point = False
                     if xyz_cut_rate!=None:
