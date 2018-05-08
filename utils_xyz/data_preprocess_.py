@@ -79,10 +79,10 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     bxmh5_folder = ORG_DATA_DIR + '/' + bxmh5_folder
     scannet_trainval_ls = list(np.loadtxt('./SCANNET_util/scannet_trainval.txt','string'))
     scannet_test_ls = list(np.loadtxt('./SCANNET_util/scannet_test.txt','string'))
-    trainval_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_trainval_ls]
-    trainval_sph5_ls = [ os.path.join(plsph5_folder, scene_name+'.sph5')  for scene_name in scannet_trainval_ls]
-    test_bxmh5_ls = [ os.path.join(bxmh5_folder, scene_name+'.bxmh5')  for scene_name in scannet_test_ls]
-    test_sph5_ls = [ os.path.join(plsph5_folder, scene_name+'.sph5')  for scene_name in scannet_test_ls]
+    trainval_bxmh5_ls = [ os.path.join(bxmh5_folder, fn+'.bxmh5')  for fn in scannet_trainval_ls]
+    trainval_sph5_ls = [ os.path.join(plsph5_folder, fn+'.sph5')  for fn in scannet_trainval_ls]
+    test_bxmh5_ls = [ os.path.join(bxmh5_folder, fn+'.bxmh5')  for fn in scannet_test_ls]
+    test_sph5_ls = [ os.path.join(plsph5_folder, fn+'.sph5')  for fn in scannet_test_ls]
 
     # check all file exist
     trainval_bxmh5_ls = [ fn for fn in trainval_bxmh5_ls if fn in bxmh5_fn_ls ]
@@ -111,29 +111,31 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
         end  = min( k+group_n, len(trainval_bxmh5_ls) )
         all_bxmh5_ls += [trainval_bxmh5_ls[k:end]]
         all_sph5_ls += [trainval_sph5_ls[k:end]]
-        scene_name_0 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[k]) )[0]
-        scene_name_1 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[end-1]) )[0]
-        scene_name_1 = scene_name_1[5:len(scene_name_1)]
-        all_group_name_ls += ['trainval_'+scene_name_0+'_to_'+scene_name_1+'-'+str(end-k)]
+        fn_0 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[k]) )[0]
+        fn_1 = os.path.splitext( os.path.basename(trainval_bxmh5_ls[end-1]) )[0]
+        fn_1 = fn_1[5:len(fn_1)]
+        all_group_name_ls += ['trainval_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
 
     return [all_sph5_ls, all_bxmh5_ls], all_group_name_ls
 
 
-def WriteRawH5f( scene_name, rawh5f_dir ):
+def WriteRawH5f( fn, rawh5f_dir ):
     if DATASET == 'SCANNET':
-        return WriteRawH5f_SCANNET( scene_name, rawh5f_dir )
+        return WriteRawH5f_SCANNET( fn, rawh5f_dir )
+    elif DATASET == 'ETH':
+        return WriteRawH5f_ETH( fn, rawh5f_dir )
 
-def WriteRawH5f_SCANNET( scene_name, rawh5f_dir ):
+def WriteRawH5f_SCANNET( fn, rawh5f_dir ):
     # save as rh5
     import SCANNET_util
-    scene_name_base = os.path.basename( scene_name )
-    rawh5f_fn = os.path.join(rawh5f_dir, scene_name_base+'.rh5')
+    fn_base = os.path.basename( fn )
+    rawh5f_fn = os.path.join(rawh5f_dir, fn_base+'.rh5')
     if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
         print('rh5 intact: %s'%(rawh5f_fn))
-        return scene_name
+        return fn
     print('start write rh5: %s'%(rawh5f_fn))
 
-    scene_points, instance_labels, semantic_labels, mesh_labels = SCANNET_util.parse_raw_SCANNET( scene_name )
+    scene_points, instance_labels, semantic_labels, mesh_labels = SCANNET_util.parse_raw_SCANNET( fn )
     num_points = scene_points.shape[0]
     with h5py.File(rawh5f_fn,'w') as h5f:
         raw_h5f = Raw_H5f(h5f,rawh5f_fn,'SCANNET')
@@ -144,7 +146,35 @@ def WriteRawH5f_SCANNET( scene_name, rawh5f_dir ):
         raw_h5f.append_to_dset('label_instance', instance_labels)
         raw_h5f.append_to_dset('label_mesh', mesh_labels)
         raw_h5f.rh5_create_done()
-    return scene_name
+    return fn
+
+def WriteRawH5f_ETH( fn_7z, rawh5f_dir ):
+    import ETH_util
+    fn_base = os.path.basename( fn_7z )
+    fn_base = os.path.splitext( fn_base )[0]
+    if fn_base[-3:] == 'txt':
+        fn_base = os.path.splitext( fn_base )[0]
+    rawh5f_fn = os.path.join(rawh5f_dir, fn_base+'.rh5')
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return fn_7z
+    print('start write rh5: %s'%(rawh5f_fn))
+
+    xyz, intensity, rgb, labels = ETH_util.parse_raw_ETH( fn_7z )
+    num_points = xyz.shape[0]
+
+    with h5py.File( rawh5f_fn, 'w' ) as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'ETH')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', xyz)
+        raw_h5f.append_to_dset('color', rgb)
+        raw_h5f.append_to_dset('intensity', intensity)
+        if labels != None:
+            raw_h5f.append_to_dset( 'label_category', labels )
+        raw_h5f.rh5_create_done()
+    print('finish : %s'%(rawh5f_fn))
+    return rawh5f_fn
+
 
 class H5Prepare():
     '''
@@ -162,27 +192,31 @@ class H5Prepare():
         if not os.path.exists(rawh5f_dir):
             os.makedirs(rawh5f_dir)
 
-        glob_fn = raw_path+'/scene*'
-        scene_name_ls =  glob.glob( glob_fn )
-        scene_name_ls.sort()
-        if len(scene_name_ls) == 0:
+        if DATASET == 'SCANNET':
+            glob_fn = raw_path+'/scene*'
+        elif DATASET == 'ETH':
+            glob_fn = raw_path+'/*.7z'
+
+        fn_ls =  glob.glob( glob_fn )
+        fn_ls.sort()
+        if len(fn_ls) == 0:
             print('no file matches %s'%( glob_fn ))
 
         if TMPDEBUG:
-            scene_name_ls = scene_name_ls[0:1]
+            fn_ls = fn_ls[0:1]
 
         if MultiProcess < 2:
-            for scene_name in scene_name_ls:
-                WriteRawH5f( scene_name, rawh5f_dir )
+            for fn in fn_ls:
+                WriteRawH5f( fn, rawh5f_dir )
         else:
             pool = mp.Pool(MultiProcess)
-            for scene_name in scene_name_ls:
-                results = pool.apply_async( WriteRawH5f, ( scene_name, rawh5f_dir))
+            for fn in fn_ls:
+                results = pool.apply_async( WriteRawH5f, ( fn, rawh5f_dir))
             pool.close()
             pool.join()
 
             success_fns = []
-            success_N = len(scene_name_ls)
+            success_N = len(fn_ls)
             try:
                 for k in range(success_N):
                     success_fns.append(results.get(timeout=0.1))
@@ -358,7 +392,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 5
         h5prep = H5Prepare()
 
         h5prep.ParseRaw( MultiProcess )
