@@ -21,6 +21,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
+sys.path.append(os.path.join(ROOT_DIR,'utils_benz'))
 sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
@@ -28,7 +29,7 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 from block_data_net_provider_kitti_2d import Normed_H5f,Net_Provider_kitti
 
 import tf_util
-from config import cfg
+from config_3d_obj_detection import cfg
 import multiprocessing as mp
 from bbox_transform_2d import bbox_transform_inv_2d
 from nms_2d import nms_2d
@@ -36,6 +37,8 @@ from evaluation_2d import evaluation_2d
 # to check the memory usage of GPU
 from pointnet_3d_obj_detection import  placeholder_inputs,get_model,get_loss
 from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
+from configs import _gsbb_config
+
 
 
 
@@ -44,7 +47,7 @@ ISSUMMARY = True
 EVAL_IN_TRAIN = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+#parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='rawh5_kitti_32768', help='rawh5_kitti')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 
@@ -97,6 +100,14 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
+
+## rechange this code, this design, a little bit messy
+## getting how many cascade you get
+MODEL_NAME = _gsbb_config
+model_flag, num_neighbors = MODEL_NAME.split('_')
+cascade_num = int(model_flag[0])
+###
+
 
 IS_GEN_PLY= True and FLAGS.only_evaluate
 
@@ -222,24 +233,39 @@ def get_bn_decay(batch):
     bn_decay = tf.minimum(BN_DECAY_CLIP, 1 - bn_momentum)
     return bn_decay
 
+
+def get_configs():
+    configs = {}
+    configs['mean_grouping_position'] =  FLAGS.group_pos == 'mean' # if not ture, use block center
+    configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
+    configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
+    configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
+    configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
+    configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
+    configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
+    # configs['substract_center'] = FLAGS.substract_center
+    configs['normxyz_allcas'] = FLAGS.normxyz_allcas
+    configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[-1,0] - net_provider.sg_bidxmaps_extract_idx[-2,0]
+    configs['Cnn_keep_prob'] = 1
+
+    is_training_pl = tf.placeholder(tf.bool, shape=())
+
+    # Note the global_step=batch parameter to minimize.
+    # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
+    batch = tf.Variable(0)   ## batch has the same concept with global_step
+    bn_decay = get_bn_decay(batch)
+    tf.summary.scalar('bn_decay', bn_decay)
+
+    return configs, is_training_pl, batch, bn_decay
+
+
+
+
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            # pointclouds_pl, labels_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT,NUM_CHANNELS, NUM_REGRESSION)
-            configs = {}
-            configs['mean_grouping_position'] =  FLAGS.group_pos == 'mean' # if not ture, use block center
-            configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
-            configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
-            configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
-            configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
-            configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
-            configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
-            # configs['substract_center'] = FLAGS.substract_center
-            configs['normxyz_allcas'] = FLAGS.normxyz_allcas
-            configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[-1,0] - net_provider.sg_bidxmaps_extract_idx[-2,0]
 
-            configs['Cnn_keep_prob'] = 1
-
+            configs, is_training_pl, batch, bn_decay = get_configs()
             # TODO: for 3D objects detection, need create new: targets,
             # pos_equal_one, pos_equal_one_sum, pos_equal_one_for_reg,
             # neg_equal_one, neg_equal_ones_sum,
@@ -247,15 +273,6 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             negative_equal_one, negative_equal_one_sum, sgf_config_pls = placeholder_inputs(BATCH_SIZE, NUM_DATA_ELES, configs['num_rpn_points'], configs['sg_bidxmaps_shape'], num_regression, num_anchors)
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
-            is_training_pl = tf.placeholder(tf.bool, shape=())
-
-            # Note the global_step=batch parameter to minimize.
-            # That tells the optimizer to helpfully increment the 'batch' parameter for you every time it trains.
-            batch = tf.Variable(0)   ## batch has the same concept with global_step
-            bn_decay = get_bn_decay(batch)
-            tf.summary.scalar('bn_decay', bn_decay)
-
-
             ## input drop out to use small model learn big data
             if FLAGS.inkp_min >= FLAGS.inkp_max:
                 input_drop_mask = tf.zeros([])
@@ -268,14 +285,14 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
 
             ##TODO: getting into 3D detection, output correspoding feature maps
-            pred_class_feature, pred_box_feature, xyz_pl = get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, num_classes, num_anchors, num_regression, sg_bidxmaps_pl,
+            pred_class_feature, pred_box_feature, xyz_pl = get_model(MODEL_NAME, pointclouds_pl, is_training_pl, num_classes, num_anchors, num_regression, sg_bidxmaps_pl,
                                                  configs, sgf_config_pls, bn_decay=bn_decay, IsDebug=IS_GEN_PLY )
 
             ##TODO: changing the loss calculating methods, using the precalculated targets
             # loss, classification_loss, regression_loss, loss_details, pred_prob, accuracy_classification, recall_classification, num_positive_label
             all_loss, classification_loss, output_regression_loss, output_classification_positive_loss, output_classification_negative_loss  = \
                 get_loss(BATCH_SIZE, pred_class_feature, pred_box_feature, xyz_pl, targets,positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression, negative_equal_one, negative_equal_one_sum)
-            tf.summary.scalar('loss', loss)
+            tf.summary.scalar('all_loss', all_loss)
 
             # Get training operator
             learning_rate = get_learning_rate(batch)
@@ -284,7 +301,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                 optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=MOMENTUM)
             elif OPTIMIZER == 'adam':
                 optimizer = tf.train.AdamOptimizer(learning_rate)
-            train_op = optimizer.minimize(loss, global_step=batch)
+            train_op = optimizer.minimize(all_loss, global_step=batch)
 
              # Add ops to save and restore all the variables.
             saver = tf.train.Saver(max_to_keep=50)
@@ -321,7 +338,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'pred_box_feature': pred_box_feature,
                'globalb_bottom_center_xyz': sgf_config_pls['globalb_bottom_center_xyz'],
                'xyz_pl': xyz_pl,
-               'loss': loss,
+               'all_loss': all_loss,
                'classification_loss':classification_loss,
                'regression_loss':regression_loss,
                'loss_details':loss_details,
@@ -426,15 +443,15 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         label_data = []
         if train_feed_buf_q == None:
             point_cloud_data, label_data, sg_bidxmaps_pl, globalb_bottom_center_xyz,fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
-            # point_cloud_data, label_data = data_provider._get_next_minibatch()  #cur_data,cur_label,cur_smp_weights =  net_provider.get_train_batch(start_idx,end_idx)
+
+            ##TODO: Adding the cal_rpn_targets function
+            positive_equal_one, negative_equal_one, targets = cal_pos_neg_targets(label_data, sg_bidxmaps_pl )
+
         else:
             if train_feed_buf_q.qsize() == 0:
                 print('train_feed_buf_q.qsize == 0')
                 break
-            point_cloud_data, label_data = train_feed_buf_q.get()
-
-        ##TODO: Adding the cal_rpn_targets function
-
+            # point_cloud_data, label_data = train_feed_buf_q.get()
         t1 = time.time()
         if type(point_cloud_data) == type(None):
             break # all data reading finished
@@ -447,12 +464,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
-                summary, step, _, loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
-                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+                summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
+                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            summary, step, _, loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
-                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+            summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
+                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
 
         t2=time.time()
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
@@ -462,7 +479,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
         if ISSUMMARY: train_writer.add_summary(summary, step)
         if batch_idx%80 == 0:
-            # print('the training batch is {}, the loss value is {}'.format(batch_idx, loss_val))
+            # print('the training batch isddd {}, the all_loss value is
+            # {}'.format(batch_idx, all_loss_val))
             # print('the classificaiton loss is {}, the regression loss is {}'.format(classification_loss_val, regression_loss_val))
             # print('accuracy of classification is {}'.format(accuracy_classification ))
             # print('the details of loss value, dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
@@ -470,21 +488,47 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
             log_string('------batch is {},----------------'.format(batch_idx))
             log_string('reading data time is:{}, the training time is {}'.format((t1-t0),(t2-t1)))
-            log_string('loss {},  classificaiton {}, regression {}'.format(loss_val ,classification_loss_val, regression_loss_val))
+            log_string('all_loss {},  classificaiton {}, regression {}'.format(all_loss_val ,classification_loss_val, regression_loss_val))
             log_string('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
             log_string('########dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
                                                loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
             log_string('max_memory_usage:{} \n'.format(max_memory_usage))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_feature_val = np.argmax(pred_class_feature_val, 2)
-            loss_sum += loss_val
+            all_loss_sum += all_loss_val
             total_seen += (BATCH_SIZE*NUM_POINT)
             c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_class_feature_val,cur_label)
 
-            train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
+            train_logstr = add_log('train',epoch,batch_idx,all_loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx == 200:
             os.system('nvidia-smi')
     return train_logstr
+
+
+def cal_pos_neg_targets(label_data, sg_bidxmaps):
+    start = sg_bm_extract_idx[ cascade_num - 1 ]
+    end = sg_bm_extract_idx[ cascade_num ]
+    block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ] ## the extra 6 dimensions are the center points
+    # block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm')
+    block_bottom_center_mm.astype(float32)
+    center_feature_maps = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )   ## [ batchsize, rpn_point, 3]
+
+    cx = np.tile( center_feature_maps[:,:,0,np.newaxis], num_anchors)   ## [batchsize, rpn_points, 2]
+    cy = np.tile( center_feature_maps[:,:,1,np.newaxis], num_anchors)
+    cz = np.ones_like(cx)*cfg.Z   ## when calculting the regression, cz will be ignored.
+    l  = np.ones_like(cx)*cfg.L
+    w  = np.ones_like(cx).cfg.W
+    h  = np.ones_like(cx).cfg.H
+    r  = np.ones_like(cx)
+    r[...,0] = 0
+    r[...,1] = np.pi/2
+
+    anchors = np.stack([cx, cy, cz, h, w, l, r], axis=-1)   ## [batchsize, rpn_points, 2, 7]
+
+    positive_equal_one, negative_equal_one, targets = cal_rpn_target(label_data , anchors,  cls='Car', coordinate='lidar')
+
+    return positive_equal_one, negative_equal_one, targets
+
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:
@@ -496,7 +540,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
     """ ops: dict mapping from string to tf ops """
     is_training = False
     total_seen = 0.00001
-    loss_sum = 0.0
+    all_loss_sum = 0.0
     c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     log_string('----')
@@ -543,8 +587,8 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
                      ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
 
-        summary, step, loss_val, pred_class_feature_val, pred_prob_val, pred_box_feature_val, xyz_pl, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
-          = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred_class_feature'], ops['pred_prob'], ops['pred_box_feature'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']],  feed_dict=feed_dict)
+        summary, step, all_loss_val, pred_class_feature_val, pred_prob_val, pred_box_feature_val, xyz_pl, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
+          = sess.run([ops['merged'], ops['step'], ops['all_loss'], ops['pred_class_feature'], ops['pred_prob'], ops['pred_box_feature'], ops['xyz_pl'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']],  feed_dict=feed_dict)
 
         if ISSUMMARY and  test_writer != None:
             test_writer.add_summary(summary, step)
@@ -558,7 +602,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
         if False and (batch_idx == num_batches-1 or (FLAGS.only_evaluate and  batch_idx%30==0)):
             pred_logits = np.argmax(pred_prob_val, 2)
             total_seen += (BATCH_SIZE*NUM_POINT)
-            loss_sum += loss_val
+            all_loss_sum += all_loss_val
             c_TP_FN_FP += EvaluationMetrics.get_TP_FN_FP(NUM_CLASSES,pred_logits,cur_label)
             eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),c_TP_FN_FP,total_seen,t_batch_ls)
         if batch_idx%40 == 0:
@@ -567,7 +611,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch,eval_feed_buf_q):
             # print('the details of loss value, dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
             #                                   loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
             print('------batch is {},----------------'.format(batch_idx))
-            print('loss {},  classificaiton {}, regression {}'.format(loss_val ,classification_loss_val, regression_loss_val))
+            print('all_loss {},  classificaiton {}, regression {}'.format(all_loss_val ,classification_loss_val, regression_loss_val))
             print('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
             print('########dl:{},dw:{},dtheta:{},dx:{},dy:{}, \n'.format(\
                                                loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
