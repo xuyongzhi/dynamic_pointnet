@@ -46,9 +46,8 @@ def ExtractAll():
         if base_fn[-3:] == 'txt':
             base_fn = os.path.splitext(base_fn)[0]
         basename = os.path.basename( base_fn )
-        if basename == 'neugasse_station1_xyz_intensity_rgb':
-            base_fn = ETH_DIR + '/station1_xyz_intensity_rgb'
         if basename == 'sem8_labels_training':
+            # labels 7z, extract manually
             continue
         fn_txt = base_fn+'.txt'
         if not os.path.exists( fn_txt ):
@@ -71,6 +70,10 @@ def ExtractAll():
                 IsExtract = False
         if  IsExtract:
             os.system( '7za e %s -o%s'%(fn_7z, os.path.dirname(fn_7z)) )
+            if basename == 'neugasse_station1_xyz_intensity_rgb':
+                # extracted txt name is incoorect
+                incorrect_txt_fn = ETH_DIR + '/station1_xyz_intensity_rgb.txt'
+                os.system( 'mv %s %s'%( incorrect_txt_fn, fn_txt ) )
 
 
 
