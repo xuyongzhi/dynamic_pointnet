@@ -23,12 +23,13 @@ TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
 DATASET = 'ETH'
+DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -124,6 +125,8 @@ def WriteRawH5f( fn, rawh5f_dir ):
         return WriteRawH5f_SCANNET( fn, rawh5f_dir )
     elif DATASET == 'ETH':
         return WriteRawH5f_ETH( fn, rawh5f_dir )
+    elif DATASET == 'MODELNET40':
+        return WriteRawH5f_MODELNET40( fn, rawh5f_dir )
 
 def WriteRawH5f_SCANNET( fn, rawh5f_dir ):
     # save as rh5
@@ -205,6 +208,47 @@ def WriteRawH5f_ETH( fn_txt, rawh5f_dir ):
     print('finish : %s'%(rawh5f_fn))
     return rawh5f_fn
 
+def WriteRawH5f_MODELNET40( txt_path, rawh5f_dir ):
+    tmp = txt_path.split('/')
+    rawh5f_fn = os.path.join( rawh5f_dir, tmp[-2], os.path.splitext(tmp[-1])[0] + '.rh5' )
+    if not os.path.exists( os.path.dirname(rawh5f_fn) ):
+        os.makedirs( os.path.dirname(rawh5f_fn) )
+
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return rawh5f_fn
+    print('start write rh5: %s'%(rawh5f_fn))
+
+    data = np.loadtxt( txt_path, delimiter=',' ).astype(np.float32)
+    num_points = data.shape[0]
+    print(num_points)
+    with h5py.File(rawh5f_fn,'w') as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MODELNET40')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', data[:,0:3])
+        if data.shape[1]==6:
+            raw_h5f.append_to_dset('nxnynz', data[:,3:6])
+        raw_h5f.rh5_create_done()
+    return txt_path
+
+
+def get_modelnet_fnls( root ):
+    modelnet10 = False
+    datapaths = {}
+    for split in ['test','train']:
+        shape_ids = {}
+        if modelnet10:
+            shape_ids['train'] = [line.rstrip() for line in open(os.path.join(root, 'modelnet10_train.txt'))]
+            shape_ids['test']= [line.rstrip() for line in open(os.path.join(root, 'modelnet10_test.txt'))]
+        else:
+            shape_ids['train'] = [line.rstrip() for line in open(os.path.join(root, 'modelnet40_train.txt'))]
+            shape_ids['test']= [line.rstrip() for line in open(os.path.join(root, 'modelnet40_test.txt'))]
+        assert(split=='train' or split=='test')
+        shape_names = ['_'.join(x.split('_')[0:-1]) for x in shape_ids[split]]
+        # list of (shape_name, shape_txt_file_path) tuple
+        datapaths[split] = [os.path.join(root, shape_names[i], shape_ids[split][i])+'.txt' for i in range(len(shape_ids[split]))]
+    datapath = datapaths['test'] + datapaths['train']
+    return datapath
 
 class H5Prepare():
     '''
@@ -216,7 +260,7 @@ class H5Prepare():
         self.rawh5f_dir =  self.BasicDataDir+'/rawh5'
 
     def ParseRaw(self, MultiProcess):
-        raw_path = './' + DATASET
+        raw_path = '/DS/' + DATASET
 
         rawh5f_dir = self.rawh5f_dir
         if not os.path.exists(rawh5f_dir):
@@ -224,10 +268,14 @@ class H5Prepare():
 
         if DATASET == 'SCANNET':
             glob_fn = raw_path+'/scene*'
+            fn_ls =  glob.glob( glob_fn )
         elif DATASET == 'ETH':
             glob_fn = raw_path+'/*.txt'
+            fn_ls =  glob.glob( glob_fn )
+        elif DATASET == 'MODELNET40':
+            root_path = raw_path+'/charles/modelnet40_normal_resampled'
+            fn_ls = get_modelnet_fnls( root_path )
 
-        fn_ls =  glob.glob( glob_fn )
         fn_ls.sort()
         if len(fn_ls) == 0:
             print('no file matches %s'%( glob_fn ))

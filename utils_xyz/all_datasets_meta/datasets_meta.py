@@ -7,14 +7,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 
 
-DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(ROOT_DIR,ds))
 
 from MATTERPORT_util import MATTERPORT_Meta
 from SCANNET_util import SCANNET_Meta
 from ETH_util import ETH_Meta
-DATASETS_Meta = [MATTERPORT_Meta, SCANNET_Meta, ETH_Meta]
+from MODELNET_util import MODELNET40_Meta
+DATASETS_Meta = [MATTERPORT_Meta, SCANNET_Meta, ETH_Meta, MODELNET40_Meta]
 
 
 class DatasetsMeta():
