@@ -2051,6 +2051,7 @@ class Raw_H5f():
 
     def add_to_dset(self,dset_name,new_data,start,end):
         dset = self.get_dataset(dset_name)
+        assert dset.ndim == new_data.ndim
         valid_n  = dset.attrs['valid_num']
         if start == None:
             start = valid_n

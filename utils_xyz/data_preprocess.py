@@ -148,30 +148,60 @@ def WriteRawH5f_SCANNET( fn, rawh5f_dir ):
         raw_h5f.rh5_create_done()
     return fn
 
-def WriteRawH5f_ETH( fn_7z, rawh5f_dir ):
+def WriteRawH5f_ETH( fn_txt, rawh5f_dir ):
     import ETH_util
-    fn_base = os.path.basename( fn_7z )
+    fn_base = os.path.basename( fn_txt )
     fn_base = os.path.splitext( fn_base )[0]
     if fn_base[-3:] == 'txt':
         fn_base = os.path.splitext( fn_base )[0]
     rawh5f_fn = os.path.join(rawh5f_dir, fn_base+'.rh5')
     if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
         print('rh5 intact: %s'%(rawh5f_fn))
-        return fn_7z
+        return fn_txt
     print('start write rh5: %s'%(rawh5f_fn))
 
-    xyz, intensity, rgb, labels = ETH_util.parse_raw_ETH( fn_7z )
-    num_points = xyz.shape[0]
+    fn_labels =  os.path.splitext( fn_txt )[0] + '.labels'
+
+    #xyz, intensity, rgb, labels = ETH_util.parse_raw_ETH( fn_txt )
+    num_points = 1e7
 
     with h5py.File( rawh5f_fn, 'w' ) as h5f:
         raw_h5f = Raw_H5f(h5f,rawh5f_fn,'ETH')
         raw_h5f.set_num_default_row(num_points)
-        raw_h5f.append_to_dset('xyz', xyz)
-        raw_h5f.append_to_dset('color', rgb)
-        raw_h5f.append_to_dset('intensity', intensity)
-        if labels != None:
-            raw_h5f.append_to_dset( 'label_category', labels )
+        with open( fn_txt, 'r' ) as txtf:
+            # {x, y, z, intensity, r, g, b}
+            n_read = 0
+            buf_size = int(1e7)
+            while True:
+                lines = txtf.readlines( buf_size )
+                if len(lines) == 0:
+                    break
+                lines = [ np.fromstring( line.strip(), dtype=np.float32, sep=' ' ).reshape(1,-1) for line in lines ]
+                buf = np.concatenate( lines,0 )
+                raw_h5f.append_to_dset('xyz', buf[:,0:3])
+                raw_h5f.append_to_dset('color', buf[:,3:6])
+                raw_h5f.append_to_dset('intensity', buf[:,6:7])
+                n_read += buf.shape[0]
+                print( 'data read: %d line \t%s'%(n_read, fn_base) )
+
+        if os.path.exists( fn_labels ):
+            with open( fn_labels,'r' ) as labelsf:
+                buf_size = int(1e7)
+                n_read_l = 0
+                while True:
+                    lines = labelsf.readlines( buf_size )
+                    if len(lines) == 0:
+                        break
+                    lines = [ np.fromstring( line.strip(), dtype=np.int32, sep=' ' ).reshape(1,-1) for line in lines ]
+                    buf = np.concatenate( lines,0 )
+                    raw_h5f.append_to_dset( 'label_category', buf )
+                    n_read_l += buf.shape[0]
+                    print( 'label read: %d line \t%s'%(n_read_l, fn_base) )
+                assert n_read == n_read_l
+
         raw_h5f.rh5_create_done()
+    if IsLablesExist:
+        f_labels.close()
     print('finish : %s'%(rawh5f_fn))
     return rawh5f_fn
 
