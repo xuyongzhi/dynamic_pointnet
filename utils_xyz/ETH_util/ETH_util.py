@@ -34,7 +34,7 @@ def parse_raw_ETH( fn_txt ):
     else:
         #labels = np.ones(shape=(xyz.shape[0],1))*(-111)
         labels = None
-        return raw_data[:,0:3], raw_data[:,3:4], raw_data[:,4:7], labels
+    return raw_data[:,0:3], raw_data[:,3:4], raw_data[:,4:7], labels
 
 def ExtractAll():
     ETH_DIR = '../ETH'
