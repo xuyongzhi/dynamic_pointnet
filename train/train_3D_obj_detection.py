@@ -26,7 +26,7 @@ sys.path.append(os.path.join(ROOT_DIR,'models'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
-from block_data_net_provider_kitti_2d import Normed_H5f,Net_Provider_kitti
+from data_provider_kitti_3d_obj_detection import Normed_H5f,Net_Provider_kitti
 
 import tf_util
 from config_3d_obj_detection import cfg
@@ -523,8 +523,8 @@ def cal_pos_neg_targets(label_data, sg_bidxmaps):
     r[...,0] = 0
     r[...,1] = np.pi/2
 
-    anchors = np.stack([cx, cy, cz, h, w, l, r], axis=-1)   ## [batchsize, rpn_points, 2, 7]
-
+    anchors = np.stack([cx, cy, h, w, l, r], axis=-1)   ## [batchsize, rpn_points, 2, 6]
+    assert anchors.shape[3]==num_regression
     positive_equal_one, negative_equal_one, targets = cal_rpn_target(label_data , anchors,  cls='Car', coordinate='lidar')
 
     return positive_equal_one, negative_equal_one, targets

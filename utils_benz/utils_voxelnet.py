@@ -471,7 +471,7 @@ def label_to_gt_box3d(labels, cls='Car', coordinate='camera', T_VELO_2_CAM=None,
     #   (N, N', 7)
     boxes3d = []
     if cls == 'Car':
-        acc_cls = ['Car', 'Van']
+        acc_cls = ['Car', 'Van'] ## the van can be removed here
     elif cls == 'Pedestrian':
         acc_cls = ['Pedestrian']
     elif cls == 'Cyclist':
@@ -485,7 +485,7 @@ def label_to_gt_box3d(labels, cls='Car', coordinate='camera', T_VELO_2_CAM=None,
             ret = line.split()
             if ret[0] in acc_cls or acc_cls == []:
                 h, w, l, x, y, z, r = [float(i) for i in ret[-7:]]
-                box3d = np.array([x, y, z, h, w, l, r])
+                box3d = np.array([x, y, z, h, w, l, r])   ## changing the orders
                 boxes3d_a_label.append(box3d)
         if coordinate == 'lidar':
             boxes3d_a_label = camera_to_lidar_box(np.array(boxes3d_a_label), T_VELO_2_CAM, R_RECT_0)
@@ -641,7 +641,7 @@ def cal_rpn_target(labels, anchors, cls='Car', coordinate='lidar'):
         pos_equal_one[batch_id, index_rpn, index_anchor] = 1
 
         # ATTENTION: gt_box, the order should also be the same, and anchors have
-        # one less.
+        # one less. Gt_box keeps all the dimensions, x, y, z, h, w, l, r
         targets[batch_id, index_rpn, np.array(index_anchor) * num_regression] = (
             batch_gt_boxes3d[batch_id][id_pos_gt, 0] - anchors_reshaped[id_pos, 0]) / anchors_d[id_pos]
         targets[batch_id, index_rpn, np.array(index_anchor) * num_regression + 1] = (
