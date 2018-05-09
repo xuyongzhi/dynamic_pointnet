@@ -24,18 +24,29 @@ def parse_raw_ETH( fn_7z ):
     fn_txt = base_fn+'.txt'
     fn_labels = base_fn+'.labels'
     if not os.path.exists( fn_txt ):
+        IsExtract = True
+    else:
+        txt_size = os.path.getsize( fn_txt )
+        size_7z = os.path.getsize( fn_7z )
+        compress_rate =1.0 * txt_size / size_7z
+        print('compress_rate:%f'%(compress_rate))
+        if compress_rate < 4.5:
+            IsExtract = True
+        else:
+            IsExtract = False
+    if IsExtract:
         os.system( '7za e %s -o%s'%(fn_7z, os.path.dirname(fn_7z)) )
 
 
     # {x, y, z, intensity, r, g, b}
     raw_data = np.loadtxt( fn_txt )
-    xyz = raw_data[:,0:3]
-    intensity = raw_data[:,3:4]
-    rgb = raw_data[:,4:7]
+    #xyz = raw_data[:,0:3]
+    #intensity = raw_data[:,3:4]
+    #rgb = raw_data[:,4:7]
     if os.path.exists( fn_labels ):
         labels = np.loadtxt(fn_labels).reshape( (-1,1) )
-        assert xyz.shape[0] == labels.shape[0]
+        assert raw_data.shape[0] == labels.shape[0]
     else:
         #labels = np.ones(shape=(xyz.shape[0],1))*(-111)
         labels = None
-    return xyz, intensity, rgb, labels
+        return raw_data[:,0:3], raw_data[:,3:4], raw_data[:,4:7], labels

@@ -186,7 +186,7 @@ class H5Prepare():
         self.rawh5f_dir =  self.BasicDataDir+'/rawh5'
 
     def ParseRaw(self, MultiProcess):
-        raw_path = '/DT/' + DATASET
+        raw_path = './' + DATASET
 
         rawh5f_dir = self.rawh5f_dir
         if not os.path.exists(rawh5f_dir):
@@ -418,7 +418,7 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main()
-    GenObj_rh5()
+    main()
+    #GenObj_rh5()
     #GenObj_sph5()
     #GenObj_sh5()
