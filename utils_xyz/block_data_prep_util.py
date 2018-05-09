@@ -39,8 +39,8 @@ import multiprocessing as mp
 import itertools
 import ply_util
 #from global_para import GLOBAL_PARA
-sys.path.append(BASE_DIR+'/matterport_metadata')
-from get_mpcat40 import get_cat40_from_rawcat
+sys.path.append(BASE_DIR+'/MATTERPORT_util')
+from MATTERPORT_util import get_cat40_from_rawcat
 sys.path.append(BASE_DIR+'/all_datasets_meta')
 from datasets_meta import DatasetsMeta
 import csv,pickle
@@ -1557,6 +1557,15 @@ class GlobalSubBaseBLOCK():
                     for key, value in bmh5_meta.items():
                         bmh5_meta_f.write( '\t%s: %s \n'%(key, value) )
                 bmh5_meta_f.write( '\ngen t: %0.2f sec'%(t_bmh5) )
+
+            LostBaseb_rates = [bmh5_meta['LostBaseb_rate'] for bmh5_meta in bmh5_metas]
+            LostBaseb_rate_max = np.max(LostBaseb_rates)
+            if LostBaseb_rate_max > 0.2:
+                lost_baseb_fn = os.path.dirname(self.bmh5_fn) + '/bmh5_lost_too_many_baseb.txt'
+                with open( lost_baseb_fn, 'a' ) as lbf:
+                    lbf.write(  '%s: %s'%( os.path.basename(self.bmh5_fn),LostBaseb_rates ) )
+                print('\n\n\t\tLost %f baseb: %s\nWrite to %s\n\n'%(LostBaseb_rate_max, self.bmh5_fn, lost_baseb_fn))
+
             print('write finish: %s'%(self.bmh5_fn))
 
 
@@ -1711,7 +1720,8 @@ class GlobalSubBaseBLOCK():
         bmh5_meta['base_block_num'] = all_base_bids.size
         bmh5_meta['aim_block_num'] = all_sorted_larger_aimbids.size
         bmh5_meta['GroupingMethod'] = GroupingMethod
-        assert 1.0 * num_lost_baseb / all_base_bids.size  < 0.6, "lost too many base b %d / %d "%( num_lost_baseb, all_base_bids.size )
+        LostBaseb_rate = 1.0 * num_lost_baseb / all_base_bids.size
+        bmh5_meta['LostBaseb_rate'] = LostBaseb_rate
 
         #if len(aimbids_in_smallerbasebid_dic) != all_base_bids.size:
         #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
@@ -2041,6 +2051,7 @@ class Raw_H5f():
 
     def add_to_dset(self,dset_name,new_data,start,end):
         dset = self.get_dataset(dset_name)
+        assert dset.ndim == new_data.ndim
         valid_n  = dset.attrs['valid_num']
         if start == None:
             start = valid_n
@@ -2091,8 +2102,10 @@ class Raw_H5f():
             if 'color' in self.h5f:
                 color_dset = self.color_dset
             else:
-                IsLabelColor = True
-            label_category_dset = self.label_category_dset
+                if 'label_category' in self.h5f:
+                    IsLabelColor = True
+            if IsLabelColor:
+                label_category_dset = self.label_category_dset
 
             if xyz_cut_rate != None:
                 # when rate < 0.5: cut small
@@ -2115,7 +2128,8 @@ class Raw_H5f():
                     buf_k = np.hstack((xyz_buf_k,color_buf_k))
                 else:
                     buf_k = xyz_buf_k
-                label_k = label_category_dset[k:end,0]
+                if IsLabelColor:
+                    label_k = label_category_dset[k:end,0]
                 for j in range(0,buf_k.shape[0]):
                     is_cut_this_point = False
                     if xyz_cut_rate!=None:

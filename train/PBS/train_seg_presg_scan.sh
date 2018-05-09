@@ -21,13 +21,14 @@ baselogname=log
 finetune=0
 model_epoch=40
 baselogname='log-5VaG_114-Nlw5N5-gsbb_4B1-bs25-lr2-ds_40-Sf_Y-xyz_midnorm_block-color_1norm-30000-SCA_12319-augRef-bd7'
+baselogname='log'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
 eval_fnglob_or_rate='test'
 
-#all_fn_globs='Merged_sph5/30000_gs-2d4_-3d4/'
-#bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
+all_fn_globs='Merged_sph5/30000_gs-2d4_-3d4/'
+bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1'
 
 #all_fn_globs='Merged_sph5/30000_gs-2d4_-3d4/,Merged_sph5/30000_gs-2d4_-3d4-dec5/'
 #bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1,Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'

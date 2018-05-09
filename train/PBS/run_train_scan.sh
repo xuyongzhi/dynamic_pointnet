@@ -13,10 +13,10 @@ num_gpus=1
 in_cnn_out_kp='5N5'
 loss_weight='N'
 ShuffleFlag='Y'
-aug=0
+aug=1
 
-bs=6
-./train_seg_presg_scan.sh 5VaG_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug
+bs=25
+./train_seg_presg_scan.sh 5Va_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug
 
 
 #-------------------------------
