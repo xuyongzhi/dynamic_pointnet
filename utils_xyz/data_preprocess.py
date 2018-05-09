@@ -195,7 +195,7 @@ class H5Prepare():
         if DATASET == 'SCANNET':
             glob_fn = raw_path+'/scene*'
         elif DATASET == 'ETH':
-            glob_fn = raw_path+'/*.7z'
+            glob_fn = raw_path+'/*.txt'
 
         fn_ls =  glob.glob( glob_fn )
         fn_ls.sort()
@@ -400,7 +400,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 6
+        MultiProcess = 8
         h5prep = H5Prepare()
 
         h5prep.ParseRaw( MultiProcess )
