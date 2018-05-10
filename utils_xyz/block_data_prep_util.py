@@ -2071,7 +2071,9 @@ class Raw_H5f():
             if 'valid_num' in dset.attrs:
                 valid_num = dset.attrs['valid_num']
                 if valid_num < dset.shape[0]:
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
                     dset.resize( (valid_num,dset.shape[1:]) )
+                    #dset.resize( (valid_num,)+dset.shape[1:] )
 
     def get_summary_info(self):
         for dset_name in self.h5f:
@@ -2327,6 +2329,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
+        if self.datasource_name == 'MODELNET40':
+            stride_to_align = 0.01
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
         self.h5f.attrs['stride_to_align'] = stride_to_align
@@ -3772,6 +3776,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
 
                 if datasource_name == 'MODELNET40':
+                    h5f.attrs['label_category'] = 0
                     the_label = Sorted_H5f.extract_label_from_name( pl_sph5_filename, datasource_name )
                     file_labels = np.reshape( the_label, (1,1,1) )
                 if file_labels.size > 0:
@@ -4253,8 +4258,14 @@ class Normed_H5f():
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,...]
         else:
-            labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
+            if self.datasource_name =='MODELNET40':
+                # tmparary
+                labels_ele_idx = 0
+            else:
+                labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
             labels = self.labels_set[start_block:end_blcok,...,labels_ele_idx]
+            if labels.ndim == self.labels_set.ndim - 1:
+                labels = np.expand_dims( labels, -1 )
             assert labels.ndim == self.labels_set.ndim
         return labels
     @staticmethod

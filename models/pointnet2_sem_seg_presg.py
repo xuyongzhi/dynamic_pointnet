@@ -113,18 +113,18 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,256,512] )
-    elif model_flag=='4bG':
+    elif model_flag=='4b':
         mlp_pe.append( [24,24,48] )
         mlp_pe.append( [48,48,64] )
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
-    elif model_flag=='5aG':
+    elif model_flag=='5a':
         mlp_pe.append( [32,32,64] )
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,256,256] )
         mlp_pe.append( [256,512,512] )
-    elif model_flag=='5bG':
+    elif model_flag=='5b':
         mlp_pe.append( [32,32,48] )
         mlp_pe.append( [48,48,64] )
         mlp_pe.append( [64,64,128] )
@@ -213,13 +213,13 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [384,256] ) # for l_points[3-4]
-    elif model_flag=='5aG' or model_flag=='5VaG' or model_flag=='5Va':
+    elif model_flag=='5a' or model_flag=='5Va':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
         mlps_fp.append( [256,256] )
         mlps_fp.append( [512,256] )
-    elif model_flag=='5bG':
+    elif model_flag=='5b':
         mlps_fp.append( [64,64,32] )
         mlps_fp.append( [128,64] )
         mlps_fp.append( [128,128] )

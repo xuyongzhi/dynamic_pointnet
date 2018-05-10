@@ -21,9 +21,8 @@ import geometric_util as geo_util
 from datasets_meta import DatasetsMeta
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
-DATASET_DIR={}
-DATASET = 'SCANNET'
-DATASET_DIR[DATASET] = os.path.join(DATA_DIR, DATASET+'H5F')
+def DATASET_DIR(dataset_name):
+    return os.path.join(DATA_DIR, dataset_name+'H5F')
 
 DEBUGTMP = True
 ERRTMP = True
@@ -269,7 +268,7 @@ class Net_Provider():
         file_format = '.sph5'
 
         for all_filename_globs in all_filename_globs:
-            fn_glob = os.path.join(DATASET_DIR[dataset_name],all_filename_globs+'*'+file_format)
+            fn_glob = os.path.join(DATASET_DIR(dataset_name),all_filename_globs+'*'+file_format)
             fn_candis  = glob.glob( fn_glob )
             for fn in fn_candis:
                 IsIntact,_ = Normed_H5f.check_sph5_intact( fn )
@@ -525,7 +524,12 @@ class Net_Provider():
             # label_i: [batch_size,npoint_block,label_nchannels]
             sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, globalb_bottom_center_xyz = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
-            assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
+            assert data_i.ndim == label_i.ndim
+            if self.dataset_name == 'MODELNET40':
+                assert  (data_i.shape[0] == label_i.shape[0])
+                assert label_i.shape[-2] == 1
+            else:
+                assert (data_i.shape[0:-1] == label_i.shape[0:-1])
 
             # get xyz_mid
             xyz_i = data_i[..., new_feed_data_ele_idxs['xyz']]
@@ -626,6 +630,7 @@ class Net_Provider():
        # print(sg_bidxmaps.shape)
        # print(flatten_bidxmaps.shape)
 
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end, xyz_mid_batches, globalb_bottom_center_xyzs
 
     def get_fn_from_fid(self,fid):
@@ -750,11 +755,16 @@ class Net_Provider():
             label_hist = np.zeros(self.num_classes).astype(np.int64)
             train_label_hist = np.zeros(self.num_classes).astype(np.int64)
             test_label_hist = np.zeros(self.num_classes).astype(np.int64)
-            for k,norme_h5f in enumerate(self.norm_h5f_L):
-                label_hist_k = norme_h5f.labels_set.attrs[label_name+'_hist']
-                # delete unlabeled label hist
-                if label_hist_k.size != self.num_classes:
-                    label_hist_k = np.delete( label_hist_k, Normed_H5f.g_unlabelled_categories[self.dataset_name] )
+            for k,norm_h5f in enumerate(self.norm_h5f_L):
+                if label_name + '_hist' in norm_h5f.labels_set.attrs:
+                    # segmentation datset
+                    label_hist_k = norm_h5f.labels_set.attrs[label_name+'_hist']
+                else:
+                    # classification dataset
+                    label_hist_k,_ = np.histogram(norm_h5f.labels_set[:,:,0], range(self.num_classes+1))
+                ## delete unlabeled label hist
+                #if label_hist_k.size != self.num_classes:
+                #    label_hist_k = np.delete( label_hist_k, Normed_H5f.g_unlabelled_categories[self.dataset_name] )
                 label_hist += label_hist_k.astype(np.int64)
                 if k < self.train_file_N:
                     train_label_hist += label_hist_k.astype(np.int64)
@@ -845,11 +855,11 @@ def main_NormedH5f():
         xyz_color = np.concatenate( [xyz,color],axis=-1 )
 
         if ply_flag == 'region':
-            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/' + str(eval_fnglob_or_rate)+ '.ply'
+            ply_fn = DATASET_DIR(dataset_name) + '/PlyFile_17DRP5sb8fy/' + str(eval_fnglob_or_rate)+ '.ply'
             create_ply( xyz_color,ply_fn )
             break
         if ply_flag == 'global_block':
-            ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/globalblocks/'+ str(eval_fnglob_or_rate) +'/global_b' + str(bk) + '.ply'
+            ply_fn = DATASET_DIR(dataset_name) + '/PlyFile_17DRP5sb8fy/globalblocks/'+ str(eval_fnglob_or_rate) +'/global_b' + str(bk) + '.ply'
             for i in range(xyz_color.shape[0]):
                 for j in range(xyz_color.shape[1]):
                     if cur_smp_weights[i,j,0 ] == 0:
@@ -860,7 +870,7 @@ def main_NormedH5f():
         if ply_flag == 'sub_block':
             assert xyz_color.ndim == 4
             for sub_k in range(0,xyz_color.shape[1]):
-                ply_fn = DATASET_DIR[dataset_name] + '/PlyFile_17DRP5sb8fy/'+ str(eval_fnglob_or_rate) +'/global0_subblocks/sub' + str(sub_k) + '.ply'
+                ply_fn = DATASET_DIR(dataset_name) + '/PlyFile_17DRP5sb8fy/'+ str(eval_fnglob_or_rate) +'/global0_subblocks/sub' + str(sub_k) + '.ply'
                 create_ply(xyz_color[0,sub_k,...],ply_fn)
             break
 
