@@ -451,7 +451,8 @@ class GlobalSubBaseBLOCK():
     def get_bmapfn(self):
         assert self.mode == 'write'
         datasource_name = self.root_s_h5f.attrs['datasource_name']
-        if datasource_name == "MATTERPORT":
+        if datasource_name == "MATTERPORT" :
+            assert False
             region_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             house_dir_name = os.path.dirname(self.root_s_h5f_fn)
             house_name = os.path.basename(house_dir_name)
@@ -459,10 +460,10 @@ class GlobalSubBaseBLOCK():
 
             out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( 'bmh5' )
             if not os.path.exists(out_folder):
-                os.mkdir(out_folder)
-            blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
+                os.makedirs(out_folder)
+            blockid_maps_fn = out_folder + '/' + region_name + '.bmh5'
 
-        elif datasource_name == "SCANNET":
+        elif datasource_name == "SCANNET" or datasource_name == 'MODELNET40':
             scene_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.root_s_h5f_fn) ))
 
@@ -3636,7 +3637,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + aug_str + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
 
-        elif datasource_name == 'SCANNET':
+        elif datasource_name == 'SCANNET' or datasource_name == 'MODELNET40':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str
@@ -3730,7 +3731,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             num_point_abandoned = 0
             #t_last = time.time()
 
-            self.update_del_labels( data_aug_configs, h5f.attrs['datasource_name'] )
+            datasource_name = S_H5f.h5f.attrs['datasource_name']
+            self.update_del_labels( data_aug_configs, datasource_name )
             for global_block_id in all_sorted_global_bids:
                 #print('global_block_id:%d / %d   %d ms'%(global_block_id, all_sorted_global_bids.size, (time.time()-t_last)*1000 ) )
                 #t_last = time.time()
@@ -3768,6 +3770,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 pl_sph5f.append_to_dset('data',file_datas)
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
+
+                if datasource_name == 'MODELNET40':
+                    the_label = Sorted_H5f.extract_label_from_name( pl_sph5_filename, datasource_name )
+                    file_labels = np.reshape( the_label, (1,1,1) )
                 if file_labels.size > 0:
                     pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
@@ -3785,6 +3791,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     pl_sph5f.show_summary_info()
                 print('plsph5 file create finished: data shape: %s'%(str(pl_sph5f.data_set.shape)) )
 
+    @staticmethod
+    def extract_label_from_name( fn, datasource_name ):
+        # for MODELNET
+        assert datasource_name == 'MODELNET40'
+        tmp = os.path.basename(fn).split('_')[0]
+        DMeta = DatasetsMeta(datasource_name)
+        the_label = DMeta.class2label[tmp]
+        return the_label
 
     @staticmethod
     def add_new_sample_num_in_plsph5( pl_sph5_filename, gsbb_write ):
@@ -4387,9 +4401,20 @@ class Normed_H5f():
         bsample_rate_set = self.h5f.create_dataset( 'block_sample_rate',shape=(total_block_N,),\
                 maxshape=(None,), dtype=np.float32  )
         bsample_rate_set.attrs['valid_num'] = 0
-        if label_eles_num > 1:
-            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
-                    maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+
+        IsIncludeLabel = False
+        if self.h5f.attrs['datasource_name']=='MODELNET40':
+            IsIncludeLabel = True
+            # classification task
+            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,1,1),\
+                    maxshape=(None,1,1,),dtype=np.int16,compression="gzip", chunks = (chunks_n,1,1,)  )
+        else:
+            # segmentation task
+            if label_eles_num > 0:
+                IsIncludeLabel = True
+                labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
+                        maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+        if IsIncludeLabel:
             labels_set.attrs['valid_num'] = 0
             self.labels_set = labels_set
         gbixyz_set = self.h5f.create_dataset( 'gbixyz',shape=(total_block_N,3,),\

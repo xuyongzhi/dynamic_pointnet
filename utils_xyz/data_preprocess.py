@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
-#DATASET = 'ETH'
-#DATASET = 'MODELNET40'
+DATASET = 'ETH'
+DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -463,7 +463,8 @@ def GenObj_rh5():
 
 def GenObj_sh5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/stride_0d1_step_0d1'
-    fn_ls = glob.glob( path+'/scene0000_00.sh5' )
+    path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
+    fn_ls = glob.glob( path+'/wardrobe_0001.sh5' )
     for fn in fn_ls:
         with h5py.File( fn,'r' ) as h5f:
             sh5f = Sorted_H5f(h5f,fn)
@@ -473,7 +474,8 @@ def GenObj_sh5():
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
-    fn_ls = glob.glob( path+'/scene*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
+    fn_ls = glob.glob( path+'/bottle_0095.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -490,14 +492,14 @@ def main( ):
         elif DATASET == 'ETH':
             base_step_stride = [0.2,0.2,0.2]
         elif DATASET == 'MODELNET40':
-            base_step_stride = [0.02,0.02,0.02]
+            base_step_stride = [0.05,0.05,0.05]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
         #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
         data_aug_configs['delete_unlabelled'] = True
-        data_aug_configs['delete_easy_categories_num'] = 3
+        #data_aug_configs['delete_easy_categories_num'] = 3
 
         h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
