@@ -81,15 +81,15 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     #---------------------------------------------------------------------------
     #                           MODELNET
     elif gsbb_config == '4M1':
-        global_stride = np.array([1.2,1.2,1.2,1.2]).astype(np.float)
+        global_stride = np.array([1.2,1.2,1.2]).astype(np.float)
         global_step = np.array([2,2,2]).astype(np.float)
         global_num_point = 10000
         flatbxmap_max_nearest_num = [1,4,4,4]
 
         sub_block_stride_candis = np.array([0.05,0.1,0.3,0.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.05,0.2,0.5,1.1]).astype(np.float)
-        nsubblock_candis =       np.array([2048, 1024, 128, 24]).astype(np.int32)
-        npoint_subblock_candis = np.array([48, 32,  48,  27]).astype(np.int32)
+        nsubblock_candis =       np.array([2048, 960, 64, 12]).astype(np.int32)
+        npoint_subblock_candis = np.array([24, 32,  48,  24]).astype(np.int32)
 
 
     else:

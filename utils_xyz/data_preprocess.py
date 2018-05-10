@@ -346,7 +346,7 @@ class H5Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            choice = range(0,800,10)[0:min(1,len(file_list))]
+            choice = range(0,10000,1000)[0:min(10,len(file_list))]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -379,6 +379,9 @@ class H5Prepare():
     def MergeNormed(self, data_aug_configs):
         plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
         bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
+
+        plsph5_folder = 'ORG_sph5/10000_gs1d2_2-du'
+        bxmh5_folder = 'ORG_bxmh5/10000_gs1d2_2_fmn1444-1500_600_80_20-24_32_48_24-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-4M1-du'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -423,7 +426,7 @@ class H5Prepare():
             return
 
         #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -483,7 +486,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 8
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )
@@ -502,7 +505,7 @@ def main( ):
         #data_aug_configs['delete_easy_categories_num'] = 3
 
         h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

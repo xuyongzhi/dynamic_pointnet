@@ -4144,7 +4144,7 @@ class Normed_H5f():
 
     labels_order = ['label_category','label_instance','label_material']
     label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
-    max_rootb_num = 20000
+    max_rootb_num = 10000
 
     def __init__(self,h5f,file_name,datasource_name=None):
         '''
@@ -4158,6 +4158,7 @@ class Normed_H5f():
         else:
             self.h5f.attrs['datasource_name'] = datasource_name
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
+
         self.datasource_name = self.h5f.attrs['datasource_name']
         self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
         self.g_label2class = dataset_meta.label2class
