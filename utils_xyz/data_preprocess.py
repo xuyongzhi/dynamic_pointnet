@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = False
+TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
-DATASET = 'ETH'
-DATASET = 'MODELNET40'
+#DATASET = 'ETH'
+#DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -306,7 +306,10 @@ class H5Prepare():
 
     def SortRaw(self, block_step_xyz, MultiProcess=0 , RxyzBeforeSort=None ):
         t0 = time.time()
-        rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
+        if DATASET == 'MODELNET40':
+            rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*/*.rh5' ) )
+        else:
+            rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
         sorted_path = self.BasicDataDir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
         if type(RxyzBeforeSort)!=type(None) and np.sum(RxyzBeforeSort==0)!=0:
@@ -343,7 +346,7 @@ class H5Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            choice = range(0,800,10)[0:min(8,len(file_list))]
+            choice = range(0,800,10)[0:min(1,len(file_list))]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -478,20 +481,25 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 8
+        MultiProcess = 0
         h5prep = H5Prepare()
 
-        h5prep.ParseRaw( MultiProcess )
-        base_step_stride = [0.1,0.1,0.1]
+        #h5prep.ParseRaw( MultiProcess )
+        if DATASET == 'SCANNET':
+            base_step_stride = [0.1,0.1,0.1]
+        elif DATASET == 'ETH':
+            base_step_stride = [0.2,0.2,0.2]
+        elif DATASET == 'MODELNET40':
+            base_step_stride = [0.02,0.02,0.02]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
         #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
         data_aug_configs['delete_unlabelled'] = True
-        #data_aug_configs['delete_easy_categories_num'] = 5
+        data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
