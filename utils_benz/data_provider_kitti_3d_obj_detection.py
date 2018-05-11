@@ -455,12 +455,12 @@ class Net_Provider_kitti():          ## benz_m
                 for name in all_names:
                     dir_label = DATASET_DIR['Voxel'] + '/raw_label/' + name
                     assert os.path.exists(dir_label)
-                    label = np.array([line for line in open( dir_label, 'r')readlines()])  # (N')
+                    label = np.array([line for line in open( dir_label, 'r').readlines()])  # (N')
                     bounding_box.append(label)
                     #with open(dir_label,'r' as f:
                     #    bounding_box = label_to_gt_box3d(labels, cls='Car', coordinate='lidar')
                 assert bounding_box
-                label_data_i = label_to_gt_box3d(labels, cls='Car', coordinate = 'lidar')
+                label_data_i = label_to_gt_box3d(bounding_box, cls='Car', coordinate = 'lidar')
 
             else:
                 for name in all_names:
@@ -512,7 +512,9 @@ class Net_Provider_kitti():          ## benz_m
 
         new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
         # t0=time.time()
-        data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
+        # data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
+        data_i = self.norm_h5f_L[f_idx].get_data_byeles(start,end, new_feed_data_elements)
+
         # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
         # t1=time.time()
         label_i = self.label_data_all[f_idx][start]
@@ -762,7 +764,7 @@ class Net_Provider_kitti():          ## benz_m
         if IsRecordTime:
             t3 = time.time()
             print('t1:%f\nt2:%f\nt3:%f'%(t1-t0,t2-t1,time.time()-t2))
-        return data_batches, label_data_resize, sg_bidxmaps,  globalb_bottom_center_xyz, fid_start_end
+        return data_batches, label_batches, sg_bidxmaps,  globalb_bottom_center_xyz, fid_start_end
 
     def update_train_eval_shuffled_idx(self):
         flag = 'shuffle_within_each_file'

@@ -63,6 +63,10 @@ __C.W=1.6
 __C.H=1.7
 __C.Z= -1.0 - cfg.H/2
 
+l = __C.L
+w = __C.W
+h = __C.H
+
 __C.Anchors = np.array([l, w])
 __C.Alpha = np.array([[0], [np.pi/2]])  ## if 2 anchor is not enought, change it to 4, [0, np.pi/4, np.pi/2, np.pi*3/4]
 __C.Anchor_bv = np.array([[l/2,  w/2,  -l/2,  -w/2 ] , [w/2,  l/2,  -w/2,  -l/2]])   ## [frowart_left back_right]

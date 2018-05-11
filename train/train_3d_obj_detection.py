@@ -38,7 +38,7 @@ from evaluation_2d import evaluation_2d
 from pointnet_3d_obj_detection import  placeholder_inputs,get_model,get_loss
 from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
 from configs import _gsbb_config
-
+from utils_voxelnet import cal_rpn_target
 
 
 
@@ -47,7 +47,7 @@ ISSUMMARY = True
 EVAL_IN_TRAIN = False
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='3AG_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='rawh5_kitti_32768', help='rawh5_kitti')
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 
@@ -103,7 +103,7 @@ DECAY_RATE = FLAGS.decay_rate
 
 ## rechange this code, this design, a little bit messy
 ## getting how many cascade you get
-MODEL_NAME = _gsbb_config
+MODEL_NAME = FLAGS.modelf_nein
 model_flag, num_neighbors = MODEL_NAME.split('_')
 cascade_num = int(model_flag[0])
 ###
@@ -245,7 +245,7 @@ def get_configs():
     configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
     # configs['substract_center'] = FLAGS.substract_center
     configs['normxyz_allcas'] = FLAGS.normxyz_allcas
-    configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[-1,0] - net_provider.sg_bidxmaps_extract_idx[-2,0]
+    configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[cascade_num,0] - net_provider.sg_bidxmaps_extract_idx[cascade_num-1,0]
     configs['Cnn_keep_prob'] = 1
 
     is_training_pl = tf.placeholder(tf.bool, shape=())
@@ -259,8 +259,6 @@ def get_configs():
     return configs, is_training_pl, batch, bn_decay
 
 
-
-
 def train_eval(train_feed_buf_q,eval_feed_buf_q):
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
@@ -269,8 +267,8 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             # TODO: for 3D objects detection, need create new: targets,
             # pos_equal_one, pos_equal_one_sum, pos_equal_one_for_reg,
             # neg_equal_one, neg_equal_ones_sum,
-            pointclouds_pl,  sg_bidxmaps_pl, targets, positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression\
-            negative_equal_one, negative_equal_one_sum, sgf_config_pls = placeholder_inputs(BATCH_SIZE, NUM_DATA_ELES, configs['num_rpn_points'], configs['sg_bidxmaps_shape'], num_regression, num_anchors)
+            pointclouds_pl,  sg_bidxmaps_pl, targets, positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression, \
+             negative_equal_one, negative_equal_one_sum, sgf_config_pls = placeholder_inputs(BATCH_SIZE, NUM_DATA_ELES, configs['num_rpn_points'], configs['sg_bidxmaps_shape'], num_regression, num_anchors)
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             ## input drop out to use small model learn big data
@@ -329,9 +327,9 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
         max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
 
+
         # define operations
         ops = {'pointclouds_pl': pointclouds_pl,
-               'labels_pl': labels_pl,
                'sg_bidxmaps_pl': sg_bidxmaps_pl,
                'is_training_pl': is_training_pl,
                'pred_class_feature': pred_class_feature,
@@ -340,12 +338,20 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
                'xyz_pl': xyz_pl,
                'all_loss': all_loss,
                'classification_loss':classification_loss,
-               'regression_loss':regression_loss,
-               'loss_details':loss_details,
-               'accuracy_classification':accuracy_classification,
-               'recall_classification':recall_classification,
-               'num_positive_label':num_positive_label,
-               'pred_prob':pred_prob,
+               'output_classification_positive_loss':output_classification_positive_loss,
+               'output_classification_negative_loss':output_classification_negative_loss,
+               'output_regression_loss':output_regression_loss,
+               'targets':targets,
+               'positive_equal_one':positive_equal_one,
+               'positive_equal_one_sum':positive_equal_one_sum,
+               'positive_equal_one_for_regression':positive_equal_one_for_regression,
+               'negative_equal_one':negative_equal_one,
+               'negative_equal_one_sum':negative_equal_one_sum,
+                #'loss_details':loss_details,
+                #'accuracy_classification':accuracy_classification,
+                #'recall_classification':recall_classification,
+                #'num_positive_label':num_positive_label,
+                #'pred_prob':pred_prob,
                'train_op': train_op,
                'merged': merged,
                'step': batch,
@@ -374,7 +380,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
             if not FLAGS.only_evaluate:
-                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts)
+                train_log_str = train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts, configs['sg_bm_extract_idx'])
             else:
                 train_log_str = ''
                 saver.restore(sess,MODEL_PATH)
@@ -414,7 +420,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,c_TP_FN_FP,total_seen,t_batch_ls,Simp
     log_string(log_str)
     return log_str
 
-def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
+def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts, sg_bm_extract_idx):
     """ ops: dict mapping from string to tf ops """
     is_training = True
     #log_string('----')
@@ -427,7 +433,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
     total_seen = 0.0001
     loss_sum = 0.0
-    c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
+    # c_TP_FN_FP = np.zeros(shape=(3,NUM_CLASSES))
 
     print('total batch num = ',num_batches)
     batch_idx = -1
@@ -445,7 +451,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
             point_cloud_data, label_data, sg_bidxmaps_pl, globalb_bottom_center_xyz,fid_start_end = net_provider.get_train_batch(start_idx, end_idx)
 
             ##TODO: Adding the cal_rpn_targets function
-            positive_equal_one, negative_equal_one, targets = cal_pos_neg_targets(label_data, sg_bidxmaps_pl )
+            positive_equal_one, negative_equal_one,positive_equal_one_sum, positive_equal_one_for_regression, negative_equal_one_sum ,targets \
+                         = cal_pos_neg_targets(label_data, sg_bidxmaps_pl, sg_bm_extract_idx )
 
         else:
             if train_feed_buf_q.qsize() == 0:
@@ -455,8 +462,14 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         t1 = time.time()
         if type(point_cloud_data) == type(None):
             break # all data reading finished
+
         feed_dict = {ops['pointclouds_pl']: point_cloud_data,
-                     ops['labels_pl']: label_data,
+                     ops['targets']: targets,
+                     ops['positive_equal_one']: positive_equal_one,
+                     ops['positive_equal_one_sum']: positive_equal_one_sum,
+                     ops['positive_equal_one_for_regression']: positive_equal_one_for_regression,
+                     ops['negative_equal_one']: negative_equal_one,
+                     ops['negative_equal_one_sum']: negative_equal_one_sum,
                      ops['globalb_bottom_center_xyz']: globalb_bottom_center_xyz,
                      ops['sg_bidxmaps_pl']: sg_bidxmaps_pl,
                      ops['is_training_pl']: is_training }
@@ -464,12 +477,17 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
         if ISDEBUG  and  epoch == 0 and batch_idx ==5:
                 pctx.trace_next_step()
                 pctx.dump_next_step()
-                summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
-                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+                #summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
+                #                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+                summary,  step,  all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
+                        = sess.run([ops['merged'], ops['step'], ops['all_loss'], ops['classification_loss'], ops['output_regression_loss'], ops['output_classification_positive_loss'], ops['output_classification_negative_loss']], feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
-            summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
-                                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+            #summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
+            #                           = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
+            summary,  step,  all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
+                        = sess.run([ops['merged'], ops['step'], ops['all_loss'], ops['classification_loss'], ops['output_regression_loss'], ops['output_classification_positive_loss'], ops['output_classification_negative_loss']], feed_dict=feed_dict)
+
 
         t2=time.time()
         t_batch_ls.append( np.reshape(np.array([t1-t0,time.time() - t1]),(2,1)) )
@@ -488,11 +506,12 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
 
             log_string('------batch is {},----------------'.format(batch_idx))
             log_string('reading data time is:{}, the training time is {}'.format((t1-t0),(t2-t1)))
-            log_string('all_loss {},  classificaiton {}, regression {}'.format(all_loss_val ,classification_loss_val, regression_loss_val))
-            log_string('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
-            log_string('########dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
-                                               loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
-            log_string('max_memory_usage:{} \n'.format(max_memory_usage))
+            log_string('all_loss {},  classificaiton {}, regression {}'.format(all_loss ,classification_loss, output_regression_loss))
+            log_string('output_classification_positive_loss:{}, output_classification_negative_loss:{}'.format(output_classification_positive_loss, output_classification_negative_loss))
+            #log_string('******** AC is {}, RC is {}, PN is {}'.format(accuracy_classification, recall_classification, num_positive_label))
+            #log_string('########dl:{},dw:{},dtheta:{},dx:{},dy:{}'.format(\
+            #                                   loss_details_val[0], loss_details_val[1], loss_details_val[2],  loss_details_val[3], loss_details_val[4]))
+            #log_string('max_memory_usage:{} \n'.format(max_memory_usage))
         if False and ( batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or batch_idx%200==0) : ## not evaluation in one epoch
             pred_class_feature_val = np.argmax(pred_class_feature_val, 2)
             all_loss_sum += all_loss_val
@@ -505,20 +524,20 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts):
     return train_logstr
 
 
-def cal_pos_neg_targets(label_data, sg_bidxmaps):
+def cal_pos_neg_targets(label_data, sg_bidxmaps, sg_bm_extract_idx):
     start = sg_bm_extract_idx[ cascade_num - 1 ]
     end = sg_bm_extract_idx[ cascade_num ]
     block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ] ## the extra 6 dimensions are the center points
     # block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm')
-    block_bottom_center_mm.astype(float32)
-    center_feature_maps = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )   ## [ batchsize, rpn_point, 3]
+    block_bottom_center_mm = block_bottom_center_mm.astype(np.float32)
+    center_feature_maps = block_bottom_center_mm[:,:,3:6] * np.array([[ 0.001]], dtype=np.float32 )   ## [ batchsize, rpn_point, 3]
 
     cx = np.tile( center_feature_maps[:,:,0,np.newaxis], num_anchors)   ## [batchsize, rpn_points, 2]
     cy = np.tile( center_feature_maps[:,:,1,np.newaxis], num_anchors)
     cz = np.ones_like(cx)*cfg.Z   ## when calculting the regression, cz will be ignored.
     l  = np.ones_like(cx)*cfg.L
-    w  = np.ones_like(cx).cfg.W
-    h  = np.ones_like(cx).cfg.H
+    w  = np.ones_like(cx)*cfg.W
+    h  = np.ones_like(cx)*cfg.H
     r  = np.ones_like(cx)
     r[...,0] = 0
     r[...,1] = np.pi/2
@@ -527,7 +546,12 @@ def cal_pos_neg_targets(label_data, sg_bidxmaps):
     assert anchors.shape[3]==num_regression
     positive_equal_one, negative_equal_one, targets = cal_rpn_target(label_data , anchors,  cls='Car', coordinate='lidar')
 
-    return positive_equal_one, negative_equal_one, targets
+
+    positive_equal_one_sum = np.clip(np.sum(positive_equal_one, axis=(1,2)).reshape(-1,1,1), a_min=1, a_max=None)
+    positive_equal_one_for_regression = np.concatenate([np.tile(positive_equal_one[...,[0]], num_regression), np.tile(positive_equal_one[..., [1]], num_regression)], axis=-1)
+    negative_equal_one_sum = np.clip(np.sum(negative_equal_one, axis=(1,2)).reshape(-1,1,1), a_min=1, a_max=None)
+
+    return positive_equal_one, negative_equal_one, positive_equal_one_sum, positive_equal_one_for_regression, negative_equal_one_sum, targets
 
 
 def limit_eval_num_batches(epoch,num_batches):
