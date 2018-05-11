@@ -23,12 +23,13 @@ TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATASETS = ['MATTERPORT', 'SCANNET', 'ETH']
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
 DATASET = 'ETH'
+DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -124,6 +125,8 @@ def WriteRawH5f( fn, rawh5f_dir ):
         return WriteRawH5f_SCANNET( fn, rawh5f_dir )
     elif DATASET == 'ETH':
         return WriteRawH5f_ETH( fn, rawh5f_dir )
+    elif DATASET == 'MODELNET40':
+        return WriteRawH5f_MODELNET40( fn, rawh5f_dir )
 
 def WriteRawH5f_SCANNET( fn, rawh5f_dir ):
     # save as rh5
@@ -205,6 +208,47 @@ def WriteRawH5f_ETH( fn_txt, rawh5f_dir ):
     print('finish : %s'%(rawh5f_fn))
     return rawh5f_fn
 
+def WriteRawH5f_MODELNET40( txt_path, rawh5f_dir ):
+    tmp = txt_path.split('/')
+    rawh5f_fn = os.path.join( rawh5f_dir, tmp[-2], os.path.splitext(tmp[-1])[0] + '.rh5' )
+    if not os.path.exists( os.path.dirname(rawh5f_fn) ):
+        os.makedirs( os.path.dirname(rawh5f_fn) )
+
+    if Raw_H5f.check_rh5_intact( rawh5f_fn )[0]:
+        print('rh5 intact: %s'%(rawh5f_fn))
+        return rawh5f_fn
+    print('start write rh5: %s'%(rawh5f_fn))
+
+    data = np.loadtxt( txt_path, delimiter=',' ).astype(np.float32)
+    num_points = data.shape[0]
+    print(num_points)
+    with h5py.File(rawh5f_fn,'w') as h5f:
+        raw_h5f = Raw_H5f(h5f,rawh5f_fn,'MODELNET40')
+        raw_h5f.set_num_default_row(num_points)
+        raw_h5f.append_to_dset('xyz', data[:,0:3])
+        if data.shape[1]==6:
+            raw_h5f.append_to_dset('nxnynz', data[:,3:6])
+        raw_h5f.rh5_create_done()
+    return txt_path
+
+
+def get_modelnet_fnls( root ):
+    modelnet10 = False
+    datapaths = {}
+    for split in ['test','train']:
+        shape_ids = {}
+        if modelnet10:
+            shape_ids['train'] = [line.rstrip() for line in open(os.path.join(root, 'modelnet10_train.txt'))]
+            shape_ids['test']= [line.rstrip() for line in open(os.path.join(root, 'modelnet10_test.txt'))]
+        else:
+            shape_ids['train'] = [line.rstrip() for line in open(os.path.join(root, 'modelnet40_train.txt'))]
+            shape_ids['test']= [line.rstrip() for line in open(os.path.join(root, 'modelnet40_test.txt'))]
+        assert(split=='train' or split=='test')
+        shape_names = ['_'.join(x.split('_')[0:-1]) for x in shape_ids[split]]
+        # list of (shape_name, shape_txt_file_path) tuple
+        datapaths[split] = [os.path.join(root, shape_names[i], shape_ids[split][i])+'.txt' for i in range(len(shape_ids[split]))]
+    datapath = datapaths['test'] + datapaths['train']
+    return datapath
 
 class H5Prepare():
     '''
@@ -216,7 +260,7 @@ class H5Prepare():
         self.rawh5f_dir =  self.BasicDataDir+'/rawh5'
 
     def ParseRaw(self, MultiProcess):
-        raw_path = './' + DATASET
+        raw_path = '/DS/' + DATASET
 
         rawh5f_dir = self.rawh5f_dir
         if not os.path.exists(rawh5f_dir):
@@ -224,10 +268,14 @@ class H5Prepare():
 
         if DATASET == 'SCANNET':
             glob_fn = raw_path+'/scene*'
+            fn_ls =  glob.glob( glob_fn )
         elif DATASET == 'ETH':
             glob_fn = raw_path+'/*.txt'
+            fn_ls =  glob.glob( glob_fn )
+        elif DATASET == 'MODELNET40':
+            root_path = raw_path+'/charles/modelnet40_normal_resampled'
+            fn_ls = get_modelnet_fnls( root_path )
 
-        fn_ls =  glob.glob( glob_fn )
         fn_ls.sort()
         if len(fn_ls) == 0:
             print('no file matches %s'%( glob_fn ))
@@ -258,7 +306,10 @@ class H5Prepare():
 
     def SortRaw(self, block_step_xyz, MultiProcess=0 , RxyzBeforeSort=None ):
         t0 = time.time()
-        rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
+        if DATASET == 'MODELNET40':
+            rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*/*.rh5' ) )
+        else:
+            rawh5_file_ls = glob.glob( os.path.join( self.rawh5f_dir,'*.rh5' ) )
         rawh5_file_ls.sort()
         sorted_path = self.BasicDataDir + '/'+get_stride_step_name(block_step_xyz,block_step_xyz)
         if type(RxyzBeforeSort)!=type(None) and np.sum(RxyzBeforeSort==0)!=0:
@@ -295,11 +346,11 @@ class H5Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            choice = range(0,800,10)[0:min(8,len(file_list))]
+            choice = range(0,10000,1000)[0:min(10,len(file_list))]
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:750]   # L
             #file_list = file_list[750:len(file_list)] # R
-            #file_list = glob.glob( os.path.join( sh5f_dir, 'scene0509_00.sh5' ) )
+            file_list = glob.glob( os.path.join( sh5f_dir, 'car_0001.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -328,6 +379,9 @@ class H5Prepare():
     def MergeNormed(self, data_aug_configs):
         plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
         bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
+
+        plsph5_folder = 'ORG_sph5/10000_gs1d2_2-du'
+        bxmh5_folder = 'ORG_bxmh5/10000_gs1d2_2_fmn1444-1500_600_80_20-24_32_48_24-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-4M1-du'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -372,7 +426,7 @@ class H5Prepare():
             return
 
         #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -412,7 +466,8 @@ def GenObj_rh5():
 
 def GenObj_sh5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/stride_0d1_step_0d1'
-    fn_ls = glob.glob( path+'/scene0000_00.sh5' )
+    path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
+    fn_ls = glob.glob( path+'/wardrobe_0001.sh5' )
     for fn in fn_ls:
         with h5py.File( fn,'r' ) as h5f:
             sh5f = Sorted_H5f(h5f,fn)
@@ -422,7 +477,8 @@ def GenObj_sh5():
 def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
-    fn_ls = glob.glob( path+'/scene*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
+    fn_ls = glob.glob( path+'/bottle_0095.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)
@@ -433,17 +489,22 @@ def main( ):
         MultiProcess = 8
         h5prep = H5Prepare()
 
-        h5prep.ParseRaw( MultiProcess )
-        base_step_stride = [0.1,0.1,0.1]
+        #h5prep.ParseRaw( MultiProcess )
+        if DATASET == 'SCANNET':
+            base_step_stride = [0.1,0.1,0.1]
+        elif DATASET == 'ETH':
+            base_step_stride = [0.2,0.2,0.2]
+        elif DATASET == 'MODELNET40':
+            base_step_stride = [0.05,0.05,0.05]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
         #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        data_aug_configs['delete_unlabelled'] = True
-        #data_aug_configs['delete_easy_categories_num'] = 5
+        #data_aug_configs['delete_unlabelled'] = True
+        #data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 

@@ -79,7 +79,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 UPER_DIR = os.path.dirname(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT','KITTI']
+DATA_SOURCE_NAME_LIST = ['ETH','STANFORD_INDOOR3D','SCANNET','MATTERPORT','KITTI', 'MODELNET40']
 FLOAT_BIAS = 1e-8
 
 def isin_sorted( a,v ):
@@ -451,7 +451,8 @@ class GlobalSubBaseBLOCK():
     def get_bmapfn(self):
         assert self.mode == 'write'
         datasource_name = self.root_s_h5f.attrs['datasource_name']
-        if datasource_name == "MATTERPORT":
+        if datasource_name == "MATTERPORT" :
+            assert False
             region_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             house_dir_name = os.path.dirname(self.root_s_h5f_fn)
             house_name = os.path.basename(house_dir_name)
@@ -459,10 +460,10 @@ class GlobalSubBaseBLOCK():
 
             out_folder = rootsort_dirname + '/ORG_bmh5/' + self.get_pyramid_flag( 'bmh5' )
             if not os.path.exists(out_folder):
-                os.mkdir(out_folder)
-            blockid_maps_fn = out_folder + '/' + house_name + '/' + region_name + '.bmh5'
+                os.makedirs(out_folder)
+            blockid_maps_fn = out_folder + '/' + region_name + '.bmh5'
 
-        elif datasource_name == "SCANNET":
+        elif datasource_name == "SCANNET" or datasource_name == 'MODELNET40':
             scene_name = os.path.splitext( os.path.basename(self.root_s_h5f_fn) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.root_s_h5f_fn) ))
 
@@ -2070,7 +2071,9 @@ class Raw_H5f():
             if 'valid_num' in dset.attrs:
                 valid_num = dset.attrs['valid_num']
                 if valid_num < dset.shape[0]:
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
                     dset.resize( (valid_num,dset.shape[1:]) )
+                    #dset.resize( (valid_num,)+dset.shape[1:] )
 
     def get_summary_info(self):
         for dset_name in self.h5f:
@@ -2326,6 +2329,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
+        if self.datasource_name == 'MODELNET40':
+            stride_to_align = 0.01
         self.h5f.attrs['block_step'] = block_step
         self.h5f.attrs['block_stride'] = block_stride
         self.h5f.attrs['stride_to_align'] = stride_to_align
@@ -3404,7 +3409,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
             datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
             # delete some categories: unlabeld, easy
-            datas_k, labels_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, labels_k, feed_label_elements, h5f.attrs['datasource_name'], data_aug_configs )
+            datas_k, labels_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, labels_k, feed_label_elements, data_aug_configs )
 
             del_num += del_n
             num_point_k = datas_k.shape[0]
@@ -3433,10 +3438,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
 
+
     @staticmethod
-    def delete_some_categories( datas, labels, feed_label_elements, datasource_name, data_aug_configs ):
-        # (1) Always: delete unlabeld label_category
-        # (2) aug data: delete easy categories
+    def update_del_labels( data_aug_configs, datasource_name ):
         unlabeled_labels = DatasetsMeta.g_unlabelled_categories[datasource_name]
         if 'delete_unlabelled' in data_aug_configs:
             del_labels = unlabeled_labels
@@ -3448,6 +3452,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             delete_num = min( data_aug_configs['delete_easy_categories_num'], len(g_easy_categories) )
             g_easy_categories = g_easy_categories[0:delete_num]
             del_labels += g_easy_categories
+        del_labels = np.sort( del_labels )
+        data_aug_configs['del_labels'] = del_labels
+
+
+    @staticmethod
+    def delete_some_categories( datas, labels, feed_label_elements, data_aug_configs ):
+        # (1) Always: delete unlabeld label_category
+        # (2) aug data: delete easy categories
+        #import time
+        #t0 = time.time()
+        del_labels = data_aug_configs['del_labels']
 
         if len(del_labels) == 0:
             return datas, labels, 0
@@ -3455,17 +3470,41 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if ele == 'label_category':
                 label_category_idx = i
                 break
-        unlabeld_mask = np.array( [False]*labels.shape[0] )
-        for unlabeled_label in del_labels:
-            unlabeld_mask +=  (labels[:,label_category_idx] == unlabeled_label)
-        del_choices = np.nonzero( unlabeld_mask )[0]
+        #t1 = time.time()
+        #del_labels = np.tile( del_labels, [labels.shape[0],1] )
+        #tmp = np.tile( labels[:, label_category_idx:label_category_idx+1],[1, del_labels.shape[1]] )
+
+        #del_mask = tmp == del_labels
+        #del_mask = np.max( del_mask, 1 )
+
+        N = labels.shape[0]
+        del_mask = np.array([False]*N)
+        for i in range(N):
+            del_mask[i] = isin_sorted( del_labels, labels[i, label_category_idx] )
+
+        if np.max( del_mask )  == 0:
+            return datas, labels, 0
+
+        #t2 = time.time()
+        del_choices = np.nonzero( del_mask )[0]
         datas_ = np.delete( datas, del_choices, axis=0 )
         labels_ = np.delete( labels, del_choices, axis=0 )
+
+        #remain_mask = tmp != del_labels
+        #remain_mask = np.min( remain_mask, 1 )
+        #if np.min(remain_mask) == 1:
+        #    return datas, labels, 0
+        #else:
+        #    remain_choice = np.nonzero( remain_mask )[0]
+        #    datas_ = np.take( datas, remain_choice, axis=0 )
+        #    labels_ = np.take( labels, remain_choice, axis=0 )
+
         org_n = datas.shape[0]
         new_n = datas_.shape[0]
         del_n = org_n - new_n
-        #del_rate = 1.0*del_n/org_n
+        del_rate = 1.0*del_n/org_n
         #print('del_rate:%3f   %d -> %d'%(del_rate, org_n, new_n))
+        #print( 't0: %f ms, t1: %f ms,  t2:%f ms'%( (t1-t0)*1000, (t2-t1)*1000, (time.time()-t2)*1000 ) )
         return datas_, labels_, del_n
 
 
@@ -3602,7 +3641,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + aug_str + '/' + house_name
             pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
 
-        elif datasource_name == 'SCANNET':
+        elif datasource_name == 'SCANNET' or datasource_name == 'MODELNET40':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str
@@ -3694,7 +3733,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
             num_global_block_abandoned = 0
             num_point_abandoned = 0
+            #t_last = time.time()
+
+            datasource_name = S_H5f.h5f.attrs['datasource_name']
+            self.update_del_labels( data_aug_configs, datasource_name )
             for global_block_id in all_sorted_global_bids:
+                #print('global_block_id:%d / %d   %d ms'%(global_block_id, all_sorted_global_bids.size, (time.time()-t_last)*1000 ) )
+                #t_last = time.time()
+
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
@@ -3728,6 +3774,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 pl_sph5f.append_to_dset('data',file_datas)
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
+
+                if datasource_name == 'MODELNET40':
+                    h5f.attrs['label_category'] = 0
+                    the_label = Sorted_H5f.extract_label_from_name( pl_sph5_filename, datasource_name )
+                    file_labels = np.reshape( the_label, (1,1,1) )
                 if file_labels.size > 0:
                     pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
@@ -3745,6 +3796,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     pl_sph5f.show_summary_info()
                 print('plsph5 file create finished: data shape: %s'%(str(pl_sph5f.data_set.shape)) )
 
+    @staticmethod
+    def extract_label_from_name( fn, datasource_name ):
+        # for MODELNET
+        assert datasource_name == 'MODELNET40'
+        tmp = os.path.basename(fn).split('_')[0]
+        DMeta = DatasetsMeta(datasource_name)
+        the_label = DMeta.class2label[tmp]
+        return the_label
 
     @staticmethod
     def add_new_sample_num_in_plsph5( pl_sph5_filename, gsbb_write ):
@@ -4090,7 +4149,7 @@ class Normed_H5f():
 
     labels_order = ['label_category','label_instance','label_material']
     label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
-    max_rootb_num = 20000
+    max_rootb_num = 10000
 
     def __init__(self,h5f,file_name,datasource_name=None):
         '''
@@ -4104,6 +4163,7 @@ class Normed_H5f():
         else:
             self.h5f.attrs['datasource_name'] = datasource_name
         assert self.h5f.attrs['datasource_name'] in DATA_SOURCE_NAME_LIST
+
         self.datasource_name = self.h5f.attrs['datasource_name']
         self.dataset_meta = dataset_meta = DatasetsMeta(self.datasource_name)
         self.g_label2class = dataset_meta.label2class
@@ -4198,8 +4258,14 @@ class Normed_H5f():
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,...]
         else:
-            labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
+            if self.datasource_name =='MODELNET40':
+                # tmparary
+                labels_ele_idx = 0
+            else:
+                labels_ele_idx = np.sort(list(set( [k for e in feed_label_elements for k in self.labels_set.attrs[e]] )))
             labels = self.labels_set[start_block:end_blcok,...,labels_ele_idx]
+            if labels.ndim == self.labels_set.ndim - 1:
+                labels = np.expand_dims( labels, -1 )
             assert labels.ndim == self.labels_set.ndim
         return labels
     @staticmethod
@@ -4347,9 +4413,20 @@ class Normed_H5f():
         bsample_rate_set = self.h5f.create_dataset( 'block_sample_rate',shape=(total_block_N,),\
                 maxshape=(None,), dtype=np.float32  )
         bsample_rate_set.attrs['valid_num'] = 0
-        if label_eles_num > 1:
-            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
-                    maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+
+        IsIncludeLabel = False
+        if self.h5f.attrs['datasource_name']=='MODELNET40':
+            IsIncludeLabel = True
+            # classification task
+            labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,1,1),\
+                    maxshape=(None,1,1,),dtype=np.int16,compression="gzip", chunks = (chunks_n,1,1,)  )
+        else:
+            # segmentation task
+            if label_eles_num > 0:
+                IsIncludeLabel = True
+                labels_set = self.h5f.create_dataset( 'labels',shape=(total_block_N,)+sample_num+(label_eles_num,),\
+                        maxshape=(None,)+sample_num+(label_eles_num,),dtype=np.int16,compression="gzip", chunks = (chunks_n,)+sample_num+(label_eles_num,)  )
+        if IsIncludeLabel:
             labels_set.attrs['valid_num'] = 0
             self.labels_set = labels_set
         gbixyz_set = self.h5f.create_dataset( 'gbixyz',shape=(total_block_N,3,),\
