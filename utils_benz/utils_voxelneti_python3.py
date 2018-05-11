@@ -519,8 +519,8 @@ def box3d_to_label(batch_box3d, batch_cls, batch_score=[], coordinate='camera', 
                         box[np.newaxis, :].astype(np.float32), cal_projection=False, P2=P2, T_VELO_2_CAM=T_VELO_2_CAM, R_RECT_0=R_RECT_0)[0]
                 x, y, z, h, w, l, r = box3d
                 box3d = [h, w, l, x, y, z, r]
-                label.append(template.format(cls, 0, 0, 0, box2d[0], box2d[1], box2d[2], box2d[3], h, w, l, x, y, z, r, float(score)))
-                #    cls, 0, 0, 0, *box2d,*box3d, float(score))  ## benz_m, changing into python2.7 version
+                label.append(template.format(
+                    cls, 0, 0, 0, *box2d,*box3d, float(score)))
             batch_label.append(label)
     else:
         template = '{} ' + ' '.join(['{:.4f}' for i in range(14)]) + '\n'
@@ -538,8 +538,7 @@ def box3d_to_label(batch_box3d, batch_cls, batch_score=[], coordinate='camera', 
                         box[np.newaxis, :].astype(np.float32), cal_projection=False, P2=P2, T_VELO_2_CAM=T_VELO_2_CAM, R_RECT_0=R_RECT_0)[0]
                 x, y, z, h, w, l, r = box3d
                 box3d = [h, w, l, x, y, z, r]
-                label.append(template.format( cls, 0, 0, 0, box2d[0], box2d[1], box2d[2], box2d[3], h, w, l, x, y, z, r))
-                    ##  cls, 0, 0, 0, *box2d, *box3d))   ## benz_m
+                label.append(template.format(cls, 0, 0, 0, *box2d, *box3d))
             batch_label.append(label)
 
     return np.array(batch_label)
@@ -581,7 +580,6 @@ def cal_rpn_target(labels, anchors, cls='Car', coordinate='lidar'):
     #   neg_equal_one (N, num_rpn_points, 2)
     #   targets (N, num_rpn_points, 12)
     # attention: cal IoU on birdview
-    ## Label data include all parameters(x,y,z,h,w,l,r), but anchor have one less(z), so only 6 dimensions.
     batch_size = anchors.shape[0]
     num_rpn_points = anchors.shape[1]
     num_anchors = anchors.shape[2]
@@ -592,7 +590,7 @@ def cal_rpn_target(labels, anchors, cls='Car', coordinate='lidar'):
 
     #anchors_reshaped = anchors.reshape(-1, 7)
     anchors = anchors.reshape(batch_size, -1, num_regression)  ## [batch_size, num_rpn_points*2, 7]
-    anchors_all_d = np.sqrt(anchors[:,:,3]**2 + anchors[:,:,4]**2)  ## [batch_size, num_rpn_points]
+    anchors_all_d = np.sqrt(anchors[:,:,4]**2 + anchors[:,:,5]**2)  ## [batch_size, num_rpn_points]
     pos_equal_one = np.zeros((batch_size, num_rpn_points, num_anchors))
     neg_equal_one = np.zeros((batch_size, num_rpn_points, num_anchors))
     targets = np.zeros((batch_size, num_rpn_points, num_anchors*num_regression))
@@ -672,7 +670,7 @@ def cal_rpn_target(labels, anchors, cls='Car', coordinate='lidar'):
 
 
 
-'''
+
 def cal_rpn_target_old_version(labels, feature_map_shape, anchors, cls='Car', coordinate='lidar'):
     # Input:
     #   labels: (N, N')
@@ -761,7 +759,7 @@ def cal_rpn_target_old_version(labels, feature_map_shape, anchors, cls='Car', co
 
     return pos_equal_one, neg_equal_one, targets
 
-'''
+
 # BOTTLENECK
 def delta_to_boxes3d(deltas, anchors, coordinate='lidar'):
     # Input:

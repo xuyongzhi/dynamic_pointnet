@@ -18,7 +18,7 @@ import copy
 from bbox_transform_2d import bbox_transform_2d
 from nms_2d import convert_to_list_points
 
-from soft_cross_entropy import softmaxloss
+#from soft_cross_entropy import softmaxloss
 from shapely.geometry import box, Polygon
 
 
@@ -50,27 +50,28 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
         return flatten_bidxmap_i_concat
 
-def placeholder_inputs(batch_size, data_num_ele, num_rpn_points, sg_bidxmaps_shape, num_regression, num_anchors):  ## benz_m
+def placeholder_inputs(batch_size, NUM_POINT, data_num_ele, num_rpn_points, sg_bidxmaps_shape, num_regression, num_anchors):  ## benz_m
     sg_bidxmaps_shape = sg_bidxmaps_shape
     # flatten_bidxmaps_shape = sgf_configs['flatten_bidxmaps_shape']   ##   benz_m
     # flatten_bm_extract_idx = sgf_configs['flatten_bm_extract_idx']
     sgf_config_pls = {}
     with tf.variable_scope("pls") as pl_sc:
-        pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (data_num_ele,))
-        sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
-        ## target - each anchor box, represent as △x, △y, △z, △l, △w, △h, rotation
+        #pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ num_rpn_points + (data_num_ele,))
+        pointclouds_pl = tf.placeholder(tf.float32, [batch_size, NUM_POINT, data_num_ele])
+        # sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
+        sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= [batch_size, sg_bidxmaps_shape[0]-1,22])
         targets = tf.placeholder( tf.float32, [ batch_size, num_rpn_points, num_regression*num_anchors])
         ## postive anchors equal to one and others equal to zero(2 anchors in 1 position)
         positive_equal_one = tf.placeholder( tf.float32, [batch_size, num_rpn_points, num_anchors])
-        positive_equal_one_sum = tf.placeholder(tf.float32, [batch_size, 1, 1, 1])
+        positive_equal_one_sum = tf.placeholder(tf.float32, [batch_size, 1,  1])
         positive_equal_one_for_regression =  tf.placeholder( tf.float32, [ batch_size, num_rpn_points, num_regression*num_anchors])
         # negative anchors equal to one and others equal to zero
-        negative_equal_one = tf.placeholder(tf.float32, [ batch_size, num_rpn_points, num_regression*num_anchors])
-        negative_equal_one_sum = tf.placeholder(tf.float32, [batch_size, 1, 1, 1])
+        negative_equal_one = tf.placeholder(tf.float32, [ batch_size, num_rpn_points, num_anchors])
+        negative_equal_one_sum = tf.placeholder(tf.float32, [batch_size, 1, 1])
 
         sgf_config_pls['globalb_bottom_center_xyz'] = tf.placeholder(tf.float32, shape=(batch_size,1,6),name="globalb_bottom_center_xyz")
 
-        return pointclouds_pl, sg_bidxmaps_pl, targets, positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression \
+        return pointclouds_pl, sg_bidxmaps_pl, targets, positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression, \
                                                         negative_equal_one, negative_equal_one_sum, sgf_config_pls
 
 
@@ -337,23 +338,18 @@ def get_model(modelf_nein, rawdata, is_training, num_class, num_anchors, num_reg
     sgf_config_pls['max_step_stride'] = (sgf_config_pls['globalb_bottom_center_xyz'][:,:,3:6] - sgf_config_pls['globalb_bottom_center_xyz'][:,:,0:3]) * tf.constant(2,tf.float32)
 
     for k in range(cascade_num):
-        if IsAddGlobalLayer and k==cascade_num-1:
-            IsExtraGlobalLayer = True
-            sg_bidxmap_k = None
-            block_bottom_center_mm = tf.cast( sgf_config_pls['globalb_bottom_center_xyz'] * tf.constant(1000, tf.float32), tf.int32 )
-        else:
-            IsExtraGlobalLayer = False
-            start = sg_bm_extract_idx[k]
-            end = sg_bm_extract_idx[k+1]
-            sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
-            block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+        IsExtraGlobalLayer = False
+        start = sg_bm_extract_idx[k]
+        end = sg_bm_extract_idx[k+1]
+        sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+        block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
 
         #if TMPDEBUG:
         #    pooling = 'max' # 3DCNN
 
         #l_xyz, new_points, root_point_features, grouped_xyz = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlps_0[k], mlps_1[k], block_center_xyz_mm, sgf_configs,
         #                                                            is_training=is_training, bn_decay=bn_decay, pooling=pooling, scope='sa_layer'+str(k) )
-        l_xyz, new_points, root_point_features = pointnet_sa_module(k, IsExtraGlobalLayer, l_xyz, l_points[k], sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
+        l_xyz, new_points, root_point_features = pointnet_sa_module(k,  l_xyz, l_points[k], sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,\
                                                                                  sgf_configs, sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
 
         #if IsDebug:
@@ -418,7 +414,7 @@ def get_loss( BATCH_SIZE, pred_class_feature, pred_box_feature, xyz_pl, targets 
 
     classification_loss = tf.reduce_sum( alpha*classification_positive_loss + beta*classification_negative_loss )
 
-    regression_loss = smooth_l1( pred_box_feature*positive_equal_one_for_regression + targets*positive_equal_one_for_regression, sigma ) / positive_equal_one_sum
+    regression_loss = smooth_l1( pred_box_feature*positive_equal_one_for_regression,  targets*positive_equal_one_for_regression, sigma ) / positive_equal_one_sum
 
     output_regression_loss = tf.reduce_sum(regression_loss)
     all_loss = tf.reduce_sum( classification_loss + output_regression_loss )
