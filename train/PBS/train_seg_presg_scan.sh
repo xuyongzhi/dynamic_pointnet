@@ -7,6 +7,7 @@
 
 train_script=../train_semseg_sorted_multi_gpus.py
 dataset_name=SCANNET
+dataset_name=MODELNET40
 maxepoch=301
 learning_rate=0.002
 decay_epoch_step=40
@@ -32,6 +33,9 @@ bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32
 
 #all_fn_globs='Merged_sph5/30000_gs-2d4_-3d4/,Merged_sph5/30000_gs-2d4_-3d4-dec5/'
 #bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1,Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-dec5'
+
+all_fn_globs='Merged_sph5/10000_gs2_2/'
+bxmh5_folder_name='Merged_bxmh5/10000_gs2_2_fmn1444-2048_960_64_12-24_32_48_24-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-4M1'
 # *****************************************************************************
 
 run_train()

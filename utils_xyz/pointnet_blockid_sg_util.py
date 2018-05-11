@@ -280,19 +280,22 @@ def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom
 
     # check indice scope:
     # Actually only works when IS_merge_blocks_while_fix_bmap=False
-    Max_Assert = 1e-4
+    Max_Assert = 1e-4+5
 
     batch_size = new_points.shape[0].value
     block_num = new_points.shape[1].value
     point_num = new_points.shape[2].value
     channel_num = new_points.shape[3].value
 
+    if configs['dataset_name'] == 'MODELNET40':
+        IsTolerateBug = 2
     if cascade_id==cascade_num-1:
         # only in this global cascde, the steps and strides in each dimension
         # can be different
-        max_indice_f = ( -configs['global_step'] - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
+        max_indice_f = ( np.abs(configs['global_step']) - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
-        assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert
+        if configs['dataset_name'] != 'MODELNET40':
+            assert np.sum(np.abs(max_indice_f-max_indice_v)) < Max_Assert
         max_indice_v += 1* IsTolerateBug
 
         voxel_size = max_indice_v.astype(np.int32)+1

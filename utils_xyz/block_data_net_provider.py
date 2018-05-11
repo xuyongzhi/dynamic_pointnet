@@ -630,7 +630,6 @@ class Net_Provider():
        # print(sg_bidxmaps.shape)
        # print(flatten_bidxmaps.shape)
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end, xyz_mid_batches, globalb_bottom_center_xyzs
 
     def get_fn_from_fid(self,fid):

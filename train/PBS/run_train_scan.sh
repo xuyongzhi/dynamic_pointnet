@@ -6,7 +6,7 @@
  # in_cnn_out_kp=${6}
 
 feed_data_elements='xyz_midnorm_block' 
-feed_data_elements='xyz_midnorm_block-color_1norm' 
+#feed_data_elements='xyz_midnorm_block-color_1norm' 
 
 
 num_gpus=1
@@ -14,9 +14,12 @@ in_cnn_out_kp='5N5'
 loss_weight='N'
 ShuffleFlag='Y'
 aug=1
+bs=25
+
+#./train_seg_presg_scan.sh 5Va_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug
 
 bs=25
-./train_seg_presg_scan.sh 5Va_114 $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug
+./train_seg_presg_scan.sh 5m $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug
 
 
 #-------------------------------

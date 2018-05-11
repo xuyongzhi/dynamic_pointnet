@@ -2071,9 +2071,7 @@ class Raw_H5f():
             if 'valid_num' in dset.attrs:
                 valid_num = dset.attrs['valid_num']
                 if valid_num < dset.shape[0]:
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    dset.resize( (valid_num,dset.shape[1:]) )
-                    #dset.resize( (valid_num,)+dset.shape[1:] )
+                    dset.resize( (valid_num,)+dset.shape[1:] )
 
     def get_summary_info(self):
         for dset_name in self.h5f:
@@ -3800,7 +3798,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
     def extract_label_from_name( fn, datasource_name ):
         # for MODELNET
         assert datasource_name == 'MODELNET40'
-        tmp = os.path.basename(fn).split('_')[0]
+        tmp = os.path.basename(fn).split('_')[0:-1]
+        if len(tmp)==1:
+            tmp = tmp[0]
+        elif len(tmp)==2:
+            tmp = tmp[0]+'_'+tmp[1]
         DMeta = DatasetsMeta(datasource_name)
         the_label = DMeta.class2label[tmp]
         return the_label

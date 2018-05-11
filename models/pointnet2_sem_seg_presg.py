@@ -40,8 +40,12 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, conf
     sgf_config_pls = {}
     with tf.variable_scope("pls") as pl_sc:
         pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (data_num_ele,))
-        labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample + (label_num_ele,))
-        smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (label_num_ele,))
+        if configs['dataset_name'] == 'MODELNET40':
+            labels_pl = tf.placeholder(tf.int32, shape=(batch_size,1,label_num_ele,))
+            smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,1,label_num_ele,))
+        else:
+            labels_pl = tf.placeholder(tf.int32, shape=(batch_size,)+ block_sample + (label_num_ele,))
+            smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (label_num_ele,))
         sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
         flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(2,),name="flatten_bidxmaps_pl")
         fbmap_neighbor_idis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_idis_pl")
@@ -68,26 +72,31 @@ def get_voxel3dcnn_sa_config( model_flag ):
         voxel_channels.append( [128,128,256] )
         voxel_channels.append( [256,256,512] )
         for l in range(4):
-            #voxel_kernels.append(  [2, 2, 1 ]  )
-            #voxel_strides.append(  [1, 1, 1 ]  )
             mlp_pe.append([])
             mlp_be.append([])
-    elif model_flag=='5VaG' or model_flag=='5Va':
+
+    elif model_flag=='5Va':
         voxel_channels.append( [32,32,64] )
         voxel_channels.append( [64,64,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
         voxel_channels.append( [256,256,512,512] )
         for l in range(5):
-            #voxel_kernels.append(  [2, 2, 1 ]  )
-            #voxel_strides.append(  [1, 1, 1 ]  )
+            mlp_pe.append([])
+            mlp_be.append([])
+
+    elif model_flag=='5Vm':
+        voxel_channels.append( [32,32,64] )
+        voxel_channels.append( [64,64,128] )
+        voxel_channels.append( [128,128,256] )
+        voxel_channels.append( [256,256,512] )
+        voxel_channels.append( [512,1024,512,256] )
+        for l in range(5):
             mlp_pe.append([])
             mlp_be.append([])
 
     mlp_configs = {}
     mlp_configs['voxel_channels'] = voxel_channels
-    #mlp_configs['voxel_kernels'] = voxel_kernels
-    #mlp_configs['voxel_strides'] = voxel_strides
     mlp_configs['point_encoder'] = mlp_pe
     mlp_configs['block_learning'] = '3DCNN'
     mlp_configs['block_encoder'] = mlp_be
@@ -130,6 +139,12 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,512,512] )
+    elif model_flag=='5m':
+        mlp_pe.append( [32,32,64,64] )
+        mlp_pe.append( [64,128,128] )
+        mlp_pe.append( [128,256,256] )
+        mlp_pe.append( [256,256,512] )
+        mlp_pe.append( [512,1024,512,256] )
 
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
@@ -225,6 +240,7 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [512,256] )
+
     #elif model_flag=='1DSa' or model_flag=='1DSaG':
     #    dense_config = {}
     #    dense_config['num_block'] = 1
@@ -279,11 +295,17 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
     IsShowModel = True
-    model_flag, num_neighbors = modelf_nein.split('_')
-    num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
-    assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-    assert num_neighbors[1] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-    assert num_neighbors[2] <= np.min(configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
+    if '_' in modelf_nein:
+        # segmentation
+        model_flag, num_neighbors = modelf_nein.split('_')
+        num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
+        assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+        assert num_neighbors[1] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+        assert num_neighbors[2] <= np.min(configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
+    else:
+        # classification
+        model_flag = modelf_nein
+        num_neighbors= None
 
     flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
     sg_bm_extract_idx = configs['sg_bm_extract_idx']
@@ -298,6 +320,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     l_points = []                       # size = l_points+1
     l_points.append( rawdata )
     l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
+    new_points = rawdata
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
     sgf_config_pls['max_step_stride'] = (sgf_config_pls['globalb_bottom_center_xyz'][:,:,3:6] - sgf_config_pls['globalb_bottom_center_xyz'][:,:,0:3]) * tf.constant(2,tf.float32)
@@ -308,11 +331,14 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
         block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
 
-        l_xyz, new_points, root_point_features = pointnet_sa_module(k, l_xyz, l_points[k], sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
+        l_xyz, new_points, root_point_features = pointnet_sa_module(k, l_xyz, new_points, sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
                                                                                  configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if k == 0:
             l_points[0] = root_point_features
-        l_points.append(new_points)
+        if configs['dataset_name'] != 'MODELNET40':
+            l_points.append(new_points)
+        else:
+            l_points[0] = new_points
 
         # l_xyz: (2, 512, 128, 6) (2, 512, 3)  (2, 256, 3) (2, 64, 3)
         # l_points: None  (2, 512, 64) (2, 256, 256) (2, 64, 512)
@@ -321,16 +347,17 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     end_points['l0_points'] = l_points[0]
 
     # Feature Propagation layers
-    mlps_e1, mlps_fp = get_fp_module_config( model_flag )
-    for i in range(cascade_num):
-        k = cascade_num-1-i
-        start = flatten_bm_extract_idx[k]
-        end = flatten_bm_extract_idx[k+1]
-        flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
-        fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
-    # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
-    if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
+    if configs['dataset_name'] != 'MODELNET40':
+        mlps_e1, mlps_fp = get_fp_module_config( model_flag )
+        for i in range(cascade_num):
+            k = cascade_num-1-i
+            start = flatten_bm_extract_idx[k]
+            end = flatten_bm_extract_idx[k+1]
+            flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
+            fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
+            l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
+        # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
+        if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
     # FC layers
     net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
@@ -345,7 +372,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
 
     return net, end_points
 
-def get_loss(pred, label, smpw, label_eles_idx ):
+def get_loss(pred, label, smpw, label_eles_idx, configs ):
     """ pred: BxNxC,
         label: BxN,
 	smpw: BxN """
@@ -353,7 +380,7 @@ def get_loss(pred, label, smpw, label_eles_idx ):
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
     input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0')
-    if len(input_drop_mask.get_shape()) != 0:
+    if len(input_drop_mask.get_shape()) != 0 and configs['dataset_name']!='MODELNET40':
         input_drop_mask = tf.squeeze( input_drop_mask,2 )
         smpw_category = smpw_category * input_drop_mask
 
