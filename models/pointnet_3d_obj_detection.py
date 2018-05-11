@@ -414,7 +414,7 @@ def get_loss( BATCH_SIZE, pred_class_feature, pred_box_feature, xyz_pl, targets 
 
     classification_loss = tf.reduce_sum( alpha*classification_positive_loss + beta*classification_negative_loss )
 
-    regression_loss = smooth_l1( pred_box_feature*positive_equal_one_for_regression + targets*positive_equal_one_for_regression, sigma ) / positive_equal_one_sum
+    regression_loss = smooth_l1( pred_box_feature*positive_equal_one_for_regression,  targets*positive_equal_one_for_regression, sigma ) / positive_equal_one_sum
 
     output_regression_loss = tf.reduce_sum(regression_loss)
     all_loss = tf.reduce_sum( classification_loss + output_regression_loss )

@@ -268,7 +268,7 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
             # pos_equal_one, pos_equal_one_sum, pos_equal_one_for_reg,
             # neg_equal_one, neg_equal_ones_sum,
             pointclouds_pl,  sg_bidxmaps_pl, targets, positive_equal_one, positive_equal_one_sum, positive_equal_one_for_regression, \
-             negative_equal_one, negative_equal_one_sum, sgf_config_pls = placeholder_inputs(BATCH_SIZE, NUM_DATA_ELES, configs['num_rpn_points'], configs['sg_bidxmaps_shape'], num_regression, num_anchors)
+             negative_equal_one, negative_equal_one_sum, sgf_config_pls = placeholder_inputs(BATCH_SIZE, NUM_POINT, NUM_DATA_ELES, configs['num_rpn_points'], configs['sg_bidxmaps_shape'], num_regression, num_anchors)
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             ## input drop out to use small model learn big data
