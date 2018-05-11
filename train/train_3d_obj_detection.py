@@ -479,13 +479,13 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q,pctx,opts, sg
                 pctx.dump_next_step()
                 #summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label \
                 #                       = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
-                summary,  step,  all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
+                summary,  step, _, all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
                         = sess.run([ops['merged'], ops['step'], ops['train_op'],ops['all_loss'], ops['classification_loss'], ops['output_regression_loss'], ops['output_classification_positive_loss'], ops['output_classification_negative_loss']], feed_dict=feed_dict)
                 pctx.profiler.profile_operations(options=opts)
         else:
             #summary, step, _, all_loss_val, pred_class_feature_val, classification_loss_val, regression_loss_val, loss_details_val, accuracy_classification, recall_classification, num_positive_label  \
             #                           = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['all_loss'], ops['pred_class_feature'], ops['classification_loss'], ops['regression_loss'], ops['loss_details'], ops['accuracy_classification'], ops['recall_classification'], ops['num_positive_label']], feed_dict=feed_dict)
-            summary,  step,  all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
+            summary,  step, _,all_loss,   classification_loss,    output_regression_loss,  output_classification_positive_loss, output_classification_negative_loss \
                         = sess.run([ops['merged'], ops['step'], ops['train_op'],ops['all_loss'], ops['classification_loss'], ops['output_regression_loss'], ops['output_classification_positive_loss'], ops['output_classification_negative_loss']], feed_dict=feed_dict)
 
 
