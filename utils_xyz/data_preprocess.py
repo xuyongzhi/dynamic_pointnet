@@ -23,7 +23,7 @@ TMPDEBUG =  True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
-DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40']
+DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40','KITTI']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
@@ -50,8 +50,8 @@ def GenPyramidSortedFlie( fn, data_aug_configs ):
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
-            Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = True
+            Always_CreateNew_plh5 = True
+            Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(
                             IsShowSummaryFinished=True,

@@ -40,6 +40,7 @@ import itertools
 import ply_util
 #from global_para import GLOBAL_PARA
 sys.path.append(BASE_DIR+'/MATTERPORT_util')
+sys.path.append(BASE_DIR+'/KITTI_util')
 from MATTERPORT_util import get_cat40_from_rawcat
 sys.path.append(BASE_DIR+'/all_datasets_meta')
 from datasets_meta import DatasetsMeta
@@ -1564,7 +1565,7 @@ class GlobalSubBaseBLOCK():
             if LostBaseb_rate_max > 0.2:
                 lost_baseb_fn = os.path.dirname(self.bmh5_fn) + '/bmh5_lost_too_many_baseb.txt'
                 with open( lost_baseb_fn, 'a' ) as lbf:
-                    lbf.write(  '%s: %s'%( os.path.basename(self.bmh5_fn),LostBaseb_rates ) )
+                    lbf.write(  '%s: %s\n'%( os.path.basename(self.bmh5_fn),LostBaseb_rates ) )
                 print('\n\n\t\tLost %f baseb: %s\nWrite to %s\n\n'%(LostBaseb_rate_max, self.bmh5_fn, lost_baseb_fn))
 
             print('write finish: %s'%(self.bmh5_fn))
@@ -3777,6 +3778,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     h5f.attrs['label_category'] = 0
                     the_label = Sorted_H5f.extract_label_from_name( pl_sph5_filename, datasource_name )
                     file_labels = np.reshape( the_label, (1,1,1) )
+                if datasource_name == 'KITTI':
+                    g_xyz_center, g_xyz_bottom, g_xyz_top = Sorted_H5f.ixyz_to_xyz( file_gbixyzs, global_attrs )
+                    import KITTI_util
+                    file_bounding_boxs, file_datas = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top, file_datas )
+                    pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
+
                 if file_labels.size > 0:
                     pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
@@ -4437,6 +4444,13 @@ class Normed_H5f():
         rootb_split_idxmap_set = self.h5f.create_dataset( 'rootb_split_idxmap',shape=(total_block_N, Normed_H5f.max_rootb_num,2),\
                 maxshape=(None, Normed_H5f.max_rootb_num, 2),dtype=np.int32,compression="gzip", chunks = (chunks_n,Normed_H5f.max_rootb_num,2,)  )
         rootb_split_idxmap_set.attrs['valid_num'] = 0
+
+        if self.h5f.attrs['datasource_name'] = 'KITTI':
+            import KITTI_util
+            max_bounding_box_num = KITTI_util.Max_bounding_box_num
+            bounding_box_channel = KITTI_util.Bounding_box_channel
+            labels_set = self.h5f.create_dataset( 'bounding_box',shape=(total_block_N,max_bounding_box_num,bounding_box_channel),\
+                    maxshape=(None,max_bounding_box_num,bounding_box_channel),dtype=np.int16,compression="gzip", chunks = (chunks_n,max_bounding_box_num,bounding_box_channel)  )
 
         # predicted label
         #pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,)+sample_num+(label_eles_num,),\
