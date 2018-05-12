@@ -1,10 +1,11 @@
 *.ropeproject
 *.swp
 *.pyc
-#*.so
+*.so
 *.pkl
 /data
 train_res
 log
 scannet
 /build
+utils_benz/build/

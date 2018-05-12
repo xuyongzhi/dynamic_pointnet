@@ -3771,8 +3771,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 file_gbixyzs = np.concatenate(file_gbixyzs,axis=0)
                 file_rootb_split_idxmaps = np.concatenate(file_rootb_split_idxmaps,axis=0)
 
-                pl_sph5f.append_to_dset('data',file_datas)
-                pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
+                #pl_sph5f.append_to_dset('data',file_datas)
+                #pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
 
                 if datasource_name == 'MODELNET40':
                     h5f.attrs['label_category'] = 0
@@ -3781,8 +3781,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if datasource_name == 'KITTI':
                     g_xyz_center, g_xyz_bottom, g_xyz_top = Sorted_H5f.ixyz_to_xyz( file_gbixyzs, global_attrs )
                     import KITTI_util
-                    file_bounding_boxs, file_datas = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top, file_datas )
+                    file_bounding_boxs, file_datas = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top, file_datas)
                     pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
+
+                pl_sph5f.append_to_dset('data',file_datas)
+                pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
 
                 if file_labels.size > 0:
                     pl_sph5f.append_to_dset('labels',file_labels,IsLabelWithRawCategory=False)
@@ -4445,7 +4448,7 @@ class Normed_H5f():
                 maxshape=(None, Normed_H5f.max_rootb_num, 2),dtype=np.int32,compression="gzip", chunks = (chunks_n,Normed_H5f.max_rootb_num,2,)  )
         rootb_split_idxmap_set.attrs['valid_num'] = 0
 
-        if self.h5f.attrs['datasource_name'] = 'KITTI':
+        if self.h5f.attrs['datasource_name'] == 'KITTI':
             import KITTI_util
             max_bounding_box_num = KITTI_util.Max_bounding_box_num
             bounding_box_channel = KITTI_util.Bounding_box_channel

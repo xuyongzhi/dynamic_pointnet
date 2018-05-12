@@ -27,9 +27,10 @@ DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40','KITTI']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
-DATASET = 'SCANNET'
+#DATASET = 'SCANNET'
 #DATASET = 'ETH'
 #DATASET = 'MODELNET40'
+DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -527,15 +528,17 @@ def main( ):
             base_step_stride = [0.2,0.2,0.2]
         elif DATASET == 'MODELNET40':
             base_step_stride = [0.05,0.05,0.05]
+        elif DATASET  == 'KITTI':
+            base_step_stride = [0.2, 0.2, 0.4]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
-        #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
+        h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        data_aug_configs['delete_unlabelled'] = True
+        #data_aug_configs['delete_unlabelled'] = True
         #data_aug_configs['delete_easy_categories_num'] = 3
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
