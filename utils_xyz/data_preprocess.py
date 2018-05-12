@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = False
+TMPDEBUG =  True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 DATASET = 'SCANNET'
-DATASET = 'ETH'
-DATASET = 'MODELNET40'
+#DATASET = 'ETH'
+#DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -51,7 +51,7 @@ def GenPyramidSortedFlie( fn, data_aug_configs ):
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
             Always_CreateNew_plh5 = False
-            Always_CreateNew_bxmh5 = False
+            Always_CreateNew_bxmh5 = True
 
         sorted_h5f.file_saveas_pyramid_feed(
                             IsShowSummaryFinished=True,
@@ -377,11 +377,11 @@ class H5Prepare():
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            choice = range(0,10000,1000)[0:min(10,len(file_list))]
-            file_list = [ file_list[c] for c in choice ]
-            #file_list = file_list[0:750]   # L
+            #choice = range(0,10000,1000)[0:min(10,len(file_list))]
+            #file_list = [ file_list[c] for c in choice ]
+            file_list = file_list[0:10]   # L
             #file_list = file_list[750:len(file_list)] # R
-            file_list = glob.glob( os.path.join( sh5f_dir, 'car_0001.sh5' ) )
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'car_0001.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -532,11 +532,11 @@ def main( ):
         #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        #data_aug_configs['delete_unlabelled'] = True
+        data_aug_configs['delete_unlabelled'] = True
         #data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        h5prep.MergeNormed( data_aug_configs )
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
