@@ -316,6 +316,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs['global_step'] = net_provider.gsbb_load.global_step
             configs['global_stride'] = net_provider.gsbb_load.global_stride
 
+            if DEBUG_TMP:
+                if FLAGS.dataset_name == 'SCANNET':
+                    configs['sg_bidxmaps_shape'] = (configs['sg_bidxmaps_shape'][0], 78)
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
@@ -617,6 +620,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         t_batch_ls.append( np.reshape(np.array([t1-t0, t2-t1, time.time() - t2]),(3,1)) )
         if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
+            if train_feed_buf_q != None:
+                log_string( 'buf size:%d'%(train_feed_buf_q.qsize()) )
             if is_complex_log(epoch, batch_idx, num_batches):
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT )
 

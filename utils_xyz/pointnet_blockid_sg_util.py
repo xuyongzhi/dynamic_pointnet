@@ -197,6 +197,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
                                             is_training = is_training,
                                             bn_decay = bn_decay,
                                             name = 'points_3dcnn_%d'%(i) )
+                # gpu_0/sa_layer1/3dconv_0/points_3dcnn_0:0
                 if configs['Cnn_keep_prob']<1:
                     if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
                         new_points = tf_util.dropout(new_points, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='3dcnn_dp%d'%(i))
@@ -289,6 +290,9 @@ def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom
 
     if configs['dataset_name'] == 'MODELNET40':
         IsTolerateBug = 2
+    else:
+        IsTolerateBug = 1
+
     if cascade_id==cascade_num-1:
         # only in this global cascde, the steps and strides in each dimension
         # can be different

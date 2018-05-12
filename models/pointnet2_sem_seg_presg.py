@@ -66,17 +66,9 @@ def get_voxel3dcnn_sa_config( model_flag ):
     voxel_channels = []
     voxel_kernels = []
     voxel_strides = []
-    if model_flag=='4Va':
-        voxel_channels.append( [32,32,64] )
-        voxel_channels.append( [64,64,128] )
-        voxel_channels.append( [128,128,256] )
-        voxel_channels.append( [256,256,512] )
-        for l in range(4):
-            mlp_pe.append([])
-            mlp_be.append([])
-
-    elif model_flag=='5Va':
-        voxel_channels.append( [32,32,64] )
+    if model_flag=='5Va':
+        mlp_pe.append( [32,32,64] )
+        voxel_channels.append( [] )
         voxel_channels.append( [64,64,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
@@ -86,9 +78,10 @@ def get_voxel3dcnn_sa_config( model_flag ):
             mlp_be.append([])
 
     elif model_flag=='5Vm':
-        voxel_channels.append( [32,32,64] )
-        voxel_channels.append( [64,64,128] )
-        voxel_channels.append( [128,128,256] )
+        mlp_pe.append( [32,32,48] )
+        voxel_channels.append( [] )
+        voxel_channels.append( [64,128,128] )
+        voxel_channels.append( [128,256,256] )
         voxel_channels.append( [256,256,512] )
         voxel_channels.append( [512,1024,512,256] )
         for l in range(5):
@@ -100,6 +93,9 @@ def get_voxel3dcnn_sa_config( model_flag ):
     mlp_configs['point_encoder'] = mlp_pe
     mlp_configs['block_learning'] = '3DCNN'
     mlp_configs['block_encoder'] = mlp_be
+
+    assert len(mlp_pe[0]) >0
+    assert len(voxel_channels[0])==0
     return mlp_configs
 
 def get_pointmax_sa_config(model_flag):
@@ -140,7 +136,7 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,512,512] )
     elif model_flag=='5m':
-        mlp_pe.append( [32,32,64,64] )
+        mlp_pe.append( [32,32,48] )
         mlp_pe.append( [64,128,128] )
         mlp_pe.append( [128,256,256] )
         mlp_pe.append( [256,256,512] )
