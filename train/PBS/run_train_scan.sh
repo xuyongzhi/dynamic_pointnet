@@ -7,6 +7,7 @@
 
 feed_data_elements='xyz_midnorm_block' 
 #feed_data_elements='xyz_midnorm_block-color_1norm' 
+feed_data_elements='xyz_midnorm_block-nxnynz' 
 
 
 num_gpus=1

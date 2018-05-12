@@ -4445,7 +4445,7 @@ class Normed_H5f():
                 maxshape=(None, Normed_H5f.max_rootb_num, 2),dtype=np.int32,compression="gzip", chunks = (chunks_n,Normed_H5f.max_rootb_num,2,)  )
         rootb_split_idxmap_set.attrs['valid_num'] = 0
 
-        if self.h5f.attrs['datasource_name'] = 'KITTI':
+        if self.h5f.attrs['datasource_name'] == 'KITTI':
             import KITTI_util
             max_bounding_box_num = KITTI_util.Max_bounding_box_num
             bounding_box_channel = KITTI_util.Bounding_box_channel

@@ -316,6 +316,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs['global_step'] = net_provider.gsbb_load.global_step
             configs['global_stride'] = net_provider.gsbb_load.global_stride
 
+            if DEBUG_TMP and FLAGS.dataset_name == 'MODELNET40':
+                configs['sg_bidxmaps_shape'] = (configs['sg_bidxmaps_shape'][0], 66)
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
