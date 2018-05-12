@@ -317,8 +317,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs['global_stride'] = net_provider.gsbb_load.global_stride
 
             if DEBUG_TMP:
-                if FLAGS.dataset_name == 'MODELNET40':
-                    configs['sg_bidxmaps_shape'] = (configs['sg_bidxmaps_shape'][0], 66)
                 if FLAGS.dataset_name == 'SCANNET':
                     configs['sg_bidxmaps_shape'] = (configs['sg_bidxmaps_shape'][0], 78)
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
@@ -915,7 +913,6 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
 def main():
     IsFeedData_MultiProcessing = FLAGS.multip_feed and (not FLAGS.auto_break)
 
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     if IsFeedData_MultiProcessing:
         feed_buf_qs = {}
         feed_buf_qs['train'] = mp.Queue()
