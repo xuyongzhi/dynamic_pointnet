@@ -37,6 +37,8 @@ parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate fo
 parser.add_argument('--normal', action='store_true', help='Whether to use normal information')
 FLAGS = parser.parse_args()
 
+FLAGS.normal = True
+
 EPOCH_CNT = 0
 
 BATCH_SIZE = FLAGS.batch_size
@@ -106,7 +108,11 @@ def get_bn_decay(batch):
 def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
-            pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT)
+            if FLAGS.normal:
+                in_channel = 6
+            else:
+                in_channel = 3
+            pointclouds_pl, labels_pl = MODEL.placeholder_inputs(BATCH_SIZE, NUM_POINT, in_channel)
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch parameter to minimize.

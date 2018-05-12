@@ -37,13 +37,21 @@ def sample_and_group(npoint, radius, nsample, xyz, points, knn=False, use_xyz=Tr
             (subtracted by seed point XYZ) in local regions
     '''
 
+    rawdata = xyz
+    xyz = xyz[...,0:3]
     new_xyz = gather_point(xyz, farthest_point_sample(npoint, xyz)) # (batch_size, npoint, 3)
     if knn:
         _,idx = knn_point(nsample, xyz, new_xyz)
     else:
         idx, pts_cnt = query_ball_point(radius, nsample, xyz, new_xyz)
-    grouped_xyz = group_point(xyz, idx) # (batch_size, npoint, nsample, 3)
-    grouped_xyz -= tf.tile(tf.expand_dims(new_xyz, 2), [1,1,nsample,1]) # translation normalization
+    grouped_xyz = group_point(rawdata, idx) # (batch_size, npoint, nsample, 3)
+
+    if rawdata.shape[-1].value != 3:
+        tmp = tf.zeros( new_xyz.shape )
+        new_xyz_ = tf.concat( [new_xyz,tmp], -1 )
+    else:
+        new_xyz_ = new_xyz
+    grouped_xyz -= tf.tile(tf.expand_dims(new_xyz_, 2), [1,1,nsample,1]) # translation normalization
     if points is not None:
         grouped_points = group_point(points, idx) # (batch_size, npoint, nsample, channel)
         if use_xyz:
@@ -72,7 +80,7 @@ def sample_and_group_all(xyz, points, use_xyz=True):
     nsample = xyz.get_shape()[1].value
     new_xyz = tf.constant(np.tile(np.array([0,0,0]).reshape((1,1,3)), (batch_size,1,1)),dtype=tf.float32) # (batch_size, 1, 3)
     idx = tf.constant(np.tile(np.array(range(nsample)).reshape((1,1,nsample)), (batch_size,1,1)))
-    grouped_xyz = tf.reshape(xyz, (batch_size, 1, nsample, 3)) # (batch_size, npoint=1, nsample, 3)
+    grouped_xyz = tf.reshape(xyz, (batch_size, 1, nsample, xyz.shape[-1])) # (batch_size, npoint=1, nsample, 3)
     if points is not None:
         if use_xyz:
             new_points = tf.concat([xyz, points], axis=2) # (batch_size, 16, 259)
@@ -119,7 +127,7 @@ def pointnet_sa_module(xyz, points, npoint, radius, nsample, mlp, mlp2, group_al
                                         padding='VALID', stride=[1,1],
                                         bn=bn, is_training=is_training,
                                         scope='conv%d'%(i), bn_decay=bn_decay,
-                                        data_format=data_format) 
+                                        data_format=data_format)
         if use_nchw: new_points = tf.transpose(new_points, [0,2,3,1])
 
         # Pooling in Local Regions
@@ -139,7 +147,7 @@ def pointnet_sa_module(xyz, points, npoint, radius, nsample, mlp, mlp2, group_al
             avg_points = tf.reduce_mean(new_points, axis=[2], keep_dims=True, name='avgpool')
             new_points = tf.concat([avg_points, max_points], axis=-1)
 
-        # [Optional] Further Processing 
+        # [Optional] Further Processing
         if mlp2 is not None:
             if use_nchw: new_points = tf.transpose(new_points, [0,3,1,2])
             for i, num_out_channel in enumerate(mlp2):
@@ -147,7 +155,7 @@ def pointnet_sa_module(xyz, points, npoint, radius, nsample, mlp, mlp2, group_al
                                             padding='VALID', stride=[1,1],
                                             bn=bn, is_training=is_training,
                                             scope='conv_post_%d'%(i), bn_decay=bn_decay,
-                                            data_format=data_format) 
+                                            data_format=data_format)
             if use_nchw: new_points = tf.transpose(new_points, [0,2,3,1])
 
         new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlp2[-1])
@@ -195,15 +203,15 @@ def pointnet_sa_module_msg(xyz, points, npoint, radius_list, nsample_list, mlp_l
         new_points_concat = tf.concat(new_points_list, axis=-1)
         return new_xyz, new_points_concat
 
- 
+
 def pointnet_fp_module(xyz1, xyz2, points1, points2, mlp, is_training, bn_decay, scope, bn=True):
     ''' PointNet Feature Propogation (FP) Module
-        Input:                                                                                                      
-            xyz1: (batch_size, ndataset1, 3) TF tensor                                                              
-            xyz2: (batch_size, ndataset2, 3) TF tensor, sparser than xyz1                                           
-            points1: (batch_size, ndataset1, nchannel1) TF tensor                                                   
+        Input:
+            xyz1: (batch_size, ndataset1, 3) TF tensor
+            xyz2: (batch_size, ndataset2, 3) TF tensor, sparser than xyz1
+            points1: (batch_size, ndataset1, nchannel1) TF tensor
             points2: (batch_size, ndataset2, nchannel2) TF tensor
-            mlp: list of int32 -- output size for MLP on each point                                                 
+            mlp: list of int32 -- output size for MLP on each point
         Return:
             new_points: (batch_size, ndataset1, mlp[-1]) TF tensor
     '''
