@@ -5,6 +5,6 @@
 *.pkl
 /data
 train_res
-log
+log*
 scannet
 /build
