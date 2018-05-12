@@ -622,6 +622,8 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         t_batch_ls.append( np.reshape(np.array([t1-t0, t2-t1, time.time() - t2]),(3,1)) )
         if  batch_idx == num_batches-1 or  (epoch == 0 and batch_idx % 20 ==0) or (batch_idx%20==0):
             train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,all_accuracy = all_accuracy)
+            if train_feed_buf_q != None:
+                log_string( 'buf size:%d'%(train_feed_buf_q.qsize()) )
             if is_complex_log(epoch, batch_idx, num_batches):
                 train_logstr = add_log('train',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT )
 
@@ -913,6 +915,7 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
 def main():
     IsFeedData_MultiProcessing = FLAGS.multip_feed and (not FLAGS.auto_break)
 
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     if IsFeedData_MultiProcessing:
         feed_buf_qs = {}
         feed_buf_qs['train'] = mp.Queue()

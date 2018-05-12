@@ -5021,7 +5021,9 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:
-                    merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
+                    if DEBUGTMP:
+                        merged_normed_h5f.append_to_dset(ele, in_h5f[ele][...,0:merged_normed_h5f.h5f[ele].shape[-1]] )
+                    #merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         # average metrics
         if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:
             merged_normed_h5f.h5f.attrs['xyz_scope_aligned_ave'] = merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] / len(in_filename_ls)
