@@ -10,7 +10,7 @@ train_script=../train_semseg_sorted_multi_gpus.py
 dataset_name=MODELNET40
 maxepoch=51
 learning_rate=0.001
-decay_epoch_step=40
+decay_epoch_step=50
 feed_label_elements="label_category"
 
 multip_feed=1
