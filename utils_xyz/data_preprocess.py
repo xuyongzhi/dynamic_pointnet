@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG =  False
+TMPDEBUG =  True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -51,7 +51,7 @@ def GenPyramidSortedFlie( fn, data_aug_configs ):
         Always_CreateNew_bxmh5 = False
         if TMPDEBUG:
             Always_CreateNew_bmh5 = False
-            Always_CreateNew_plh5 = True
+            Always_CreateNew_plh5 = False
             Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(
@@ -389,7 +389,7 @@ class H5Prepare():
         if TMPDEBUG:
             #choice = range(0,10000,1000)[0:min(10,len(file_list))]
             #file_list = [ file_list[c] for c in choice ]
-            file_list = file_list[0:10]   # L
+            file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
             #file_list = glob.glob( os.path.join( sh5f_dir, 'car_0001.sh5' ) )
 
@@ -557,7 +557,6 @@ def main( ):
 
         # h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         h5prep.MergeNormed( data_aug_configs )
-        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

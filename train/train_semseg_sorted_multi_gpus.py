@@ -47,10 +47,10 @@ parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs2_2_fmn
 
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
-parser.add_argument('--group_pos',default='bc',help='mean or bc(block center)')
+parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')

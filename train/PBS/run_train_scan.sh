@@ -7,14 +7,14 @@
 
 feed_data_elements='xyz_midnorm_block' 
 #feed_data_elements='xyz_midnorm_block-color_1norm' 
-feed_data_elements='xyz_midnorm_block-nxnynz' 
+#feed_data_elements='xyz_midnorm_block-nxnynz' 
 
 
 num_gpus=1
 in_cnn_out_kp='NN5'
-loss_weight='N'
+loss_weight='E'
 ShuffleFlag='Y'
-aug=1
+aug=0
 bs=9
 
 

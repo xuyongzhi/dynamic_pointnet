@@ -98,8 +98,13 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         # On GPU, the responding grouped_xyz and grouped_points is 0.
         # NOT WORK on CPU !!!
 
+        # invalid indices comes from merge_blocks_while_fix_bmap
+        # set point_indices_f for invalid points as
+        # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
+        valid_mask = tf.greater( bidmap, tf.constant(-500,tf.int32), 'valid_mask' ) # gpu_0/sa_layer0/valid_mask:0
+
         grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
-        grouped_points = tf.gather_nd(points,bidmap_concat)
+        grouped_points = tf.gather_nd(points,bidmap_concat, name='group_points')
 
         # new_xyz is the "voxel center" or "mean position of points in the voxel"
         if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
@@ -144,6 +149,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
                 if IsShowModel:
                     print('point encoder1 %d, new_points:%s'%(i, shape_str([new_points])))
 
+
         if cascade_id == 0:
             root_point_features = new_points
             if len(input_drop_mask.get_shape()) != 0:
@@ -155,25 +161,30 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         pooling = mlp_configs['block_learning']
         if pooling == '3DCNN' and ( cascade_id == 0):
             pooling = 'max'
-        if pooling=='avg':
-            new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
-        elif pooling=='weighted_avg':
-            with tf.variable_scope('weighted_avg1'):
-                dists = tf.norm(grouped_xyz,axis=-1,ord=2,keep_dims=True)
-                exp_dists = tf.exp(-dists * 5)
-                weights = exp_dists/tf.reduce_sum(exp_dists,axis=2,keep_dims=True) # (batch_size, npoint, nsample, 1)
-                new_points *= weights # (batch_size, npoint, nsample, mlps_0[-1])
-                new_points = tf.reduce_sum(new_points, axis=2, keep_dims=True)
-        elif pooling=='max':
-            new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True)
-        elif pooling=='min':
-            new_points = tf_util.max_pool2d(-1*new_points, [1,nsample], stride=[1,1], padding='VALID', scope='minpool1')
-        elif pooling=='max_and_avg':
-            avg_points = tf_util.max_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='maxpool1')
-            max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
-            new_points = tf.concat([avg_points, max_points], axis=-1)
+
+        #if pooling=='avg':
+        #    new_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
+        #elif pooling=='weighted_avg':
+        #    with tf.variable_scope('weighted_avg1'):
+        #        dists = tf.norm(grouped_xyz,axis=-1,ord=2,keep_dims=True)
+        #        exp_dists = tf.exp(-dists * 5)
+        #        weights = exp_dists/tf.reduce_sum(exp_dists,axis=2,keep_dims=True) # (batch_size, npoint, nsample, 1)
+        #        new_points *= weights # (batch_size, npoint, nsample, mlps_0[-1])
+        #        new_points = tf.reduce_sum(new_points, axis=2, keep_dims=True)
+        if pooling=='max':
+            # Even the grouped_points and grouped_xyz are 0 for invalid points, the
+            # vaule after mlp will not be. It has to be set as 0 forcely before
+            # pooling.
+            new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
+            new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True, name='points_after_max')
+        #elif pooling=='min':
+        #    new_points = tf_util.max_pool2d(-1*new_points, [1,nsample], stride=[1,1], padding='VALID', scope='minpool1')
+        #elif pooling=='max_and_avg':
+        #    avg_points = tf_util.max_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='maxpool1')
+        #    max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
+        #    new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            new_points = grouped_points_to_voxel_points( cascade_id, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
+            new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
             mlps_3dcnn = [ 128, 256, 256]
@@ -234,7 +245,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         # (2, 512, 64)
         return new_xyz, new_points, root_point_features
 
-def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
+def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
     IsShowVoxelModel = True
     cascade_num = configs['sub_block_step_candis'].size+1
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
@@ -262,8 +273,8 @@ def grouped_points_to_voxel_points (cascade_id, new_points, bidmap, block_bottom
     # invalid indices comes from merge_blocks_while_fix_bmap
     # set point_indices_f for invalid points as
     # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
-    invalid_mask = tf.less( bidmap, tf.constant(-500,tf.int32) )
-    invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='valid_mask')  # gpu_0/sa_layer1/valid_mask:0
+    invalid_mask = tf.equal( valid_mask, False )
+    invalid_mask = tf.tile( invalid_mask, [1,1,1,3], name='invalid_mask')  # gpu_0/sa_layer1/valid_mask:0
     point_indices_f = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant( -9999,dtype=tf.float32), point_indices_f )
     point_indices = tf.rint( point_indices_f,'point_indices' )  # gpu_0/sa_layer3/point_indices:0
     point_indices_checkmin = tf.where( invalid_mask, tf.ones(shape=point_indices_f.shape,dtype=tf.float32)*tf.constant(999,dtype=tf.float32), point_indices, name='point_indices_checkmin' )

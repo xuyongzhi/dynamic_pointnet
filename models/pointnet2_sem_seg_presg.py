@@ -136,11 +136,16 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,512,512] )
     elif model_flag=='5m':
-        mlp_pe.append( [32,32,48] )
+        mlp_pe.append( [32,32,64] )
         mlp_pe.append( [64,128,128] )
         mlp_pe.append( [128,256,256] )
         mlp_pe.append( [256,256,512] )
-        mlp_pe.append( [512,1024,512,256] )
+        mlp_pe.append( [512,512,1024] )
+
+    elif model_flag=='3m':
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
+        mlp_pe.append( [256,512,1024] )
 
     elif model_flag=='1DSa' or model_flag=='1DSaG':
         dense_config = {}
@@ -356,12 +361,19 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
     # FC layers
-    net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    if configs['dataset_name'] == 'MODELNET40':
+        net = tf_util.conv1d( l_points[0], 512, 1, padding='VALID', bn=True, is_training=is_training, scope='fc0', bn_decay=bn_decay)
+        if configs['Out_keep_prob']<1:
+            net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout0', name='out_dp')
+        if IsShowModel: print('net:%s'%(shape_str([net])))
+        net = tf_util.conv1d( net, 256, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    else:
+        net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
     if configs['Out_keep_prob']<1:
         net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
-    if IsShowModel: print('net:%s'%(shape_str([net])))
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
     if IsShowModel:
         print('net:%s'%(shape_str([net])))
