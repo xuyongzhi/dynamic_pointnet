@@ -71,7 +71,7 @@ class Net_Provider():
         self.g_file_N = train_file_N + eval_file_N
         self.sph5_file_list =  sph5_file_list = train_file_list + eval_file_list
         self.bxmh5_fn_ls = train_bxmh5_fls + eval_bxmh5_fls
-        if len(sph5_file_list) > 6:
+        if len(sph5_file_list) > 10:
             print('WARING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(sph5_file_list)))
         #-----------------------------------------------------------------------
         # open each file as a Normed_H5f class instance

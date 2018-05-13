@@ -34,7 +34,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='5m_114', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='5m', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI,MODELNET40')
 
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
@@ -47,11 +47,11 @@ parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs2_2_fmn
 
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='bc',help='mean or bc(block center)')
-parser.add_argument('--normxyz_allcas',default='none',help='none, mid: mid norm xyz in all cascades')
+parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
