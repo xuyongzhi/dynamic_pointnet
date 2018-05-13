@@ -3,14 +3,13 @@
 import numpy as np
 import os
 import sys
-from utils_voxelnet import label_to_gt_box3d
 
-ROOT_DIR =  os.path_dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT_DIR =  os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils_benz'))
 sys.path.append(os.path.join(ROOT_DIR,'config'))
 
-
+from utils_voxelnet import label_to_gt_box3d
 
 Max_bounding_box_num = 60
 Bounding_box_channel = 7
@@ -35,7 +34,6 @@ def extract_bounding_box(pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top
     assert os.path.exists(label_file_path)
     label_data = reading_label_data(label_file_path)  ## reading all the label_data
     num_label = label_data.shape[0]
-    import pudb; pudb.set_trace()  # XXX BREAKPOINT
 
     num_blocks = file_datas.shape[0]
     #num_points = file_datas.shape[1]
@@ -63,8 +61,8 @@ def extract_bounding_box(pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top
 
         if counter_num_label > 0:
             temp_bounding_boxes[0,0,0] = counter_num_label
-            new_file_data = np.append(new_file_data, file_datas[block_id,...], axis=0)
-            file_bounding_boxes = np.append(file_bounding_boxes, temp_bounding_boxes)
+            new_file_data = np.append(new_file_data,np.expand_dims(file_datas[block_id,...], axis=0), axis=0)
+            file_bounding_boxes = np.append(file_bounding_boxes, temp_bounding_boxes, axis=0)
 
     return file_bounding_boxes, new_file_data
 
@@ -72,7 +70,7 @@ def extract_bounding_box(pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top
 
 def reading_label_data(label_file_path):
 
-    label = [np.array([line for line in open( label_file_path, 'r')readlines()])]  # (N')].i
-    label_data_i = label_to_gt_box3d(bounding_box, cls='Car', coordinate = 'lidar')
+    label = [np.array([line for line in open( label_file_path, 'r').readlines()])]  # (N')].i
+    label_data_i = label_to_gt_box3d( label, cls='Car', coordinate = 'lidar')
 
     return label_data_i[0]
