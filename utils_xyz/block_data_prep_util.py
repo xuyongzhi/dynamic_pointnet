@@ -2341,14 +2341,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         '''
         global_step: global_stride: When gsbb_config_dic['global_step'] <0, the global step and stride is set as whole scene. But the limit is -global_step.
         '''
-        if h5fattrs['block_step'][0]  < 0:
-            assert h5fattrs['block_step'][1]  < 0 and h5fattrs['block_step'][2]  < 0
+        if (h5fattrs['block_step']  < 0).any():
+            datasource_name = h5fattrs['datasource_name']
+            IsTryUseOnlyTwoBlocks = datasource_name == 'SCANNET' or datasource_name == 'MATTERPORT'
+
             real_xy_area = h5fattrs['xyz_scope_aligned'][0]  *  h5fattrs['xyz_scope_aligned'][1]
-            config_xy_area = h5fattrs['block_step'][0] * h5fattrs['block_step'][1]
-            if real_xy_area < config_xy_area:
+            config_xy_area = np.abs(h5fattrs['block_step'][0]) * np.abs(h5fattrs['block_step'][1])
+            if (not IsTryUseOnlyTwoBlocks) or real_xy_area < config_xy_area:
                 for i in range(3):
-                    h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
-                    h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
+                    if h5fattrs['block_step'][i]  < 0:
+                        h5fattrs['block_step'][i] = h5fattrs['xyz_scope_aligned'][i]
+                    if h5fattrs['block_stride'][i]  < 0:
+                        h5fattrs['block_stride'][i] = h5fattrs['xyz_scope_aligned'][i]
             else:
                 # Try to use two blocks for whole scene. This can avoid small
                 # global blocks. But the draback is leading to unalignment
@@ -2357,16 +2361,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 gsbb_config_dic = get_gsbb_config()
                 last_gsbb_stride = gsbb_config_dic['sub_block_stride_candis'][-1]
                 for i in range(3):
-                    h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
-                    tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
-                    tmp_fixed = math.ceil(tmp/last_gsbb_stride)*last_gsbb_stride
-                    if IsUseTwoGlobalBlocks and tmp_fixed <=  h5fattrs['block_step'][i] and tmp_fixed > 0:
-                        # (1) use two blocks can totally include whole scene
-                        # (2) block_stride has to be integral multiple of gsbb_config['sub_block_stride_candis'][-1]
-                        h5fattrs['block_stride'][i] =  max( tmp_fixed,0 )
-                    else:
-                        # when two blocks is not enough, use the fixed stride value
-                        h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
+                    if h5fattrs['block_step'][i]  < 0:
+                        h5fattrs['block_step'][i] = -h5fattrs['block_step'][i]
+                    if h5fattrs['block_stride'][i]  < 0:
+                        tmp = h5fattrs['xyz_scope_aligned'][i] - h5fattrs['block_step'][i]
+                        tmp_fixed = math.ceil(tmp/last_gsbb_stride)*last_gsbb_stride
+                        if IsUseTwoGlobalBlocks and tmp_fixed <=  h5fattrs['block_step'][i] and tmp_fixed > 0:
+                            # (1) use two blocks can totally include whole scene
+                            # (2) block_stride has to be integral multiple of gsbb_config['sub_block_stride_candis'][-1]
+                            h5fattrs['block_stride'][i] =  max( tmp_fixed,0 )
+                        else:
+                            # when two blocks is not enough, use the fixed stride value
+                            h5fattrs['block_stride'][i] = -h5fattrs['block_stride'][i]
+            #print( 'block_step: %s'%( h5fattrs['block_step'] ) )
+            #print( 'block_stride: %s'%( h5fattrs['block_stride'] ) )
 
     @staticmethod
     def update_align_scope_by_stridetoalign_(h5fattrs):
