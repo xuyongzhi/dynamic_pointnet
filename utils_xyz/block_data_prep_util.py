@@ -3792,7 +3792,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if datasource_name == 'KITTI':
                     g_xyz_center, g_xyz_bottom, g_xyz_top = Sorted_H5f.ixyz_to_xyz( file_gbixyzs, global_attrs )
                     import KITTI_util
-                    file_bounding_boxs, file_datas = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top, file_datas)
+                    file_bounding_boxs, file_datas, file_gbixyzs, file_rootb_split_idxmaps = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top,\
+                                                                                     file_datas, file_gbixyzs, file_rootb_split_idxmaps)
                     pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
 
                 pl_sph5f.append_to_dset('data',file_datas)
