@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG =  True
+TMPDEBUG =  False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -31,7 +31,7 @@ for ds in DATASETS:
 #DATASET = 'ETH'
 #DATASET = 'MODELNET40'
 DATASET = 'KITTI'
-DATASET = 'MODELNET40'
+#DATASET = 'MODELNET40'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -535,15 +535,15 @@ def main( ):
             base_step_stride = [0.2, 0.2, 0.4]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
-        h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
+        #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
         #data_aug_configs['delete_unlabelled'] = True
         #data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )
-        h5prep.MergeNormed( data_aug_configs )
+        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

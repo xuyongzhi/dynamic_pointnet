@@ -2328,6 +2328,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
+        self.datasource_name = self.h5f.attrs['datasource_name']   ## benz_m, the bug is self.datasource_name is not defined.
         if self.datasource_name == 'MODELNET40':
             stride_to_align = 0.01
         self.h5f.attrs['block_step'] = block_step
