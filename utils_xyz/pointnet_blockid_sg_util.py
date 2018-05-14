@@ -176,6 +176,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
             # vaule after mlp will not be. It has to be set as 0 forcely before
             # pooling.
             new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
+            #new_points = tf.identity( new_points, 'points_before_max' )             # gpu_0/sa_layer0/points_before_max
             new_points = tf.reduce_max(new_points, axis=[2], keep_dims=True, name='points_after_max')
         #elif pooling=='min':
         #    new_points = tf_util.max_pool2d(-1*new_points, [1,nsample], stride=[1,1], padding='VALID', scope='minpool1')
