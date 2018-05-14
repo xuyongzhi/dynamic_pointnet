@@ -12,7 +12,11 @@ NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative n
 #-------------------------------------------------------------------------------
 # gsbb config
 _gsbb_config = '4B1'
+<<<<<<< HEAD
 _gsbb_config = '2M2'
+=======
+_gsbb_config = '3D1_benz'
+>>>>>>> 5294e84f8409895182e2793653450aba5ffe0104
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):

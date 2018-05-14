@@ -29,8 +29,8 @@ for ds in DATASETS:
 
 #DATASET = 'SCANNET'
 #DATASET = 'ETH'
-DATASET = 'MODELNET40'
-#DATASET = 'KITTI'
+#DATASET = 'MODELNET40'
+DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -85,6 +85,10 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     elif DATASET == 'MODELNET40':
         train_basefn_ls = list(np.loadtxt('./MODELNET_util/modelnet40_train.txt','string'))
         test_basefn_ls = list(np.loadtxt('./MODELNET_util/modelnet40_test.txt','string'))
+    elif DATASET == 'KITTI':
+        train_basefn_ls = list(np.loadtxt('./KITTI_util/train.txt','string'))
+        test_basefn_ls = list(np.loadtxt('./KITTI_util/test.txt','string'))
+
 
     train_bxmh5_ls = [ os.path.join(bxmh5_folder, fn+'.bxmh5')  for fn in train_basefn_ls]
     train_sph5_ls = [ os.path.join(plsph5_folder, fn+'.sph5')  for fn in train_basefn_ls]
@@ -105,6 +109,9 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     test_num = {}
     test_num['SCANNET'] = 312
     test_num['MODELNET40'] = 2468
+    train_num['KITTI'] = 45
+    test_num['KITTI'] = 45
+
 
     if void_f_n==0:
         assert len(train_bxmh5_ls) ==  train_num[DATASET]
@@ -125,6 +132,7 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     group_ns = {}
     group_ns['SCANNET'] = 105
     group_ns['MODELNET40'] = 830
+    group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
     for k in range( 0, len(test_bxmh5_ls), group_n ):
         end  = min( k+group_n, len(test_bxmh5_ls) )
@@ -139,6 +147,7 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     group_ns = {}
     group_ns['SCANNET'] = 301
     group_ns['MODELNET40'] = 2000
+    group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
     for k in range( 0, len(train_bxmh5_ls), group_n ):
         end  = min( k+group_n, len(train_bxmh5_ls) )
@@ -417,6 +426,10 @@ class H5Prepare():
             plsph5_folder = 'ORG_sph5/10000_gs2_2'
             bxmh5_folder = 'ORG_bxmh5/10000_gs2_2_fmn1444-2048_960_64_12-24_32_48_24-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-4M1'
 
+        if DATASET == 'KITTI':
+            plsph5_folder = 'BasicData/ORG_sph5/4000_gs5_10'
+            bxmh5_folder = 'BasicData/ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-3D1_benz'
+
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
         pl_base_fn_ls = []
@@ -446,13 +459,14 @@ class H5Prepare():
                 if IsOnlyIntact: continue
                 print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
                 assert False
-            with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                    print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
-                    assert False
-                else:
-                    #print('shape match check ok: %s'%(region_name))
-                    pass
+            if not DATASET == 'KITTI':    ## benz_m, in my case, there is no bidxmaps_flat
+                with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                        print('Abort merging %s \n  data shape (%d) != bidxmaps_flat shape (%d): %s'%( pl_region_h5f_path, plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], pl_fn) )
+                        assert False
+                    else:
+                        #print('shape match check ok: %s'%(region_name))
+                        pass
             nonvoid_plfn_ls.append( pl_fn )
             bxmh5_fn_ls.append( bxmh5_fn )
         if len( nonvoid_plfn_ls )  == 0:
@@ -472,12 +486,13 @@ class H5Prepare():
                     os.makedirs(merged_path)
                 MergeNormed_H5f( allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
             # check after merged
-            with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
-                if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
-                    print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_file_names[0],merged_file_names[1]) )
-                else:
-                    print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
-                    pass
+            if not DATASET == 'KITTI':    ## benz_m, in my case, there is no bidxmaps_flat
+                with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
+                    if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
+                        print('! ! ! shape check failed:  data shape (%d) != bidxmaps_flat shape (%d): \n\t%s \n\t%s'%( plh5f['data'].shape[0], bxmh5f['bidxmaps_flat'].shape[0], merged_file_names[0],merged_file_names[1]) )
+                    else:
+                        print( 'After merging, shape match check ok: %s'%(os.path.basename( merged_file_names[0] )) )
+                        pass
 
 def GenObj_rh5():
     xyz_cut_rate= [0,0,0.9]
@@ -534,11 +549,11 @@ def main( ):
             base_step_stride = [0.2, 0.2, 0.4]
         #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
         RxyzBeforeSort = None
-        #h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
+        # h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
         data_aug_configs = {}
-        #data_aug_configs['delete_unlabelled'] = True
-        #data_aug_configs['delete_easy_categories_num'] = 3
+        # data_aug_configs['delete_unlabelled'] = True
+        # data_aug_configs['delete_easy_categories_num'] = 3
 
         h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
         #h5prep.MergeNormed( data_aug_configs )

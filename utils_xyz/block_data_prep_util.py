@@ -744,11 +744,13 @@ class GlobalSubBaseBLOCK():
                               [0]: There is no aim block containing this base block because of fixing aim block groupings. The only way is by searching from around aim blocks.
         '''
         IsRecordTime = False
+
         if cascade_id<self.cascade_num:
             cur_flatbxmap_max_nearest_num = self.flatbxmap_max_nearest_num[cascade_id]
+            IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
         else:
             cur_flatbxmap_max_nearest_num = 1
-        IsGenFlatbxmap = cur_flatbxmap_max_nearest_num > 0
+            IsGenFlatbxmap = self.flatbxmap_max_nearest_num[cascade_id-1] > 0
         if IsRecordTime: t0 = time.time()
         if cascade_id==0:
             rootb_split_idxmap = valid_sorted_basebids
@@ -3790,7 +3792,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if datasource_name == 'KITTI':
                     g_xyz_center, g_xyz_bottom, g_xyz_top = Sorted_H5f.ixyz_to_xyz( file_gbixyzs, global_attrs )
                     import KITTI_util
-                    file_bounding_boxs, file_datas = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top, file_datas)
+                    file_bounding_boxs, file_datas, file_gbixyzs, file_rootb_split_idxmaps = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top,\
+                                                                                     file_datas, file_gbixyzs, file_rootb_split_idxmaps)
                     pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
 
                 pl_sph5f.append_to_dset('data',file_datas)
@@ -4461,8 +4464,9 @@ class Normed_H5f():
             import KITTI_util
             max_bounding_box_num = KITTI_util.Max_bounding_box_num
             bounding_box_channel = KITTI_util.Bounding_box_channel
-            labels_set = self.h5f.create_dataset( 'bounding_box',shape=(total_block_N,max_bounding_box_num,bounding_box_channel),\
+            boundingbox_set = self.h5f.create_dataset( 'bounding_box',shape=(total_block_N,max_bounding_box_num,bounding_box_channel),\
                     maxshape=(None,max_bounding_box_num,bounding_box_channel),dtype=np.int16,compression="gzip", chunks = (chunks_n,max_bounding_box_num,bounding_box_channel)  )
+            boundingbox_set.attrs['valid_num'] = 0
 
         # predicted label
         #pred_logits_set = self.h5f.create_dataset( 'pred_logits',shape=(total_block_N,)+sample_num+(label_eles_num,),\
