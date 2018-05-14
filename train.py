@@ -38,7 +38,7 @@ parser.add_argument('--normal', action='store_true', help='Whether to use normal
 parser.add_argument('--aug', action='store_false', help='Whether to aug data')
 FLAGS = parser.parse_args()
 
-#FLAGS.aug = False
+FLAGS.aug = False
 #FLAGS.normal = True
 
 EPOCH_CNT = 0
