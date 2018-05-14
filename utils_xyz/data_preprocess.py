@@ -29,8 +29,8 @@ for ds in DATASETS:
 
 #DATASET = 'SCANNET'
 #DATASET = 'ETH'
-#DATASET = 'MODELNET40'
-DATASET = 'KITTI'
+DATASET = 'MODELNET40'
+#DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -389,9 +389,9 @@ class H5Prepare():
         if TMPDEBUG:
             #choice = range(0,10000,1000)[0:min(10,len(file_list))]
             #file_list = [ file_list[c] for c in choice ]
-            file_list = file_list[0:2]   # L
+            #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
-            #file_list = glob.glob( os.path.join( sh5f_dir, 'car_0001.sh5' ) )
+            file_list = glob.glob( os.path.join( sh5f_dir, 'bed_0337.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:

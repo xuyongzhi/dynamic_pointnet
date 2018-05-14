@@ -11,8 +11,8 @@ NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -7777777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '4B1'
-_gsbb_config = '3D1_benz'
+_gsbb_config = '2M1'
+#_gsbb_config = '3D1_benz'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -108,8 +108,10 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([24, 32,  48,  24]).astype(np.int32)
 
     elif gsbb_config == '4M2':
-        global_stride = np.array([2,2,2]).astype(np.float)
-        global_step = np.array([2.3,2.3,2.3]).astype(np.float)
+        NETCONFIG['merge_blocks_while_fix_bmap'] = False
+        NETCONFIG['redundant_points_in_block'] = 'replicate'
+        global_stride = np.array([3,3,3]).astype(np.float)
+        global_step = np.array([3,3,3]).astype(np.float)
         global_num_point = 10000
         flatbxmap_max_nearest_num = [1,4,4,4]
 
@@ -118,38 +120,31 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([2560, 1024, 80, 16]).astype(np.int32)
         npoint_subblock_candis = np.array([24, 32,  48,  32]).astype(np.int32)
 
-    elif gsbb_config == '2M':
-        global_stride = np.array([2,2,2]).astype(np.float)
-        global_step = np.array([2.3,2.3,2.3]).astype(np.float)
-        global_num_point = 1024
-        flatbxmap_max_nearest_num = [1,4,4,4]
-
-        sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
-        sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
-        nsubblock_candis =       np.array([640, 160]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 32]).astype(np.int32)
-
     elif gsbb_config == '2M1':
-        global_stride = np.array([2,2,2]).astype(np.float)
-        global_step = np.array([2.3,2.3,2.3]).astype(np.float)
+        NETCONFIG['merge_blocks_while_fix_bmap'] = False
+        NETCONFIG['redundant_points_in_block'] = 'replicate'
+        global_stride = np.array([3,3,3]).astype(np.float)
+        global_step = np.array([3,3,3]).astype(np.float)
         global_num_point = 1024
         flatbxmap_max_nearest_num = [1,4,4,4]
 
         sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
         sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
         nsubblock_candis =       np.array([1024, 320]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 32]).astype(np.int32)
+        npoint_subblock_candis = np.array([24, 32]).astype(np.int32)
 
     elif gsbb_config == '2M2':
-        global_stride = np.array([2,2,2]).astype(np.float)
-        global_step = np.array([2.3,2.3,2.3]).astype(np.float)
+        NETCONFIG['merge_blocks_while_fix_bmap'] = False
+        NETCONFIG['redundant_points_in_block'] = 'replicate'
+        global_stride = np.array([3,3,3]).astype(np.float)
+        global_step = np.array([3,3,3]).astype(np.float)
         global_num_point = 4096
         flatbxmap_max_nearest_num = [1,4,4,4]
 
         sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
         sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
         nsubblock_candis =       np.array([1024, 320]).astype(np.int32)
-        npoint_subblock_candis = np.array([32, 32]).astype(np.int32)
+        npoint_subblock_candis = np.array([48, 32]).astype(np.int32)
 
 
     else:

@@ -526,7 +526,9 @@ class Net_Provider():
 
             assert data_i.ndim == label_i.ndim
             if self.dataset_name == 'MODELNET40':
-                assert  (data_i.shape[0] == label_i.shape[0])
+                if not  (data_i.shape[0] == label_i.shape[0]):
+                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                    pass
                 assert label_i.shape[-2] == 1
             else:
                 assert (data_i.shape[0:-1] == label_i.shape[0:-1])
@@ -880,6 +882,18 @@ def main_NormedH5f():
     print(cur_label[0,0:3,:])
     print(cur_smp_weights[0,0:3,:])
 
+def CheckModelNet():
+    sph5_folder = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_sph5/1024_gs2_2d3'
+    fn_ls = glob.glob( sph5_folder+'/*.sph5' )
+    for fn in fn_ls:
+        with h5py.File( fn, 'r' ) as h5f:
+            if h5f['data'].shape[0] != h5f['labels'].shape[0]:
+                print(fn)
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                pass
+
+
 if __name__=='__main__':
-    main_NormedH5f()
+    #main_NormedH5f()
     #check_bxmap_pl_shape_match()
+    CheckModelNet()

@@ -3553,39 +3553,39 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def down_sample_bsplit_idxmap( raw_bsplit_idxmap, del_choice, sample_num ):
-            bsplit_idxmap = np.copy(raw_bsplit_idxmap)
-            if bsplit_idxmap[-1,0] == -1:
-                for valid_n in range(bsplit_idxmap.shape[0]):
-                    if bsplit_idxmap[valid_n,0] == -1:
-                        bsplit_idxmap = bsplit_idxmap[0:valid_n,:]
-                        break
+        bsplit_idxmap = np.copy(raw_bsplit_idxmap)
+        if bsplit_idxmap[-1,0] == -1:
+            for valid_n in range(bsplit_idxmap.shape[0]):
+                if bsplit_idxmap[valid_n,0] == -1:
+                    bsplit_idxmap = bsplit_idxmap[0:valid_n,:]
+                    break
 
-            del_num_eachb = np.zeros( shape=(bsplit_idxmap.shape[0]) )
-            del_bidx = 0
-            for del_point_idx in del_choice:
-                while del_point_idx >= bsplit_idxmap[del_bidx,1]:
-                    del_bidx += 1
-                del_num_eachb[del_bidx] += 1
-            sum_del_point_num = 0
-            for bidx in range( bsplit_idxmap.shape[0] ):
-                sum_del_point_num += del_num_eachb[bidx]
-                bsplit_idxmap[bidx,1] -= sum_del_point_num
-            # check if points in some blocks are all delted
-            empty_bidxs = []
-            last_point_idx = 0
-            for bidx in range( bsplit_idxmap.shape[0] ):
-                if bsplit_idxmap[bidx][1] == last_point_idx:
-                    empty_bidxs.append( bidx )
-                last_point_idx = bsplit_idxmap[bidx][1]
-            empty_bidxs = np.array( empty_bidxs )
-            bsplit_idxmap = np.delete( bsplit_idxmap, empty_bidxs, 0 )
-            if not bsplit_idxmap[-1,1] == sample_num:
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                assert False, '%d != %d'%(bsplit_idxmap[-1,1], sample_num)
-            missed_rootb_num = empty_bidxs.size
-            if raw_bsplit_idxmap.shape[0] == Normed_H5f.max_rootb_num:
-                bsplit_idxmap = Sorted_H5f.fix_rootb_split_idxmap( bsplit_idxmap )
-            return bsplit_idxmap, missed_rootb_num
+        del_num_eachb = np.zeros( shape=(bsplit_idxmap.shape[0]) )
+        del_bidx = 0
+        for del_point_idx in del_choice:
+            while del_point_idx >= bsplit_idxmap[del_bidx,1]:
+                del_bidx += 1
+            del_num_eachb[del_bidx] += 1
+        sum_del_point_num = 0
+        for bidx in range( bsplit_idxmap.shape[0] ):
+            sum_del_point_num += del_num_eachb[bidx]
+            bsplit_idxmap[bidx,1] -= sum_del_point_num
+        # check if points in some blocks are all delted
+        empty_bidxs = []
+        last_point_idx = 0
+        for bidx in range( bsplit_idxmap.shape[0] ):
+            if bsplit_idxmap[bidx][1] == last_point_idx:
+                empty_bidxs.append( bidx )
+            last_point_idx = bsplit_idxmap[bidx][1]
+        empty_bidxs = np.array( empty_bidxs )
+        bsplit_idxmap = np.delete( bsplit_idxmap, empty_bidxs, 0 )
+        if not bsplit_idxmap[-1,1] == sample_num:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            assert False, '%d != %d'%(bsplit_idxmap[-1,1], sample_num)
+        missed_rootb_num = empty_bidxs.size
+        if raw_bsplit_idxmap.shape[0] == Normed_H5f.max_rootb_num:
+            bsplit_idxmap = Sorted_H5f.fix_rootb_split_idxmap( bsplit_idxmap )
+        return bsplit_idxmap, missed_rootb_num
 
     def get_batch_of_larger_block( self,global_blockid_start,global_blockid_end,feed_data_elements,feed_label_elements ):
         gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
@@ -4570,25 +4570,26 @@ class Normed_H5f():
                     total_point_num = base_sample_num + attrs[ele_name]/valid_num
                     summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/valid_num/total_point_num )
                 elif ele_name == 'missed_rootb_num':
-                    summary += '\t%s: %s'%(ele_name, attrs[ele_name]/valid_num)
-                    summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
+                    missed_rootb = attrs[ele_name]/valid_num
+                    summary += '\t%s: %s'%(ele_name, missed_rootb)
+                    summary += ' / %d   %f'%( rootb_num+missed_rootb, 1.0*missed_rootb/(rootb_num+missed_rootb) )
                 else:
                     summary += '\t%s: %s'%(ele_name, attrs[ele_name])
                 summary += '\n'
 
-            if 'smaller_sample_num' in self.h5f.attrs:
-                for sample_num in self.h5f.attrs['smaller_sample_num']:
-                    rootb_num = get_rootb_num( self.h5f[str(sample_num)+'-rootb_split_idxmap'] )
-                    summary += '\nsampling meta for point_num=%d\n'%(sample_num)
-                    attrs = self.h5f[str(sample_num)+'-rootb_split_idxmap'].attrs
-                    for ele_name in attrs:
-                        summary += '\t%s: %s'%(ele_name, attrs[ele_name])
-                        if ele_name == 'missed_point_num':
-                            total_point_num = sample_num + attrs[ele_name]
-                            summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
-                        if ele_name == 'missed_rootb_num':
-                            summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
-                        summary += '\n'
+            #if 'smaller_sample_num' in self.h5f.attrs:
+            #    for sample_num in self.h5f.attrs['smaller_sample_num']:
+            #        rootb_num = get_rootb_num( self.h5f[str(sample_num)+'-rootb_split_idxmap'] )
+            #        summary += '\nsampling meta for point_num=%d\n'%(sample_num)
+            #        attrs = self.h5f[str(sample_num)+'-rootb_split_idxmap'].attrs
+            #        for ele_name in attrs:
+            #            summary += '\t%s: %s'%(ele_name, attrs[ele_name])
+            #            if ele_name == 'missed_point_num':
+            #                total_point_num = sample_num + attrs[ele_name]
+            #                summary += ' / %d   %f'%( total_point_num, 1.0*attrs[ele_name]/total_point_num )
+            #            if ele_name == 'missed_rootb_num':
+            #                summary += ' / %d   %f'%( rootb_num, 1.0*attrs[ele_name]/rootb_num)
+            #            summary += '\n'
             sf.write( summary )
             sf.write( '\ngen t: %0.2f sec'%(self.h5f.attrs['t']) )
             print('finish summary file: %s'%(summary_fn))
