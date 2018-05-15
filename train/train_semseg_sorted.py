@@ -25,7 +25,7 @@ from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_matterport, test_box
 from time import gmtime, strftime
-from configs import NETCONFIG
+from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 DEBUG_TMP = False
@@ -34,23 +34,25 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='2A_144', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
-parser.add_argument('--dataset_name', default='matterport3d', help='dataset_name: scannet, stanford_indoor,matterport3d')
-parser.add_argument('--all_fn_globs', type=str,default='v1/scans/stride_0d1_step_0d1_pl_nh5_1d6_2/', help='The file name glob for both training and evaluation')
-parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
-parser.add_argument('--bxmh5_folder_name', default='stride_0d1_step_0d1_bmap_nh5_25600_1d6_2_fmn3-512_256_64-128_12_6-0d2_0d6_1d2-0d2_0d6_1d2', help='')
+parser.add_argument('--modelf_nein', default='1mG', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: scannet, stanford_indoor,matterport3d')
+parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/1024_gs3_3/', help='The file name glob for both training and evaluation')
+parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
+parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1', help='')
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=9, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=200, help='Epoch to run [default: 50]')
+parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
+parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
-parser.add_argument('--decay_epoch_step', type=int, default=30, help='Decay step for lr decay [default: 300000]')
+parser.add_argument('--decay_epoch_step', type=int, default=20, help='Decay step for lr decay [default: 300000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.5]')
 parser.add_argument('--max_test_file_num', type=int, default=None, help='Which area to use for test, option: 1-6 [default: 6]')
 
@@ -61,10 +63,12 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--debug',action='store_true',help='tf debug')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
-parser.add_argument('--ShuffleFlag', default='M', help='N:no,M:mix,Y:yes')
+parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--inkp_min', type=float, default=1.3, help='random input drop minimum')
-parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
+parser.add_argument('--in_cnn_out_kp', default='NN5', help='keep prob for input, cnn result, output')
+parser.add_argument('--norm', default='batch', help='batch or group')
+parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
 
 FLAGS = parser.parse_args()
 FLAGS.finetune = bool(FLAGS.finetune)
@@ -72,6 +76,7 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
 IS_GEN_PLY = True and FLAGS.only_evaluate
 Is_REPORT_PRED = IS_GEN_PLY
+Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
 ISDEBUG = FLAGS.debug
@@ -91,16 +96,17 @@ GPU_INDEX = FLAGS.gpu
 MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_RATE = FLAGS.decay_rate
-
+AUG_TYPES = aug_id_to_type(FLAGS.aug)
 # ------------------------------------------------------------------------------
 # Load Data
 FLAGS.all_fn_globs = FLAGS.all_fn_globs.split(',')
+FLAGS.bxmh5_folder_name = FLAGS.bxmh5_folder_name.split(',')
 net_configs = {}
 net_configs['loss_weight'] = FLAGS.loss_weight
 net_provider = Net_Provider(
                             net_configs=net_configs,
                             dataset_name=FLAGS.dataset_name,
-                            all_filename_glob=FLAGS.all_fn_globs,
+                            all_filename_globs=FLAGS.all_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
                             only_evaluate = FLAGS.only_evaluate,
@@ -121,6 +127,12 @@ MAX_MULTIFEED_NUM = 3
 DECAY_STEP = FLAGS.decay_epoch_step * net_provider.train_num_blocks
 if TRAIN_FILE_N < 2:
     FLAGS.multip_feed = False
+
+BN_INIT_DECAY = 0.5
+BN_DECAY_DECAY_RATE = 0.5
+BN_DECAY_DECAY_STEP = float(DECAY_STEP)
+BN_DECAY_CLIP = 0.99
+
 # ------------------------------------------------------------------------------
 try:
     FLAGS.eval_fnglob_or_rate = float(FLAGS.eval_fnglob_or_rate)
@@ -141,13 +153,26 @@ else:
     if not FLAGS.finetune:
         log_name = 'log_train.txt'
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
-        if FLAGS.inkp_max - FLAGS.inkp_min >0:
-            input_dropout_str = '-idp'+str(int((FLAGS.inkp_max - FLAGS.inkp_min)*10))
+        keep_prob_str = str(FLAGS.in_cnn_out_kp)
+        if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
+        else: normxyz_allcas_str = ''
+        if FLAGS.norm=='group':
+            norm_str = '-GN'
         else:
-            input_dropout_str = ''
-        FLAGS.log_dir = FLAGS.log_dir+'-model_'+FLAGS.modelf_nein+nwl_str+input_dropout_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+            norm_str = ''
+        if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
+            aug_str = '-aug'
+            if AUG_TYPES['RotateRef']:
+                aug_str += 'Ref'
+            if AUG_TYPES['RotateVox']:
+                aug_str += 'Vox'
+        else:
+            aug_str = ''
+        bn_decay_str = '-bd'+str(int(10*BN_INIT_DECAY))
+        FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
-                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks)
+                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str +\
+                        aug_str+bn_decay_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
 
@@ -165,11 +190,6 @@ if FLAGS.only_evaluate:
 LOG_FOUT = open( log_fn, 'w')
 LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
-
-BN_INIT_DECAY = 0.5
-BN_DECAY_DECAY_RATE = 0.7
-BN_DECAY_DECAY_STEP = float(DECAY_STEP)
-BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
@@ -207,7 +227,7 @@ def get_learning_rate(global_step):
 
 def get_bn_decay(global_step):
     bn_momentum = tf.train.exponential_decay(
-                      BN_INIT_DECAY,
+                      1-BN_INIT_DECAY,
                       global_step * BATCH_SIZE,
                       BN_DECAY_DECAY_STEP,
                       BN_DECAY_DECAY_RATE,
@@ -219,9 +239,26 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
             #pointclouds_pl, labels_pl,smpws_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,NUM_DATA_ELES,NUM_LABEL_ELES)
-            flatten_bm_extract_idx = net_provider.flatten_bidxmaps_extract_idx
-            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
-                                        NUM_DATA_ELES,NUM_LABEL_ELES,net_provider.sg_bidxmaps_shape,net_provider.flatten_bidxmaps_shape, flatten_bm_extract_idx )
+            configs = {}
+            configs['dataset_name'] = FLAGS.dataset_name
+            configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
+            configs['normxyz_allcas'] = FLAGS.normxyz_allcas
+            configs['Cnn_keep_prob'] = Cnn_keep_prob
+            configs['Out_keep_prob'] = Out_keep_prob
+            configs['only_last_layer_ineach_cascade'] = True
+            configs['aug_types'] = AUG_TYPES
+
+            configs['flatten_bm_extract_idx'] = net_provider.flatten_bidxmaps_extract_idx
+            configs['sub_block_stride_candis'] = net_provider.gsbb_load.sub_block_stride_candis
+            configs['sub_block_step_candis'] = net_provider.gsbb_load.sub_block_step_candis
+            configs['sg_bm_extract_idx'] = net_provider.sg_bidxmaps_extract_idx
+            configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
+            configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
+            configs['flatbxmap_max_nearest_num'] = net_provider.gsbb_load.flatbxmap_max_nearest_num
+            configs['global_step'] = net_provider.gsbb_load.global_step
+            configs['global_stride'] = net_provider.gsbb_load.global_stride
+            pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
+                                        NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
@@ -232,20 +269,20 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('bn_decay', bn_decay)
 
             # input drop out
-            if FLAGS.inkp_min >= FLAGS.inkp_max:
+            if Input_keep_prob >= 1.0:
                 input_drop_mask = tf.zeros([])
                 print('no input dropout')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, 'input_drop_mask', keep_prob = input_keep_prob ) # input_drop_mask/cond/Merge:0
+            input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1 )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask') # dropout/input_dropout_mask/Merge:0
 
             # Get model and loss
             sg_bm_extract_idx = net_provider.sg_bidxmaps_extract_idx
-            pred, end_points, debug = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                                                sg_bm_extract_idx, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, flatten_bm_extract_idx, bn_decay=bn_decay, IsDebug=IS_GEN_PLY)
-            loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS )
+            pred, end_points = get_model( FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+                                                    flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
+            loss = get_loss(pred, labels_pl, smpws_pl, LABEL_ELE_IDXS, configs )
 
             tf.summary.scalar('loss', loss)
 
@@ -306,13 +343,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         if DEBUG_TMP:
             ops['input_keep_prob'] = input_keep_prob
-
-        if 'l_xyz' in debug:
-            ops['l_xyz'] = debug['l_xyz']
-        if 'grouped_xyz' in debug:
-            ops['grouped_xyz'] = debug['grouped_xyz']
-            ops['flat_xyz'] = debug['flat_xyz']
-            ops['flatten_bidxmap'] = debug['flatten_bidxmap']
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
         max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
@@ -420,7 +450,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx,aug_types=AUG_TYPES)
         else:
             if train_feed_buf_q.qsize() == 0:
                 if train_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -624,7 +654,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False)
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(start_idx,end_idx,False,aug_types=AUG_TYPES)
         else:
             if eval_feed_buf_q.qsize() == 0:
                 if eval_multi_feed_flags['feed_finish_epoch'].value == epoch:
@@ -724,9 +754,9 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx,aug_types=AUG_TYPES)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False)
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(block_start_idx,block_end_idx,False,aug_types=AUG_TYPES)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis, batch_idx,epoch] )
                     if type(cur_data) == type(None):
                         print('add_train_feed_buf: get None data from net_provider, all data put finished. epoch= %d, batch_idx= %d'%(epoch,batch_idx))

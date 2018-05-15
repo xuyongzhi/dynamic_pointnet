@@ -88,29 +88,35 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
 
         assert len(xyz.shape) == 3
 
-        batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1,1] )
-        nsubblock = bidmap.get_shape()[1].value
-        npoint_subblock = bidmap.get_shape()[2].value
-        batch_idx_ = tf.tile( batch_idx,[1,nsubblock,npoint_subblock,1] )
-        bidmap = tf.expand_dims( bidmap,axis=-1, name='bidmap' )
-        bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1, name='bidmap_concat' )  # gpu_0/sa_layer0/bidmap_concat:0
-        # The value for invalid item in bidmap is -17.
-        # On GPU, the responding grouped_xyz and grouped_points is 0.
-        # NOT WORK on CPU !!!
-
-        # invalid indices comes from merge_blocks_while_fix_bmap
-        # set point_indices_f for invalid points as
-        # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
-        valid_mask = tf.greater( bidmap, tf.constant(-500,tf.int32), 'valid_mask' ) # gpu_0/sa_layer0/valid_mask:0
-
-        grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
-        grouped_points = tf.gather_nd(points,bidmap_concat, name='group_points')
-
-        # new_xyz is the "voxel center" or "mean position of points in the voxel"
-        if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
-            new_xyz = tf.reduce_mean(grouped_xyz,-2)
+        if bidmap==None:
+            grouped_xyz = tf.expand_dims( xyz, 1 )
+            grouped_points = tf.expand_dims( points, 1 )
+            new_xyz = None
+            valid_mask = None
         else:
-            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+            batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1,1] )
+            nsubblock = bidmap.get_shape()[1].value
+            npoint_subblock = bidmap.get_shape()[2].value
+            batch_idx_ = tf.tile( batch_idx,[1,nsubblock,npoint_subblock,1] )
+            bidmap = tf.expand_dims( bidmap,axis=-1, name='bidmap' )
+            bidmap_concat = tf.concat( [batch_idx_,bidmap],axis=-1, name='bidmap_concat' )  # gpu_0/sa_layer0/bidmap_concat:0
+            # The value for invalid item in bidmap is -17.
+            # On GPU, the responding grouped_xyz and grouped_points is 0.
+            # NOT WORK on CPU !!!
+
+            # invalid indices comes from merge_blocks_while_fix_bmap
+            # set point_indices_f for invalid points as
+            # NETCONFIG['redundant_points_in_block'] ( shoud be set < -500)
+            valid_mask = tf.greater( bidmap, tf.constant(-500,tf.int32), 'valid_mask' ) # gpu_0/sa_layer0/valid_mask:0
+
+            grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
+            grouped_points = tf.gather_nd(points,bidmap_concat, name='group_points')
+
+            # new_xyz is the "voxel center" or "mean position of points in the voxel"
+            if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+                new_xyz = tf.reduce_mean(grouped_xyz,-2)
+            else:
+                new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
 
 
         if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
@@ -175,8 +181,9 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
             # Even the grouped_points and grouped_xyz are 0 for invalid points, the
             # vaule after mlp will not be. It has to be set as 0 forcely before
             # pooling.
-            new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
-            #new_points = tf.identity( new_points, 'points_before_max' )             # gpu_0/sa_layer0/points_before_max
+            if valid_mask!=None:
+                new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
+            new_points = tf.identity( new_points, 'points_before_max' )             # gpu_0/sa_layer0/points_before_max
             new_points = tf.reduce_max(new_points, axis=[2], keepdims=True, name='points_after_max')
         #elif pooling=='min':
         #    new_points = tf_util.max_pool2d(-1*new_points, [1,nsample], stride=[1,1], padding='VALID', scope='minpool1')
@@ -185,7 +192,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         #    max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         #    new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz )
+            new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs,  grouped_xyz )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
             mlps_3dcnn = [ 128, 256, 256]
@@ -246,7 +253,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         # (2, 512, 64)
         return new_xyz, new_points, root_point_features
 
-def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, sgf_config_pls, grouped_xyz):
+def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, grouped_xyz):
     IsShowVoxelModel = True
     cascade_num = configs['sub_block_step_candis'].size+1
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
@@ -255,10 +262,10 @@ def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bo
     c1000 = tf.constant([1000],tf.float32)
     c1 = tf.constant([1,1,1],tf.float32)
     step_last_org = configs['sub_block_step_candis'][cascade_id-1] * c1
-    step_last = tf.minimum( step_last_org, sgf_config_pls['max_step_stride'], name='step_last' )    # gpu_0/sa_layer1/step_last:0
+    step_last = tf.minimum( step_last_org, configs['max_step_stride'], name='step_last' )    # gpu_0/sa_layer1/step_last:0
     step_last = tf.expand_dims(step_last,1)
     stride_last_org = configs['sub_block_stride_candis'][cascade_id-1] * c1
-    stride_last = tf.minimum( stride_last_org, sgf_config_pls['max_step_stride'], name='stride_last' )  # gpu_0/sa_layer1/stride_last:0
+    stride_last = tf.minimum( stride_last_org, configs['max_step_stride'], name='stride_last' )  # gpu_0/sa_layer1/stride_last:0
     stride_last = tf.expand_dims(stride_last,1)
 
     voxel_bottom_xyz_mm = block_bottom_center_mm[:,:,0:3]

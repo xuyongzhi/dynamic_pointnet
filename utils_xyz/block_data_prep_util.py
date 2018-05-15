@@ -4263,7 +4263,7 @@ class Normed_H5f():
                 sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
                 globalb_bottom_center_xyz = h5f['globalb_info'][start_block:end_block]
                 globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
-                return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis, globalb_bottom_center_xyz
+                return  sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idis
             else:   ## benz_m
                 assert h5f['bidxmaps_sample_group'].shape[0] >= end_block
                 sg_bidxmaps = h5f['bidxmaps_sample_group'][start_block:end_block,:]
@@ -4275,7 +4275,7 @@ class Normed_H5f():
                 #block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
                 globalb_bottom_center_xyz = h5f['globalb_info'][start_block:end_block]
                 globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
-                return  sg_bidxmaps, globalb_bottom_center_xyz
+                return  sg_bidxmaps
 
     def get_label_byeles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements

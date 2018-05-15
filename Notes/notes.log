@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  7 MAY 2018 11:58
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  15 MAY 2018 10:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -620,10 +620,9 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.47 	\item C
-             heck this: my usage of tf.gather\_nd should cost a lot of memor...
-[1]
-<images/theory/bxmap.png, id=152, 3063.445pt x 2184.16pt>
+l.42 \end{itemize}
+                   [1]
+<images/theory/bxmap.png, id=162, 3063.445pt x 2184.16pt>
 File: images/theory/bxmap.png Graphic file (type png)
 <use images/theory/bxmap.png>
 Package pdftex.def Info: images/theory/bxmap.png  used on input line 52. on inp
@@ -647,7 +646,7 @@ Overfull \hbox (10.38972pt too wide) in paragraph at lines 146--146
  []
 
 <images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png, 
-id=174, 1441.385pt x 394.47375pt>
+id=184, 1441.385pt x 394.47375pt>
 File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.
 png Graphic file (type png)
 <use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.p
@@ -657,7 +656,7 @@ lor_1norm-2048-mat.png  used on input line 150. on input line 150.
 Package pdftex.def Info: Requested size: 345.0pt x 94.41681pt on input line 150
 .
 <images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.png,
- id=176, 1522.68875pt x 391.4625pt>
+ id=186, 1522.68875pt x 391.4625pt>
 File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat
 .png Graphic file (type png)
 <use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs9-xyz-color_1norm-2048-mat.
@@ -670,7 +669,7 @@ Package pdftex.def Info: Requested size: 345.0pt x 88.69049pt on input line 151
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 <images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png,
- id=177, 1512.65125pt x 473.77pt>
+ id=187, 1512.65125pt x 473.77pt>
 File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat
 .png Graphic file (type png)
 <use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.
@@ -680,7 +679,7 @@ olor_1norm-2048-mat.png  used on input line 156. on input line 156.
 Package pdftex.def Info: Requested size: 345.0pt x 108.05392pt on input line 15
 6.
 <images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat.png
-, id=178, 1508.63625pt x 444.66125pt>
+, id=188, 1508.63625pt x 444.66125pt>
 File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-ma
 t.png Graphic file (type png)
 <use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs27-xyz-color_1norm-2048-mat
@@ -693,7 +692,7 @@ Package pdftex.def Info: Requested size: 345.0pt x 101.68642pt on input line 15
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 <images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png,
- id=179, 1507.6325pt x 445.665pt>
+ id=189, 1507.6325pt x 445.665pt>
 File: images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat
 .png Graphic file (type png)
 <use images/mat60_1AG/acc_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.
@@ -703,7 +702,7 @@ olor_1norm-2048-mat.png  used on input line 162. on input line 162.
 Package pdftex.def Info: Requested size: 345.0pt x 101.98396pt on input line 16
 2.
 <images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat.png
-, id=180, 1504.62125pt x 432.61626pt>
+, id=190, 1504.62125pt x 432.61626pt>
 File: images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-ma
 t.png Graphic file (type png)
 <use images/mat60_1AG/loss_log-model_1AG-gsbb_2C1-bs81-xyz-color_1norm-2048-mat
@@ -1101,7 +1100,7 @@ Overfull \hbox (30.52869pt too wide) in paragraph at lines 462--462
  []
 
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png, id=234, 838.13126pt x 75
+-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png, id=244, 838.13126pt x 75
 1.80875pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/raw00.png Graphic file (type p
@@ -1114,7 +1113,7 @@ used on input line 474. on input line 474.
 Package pdftex.def Info: Requested size: 169.0519pt x 151.63243pt on input line
  474.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png, id=235, 910.40125pt x 77
+-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png, id=245, 910.40125pt x 77
 5.89874pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/xyz00.png Graphic file (type p
@@ -1127,7 +1126,7 @@ used on input line 478. on input line 478.
 Package pdftex.def Info: Requested size: 169.0519pt x 144.07178pt on input line
  478.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png, id=236, 836.12375pt x 791
+-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png, id=246, 836.12375pt x 791
 .95876pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/gt00.png Graphic file (type pn
@@ -1140,7 +1139,7 @@ sed on input line 482. on input line 482.
 Package pdftex.def Info: Requested size: 172.5pt x 163.37976pt on input line 48
 2.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png, id=237, 826.08624pt x 7
+-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png, id=247, 826.08624pt x 7
 46.79pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png Graphic file (type 
@@ -1153,7 +1152,7 @@ idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png
 Package pdftex.def Info: Requested size: 169.0519pt x 152.81946pt on input line
  486.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png, id=238, 837.1275pt x 837
+-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png, id=248, 837.1275pt x 837
 .1275pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png Graphic file (type p
@@ -1179,7 +1178,7 @@ _block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/pred00.png> <./im
 ages/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm-nx
 nynz-12800-mat_1083/17DRP5sb8fy_1_2_a946/err00.png>]
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png, id=248, 1120.9378pt x 7
+-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png, id=258, 1120.9378pt x 7
 00.11563pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png Graphic file (type 
@@ -1192,7 +1191,7 @@ idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/raw00.png
 Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 49
 9.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png, id=249, 1148.29pt x 828
+-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png, id=259, 1148.29pt x 828
 .09375pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png Graphic file (type 
@@ -1205,7 +1204,7 @@ idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/xyz00.png
 Package pdftex.def Info: Requested size: 169.0519pt x 121.90901pt on input line
  503.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png, id=250, 1120.9378pt x 70
+-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png, id=260, 1120.9378pt x 70
 0.11563pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/gt00.png Graphic file (type p
@@ -1218,7 +1217,7 @@ used on input line 507. on input line 507.
 Package pdftex.def Info: Requested size: 172.5pt x 107.73694pt on input line 50
 7.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png, id=251, 1120.9378pt x 
+-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png, id=261, 1120.9378pt x 
 700.11563pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png Graphic file (type
@@ -1231,7 +1230,7 @@ idnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/pred00.png
 Package pdftex.def Info: Requested size: 169.0519pt x 105.579pt on input line 5
 11.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_1norm
--nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png, id=252, 1173.38374pt x 
+-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png, id=262, 1173.38374pt x 
 836.12375pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_30-xyz_midnorm_block-color_
 1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/err00.png Graphic file (type 
@@ -1260,7 +1259,7 @@ _25_a946/pred00.png (PNG copy)> <./images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-d
 s_30-xyz_midnorm_block-color_1norm-nxnynz-12800-mat_1083/17DRP5sb8fy_0_25_a946/
 err00.png>]
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
-1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png, id=259, 835.12p
+1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png, id=269, 835.12p
 t x 627.34375pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-c
 olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_raw00.png Graphic fil
@@ -1273,7 +1272,7 @@ w00.png  used on input line 537. on input line 537.
 Package pdftex.def Info: Requested size: 169.0519pt x 126.98854pt on input line
  537.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
-1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png, id=260, 865.2325
+1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png, id=270, 865.2325
 pt x 675.52374pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-c
 olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt00.png Graphic file
@@ -1286,7 +1285,7 @@ xyz_midnorm_block-color_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_gt
 Package pdftex.def Info: Requested size: 169.0519pt x 131.97913pt on input line
  538.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
-1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png, id=261, 1039.6
+1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png, id=271, 1039.6
 3406pt x 714.41907pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-c
 olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_pred00.png Graphic fi
@@ -1299,7 +1298,7 @@ ed00.png  used on input line 539. on input line 539.
 Package pdftex.def Info: Requested size: 169.0519pt x 116.16258pt on input line
  539.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
-1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png, id=262, 
+1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png, id=272, 
 911.405pt x 718.685pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-c
 olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_err00.png Grap
@@ -1312,7 +1311,7 @@ d071_err00.png  used on input line 540. on input line 540.
 Package pdftex.def Info: Requested size: 169.0519pt x 133.30556pt on input line
  540.
 <images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-color_
-1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png, id=263, 
+1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png, id=273, 
 889.3225pt x 498.86375pt>
 File: images/ply_log-model_1bG-gsbb_3B1-bs25-lr1-ds_50-Sf_Y-xyz_midnorm_block-c
 olor_1norm-nxnynz-12800-mat_18737/qoi_r1Q_r47_rPc_rqf_2_3_a0d071_crt00.png Grap
@@ -1425,7 +1424,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 629--629
 []\OT1/cmr/m/n/10 Rotate
  []
 
-<images/svoxel/novoid/train.png, id=281, 1387.1825pt x 177.66376pt>
+<images/svoxel/novoid/train.png, id=291, 1387.1825pt x 177.66376pt>
 File: images/svoxel/novoid/train.png Graphic file (type png)
 <use images/svoxel/novoid/train.png>
 Package pdftex.def Info: images/svoxel/novoid/train.png  used on input line 632
@@ -1437,7 +1436,7 @@ Overfull \hbox (151.66142pt too wide) in paragraph at lines 632--632
 [][] 
  []
 
-<images/svoxel/novoid/test.png, id=282, 1353.055pt x 210.7875pt>
+<images/svoxel/novoid/test.png, id=292, 1353.055pt x 210.7875pt>
 File: images/svoxel/novoid/test.png Graphic file (type png)
 <use images/svoxel/novoid/test.png>
 Package pdftex.def Info: images/svoxel/novoid/test.png  used on input line 632.
@@ -1454,22 +1453,69 @@ Overfull \hbox (123.11214pt too wide) in paragraph at lines 622--638
 [] 
  []
 
-[23 <./images/svoxel/novoid/train.png> <./images/svoxel/novoid/test.png>]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 639.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 639.
 
-(./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 639.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 639.
+Overfull \hbox (45.98973pt too wide) in paragraph at lines 641--641
+\OT1/cmr/m/n/10 log-3m-ElwNN5-mnc-gsbb[]2M1-bs80-lr2-ds[]50-Sf[]Y-xyz[]midnorm[
+]block-1024-MOD[]9843-
+ []
+
+<images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-lr2-ds_50-Sf_Y-xyz_midnor
+m_block-1024-MOD_9843-augRef-bd7.png, id=293, 358.33875pt x 240.9pt>
+File: images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-lr2-ds_50-Sf_Y-xyz_m
+idnorm_block-1024-MOD_9843-augRef-bd7.png Graphic file (type png)
+<use images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-lr2-ds_50-Sf_Y-xyz_mi
+dnorm_block-1024-MOD_9843-augRef-bd7.png>
+Package pdftex.def Info: images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-l
+r2-ds_50-Sf_Y-xyz_midnorm_block-1024-MOD_9843-augRef-bd7.png  used on input lin
+e 642. on input line 642.
+Package pdftex.def Info: Requested size: 440.00168pt x 295.82pt on input line 6
+42.
+
+Overfull \hbox (110.00168pt too wide) in paragraph at lines 642--643
+[][]
+ []
+
+
+Overfull \hbox (45.98973pt too wide) in paragraph at lines 642--643
+\OT1/cmr/m/n/10 log-3m-ElwNN5-mnc-gsbb[]2M2-bs50-lr2-ds[]50-Sf[]Y-xyz[]midnorm[
+]block-4096-MOD[]9843-
+ []
+
+[23 <./images/svoxel/novoid/train.png> <./images/svoxel/novoid/test.png>]
+<images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M2-bs50-lr2-ds_50-Sf_Y-xyz_midnor
+m_block-4096-MOD_9843-augRef-bd7.png, id=300, 349.305pt x 206.7725pt>
+File: images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M2-bs50-lr2-ds_50-Sf_Y-xyz_m
+idnorm_block-4096-MOD_9843-augRef-bd7.png Graphic file (type png)
+<use images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M2-bs50-lr2-ds_50-Sf_Y-xyz_mi
+dnorm_block-4096-MOD_9843-augRef-bd7.png>
+Package pdftex.def Info: images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M2-bs50-l
+r2-ds_50-Sf_Y-xyz_midnorm_block-4096-MOD_9843-augRef-bd7.png  used on input lin
+e 644. on input line 644.
+Package pdftex.def Info: Requested size: 440.00168pt x 260.47478pt on input lin
+e 644.
+
+Overfull \hbox (110.00168pt too wide) in paragraph at lines 644--645
+[][] 
+ []
+
+[24 <./images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-lr2-ds_50-Sf_Y-xyz_
+midnorm_block-1024-MOD_9843-augRef-bd7.png>] [25 <./images/3m_pointnet++/log-3m
+-ElwNN5-mnc-gsbb_2M2-bs50-lr2-ds_50-Sf_Y-xyz_midnorm_block-4096-MOD_9843-augRef
+-bd7.png>]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 645.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 645.
+ (./notes.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 645.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 645.
 Package rerunfilecheck Info: File `notes.out' has not changed.
-(rerunfilecheck)             Checksum: FD1A15FD92304FB92EE3D05E6415B196;1886.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 639.
+(rerunfilecheck)             Checksum: B26D3AEAFE97838EE25E1154E409EEDD;2021.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 645.
  ) 
 Here is how much of TeX's memory you used:
- 17722 strings out of 494931
- 354053 string characters out of 6180851
+ 17741 strings out of 494931
+ 355364 string characters out of 6180851
  432324 words of memory out of 5000000
- 20675 multiletter control sequences out of 15000+600000
+ 20685 multiletter control sequences out of 15000+600000
  8807 words of font info for 31 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  55i,12n,56p,427b,605s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1484,10 +1530,10 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb>
-Output written on notes.pdf (24 pages, 2577456 bytes).
+Output written on notes.pdf (26 pages, 2640364 bytes).
 PDF statistics:
- 341 PDF objects out of 1000 (max. 8388607)
- 269 compressed objects within 3 object streams
- 58 named destinations out of 1000 (max. 500000)
- 341 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 365 PDF objects out of 1000 (max. 8388607)
+ 287 compressed objects within 3 object streams
+ 62 named destinations out of 1000 (max. 500000)
+ 367 words of extra memory for PDF output out of 10000 (max. 10000000)
 

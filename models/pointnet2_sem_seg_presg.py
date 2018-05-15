@@ -32,7 +32,7 @@ TMPDEBUG = True
 #        return flatten_bidxmap_i_concat
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, configs):
-    batch_size = None
+    #batch_size = None
     sg_bidxmaps_shape = configs['sg_bidxmaps_shape']
     flatten_bidxmaps_shape = configs['flatten_bidxmaps_shape']
     flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
@@ -49,7 +49,6 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, conf
         sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
         flatten_bidxmaps_pl = tf.placeholder(tf.int32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(2,),name="flatten_bidxmaps_pl")
         fbmap_neighbor_idis_pl = tf.placeholder(tf.float32,shape= (batch_size,)+flatten_bidxmaps_shape[0:-1]+(1,),name="fbmap_neighbor_idis_pl")
-        sgf_config_pls['globalb_bottom_center_xyz'] = tf.placeholder(tf.float32, shape=(batch_size,1,6),name="globalb_bottom_center_xyz")
 
         return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl, sgf_config_pls
 
@@ -101,9 +100,8 @@ def get_voxel3dcnn_sa_config( model_flag ):
 def get_pointmax_sa_config(model_flag):
     cascade_num = int(model_flag[0])
     mlp_pe = []
-    if model_flag=='1a' or model_flag=='1aG':
-        #mlp_pe.append( [64,64,128,128,512,1024] )
-        mlp_pe.append( [64,64,64,128,512] )
+    if model_flag=='1a' or model_flag=='1m' or model_flag=='1mG':
+        mlp_pe.append( [32,64,64,128,128,256,512,1024] )
     elif model_flag=='1b' or model_flag=='1bG':
         mlp_pe.append( [32, 64,64,128,128,256,512] )
     elif model_flag=='2a' or model_flag=='2aG':
@@ -323,6 +321,7 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
 
     cascade_num = int(model_flag[0])
     assert cascade_num <= sg_bm_extract_idx.shape[0] # sg_bm_extract_idx do not include the global step
+    IsOnlineGlobal = model_flag[-1] == 'G'
     mlp_configs = get_sa_module_config(model_flag)
     l_points = []                       # size = l_points+1
     l_points.append( rawdata )
@@ -330,13 +329,25 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     new_points = rawdata
 
     if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
-    sgf_config_pls['max_step_stride'] = (sgf_config_pls['globalb_bottom_center_xyz'][:,:,3:6] - sgf_config_pls['globalb_bottom_center_xyz'][:,:,0:3]) * tf.constant(2,tf.float32)
+    start = sg_bm_extract_idx[-2]
+    end = sg_bm_extract_idx[-1]
+    globalb_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+    globalb_bottom_center = tf.cast( globalb_bottom_center_mm, tf.float32) * 0.001
+    configs['max_step_stride'] = ( globalb_bottom_center[:,:,3:6] - globalb_bottom_center[:,:,0:3]) * tf.constant(2,tf.float32)
+
+    full_cascades = sg_bm_extract_idx.shape[0]-1
+
     for k in range(cascade_num):
         IsExtraGlobalLayer = False
-        start = sg_bm_extract_idx[k]
-        end = sg_bm_extract_idx[k+1]
-        sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
-        block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+
+        if k==cascade_num-1 and IsOnlineGlobal:
+            sg_bidxmap_k = None
+            block_bottom_center_mm = globalb_bottom_center_mm
+        else:
+            start = sg_bm_extract_idx[k]
+            end = sg_bm_extract_idx[k+1]
+            sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+            block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
 
         l_xyz, new_points, root_point_features = pointnet_sa_module(k, l_xyz, new_points, sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
                                                                                  configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )

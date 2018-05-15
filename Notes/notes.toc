@@ -22,5 +22,7 @@
 \contentsline {subsubsection}{\numberline {1.13.1}scannet seg}{19}{subsubsection.1.13.1}
 \contentsline {subsection}{\numberline {1.14}whole room global block \& multi scales \& scan 305}{20}{subsection.1.14}
 \contentsline {subsection}{\numberline {1.15}Sparse voxel net}{22}{subsection.1.15}
-\contentsline {subsubsection}{\numberline {1.15.1}}{22}{subsubsection.1.15.1}
-\contentsline {subsubsection}{\numberline {1.15.2}}{23}{subsubsection.1.15.2}
+\contentsline {subsubsection}{\numberline {1.15.1}90000}{22}{subsubsection.1.15.1}
+\contentsline {subsubsection}{\numberline {1.15.2}30000}{23}{subsubsection.1.15.2}
+\contentsline {subsection}{\numberline {1.16}My point++}{23}{subsection.1.16}
+\contentsline {subsubsection}{\numberline {1.16.1}3m}{23}{subsubsection.1.16.1}
