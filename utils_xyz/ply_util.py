@@ -224,8 +224,8 @@ def create_ply( xyz0, ply_fn, label=None, label2color=None, force_color=None, bo
     print('save ply file: %s'%(ply_fn))
 
 
-def create_ply_matterport( xyz, ply_fn, label=None, cut_threshold=[1,1,1]):
-    create_ply( xyz,ply_fn, label = label, label2color = DatasetsMeta['MATTERPORT']['label2color'], cut_threshold=cut_threshold )
+def create_ply_dset( dataset_name, xyz, ply_fn, label=None, cut_threshold=[1,1,1] ):
+    create_ply( xyz, ply_fn, label = label, label2color = DatasetsMeta.g_label2color[dataset_name], cut_threshold=cut_threshold )
 
 if __name__ == '__main__':
     #test_plyfile()

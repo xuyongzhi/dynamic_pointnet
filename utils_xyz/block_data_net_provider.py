@@ -674,29 +674,10 @@ class Net_Provider():
         return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
 
     def update_train_eval_shuffled_idx(self):
-        flag = 'shuffle_within_each_file'
-        if flag == 'shuffle_within_each_file':
-            if self.train_file_N>0:
-                train_shuffled_idxs = []
-                for k in range(self.train_file_N):
-                    train_shuffled_idx_k = np.arange( self.g_block_idxs[k,0], self.g_block_idxs[k,1] )
-                    np.random.shuffle(train_shuffled_idx_k)
-                    train_shuffled_idxs.append( train_shuffled_idx_k )
-                self.train_shuffled_idx = np.concatenate( train_shuffled_idxs )
-
-            if self.eval_file_N>0:
-                eval_shuffled_idxs = []
-                for k in range(self.eval_file_N):
-                    eval_shuffled_idx_k = np.arange( self.g_block_idxs[k+self.train_file_N,0], self.g_block_idxs[k+self.train_file_N,1] ) - self.train_num_blocks
-                    np.random.shuffle(eval_shuffled_idx_k)
-                    eval_shuffled_idxs.append( eval_shuffled_idx_k )
-                self.eval_shuffled_idx = np.concatenate( eval_shuffled_idxs )
-
-        if flag == 'shuffle_within_all':
-            self.train_shuffled_idx = np.arange(self.train_num_blocks)
-            np.random.shuffle(self.train_shuffled_idx)
-            self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
-            np.random.shuffle(self.eval_shuffled_idx)
+        self.train_shuffled_idx = np.arange(self.train_num_blocks)
+        np.random.shuffle(self.train_shuffled_idx)
+        self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
+        np.random.shuffle(self.eval_shuffled_idx)
 
     def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types ):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
@@ -875,16 +856,6 @@ def main_NormedH5f():
     print(cur_data[0,0:3,:])
     print(cur_label[0,0:3,:])
     print(cur_smp_weights[0,0:3,:])
-
-def CheckModelNet():
-    sph5_folder = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_sph5/1024_gs2_2d3'
-    fn_ls = glob.glob( sph5_folder+'/*.sph5' )
-    for fn in fn_ls:
-        with h5py.File( fn, 'r' ) as h5f:
-            if h5f['data'].shape[0] != h5f['labels'].shape[0]:
-                print(fn)
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                pass
 
 
 if __name__=='__main__':

@@ -394,7 +394,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
         block_acc_histg = np.histogram( all_accuracy, bins=np.arange(0,1.2,0.1) )[0].astype(np.float32) / all_accuracy.size
     else:
         ave_block_acc, std_block_acc, block_acc_histg, class_acc_str, ave_acc_str = EvaluationMetrics.get_class_accuracy(
-                                    c_TP_FN_FP,numpoint_block )
+                                    c_TP_FN_FP,numpoint_block,FLAGS.dataset_name )
     log_str = '\n'
     if len(t_batch_ls)>0:
         t_per_batch = np.mean(np.concatenate(t_batch_ls,axis=1),axis=1)

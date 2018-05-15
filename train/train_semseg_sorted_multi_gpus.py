@@ -23,7 +23,7 @@ import get_dataset
 from evaluation import EvaluationMetrics
 from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
-from ply_util import create_ply_matterport, test_box
+from ply_util import create_ply_dset, test_box
 from time import gmtime, strftime
 from configs import NETCONFIG, aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
@@ -34,23 +34,25 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='1mG', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='3m', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI,MODELNET40')
 
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
 #parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1', help='')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 
-parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/1024_gs3_3/', help='The file name glob for both training and evaluation')
-parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1', help='')
-#parser.add_argument('--eval_fnglob_or_rate',  default=0.5, help='file name str glob or file number rate: scan1*.nh5 0.2')
+#parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/1024_gs3_3/', help='The file name glob for both training and evaluation')
+#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1', help='')
+
+parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_gs3_3/', help='The file name glob for both training and evaluation')
+parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2', help='')
 
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
-parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
+parser.add_argument('--group_pos',default='mean',help='bc or bc(block center)')
 parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
@@ -66,9 +68,8 @@ parser.add_argument('--only_evaluate',type=int,help='do not train')
 parser.add_argument('--finetune',type=int,default=0,help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
-parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
-parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
+parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='NN5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
@@ -80,13 +81,13 @@ tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
 FLAGS.finetune = bool(FLAGS.finetune)
 FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
-IS_GEN_PLY = True and FLAGS.only_evaluate
+IS_GEN_PLY = False
 Is_REPORT_PRED = IS_GEN_PLY
 Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
-
 ISTFDEBUG = False
+AutoBreak = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
 try:
@@ -447,14 +448,11 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['flatten_bidxmaps_pl'] = flatten_bidxmaps_pl
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['bn_decay'] = bn_decay
-        ops['check_ops'] = tf.get_collection( 'check' )
 
-        if 'l_xyz' in debugs[0]:
-            ops['l_xyz'] = [ tf.concat( [ debugs[gi]['l_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['l_xyz'])) ]
-        if 'grouped_xyz' in debugs[0]:
-            ops['grouped_xyz'] = [ tf.concat( [ debugs[gi]['grouped_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['grouped_xyz'])) ]
-            ops['flat_xyz'] = [ tf.concat( [ debugs[gi]['flat_xyz'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['flat_xyz'])) ]
-            ops['flatten_bidxmap'] = [ tf.concat( [ debugs[gi]['flatten_bidxmap'][li] for gi in range(FLAGS.num_gpus) ], axis=0 )  for li in range(len(debugs[0]['flatten_bidxmap'])) ]
+        ops['check_ops'] = tf.get_collection( 'check' )
+        ops['grouped_xyz'] = tf.get_collection( 'grouped_xyz' )
+        ops['block_center'] = tf.get_collection( 'block_center' )
+        ops['flat_xyz'] = tf.get_collection( 'flat_xyz')
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
         max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
@@ -607,7 +605,9 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
                        ops['max_memory_usage'], ops['bn_decay']], feed_dict=feed_dict )
         t2 = time.time()
 
-        #gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch )
+        if IS_GEN_PLY:
+            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
+            return
 
         loss_sum += loss_val
         all_accuracy[batch_idx,:] = accuracy_batch
@@ -637,10 +637,10 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
         '''
 
-        show_flag = 'least acc'
+        show_flag = 'worest_acc'
         #show_flag = 'all block'
 
-        only_global = True
+        only_global = False
         if fid_start_end.shape[0] > 1:
             print('batch %d involves more than one file, skip generating ply'%(batch_idx))
             return
@@ -658,9 +658,9 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
             bs = 1
 
             acc_sort = np.argsort( accuracy_batch )
-            if show_flag == 'best acc':
+            if show_flag == 'best_acc':
                 b0_ls = acc_sort[ len(acc_sort)-bn:len(acc_sort) ]
-            if show_flag == 'least acc':
+            if show_flag == 'worest_acc':
                 b0_ls = acc_sort[0:bn]
 
         def plyfn(name_meta, b0, b1):
@@ -672,49 +672,57 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
             return ply_folder + name_meta + '_'
 
         color_flags = ['gt_color']
-        cur_xyz_mid = np.expand_dims( cur_xyz_mid, 1 )
         #gen_ply( plyfn(rawdata), cur_data[b0:b1,:,0:3], accuracy_batch,  color_flags,  cur_label[b0:b1], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1] )
         #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
 
         if not only_global:
             for lk in range( len(ops['grouped_xyz']) ):
-                grouped_xyz, flat_xyz, flatten_bidxmap = sess.run( [ops['grouped_xyz'][lk], ops['flat_xyz'][lk], ops['flatten_bidxmap'][lk] ], feed_dict=feed_dict )
-                if 'xyz_midnorm_block' in Feed_Data_Elements:
-                    grouped_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += np.expand_dims( cur_xyz_mid,1 )
-                    flat_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
-                color_flags = ['no_color']
-                for b0 in b0_ls:
-                    b1 = b0 + bs
-                    gen_ply( plyfn('gpxyz'+str(lk),b0,b1), grouped_xyz[b0:b1,...], accuracy_batch,  color_flags)
-                    gen_ply( plyfn('flatxyz'+str(lk),b0,b1), flat_xyz[b0:b1,...], accuracy_batch,  color_flags )
-                missed_b_num = np.sum( flatten_bidxmap[...,0,1] < 0 )
-                print('missed_b_num:', missed_b_num)
-
-        for lk in range( len(ops['l_xyz']) ):
-            pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
-            if 'xyz_midnorm_block' in Feed_Data_Elements:
-                pl_display[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
-            if lk == 0:
-                color_flags = ['gt_color','raw_color']
-                if 'xyz_midnorm_block' in Feed_Data_Elements:
-                    cur_data[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
-                for b0 in b0_ls:
-                    b1 = b0 + bs
-                    gen_ply( plyfn('lxyz0',b0,b1), pl_display[b0:b1,...], accuracy_batch,  color_flags,  cur_label[b0:b1,...], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1,...] )
-            else:
-                if not only_global:
+                block_center = 0
+                if len(ops['block_center']) > lk:
+                    block_center = sess.run( ops['block_center'][lk], feed_dict=feed_dict )
+                def gen_a_ply( a_ops, block_center, name ):
+                    v_xyz = sess.run( a_ops, feed_dict=feed_dict )
+                    if 'xyz_midnorm_block' in Feed_Data_Elements:
+                        if name == 'grouped_xyz':
+                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_center
+                        elif name =='flat_xyz':
+                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_center
                     color_flags = ['no_color']
                     for b0 in b0_ls:
                         b1 = b0 + bs
-                        gen_ply( plyfn('lxyz'+str(lk),b0,b1), pl_display[b0:b1,...], accuracy_batch,  color_flags )
+                        gen_ply( plyfn(name+str(lk),b0,b1), v_xyz[b0:b1,...], accuracy_batch,  color_flags)
+
+                gen_a_ply( ops['grouped_xyz'][lk], block_center, 'grouped_xyz'  )
+                if len(ops['flat_xyz']) > lk:
+                    gen_a_ply( ops['flat_xyz'][lk], block_center, 'flat_xyz'  )
+
+        #for lk in range( len(ops['l_xyz']) ):
+        #    pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
+        #    if 'xyz_midnorm_block' in Feed_Data_Elements:
+        #        pl_display[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
+        #    if lk == 0:
+        #        color_flags = ['gt_color','raw_color']
+        #        if 'xyz_midnorm_block' in Feed_Data_Elements:
+        #            cur_data[...,DATA_ELE_IDXS['xyz_midnorm_block']] += cur_xyz_mid
+        #        for b0 in b0_ls:
+        #            b1 = b0 + bs
+        #            gen_ply( plyfn('lxyz0',b0,b1), pl_display[b0:b1,...], accuracy_batch,  color_flags,  cur_label[b0:b1,...], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1,...] )
+        #    else:
+        #        if not only_global:
+        #            color_flags = ['no_color']
+        #            for b0 in b0_ls:
+        #                b1 = b0 + bs
+        #                gen_ply( plyfn('lxyz'+str(lk),b0,b1), pl_display[b0:b1,...], accuracy_batch,  color_flags )
         print('sorted acc:\n', np.sort(accuracy_batch))
 
         if Is_REPORT_PRED:
             pred_fn = plyfn('',0,BATCH_SIZE)+'pred_log.txt'
-            EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], 'matterport3d' )
+            EvaluationMetrics.report_pred( pred_fn, pred_val, cur_label[...,CATEGORY_LABEL_IDX], FLAGS.dataset_name )
 
 def gen_ply( ply_fn, pl_display, accuracy_batch, color_flags = ['gt_color'], cur_label=None, pred_val=None, raw_data=None):
     cut_threshold=[1,1,0.85]
+    cut_threshold=[1,1,1]
     if 'xyz' in Feed_Data_Elements:
         position = 'xyz'
     elif 'xyz_midnorm_block' in Feed_Data_Elements:
@@ -722,22 +730,22 @@ def gen_ply( ply_fn, pl_display, accuracy_batch, color_flags = ['gt_color'], cur
 
     if 'no_color' in color_flags:
         cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
-        create_ply_matterport( cur_xyz, ply_fn + 'nocolor.ply', cut_threshold = cut_threshold )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz, ply_fn + 'nocolor.ply', cut_threshold = cut_threshold  )
 
     if 'gt_color' in color_flags:
         cur_xyz = pl_display[...,DATA_ELE_IDXS[position]]
         cur_label_category = cur_label[...,CATEGORY_LABEL_IDX]
-        create_ply_matterport( cur_xyz, ply_fn + 'gtcolor.ply', cur_label_category , cut_threshold = cut_threshold )
-        create_ply_matterport( cur_xyz, ply_fn + 'predcolor.ply', pred_val, cut_threshold = cut_threshold )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz, ply_fn + 'gtcolor.ply', cur_label_category , cut_threshold = cut_threshold )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz, ply_fn + 'predcolor.ply', pred_val, cut_threshold = cut_threshold )
         err_idxs = cur_label_category != pred_val
-        create_ply_matterport( cur_xyz[err_idxs], ply_fn + 'err_gtcolor.ply', label = cur_label_category[err_idxs], cut_threshold = [1,1,1] )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz[err_idxs], ply_fn + 'err_gtcolor.ply', label = cur_label_category[err_idxs], cut_threshold = [1,1,1] )
         correct_idxs = cur_label_category == pred_val
-        create_ply_matterport( cur_xyz[correct_idxs], ply_fn + 'crt_gtcolor.ply', label = cur_label_category[correct_idxs], cut_threshold = [1,1,1] )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz[correct_idxs], ply_fn + 'crt_gtcolor.ply', label = cur_label_category[correct_idxs], cut_threshold = [1,1,1] )
 
     if 'raw_color' in color_flags and 'color_1norm' in DATA_ELE_IDXS:
         cur_xyz_color = raw_data[...,DATA_ELE_IDXS[position]+DATA_ELE_IDXS['color_1norm']]
         cur_xyz_color[...,[3,4,5]] *= 255
-        create_ply_matterport( cur_xyz_color, ply_fn + 'rawcolor.ply', cut_threshold = cut_threshold )
+        create_ply_dset( FLAGS.dataset_name, cur_xyz_color, ply_fn + 'rawcolor.ply', cut_threshold = cut_threshold )
 
 def limit_eval_num_batches(epoch,num_batches):
     if epoch%5 != 0:
@@ -909,7 +917,7 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     if DEBUG_MULTIFEED: print('%s feed OK, epoch=%d  batch_idx=%d'%(train_or_test, epoch,batch_idx))
 
 def main():
-    IsFeedData_MultiProcessing = FLAGS.multip_feed and (not FLAGS.auto_break)
+    IsFeedData_MultiProcessing = FLAGS.multip_feed and (not AutoBreak)
 
     if IsFeedData_MultiProcessing:
         feed_buf_qs = {}
@@ -963,7 +971,7 @@ def main():
         train_eval(None,None,None,None,None)
 
 if __name__ == "__main__":
-    if FLAGS.auto_break:
+    if AutoBreak:
         try:
             main()
             LOG_FOUT.close()

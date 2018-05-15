@@ -123,12 +123,19 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
             grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
 
         if configs['normxyz_allcas'] == 'mid':
-            block_center = tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2 )
+            block_center = tf.expand_dims( block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 ), -2, 'block_center_'+str(cascade_id) )
             grouped_xyz = grouped_xyz - block_center
             block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
             if cascade_id==0:
                 # xyz must be at the first in feed_data_elements !!!!
                 grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
+        grouped_xyz = tf.identity( grouped_xyz, 'grouped_xyz_'+str(cascade_id) )
+
+        if grouped_xyz.name.split('/')[0] == 'gpu_0':
+            tf.add_to_collection( 'grouped_xyz', grouped_xyz )
+            if configs['normxyz_allcas'] == 'mid':
+                tf.add_to_collection( 'block_center', block_center )
+
         if cascade_id>0 and use_xyz and (not cascade_id==cascade_num-1):
             grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
 
