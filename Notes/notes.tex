@@ -636,10 +636,30 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 \end{tabular}
 
+
 \subsection{My point++}	
-\subsubsection{3m}
-log-3m-ElwNN5-mnc-gsbb\_2M1-bs80-lr2-ds\_50-Sf\_Y-xyz\_midnorm\_block-1024-MOD\_9843-augRef-bd7 \par
-\includegraphics[width=0.8\textheight]{images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M1-bs80-lr2-ds_50-Sf_Y-xyz_midnorm_block-1024-MOD_9843-augRef-bd7}
-log-3m-ElwNN5-mnc-gsbb\_2M2-bs50-lr2-ds\_50-Sf\_Y-xyz\_midnorm\_block-4096-MOD\_9843-augRef-bd7 \par 
-\includegraphics[width=0.8\textheight]{images/3m_pointnet++/log-3m-ElwNN5-mnc-gsbb_2M2-bs50-lr2-ds_50-Sf_Y-xyz_midnorm_block-4096-MOD_9843-augRef-bd7}	
+\emph{After fix shuffle problem}
+\subsubsection{MODELNET40}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+	\hline
+	\multicolumn{7}{|p{14cm}|}{bxmh5:1024\_gs3\_3\_fmn1444-1024\_320-24\_32-0d2\_0d4-0d1\_0d2-pd3-2M1\par 
+	No block merging. Replicate redundant. }\\
+	\hline
+	
+	model & bs& lr\par bn decay & elements & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+	
+	3m & 32\par 40 after epoch 100 & 1-30 \par 5-5 & xyz-mid & mid, Rotate Ref & E, NN5 &1-0.355/0.375\par 4-0.504/0.544\par 10-0.603/0.640\par 30-0.742/0.759\par 50-0.798/0.804\par 60-0.834/0.823 \par 80-0.869/0.844\par 100-0.893/0.847  \\
+	\hline
+	3m & 32 & 1-30 \par 7-7 & xyz-mid & mid, Rotate Ref & E, NN5 & 10-0.636/0.684\par 50-0.851/0.826  \\
+	\hline
+	3m & 32 & 1-30 \par 5-5 & xyz & mid, Rotate Ref & E, NN5 &1-0.589/0.629\par 2-0.648/0.680\par 4-0.713/0.714\par 10-0.807/0.761\par 30-0.942/0.795\par 60-0.982/0.804 \\
+	\hline
+	
+	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	
+	(1) Global mid normalized xyz input reduces the learning speed, but can reduce overfitting. Why this makes a significant difference, considering mid norm is applied to each scale. } \\
+	\hline
+\end{tabular}
+
+	
 \end{document}

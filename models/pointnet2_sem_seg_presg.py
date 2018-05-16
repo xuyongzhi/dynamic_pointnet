@@ -11,25 +11,6 @@ from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 import copy
 
 TMPDEBUG = True
-#def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascade_id ):
-#        '''
-#            flatten_bidxmaps: (2, 26368, 2)
-#            flatten_bm_extract_idx:
-#                array([[    0,     0],
-#                       [25600,     2],
-#                       [26112,     2],
-#                       [26368,     2]], dtype=int32)
-#        '''
-#        batch_size = flatten_bidxmaps.get_shape()[0].value
-#        start = flatten_bm_extract_idx[cascade_id]
-#        end = flatten_bm_extract_idx[cascade_id+1]
-#        flatten_bidxmap_i = flatten_bidxmaps[ :,start[0]:end[0],: ]
-#
-#        batch_idx = tf.reshape( tf.range(batch_size),[batch_size,1,1] )
-#        flatten_bidxmap_i_shape1 = flatten_bidxmap_i.get_shape()[1].value
-#        batch_idx = tf.tile( batch_idx,[1,flatten_bidxmap_i_shape1,1] )
-#        flatten_bidxmap_i_concat = tf.concat( [batch_idx,flatten_bidxmap_i],axis=-1,name="flatten_bidxmap%d_concat"%(cascade_id) )
-#        return flatten_bidxmap_i_concat
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, configs):
     #batch_size = None

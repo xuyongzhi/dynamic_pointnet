@@ -52,7 +52,7 @@ parser.add_argument('--feed_label_elements', default='label_category', help='lab
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=101, help='Epoch to run [default: 50]')
-parser.add_argument('--group_pos',default='bc',help='bc or bc(block center)')
+parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
 parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
@@ -141,6 +141,7 @@ if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
 # ------------------------------------------------------------------------------
 BN_INIT_DECAY = 0.5
 BN_INIT_DECAY = 0.7
+BN_DECAY_DECAY_RATE = 0.5
 BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
@@ -167,10 +168,7 @@ else:
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
         if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
         else: normxyz_allcas_str = ''
-        if FLAGS.norm=='group':
-            norm_str = '-GN'
-        else:
-            norm_str = ''
+        group_pos_str = '-'+ FLAGS.group_pos
         if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
             aug_str = '-aug'
             if AUG_TYPES['RotateRef']:
@@ -180,9 +178,9 @@ else:
         else:
             aug_str = ''
         bn_decay_str = '-bd'+str(int(10*BN_INIT_DECAY))
-        FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
+        FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+group_pos_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
-                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + norm_str +\
+                        FLAGS.feed_data_elements+'-'+str(NUM_POINT)+'-'+FLAGS.dataset_name[0:3]+'_'+str(net_provider.train_num_blocks) + \
                         aug_str+bn_decay_str
     else:
         log_name = 'log_ft_%d.txt'%(FLAGS.model_epoch)
@@ -451,7 +449,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
         ops['check_ops'] = tf.get_collection( 'check' )
         ops['grouped_xyz'] = tf.get_collection( 'grouped_xyz' )
-        ops['block_center'] = tf.get_collection( 'block_center' )
+        ops['block_mid'] = tf.get_collection( 'block_mid' )
         ops['flat_xyz'] = tf.get_collection( 'flat_xyz')
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
@@ -523,6 +521,7 @@ def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoin
     return log_str
 
 def is_complex_log( epoch, batch_idx, num_batches ):
+    return False
     log_complex = FLAGS.only_evaluate or (epoch % 50 == 0 and epoch>0) and (batch_idx%2 == 0 or batch_idx==num_batches-1)
     #log_complex = FLAGS.only_evaluate or (epoch % 1 == 0 and epoch>=0) and (batch_idx%1 == 0 or batch_idx==num_batches-1)
     return log_complex
@@ -675,19 +674,19 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         EachSubBlock = True
         if not only_global:
             for lk in range( len(ops['grouped_xyz']) ):
-                block_center = 0
-                if len(ops['block_center']) > lk:
-                    block_center = sess.run( ops['block_center'][lk], feed_dict=feed_dict )
+                block_mid = 0
+                if len(ops['block_mid']) > lk:
+                    block_mid = sess.run( ops['block_mid'][lk], feed_dict=feed_dict )
                 #if EachSubBlock:
-                #    block_center = 0
-                def gen_a_ply( a_ops, block_center, name ):
+                #    block_mid = 0
+                def gen_a_ply( a_ops, block_mid, name ):
                     v_xyz = sess.run( a_ops, feed_dict=feed_dict )
                     if 'xyz_midnorm_block' in Feed_Data_Elements:
                         if name == 'grouped_xyz':
-                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_center
+                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_mid
                         elif name =='flat_xyz':
                             import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_center
+                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_mid
                     color_flags = ['no_color']
                     for b0 in b0_ls:
                         b1 = b0 + bs
@@ -698,9 +697,9 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
                             for i in range(v_xyz.shape[1]):
                                 gen_ply( plyfn(name+str(lk)+'_'+str(i),b0,b1), v_xyz[b0:b1,i,...], accuracy_batch,  color_flags)
 
-                gen_a_ply( ops['grouped_xyz'][lk], block_center, 'grouped_xyz'  )
+                gen_a_ply( ops['grouped_xyz'][lk], block_mid, 'grouped_xyz'  )
                 if len(ops['flat_xyz']) > lk:
-                    gen_a_ply( ops['flat_xyz'][lk], block_center, 'flat_xyz'  )
+                    gen_a_ply( ops['flat_xyz'][lk], block_mid, 'flat_xyz'  )
 
         #for lk in range( len(ops['l_xyz']) ):
         #    pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
