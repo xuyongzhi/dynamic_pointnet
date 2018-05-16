@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG =  False
+TMPDEBUG =  True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -391,7 +391,8 @@ class H5Prepare():
             #file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
-            file_list = glob.glob( os.path.join( sh5f_dir, 'bed_0337.sh5' ) )
+            sh5f_dir = sh5f_dir+'_parts'
+            file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -516,7 +517,8 @@ def GenObj_rh5():
 def GenObj_sh5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/BasicData/stride_0d1_step_0d1'
     path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
-    fn_ls = glob.glob( path+'/wardrobe_0001.sh5' )
+    path = '/home/z/Research/dynamic_pointnet/data/ETH__H5F/BasicData/stride_0d2_step_0d2_parts'
+    fn_ls = glob.glob( path+'/untermaederbrunnen_station3_xyz_intensity_rgb--0_0_n100_10_10_100.sh5' )
     for fn in fn_ls:
         with h5py.File( fn,'r' ) as h5f:
             sh5f = Sorted_H5f(h5f,fn)
@@ -527,7 +529,7 @@ def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
     path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
-    fn_ls = glob.glob( path+'/bottle_0095.sph5' )
+    fn_ls = glob.glob( path+'/*.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)

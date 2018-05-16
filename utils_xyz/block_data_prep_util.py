@@ -2793,7 +2793,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #print('all mapping OK: base_bid %s aim_bid %s'%(base_bid, aim_bid_ls))
         return aim_bid_ls, aim_bixyz_ls
 
-    def get_blocked_dset(self,block_k,new_set_default_rows=None,column_N = 9):
+    def get_blocked_dset(self,block_k,column_N=None,new_set_default_rows=None):
         if not type(block_k) is int:
             block_k = int(block_k)
 
@@ -2802,8 +2802,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             return self.h5f[dset_name]
         if new_set_default_rows==None:
             new_set_default_rows = self.h5_num_row_1M
-        #dset = self.h5f_blocked.create_dataset( dset_name,shape=(new_set_default_rows,n),\
-                #maxshape=(None,n),dtype=np.float32,chunks=(self.h5_num_row_1M/5,n) )
+        assert column_N!=None
         dset = self.h5f.create_dataset( dset_name,shape=(new_set_default_rows,column_N),\
                 maxshape=(None,column_N),dtype=np.float32,compression="gzip"  )
         dset.attrs['valid_num']=0
@@ -2916,7 +2915,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             new_row_N = source_N
 
-        aim_dset = self.get_blocked_dset(aim_block_k,vacant_size,self.total_num_channels)
+        aim_dset = self.get_blocked_dset(aim_block_k,self.total_num_channels,vacant_size)
         assert aim_dset.shape[-1] == source_dset.shape[-1], "The num_channels may be wrong (in append_to_dset)"
         row_step = self.h5_num_row_1M * 10
         org_row_N = aim_dset.attrs['valid_num']
@@ -3028,14 +3027,20 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             sub_f = Sorted_H5f(sub_h5f,sub_file_name)
 
             sub_f.copy_root_summaryinfo_from_another(self.h5f,'sub')
-            sub_f.set_step_stride(self.block_step,self.block_stride)
-            for dset_name_i in self.h5f:
+            sub_f.set_step_stride( self.h5f.attrs['block_step'], self.h5f.attrs['block_stride'] )
+            N = len(self.h5f.keys())
+            for i,dset_name_i in enumerate(self.h5f):
                 xyz_min_i = self.h5f[dset_name_i].attrs['xyz_min']
                 xyz_max_i = self.h5f[dset_name_i].attrs['xyz_max']
                 if (xyz_min_i > sub_xyz_scope[0,:]).all() and (xyz_max_i < sub_xyz_scope[1,:]).all():
-                    sub_f.get_blocked_dset(dset_name_i,0)
-                    sub_f.append_to_dset(dset_name_i,self.h5f[dset_name_i])
+                    sub_f.get_blocked_dset(dset_name_i, column_N=self.h5f[dset_name_i].shape[-1])
+                    sub_f.append_to_dset(dset_name_i, self.h5f[dset_name_i])
+
+                if i%(N//20) == 0:
+                    print( 'parting: %d%%'%(100*(i+1)/N) )
             sub_f.add_total_row_block_N()
+            sub_f.add_label_histagram()
+            sub_f.h5f.attrs['is_intact'] = 1
 
     def get_sample_shape(self):
             for i,k_str in  enumerate(self.h5f):
@@ -3143,7 +3148,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 intensity_1norm = (intensity+2047)/(2048+2047)
                 norm_data_dic['intensity_1norm']=intensity_1norm
 
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=-1 )
             feed_data, feed_label = self.remove_void( feed_data, feed_label )
 
@@ -4890,16 +4894,20 @@ def Write_Area_accuracies():
 #-------------------------------------------------------------------------------
 
 def Do_extract_part_area():
-    folder = GLOBAL_PARA.ETH_A_rawh5
-    fnl = glob.glob(os.path.join(folder,'bildstein_station5_stride_1_step_1.h5'))
-    #sub_xyz_scope = np.array([[-30,-30,-20],[0,0,50]])
-    #new_flag = '_sub_m30_0'
-    sub_xyz_scope = np.array([[-80,-80,-20],[-5,-5,50]])
-    new_flag = '_sub_m80_m5'
+    path = '/home/z/Research/dynamic_pointnet/data/ETH__H5F/BasicData/stride_0d2_step_0d2'
+    fnl = glob.glob(os.path.join(path,'untermaederbrunnen_station3_xyz_intensity_rgb.sh5'))
+    sub_xyz_scope = np.array([[0,0,-100],[10,10,100]])
+    sub_xyz_scope_  = np.reshape(sub_xyz_scope,-1 )
+    part_flag = '--'+ '_'.join( [str(v).replace('-','n') for v in sub_xyz_scope_] )
     print('sub_scope:\n',sub_xyz_scope)
+    print('part_flag:%s'%(part_flag))
     for fn in fnl:
-        fn_parts =  os.path.splitext(fn)
-        new_name = fn_parts[0]+new_flag+fn_parts[1]
+        folder = os.path.dirname(fn)+'_parts/'
+        if not os.path.exists( folder ):
+            os.mkdir(folder)
+        basename = os.path.basename(fn)
+        basename_parts =  os.path.splitext(basename)
+        new_name = folder+basename_parts[0]+part_flag+basename_parts[1]
         print('sub file name: ',new_name)
         with h5py.File(fn,'r') as s_h5f:
             sorted_h5f = Sorted_H5f(s_h5f,fn)
@@ -4991,30 +4999,7 @@ def show_h5f_file():
         show_h5f_summary_info(h5f)
 
 if __name__ == '__main__':
- #   file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_stride_1_step_1, \
- #               '*_m5.h5') )
-    #file_list = glob.glob( os.path.join(GLOBAL_PARA.ETH_A_stride_8_step_8, \
-                #'*_4096.h5') )
-   # file_list = glob.glob( os.path.join(GLOBAL_PARA.seg_train_path, \
-   #             '*.h5') )
-    #main(file_list)
-    #Do_gen_raw_obj()
-    #Do_Check_xyz()
-    #Do_sample()
-    #Do_gen_sorted_block_obj(file_list)
-    #Do_gen_normed_obj(file_list)
-    #Do_Norm(file_list)
-    #gen_file_list(GLOBAL_PARA.seg_train_path)
-    #Do_gen_gt_pred_objs()
-
-
-    #Write_Area_accuracies()
-    #Write_all_file_accuracies()
-    #Test_get_block_data_of_new_stride_step()
-    #Do_normalize_sorted_to_self()
-    #Normed_H5f.show_all_colors()
-    #Gen_raw_label_color_obj()
-
-    show_h5f_file()
+    START_T = time.time()
+    Do_extract_part_area()
     T = time.time() - START_T
     print('exit main, T = ',T)
