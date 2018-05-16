@@ -9,8 +9,8 @@ train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
 maxepoch=21
-learning_rate=0.002
-decay_epoch_step=50
+learning_rate=0.001
+decay_epoch_step=30
 feed_label_elements="label_category"
 
 multip_feed=0
@@ -66,18 +66,17 @@ run_train()
 
 #-------------------------------------------------------------------------------------------
 feed_data_elements='xyz_midnorm_block' 
-feed_data_elements='xyz' 
 #feed_data_elements='xyz_midnorm_block-color_1norm' 
 #feed_data_elements='xyz_midnorm_block-nxnynz' 
 
-num_gpus=1
+num_gpus=2
 start_gi=0
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 aug=1
-bs=50 # 9.1G
-#run_train 3m $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=48 # 9.1G
+run_train 3m $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
 #-------------------------------------------------------------------------------------------
 
@@ -86,7 +85,7 @@ bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d
 
 in_cnn_out_kp='NN5'
 bs=32 # 9.5G
-run_train 1mG $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+#run_train 1mG $bs $num_gpus $feed_data_elements $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
 #-------------------------------------------------------------------------------------------
 feed_data_elements='xyz_midnorm_block-nxnynz' 

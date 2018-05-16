@@ -597,6 +597,12 @@ class GlobalSubBaseBLOCK():
         flag_str += '-pd'+str(int(self.padding*10))
         if NETCONFIG['merge_blocks_while_fix_bmap']:
             flag_str += '-mbf'
+        if NETCONFIG['redundant_points_in_block'] == 'replicate':
+            flag_str += '-rep'
+        elif NETCONFIG['redundant_points_in_block'] < -500:
+            flag_str += '-neg'
+        else:
+            raise NotImplementedError
         flag_str += '-' + self.gsbb_config
         return flag_str
 

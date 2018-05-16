@@ -49,10 +49,10 @@ parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_gs3_3_fmn1
 
 parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
-parser.add_argument('--max_epoch', type=int, default=401, help='Epoch to run [default: 50]')
-parser.add_argument('--group_pos',default='mean',help='bc or bc(block center)')
+parser.add_argument('--max_epoch', type=int, default=101, help='Epoch to run [default: 50]')
+parser.add_argument('--group_pos',default='bc',help='bc or bc(block center)')
 parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
@@ -83,6 +83,7 @@ FLAGS.multip_feed = bool(FLAGS.multip_feed)
 FLAGS.only_evaluate = bool(FLAGS.only_evaluate)
 IS_GEN_PLY = False
 Is_REPORT_PRED = IS_GEN_PLY
+if IS_GEN_PLY: FLAGS.max_epoch=1
 Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
@@ -198,7 +199,6 @@ if FLAGS.finetune:
 if FLAGS.only_evaluate:
     assert os.path.exists( MODEL_PATH+'.meta' ),"Only evaluate, but model mote exists: %s"%(MODEL_PATH+'.meta')
 LOG_FOUT = open( log_fn, 'w')
-LOG_FOUT_FUSION = open(LOG_DIR_FUSION, 'a')
 LOG_FOUT.write(str(FLAGS)+'\n\n')
 
 #HOSTNAME = socket.gethostname()
@@ -491,9 +491,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
-            if epoch == MAX_EPOCH -1:
-                LOG_FOUT_FUSION.write( str(FLAGS)+'\n\n'+train_log_str+'\n'+eval_log_str+'\n\n' )
-
             #print('train eval finish epoch %d / %d'%(epoch,epoch_start+MAX_EPOCH-1))
 
 def add_log(tot,epoch,batch_idx,loss_batch,t_batch_ls, c_TP_FN_FP = None,numpoint_block=None,all_accuracy=None):
@@ -640,7 +637,6 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         show_flag = 'worest_acc'
         #show_flag = 'all block'
 
-        only_global = False
         if fid_start_end.shape[0] > 1:
             print('batch %d involves more than one file, skip generating ply'%(batch_idx))
             return
@@ -675,11 +671,15 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         #gen_ply( plyfn(rawdata), cur_data[b0:b1,:,0:3], accuracy_batch,  color_flags,  cur_label[b0:b1], np.argmax(pred_val,2)[b0:b1], cur_data[b0:b1] )
         #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
 
+        only_global = False
+        EachSubBlock = True
         if not only_global:
             for lk in range( len(ops['grouped_xyz']) ):
                 block_center = 0
                 if len(ops['block_center']) > lk:
                     block_center = sess.run( ops['block_center'][lk], feed_dict=feed_dict )
+                #if EachSubBlock:
+                #    block_center = 0
                 def gen_a_ply( a_ops, block_center, name ):
                     v_xyz = sess.run( a_ops, feed_dict=feed_dict )
                     if 'xyz_midnorm_block' in Feed_Data_Elements:
@@ -691,7 +691,12 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
                     color_flags = ['no_color']
                     for b0 in b0_ls:
                         b1 = b0 + bs
-                        gen_ply( plyfn(name+str(lk),b0,b1), v_xyz[b0:b1,...], accuracy_batch,  color_flags)
+                        if not EachSubBlock:
+                            gen_ply( plyfn(name+str(lk),b0,b1), v_xyz[b0:b1,...], accuracy_batch,  color_flags)
+                        else:
+                            v_xyz = v_xyz[:,0:min(10,v_xyz.shape[1]),:,:] # at most 10 sub blocks
+                            for i in range(v_xyz.shape[1]):
+                                gen_ply( plyfn(name+str(lk)+'_'+str(i),b0,b1), v_xyz[b0:b1,i,...], accuracy_batch,  color_flags)
 
                 gen_a_ply( ops['grouped_xyz'][lk], block_center, 'grouped_xyz'  )
                 if len(ops['flat_xyz']) > lk:
