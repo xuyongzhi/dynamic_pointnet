@@ -11,7 +11,7 @@ NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '2M2'
+_gsbb_config = '3E1'
 #_gsbb_config = '3D1_benz'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
@@ -146,6 +146,18 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         nsubblock_candis =       np.array([1024, 320]).astype(np.int32)
         npoint_subblock_candis = np.array([48, 32]).astype(np.int32)
 
+    #---------------------------------------------------------------------------
+    #                             ETH
+    elif gsbb_config == '3E1':
+        global_stride = np.array([5.4,5.4,5.4]).astype(np.float)
+        global_step = np.array([9,9,9]).astype(np.float)
+        global_num_point = 30000
+        flatbxmap_max_nearest_num = [1,4,4,4]
+
+        sub_block_stride_candis = np.array([0.2,0.6,1.8]).astype(np.float)
+        sub_block_step_candis   = np.array([0.4,1.2,3.6]).astype(np.float)
+        nsubblock_candis =       np.array([ 960, 64, 12]).astype(np.int32)
+        npoint_subblock_candis = np.array([ 32,  48,  24]).astype(np.int32)
 
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
