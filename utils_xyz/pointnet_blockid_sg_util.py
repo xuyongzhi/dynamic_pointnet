@@ -111,33 +111,41 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
 
             grouped_xyz = tf.gather_nd(xyz, bidmap_concat, name='grouped_xyz')  # gpu_0/sa_layer0/grouped_xyz:0
             grouped_points = tf.gather_nd(points,bidmap_concat, name='group_points')
+            if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
+                grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
 
-            # new_xyz is the "voxel center" or "mean position of points in the voxel"
-            if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
-                new_xyz = tf.reduce_mean(grouped_xyz,-2)
-            else:
-                new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
-            # the mid can be mean or block center, decided by configs['mean_grouping_position']
-            block_mid = tf.expand_dims( new_xyz,-2 )
+        # new_xyz is the "voxel center" or "mean position of points in the voxel"
+        if configs['mean_grouping_position'] and (not mlp_configs['block_learning']=='3DCNN'):
+            new_xyz = tf.reduce_mean(grouped_xyz,-2)
+        else:
+            new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
+        # the mid can be mean or block center, decided by configs['mean_grouping_position']
+        sub_block_mid = tf.expand_dims( new_xyz,-2, name = 'sub_block_mid' )   # gpu_1/sa_layer0/sub_block_mid
+        global_block_mid = tf.reduce_mean( sub_block_mid,1, keepdims=True, name = 'global_block_mid' )
+        grouped_xyz_submid = grouped_xyz - sub_block_mid
+        grouped_xyz_glomid = grouped_xyz - global_block_mid
 
-        if cascade_id==0 and  len(input_drop_mask.get_shape()) != 0:
-            grouped_indrop_mask = tf.gather_nd( input_drop_mask, bidmap_concat, name='grouped_indrop_mask' )  # gpu_0/sa_layer0/grouped_indrop_mask:0
+        grouped_xyz_feed = []
+        if 'raw' in configs['xyz_elements']:
+            grouped_xyz_feed.append( grouped_xyz )
+        if 'sub_mid' in configs['xyz_elements']:
+            grouped_xyz_feed.append( grouped_xyz_submid )
+        if 'global_mid' in configs['xyz_elements']:
+            grouped_xyz_feed.append( grouped_xyz_glomid )
+        grouped_xyz_feed = tf.concat( grouped_xyz_feed, -1 )
+        if cascade_id==0:
+            # xyz must be at the first in feed_data_elements !!!!
+            grouped_points = tf.concat( [grouped_xyz_feed, grouped_points[...,3:]],-1 )
+        elif use_xyz:
+            grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
-        if configs['normxyz_allcas'] == 'mid':
-            grouped_xyz = grouped_xyz - block_mid
-            block_bottom_center_mm = block_bottom_center_mm - tf.tile( block_bottom_center_mm[:,:,3:6], [1,1,2] )
-            if cascade_id==0:
-                # xyz must be at the first in feed_data_elements !!!!
-                grouped_points = tf.concat( [grouped_xyz, grouped_points[...,3:]],-1 )
-        grouped_xyz = tf.identity( grouped_xyz, 'grouped_xyz_'+str(cascade_id) )
-
-        if grouped_xyz.name.split('/')[0] == 'gpu_0':
+        if 'gpu_' in grouped_xyz.name.split('/')[0]:
             tf.add_to_collection( 'grouped_xyz', grouped_xyz )
-            if configs['normxyz_allcas'] == 'mid':
-                tf.add_to_collection( 'block_mid', block_mid )
+            tf.add_to_collection( 'grouped_xyz_submid', grouped_xyz_submid )
+            tf.add_to_collection( 'grouped_xyz_glomid', grouped_xyz_glomid )
 
         if cascade_id>0 and use_xyz and (not cascade_id==cascade_num-1):
-            grouped_points = tf.concat([grouped_xyz, grouped_points],axis=-1)
+            grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
         nsample = grouped_points.get_shape()[2].value  # the conv kernel size
 

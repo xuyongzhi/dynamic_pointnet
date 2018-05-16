@@ -65,16 +65,15 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-#feed_data_elements='xyz_midnorm_block' 
-feed_data_elements='xyz' 
-#feed_data_elements='xyz_midnorm_block-color_1norm' 
-#feed_data_elements='xyz_midnorm_block-nxnynz' 
+feed_data_elements='xyzrsg' 
+#feed_data_elements='xyzrsg-color_1norm' 
+#feed_data_elements='xyzrsg-nxnynz' 
 
 num_gpus=1
 start_gi=1
 in_cnn_out_kp='NN5'
 loss_weight='E'
-ShuffleFlag='Y'
+ShuffleFlag='N'
 aug=1
 bs=50 # 9.1G
 bs=32

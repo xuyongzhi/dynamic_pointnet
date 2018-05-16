@@ -47,13 +47,12 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_gs3_3/', help='The file name glob for both training and evaluation')
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2', help='')
 
-parser.add_argument('--feed_data_elements', default='xyz_midnorm_block', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_data_elements', default='xyzrsg', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=101, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
-parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
 parser.add_argument('--num_gpus', type=int, default=1, help='GPU num]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
@@ -91,6 +90,15 @@ ISTFDEBUG = False
 AutoBreak = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
+assert Feed_Data_Elements[0][0:3] == 'xyz'
+xyz_elements = Feed_Data_Elements[0][3:]
+Feed_Data_Elements[0] = 'xyz'
+assert len(xyz_elements)<=3
+XYZ_ELEMENTS = []
+if 's' in xyz_elements: XYZ_ELEMENTS.append('sub_mid')
+if 'g' in xyz_elements: XYZ_ELEMENTS.append('global_mid')
+if 'r' in xyz_elements: XYZ_ELEMENTS.append('raw')
+assert len(XYZ_ELEMENTS) > 0
 try:
     FLAGS.eval_fnglob_or_rate=float(FLAGS.eval_fnglob_or_rate)
 except:
@@ -166,8 +174,7 @@ else:
         log_name = 'log_train.txt'
         nwl_str = '-'+FLAGS.loss_weight + 'lw'
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
-        if FLAGS.normxyz_allcas == 'mid': normxyz_allcas_str = '-mnc'
-        else: normxyz_allcas_str = ''
+        normxyz_allcas_str = '-xyz_'+xyz_elements
         group_pos_str = '-'+ FLAGS.group_pos
         if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
             aug_str = '-aug'
@@ -216,6 +223,7 @@ def log_string(out_str):
 log_string('\n\nkey parameters:')
 #log_string( 'data: %s'%(FLAGS.feed_data_elements) )
 log_string( 'model: %s'%(FLAGS.modelf_nein) )
+log_string( 'xyz elements:%s'%(XYZ_ELEMENTS) )
 log_string( 'sampling & grouping: %s'%(FLAGS.bxmh5_folder_name) )
 log_string( 'batch size, num: %d, %d'%(BATCH_SIZE, net_provider.train_num_blocks) )
 log_string( 'learning rate: %f'%(FLAGS.learning_rate) )
@@ -224,7 +232,6 @@ log_string( 'bn_decay initial: %f, decay rate:%f'%(BN_INIT_DECAY,BN_DECAY_DECAY_
 log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
 log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
 log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
-log_string( 'normxyz_allcas:%s'%(FLAGS.normxyz_allcas) )
 log_string( 'Aug data: RotateRef:%s   RotateVox:%s'%(AUG_TYPES['RotateRef'], AUG_TYPES['RotateVox']) )
 if AUG_TYPES['RotateRef']:
     log_string('\tRotateRefXYZMax:%s degree'%(AUG_TYPES['RotateRefXYZMax']*180/np.pi))
@@ -299,7 +306,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs = {}
             configs['dataset_name'] = FLAGS.dataset_name
             configs['mean_grouping_position'] = FLAGS.group_pos == 'mean' # if not ture, use block center
-            configs['normxyz_allcas'] = FLAGS.normxyz_allcas
+            configs['xyz_elements'] =  XYZ_ELEMENTS
             configs['Cnn_keep_prob'] = Cnn_keep_prob
             configs['Out_keep_prob'] = Out_keep_prob
             configs['only_last_layer_ineach_cascade'] = True
@@ -449,7 +456,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
         ops['check_ops'] = tf.get_collection( 'check' )
         ops['grouped_xyz'] = tf.get_collection( 'grouped_xyz' )
-        ops['block_mid'] = tf.get_collection( 'block_mid' )
+        ops['grouped_xyz_submid'] = tf.get_collection( 'grouped_xyz_submid' )
+        ops['grouped_xyz_glomid'] = tf.get_collection( 'grouped_xyz_glomid' )
         ops['flat_xyz'] = tf.get_collection( 'flat_xyz')
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
@@ -671,22 +679,11 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
         #pl_display, = sess.run( [ops['pointclouds_pl']], feed_dict=feed_dict )
 
         only_global = False
-        EachSubBlock = True
+        EachSubBlock = False
         if not only_global:
             for lk in range( len(ops['grouped_xyz']) ):
-                block_mid = 0
-                if len(ops['block_mid']) > lk:
-                    block_mid = sess.run( ops['block_mid'][lk], feed_dict=feed_dict )
-                #if EachSubBlock:
-                #    block_mid = 0
-                def gen_a_ply( a_ops, block_mid, name ):
+                def gen_a_ply( a_ops, name ):
                     v_xyz = sess.run( a_ops, feed_dict=feed_dict )
-                    if 'xyz_midnorm_block' in Feed_Data_Elements:
-                        if name == 'grouped_xyz':
-                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_mid
-                        elif name =='flat_xyz':
-                            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                            v_xyz[...,DATA_ELE_IDXS['xyz_midnorm_block']] += block_mid
                     color_flags = ['no_color']
                     for b0 in b0_ls:
                         b1 = b0 + bs
@@ -697,9 +694,11 @@ def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_labe
                             for i in range(v_xyz.shape[1]):
                                 gen_ply( plyfn(name+str(lk)+'_'+str(i),b0,b1), v_xyz[b0:b1,i,...], accuracy_batch,  color_flags)
 
-                gen_a_ply( ops['grouped_xyz'][lk], block_mid, 'grouped_xyz'  )
+                gen_a_ply( ops['grouped_xyz'][lk], 'grouped_xyz'  )
+                gen_a_ply( ops['grouped_xyz_submid'][lk], 'grouped_xyz_submid'  )
+                gen_a_ply( ops['grouped_xyz_glomid'][lk], 'grouped_xyz_glomid'  )
                 if len(ops['flat_xyz']) > lk:
-                    gen_a_ply( ops['flat_xyz'][lk], block_mid, 'flat_xyz'  )
+                    gen_a_ply( ops['flat_xyz'][lk], 'flat_xyz'  )
 
         #for lk in range( len(ops['l_xyz']) ):
         #    pl_display, = sess.run( [ops['l_xyz'][lk]], feed_dict=feed_dict )
