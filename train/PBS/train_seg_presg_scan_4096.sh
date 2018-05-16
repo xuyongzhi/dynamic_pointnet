@@ -43,8 +43,8 @@ bxmh5_folder_name='Merged_bxmh5/10000_gs2_2_fmn1444-2048_960_64_12-24_32_48_24-0
 all_fn_globs='Merged_sph5/4096_gs3_3/'
 bxmh5_folder_name='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2'
 
-all_fn_globs='Merged_sph5/1024_gs3_3/'
-bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1'
+#all_fn_globs='Merged_sph5/1024_gs3_3/'
+#bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1'
 # *****************************************************************************
 
 run_train()
@@ -71,13 +71,13 @@ feed_data_elements='xyzrsg'
 #feed_data_elements='xyzrsg-nxnynz' 
 
 num_gpus=1
-start_gi=1
+start_gi=0
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='mean'
 aug=1
-bs=36
+bs=28
 run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 #-------------------------------------------------------------------------------------------
 
