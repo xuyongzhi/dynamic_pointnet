@@ -825,11 +825,7 @@ class GlobalSubBaseBLOCK():
             all_sorted_aimbids = np.array( [global_bid] )
         raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
-            try:
-                base_bids = all_base_bids_indic[aim_bid]
-            except:
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                pass
+            base_bids = all_base_bids_indic[aim_bid]
             # use valid_sorted_basebids, instead of
             # valid_sorted_basebids_sample. Thus, when some base bids are
             # replicated, base_bid_valid_indexs are always assigned with smaller
