@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG =  False
+TMPDEBUG =True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,9 +28,9 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-#DATASET = 'ETH'
+DATASET = 'ETH'
 #DATASET = 'MODELNET40'
-DATASET = 'KITTI'
+#DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -393,8 +393,8 @@ class H5Prepare():
             #file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
-            sh5f_dir = sh5f_dir+'_parts'
-            file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
+            #sh5f_dir = sh5f_dir+'_parts'
+            file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_intensity_rgb.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -558,8 +558,8 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        h5prep.MergeNormed( data_aug_configs )
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

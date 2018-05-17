@@ -171,7 +171,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis   = np.array([0.2,0.6,1.4,3.0]).astype(np.float)
         nsubblock_candis =       np.array([ 600, 400, 260, 64]).astype(np.int32)
         npoint_subblock_candis = np.array([ 200,  8, 12,  16]).astype(np.int32)
-        min_valid_point = np.array( [ 5, 2, 2, 2, 2 ] )
+        min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
 
