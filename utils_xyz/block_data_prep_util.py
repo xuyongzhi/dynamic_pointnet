@@ -1111,8 +1111,8 @@ class GlobalSubBaseBLOCK():
         bxmap_meta['count'] = np.array([1])
 
         aimbnum_rmed = valid_sorted_aimbids_org.size - valid_sorted_aimbids.size
-        aimbnum_rm_miss_add = aim_nsubblock - valid_sorted_aimbids.size
-        bxmap_meta['aimbnum_rm_miss_add'] = np.array([[ valid_sorted_aimbids.size, aimbnum_rmed, min(0,aimbnum_rm_miss_add), max(0,aimbnum_rm_miss_add) ]])
+        aimbnum_miss_add = aim_nsubblock - valid_sorted_aimbids.size
+        bxmap_meta['aimbnum_rm_miss_add'] = np.array([[ valid_sorted_aimbids.size, aimbnum_rmed, min(0,aimbnum_miss_add), max(0,aimbnum_miss_add) ]])
         npointsubblock_mean = np.mean(baseb_num_inaim_ls)
 
         dif = aim_npoint_subblock - np.array(baseb_num_inaim_ls)

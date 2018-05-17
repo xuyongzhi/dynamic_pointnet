@@ -165,12 +165,13 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         global_stride = np.array([4.8,4.8,4.8]).astype(np.float)
         global_step = np.array([7.8,7.8,7.8]).astype(np.float)
         global_num_point = 80000
+        global_num_point = 8000
         flatbxmap_max_nearest_num = [1,4,4,4]
 
         sub_block_stride_candis = np.array([0.2,0.4,0.8,1.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.2,0.6,1.4,3.0]).astype(np.float)
-        nsubblock_candis =       np.array([ 600, 400, 260, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 200,  8, 12,  16]).astype(np.int32)
+        nsubblock_candis =       np.array([ 2048, 560, 240, 64]).astype(np.int32)
+        npoint_subblock_candis = np.array([ 72,  12, 24,  24]).astype(np.int32)
         min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)
