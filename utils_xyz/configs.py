@@ -11,7 +11,7 @@ NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
-_gsbb_config = '4M1'
+_gsbb_config = '4E1'
 #_gsbb_config = '3D1_benz'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
@@ -98,14 +98,14 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     #                           MODELNET
     elif gsbb_config == '4M1':
         global_stride = np.array([3,3,3]).astype(np.float)
-        global_step = np.array([3,3,3]).astype(np.float)
+        global_step = np.array([3.5,3.5,3.5]).astype(np.float)
         global_num_point = 10000
         flatbxmap_max_nearest_num = [1,4,4,4]
 
         sub_block_stride_candis = np.array([0.05,0.1,0.3,0.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.05,0.2,0.5,1.1]).astype(np.float)
-        nsubblock_candis =       np.array([2560, 1024, 80, 16]).astype(np.int32)
-        npoint_subblock_candis = np.array([24, 32,  48,  32]).astype(np.int32)
+        nsubblock_candis =       np.array([2560, 1024, 80, 16, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([24, 32,  48,  32, 48]).astype(np.int32)
         min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
 
     elif gsbb_config == '2M1':
@@ -158,8 +158,8 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.4,0.8,1.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.2,0.6,1.4,3.0]).astype(np.float)
-        nsubblock_candis =       np.array([ 2048, 560, 240, 64]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 72,  12, 24,  24]).astype(np.int32)
+        nsubblock_candis =       np.array([ 2048, 560, 240, 128, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([ 72,  12, 24,  24, 64]).astype(np.int32)
         min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)

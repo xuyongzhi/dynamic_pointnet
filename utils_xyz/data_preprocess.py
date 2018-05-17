@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = False
+TMPDEBUG =True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-#DATASET = 'ETH'
-DATASET = 'MODELNET40'
+DATASET = 'ETH'
+#DATASET = 'MODELNET40'
 #DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
@@ -394,7 +394,8 @@ class H5Prepare():
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
             #sh5f_dir = sh5f_dir+'_parts'
-            file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_intensity_rgb.sh5' ) )
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_intensity_rgb--0_0_n100_10_10_100.sh5' ) )
+            file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_*.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:

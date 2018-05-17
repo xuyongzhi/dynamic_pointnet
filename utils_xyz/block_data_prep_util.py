@@ -440,8 +440,11 @@ class GlobalSubBaseBLOCK():
                 else:
                     base_step = self.sub_block_step_candis[base_bid]
                     base_stride = self.sub_block_stride_candis[base_bid]
-                voxel_size = ( aim_step - base_step ) / base_stride + 1
-                self.voxel_sizes[cascade_id] = voxel_size
+                voxel_size_f = ( aim_step - base_step ) / base_stride + 1
+                voxel_sizes = np.rint( voxel_size_f ).astype(np.int)
+                err = np.sum( np.abs( voxel_sizes-voxel_size_f ) )
+                assert err < 1e-4, err
+                self.voxel_sizes[cascade_id] = voxel_sizes
 
     def __init__(self, root_s_h5f = None, root_s_h5f_fn = None, bmh5_fn = None ):
         self.new_attrs = {}
@@ -800,12 +803,16 @@ class GlobalSubBaseBLOCK():
         # Maybe less than this because of insufficient number in last one. Use valid number intead of sample number here.
         #valid_sorted_basebids = np.sort(valid_sorted_basebids)
 
-        if cascade_id<self.cascade_num:
-            aim_nsubblock =  self.nsubblock_candis[cascade_id]
-            aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
-        else:
-            aim_nsubblock = 1
-            aim_npoint_subblock = self.nsubblock_candis[self.cascade_num-1]
+        aim_nsubblock =  self.nsubblock_candis[cascade_id]
+        aim_npoint_subblock = self.npoint_subblock_candis[cascade_id]
+        if cascade_id==self.cascade_num:
+            assert aim_nsubblock == 1
+        if cascade_id > 0:
+            vs = self.voxel_sizes[cascade_id]
+            full_point_num = vs[0]*vs[1]*vs[2]
+            if not aim_npoint_subblock <= full_point_num:
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                pass
         #-----------------------------------------------------------------------
         # (1) Remove all the aim blocks contain no valid base blocks
         if IsRecordTime: t1 = time.time()
@@ -813,6 +820,9 @@ class GlobalSubBaseBLOCK():
         all_base_bids_indic = self.get_all_base_bids_in_aim_dic(cascade_id)
         #all_aim_bids_in_base_dic = self.get_all_aim_bids_in_base_dic(cascade_id)
         bidxmap_dic={}
+        if cascade_id==self.cascade_num:
+            # The global bid in the only one
+            all_sorted_aimbids = np.array( [debug_meta['global_bidx']] )
         raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
             base_bids = all_base_bids_indic[aim_bid]
@@ -4474,7 +4484,14 @@ class Normed_H5f():
 
             cascade_num = attrs['sub_block_step_candis'].size
             meta_str = '\n\n'
-            for cascade_id in range(cascade_num):
+            for cascade_id in range(cascade_num+1):
+                if cascade_id ==cascade_num:
+                    stride = attrs['global_stride']
+                    step = attrs['global_step']
+                else:
+                    stride = attrs['sub_block_stride_candis'][cascade_id]
+                    step = attrs['sub_block_step_candis'][cascade_id]
+
                 meta_str += 'cascade_id %d bxmap meta:\n'%(cascade_id)
                 count = attrs['count'][cascade_id]
                 for ele_name in GlobalSubBaseBLOCK.meta_names:
@@ -4484,9 +4501,9 @@ class Normed_H5f():
                     if ele_name == 'count':
                         meta_str += ' (%d)'%(count)
                     if ele_name == 'aimbnum_rm_miss_add':
-                        meta_str += ' \t<-- stride:%s  nsubblock:%s'%( attrs['sub_block_stride_candis'][cascade_id], attrs['nsubblock_candis'][cascade_id] )
+                        meta_str += ' \t<-- stride:%s  nsubblock:%s'%( stride, attrs['nsubblock_candis'][cascade_id] )
                     if ele_name == 'baseb_exact_flat_num':
-                        meta_str += ' \t<-- nsubblock:%s  step:%s'%( attrs['nsubblock_candis'][cascade_id], attrs['sub_block_step_candis'][cascade_id] )
+                        meta_str += ' \t<-- nsubblock:%s  step:%s'%( attrs['nsubblock_candis'][cascade_id], step )
                         baseb_exact_flat_num = attrs[ele_name][cascade_id] / count
                         meta_str += '\n\t\tmissed_baseb_num:%d/%0.1f%%'%( baseb_exact_flat_num[0], 100.0*baseb_exact_flat_num[0]/np.sum(baseb_exact_flat_num) )
                     if ele_name == 'npointsubblock_missed_add':
