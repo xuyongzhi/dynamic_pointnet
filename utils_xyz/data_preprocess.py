@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG =  True
+TMPDEBUG =  False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,9 +28,9 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-DATASET = 'ETH'
+#DATASET = 'ETH'
 #DATASET = 'MODELNET40'
-#DATASET = 'KITTI'
+DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
@@ -109,8 +109,8 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     test_num = {}
     test_num['SCANNET'] = 312
     test_num['MODELNET40'] = 2468
-    train_num['KITTI'] = 45
-    test_num['KITTI'] = 45
+    train_num['KITTI'] = 7
+    test_num['KITTI'] = 8
 
 
     if void_f_n==0:
@@ -118,6 +118,8 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
         assert len(train_sph5_ls) == train_num[DATASET]
         assert len(test_bxmh5_ls) == test_num[DATASET]
         assert len(test_sph5_ls) == test_num[DATASET]
+
+
     assert len(train_bxmh5_ls) + len(test_bxmh5_ls) + void_f_n == train_num[DATASET] + test_num[DATASET]
     train_bxmh5_ls.sort()
     train_sph5_ls.sort()
@@ -428,7 +430,7 @@ class H5Prepare():
 
         if DATASET == 'KITTI':
             plsph5_folder = 'BasicData/ORG_sph5/4000_gs5_10'
-            bxmh5_folder = 'BasicData/ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-3D1_benz'
+            bxmh5_folder = 'BasicData/ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-neg-3D1_benz'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -556,8 +558,8 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

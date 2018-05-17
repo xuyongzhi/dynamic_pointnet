@@ -6,7 +6,7 @@
 #***********
 
 train_script=./train_3d_obj_detection.py
-dataset_name=Voxel
+dataset_name=KITTIH5F
 maxepoch=301
 learning_rate=0.002
 decay_epoch_step=50
@@ -21,8 +21,8 @@ ShuffleFlag='Y'
 baselogname='log'
 
 # *****************************************************************************
-all_fn_globs='Merged_sph5/32768_gs-100_-100/'
-bxmh5_folder_name='Merged_bxmh5/32768_gs-100_-100_fmn-10-10-10-11800_4800_1800-16_8_8-0d4_0d8_1d6-0d2_0d4_0d8-pd3-mbf-benz_d3/'
+all_fn_globs='MergedicData/ORG_sph5/4000_gs5_10/'
+bxmh5_folder_name='ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-neg-3D1_benz'
 
 eval_fnglob_or_rate=0
 # *****************************************************************************
@@ -38,6 +38,6 @@ gpu=1
 
 
 
-train_script="python $train_script --modelf_nein $modelf_nein --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --group_pos $group_pos --learning_rate $learning_rate --model_epoch $model_epoch --loss_weight $loss_weight --substract_center --gpu=$gpu" 
+train_script="pudb $train_script --modelf_nein $modelf_nein --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --group_pos $group_pos --learning_rate $learning_rate --model_epoch $model_epoch --loss_weight $loss_weight --substract_center --gpu=$gpu" 
 
 $train_script
