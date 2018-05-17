@@ -417,7 +417,6 @@ class H5Prepare():
             print("\n\n GenPyramid: all %d files successed\n******************************\n"%(len(success_fns)))
 
 
-
     def MergeNormed(self, data_aug_configs):
         if DATASET == 'SCANNET':
             plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
