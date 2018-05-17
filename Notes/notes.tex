@@ -636,6 +636,16 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 \end{tabular}
 
+\subsection{Charles Point++, fast distance sampling}	
+\subsubsection{MODELNET40}
+\begin{tabular}{ |p{8cm}|p{5cm}| }
+	\hline
+	config & epoch-train acc/eval acc-eval cls acc \\ 
+	\hline
+	batch\_size=32, decay\_rate=0.7, decay\_step=200000, learning\_rate=0.001, log\_dir='log', max\_epoch=251, model='pointnet2\_cls\_ssg', momentum=0.9, normal=False, num\_gpus=2, num\_point=1024, optimizer='a     dam &4-0.746/0.819-0.748\par 10-0.802/0.848-0.788\par 40-0.886/0.875-0.858\par 60-0.916/0.892-0.859 \\
+	\hline
+
+\end{tabular}
 
 \subsection{My point++}	
 \emph{After fix shuffle problem}
@@ -646,19 +656,37 @@ test data shape: [ 4172 12800     9] \par
 	No block merging. Replicate redundant. }\\
 	\hline
 	
-	model & bs& lr\par bn decay & elements & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	model & bs& lr\par bn decay & elements\par group pos & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
 	\hline
 	
-	3m & 32\par 40 after epoch 100 & 1-30 \par 5-5 & xyz-mid & mid, Rotate Ref & E, NN5 &1-0.355/0.375\par 4-0.504/0.544\par 10-0.603/0.640\par 30-0.742/0.759\par 50-0.798/0.804\par 60-0.834/0.823 \par 80-0.869/0.844\par 100-0.893/0.847  \\
+	3m & 32\par 40 after epoch 100 & 1-30 \par 5-5 & xyz-mid\par - & mid, Rotate Ref & E, NN5 &1-0.355/0.375\par 4-0.504/0.544\par 10-0.603/0.640\par 30-0.742/0.759\par 50-0.798/0.804\par 60-0.834/0.823 \par 80-0.869/0.844\par 100-0.893/0.847  \\
 	\hline
-	3m & 32 & 1-30 \par 7-7 & xyz-mid & mid, Rotate Ref & E, NN5 & 10-0.636/0.684\par 50-0.851/0.826  \\
+	3m & 32 & 1-30 \par 7-7 & xyz-mid\par -  & mid, Rotate Ref & E, NN5 & 10-0.636/0.684\par 50-0.851/0.826  \\
 	\hline
-	3m & 32 & 1-30 \par 5-5 & xyz & mid, Rotate Ref & E, NN5 &1-0.589/0.629\par 2-0.648/0.680\par 4-0.713/0.714\par 10-0.807/0.761\par 30-0.942/0.795\par 60-0.982/0.804 \\
+	3m & 32 & 1-30 \par 5-5 & xyz\par -  & mid, Rotate Ref & E, NN5 &1-0.589/0.629\par 2-0.648/0.680\par 4-0.713/0.714\par 10-0.807/0.761\par 30-0.942/0.795\par 60-0.982/0.804 \\
+	\hline\hline
+	3m & 36 & 1-30 \par 7-7 & xyzg\par bc & Rotate Ref & E, NN5 &1-0.707/0.775\par 2-0.744/0.804\par 4-0.785/0.817\par 10-0.831/0.826\par 30-0.906/0.857\par 60-0.967/0.852 \\
 	\hline
+	3m & 36 & 1-30 \par 7-7 & xyzg\par mean & Rotate Ref & E, NN5 &1-0.704/0.754\par 2-0.747/0.781\par 4-0.783/0.810\par 10-0.839/0.835\par 60-0.969/0.865 \\
+	\hline
+	3m & 36 & 1-30 \par 7-7 & xyzrsg\par mean & Rotate Ref & E, NN5 &10-0.844/0.830\par 60-0.978/0.868 \\		
+	\hline\hline
+	
+	\multicolumn{7}{|p{14cm}|}{bxmh5:4096\_gs3\_3\_fmn1444-1024\_320-48\_32-0d2\_0d4-0d1\_0d2-pd3-2M2\par 
+		No block merging. Replicate redundant. }\\
+	\hline
+	3m & 28 & 1-30 \par 7-7 & xyzg\par mean & Rotate Ref & E, NN5 &1-0.698/0.795 \par 10-0.834/0.853\par 60-0.962/0.874 \\	
+	\hline
+	3m & 28 & 1-30 \par 7-7 & xyzrsg\par mean & Rotate Ref & E, NN5 &1-0.695/0.764 \par 10-0.840/0.847\par 60-0.976/0.880 \\
+	\hline\hline
 	
 	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	
-	(1) Global mid normalized xyz input reduces the learning speed, but can reduce overfitting. Why this makes a significant difference, considering mid norm is applied to each scale. } \\
+		(0) The performance of pointnet++ based on farest distance sampling is better. The reason may be on line sampling, the lost part is each epoch is different.\par 
+		(1) group pos: mean \textgreater bc a bit, speed is slower firstly, but higher later.\par
+		(2) Larger points is better: same training accuracy, but reduce overfitting\par 
+		(3) xyzrsg > xyzg } \\
 	\hline
+	
 \end{tabular}
 
 	
