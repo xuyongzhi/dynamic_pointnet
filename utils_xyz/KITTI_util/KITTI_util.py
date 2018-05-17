@@ -60,7 +60,9 @@ def extract_bounding_box(pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top
                         temp_bounding_boxes[0,counter_num_label,...] = label_data[label_id,...]
 
         if counter_num_label > 0:
+            temp_bounding_boxes[0,0,0] = counter_num_label
             file_bounding_boxes = np.append(file_bounding_boxes, temp_bounding_boxes, axis=0)
+
         else:
             del_gb_ls.append( block_id )
     file_datas = np.delete( file_datas, del_gb_ls, 0 )

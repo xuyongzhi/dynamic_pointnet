@@ -3564,6 +3564,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     file_bounding_boxs, file_datas, file_gbixyzs, file_rootb_split_idxmaps = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top,\
                                                                                      file_datas, file_gbixyzs, file_rootb_split_idxmaps)
                     pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
+                    if file_datas.size == 0:
+                        h5f.attrs['intact_void_file'] = 1
 
                 pl_sph5f.append_to_dset('data',file_datas)
                 pl_sph5f.append_to_dset('block_sample_rate',file_global_sample_rate)
@@ -3664,6 +3666,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
             print('global_block_num: %d'%(global_block_num))
+
             for global_bidx in range( global_block_num ):
                 gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
                 globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
@@ -3681,9 +3684,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 else:
                     for key in sum_bxmap_metas:
                         sum_bxmap_metas[key] = sum_bxmap_metas[key] +  bxmap_metas[key]
-
-            sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
-            all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
+            if global_block_num != 0:
+                sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
+                all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
             bxmh5f.append_to_dset('bidxmaps_sample_group',sg_all_bidxmaps)
             bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
             if all_flatten_bidxmaps.shape[2]>0:
@@ -3940,8 +3943,8 @@ class Normed_H5f():
     normed_ele_idx_order = ['xyz_midnorm_block','xyz_1norm_file','xyz_1norm_block','xyz','color_1norm','nxnynz','intensity_1norm']
     normed_data_ele_candi_len = {'xyz':3,'xyz_midnorm_block':3,'xyz_1norm_file':3,'xyz_1norm_block':3,'nxnynz':3,'color_1norm':3,'intensity_1norm':1}
 
-    labels_order = ['label_category','label_instance','label_material']
-    label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1}
+    labels_order = ['label_category','label_instance','label_material','bounding_box']
+    label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1,'bounding_box':7}
     max_rootb_num = 10000
 
     def __init__(self,h5f,file_name,datasource_name=None):
@@ -3965,7 +3968,7 @@ class Normed_H5f():
         self.g_class2color = dataset_meta.class2color
         self.num_classes = dataset_meta.num_classes
 
-        self.dataset_names = ['data','labels','raw_xyz','pred_logits']
+        self.dataset_names = ['data','bounding_box','labels','raw_xyz','pred_logits']
         for dn in self.dataset_names:
             if dn in h5f:
                 setattr(self,dn+'_set', h5f[dn])
@@ -4044,10 +4047,13 @@ class Normed_H5f():
                 #block_stride_cascades = np.concatenate( [block_stride_cascades, np.expand_dims(h5f.attrs['xyz_min_aligned'],0) ], 0 )
                 globalb_bottom_center_xyz = h5f['globalb_info'][start_block:end_block]
                 globalb_bottom_center_xyz = globalb_bottom_center_xyz.reshape( [globalb_bottom_center_xyz.shape[0],1,6] )
-                return  sg_bidxmaps
+                return  sg_bidxmaps, globalb_bottom_center_xyz
 
     def get_label_byeles(self,start_block,end_blcok,feed_label_elements=None):
         # order according to feed_label_elements
+        if self.datasource_name == 'KITTI':
+            labels = self.bounding_box_set[start_block:end_blcok,...]
+            return labels
         if feed_label_elements==None:
             labels = self.labels_set[start_block:end_blcok,...]
         else:
@@ -4234,7 +4240,7 @@ class Normed_H5f():
             max_bounding_box_num = KITTI_util.Max_bounding_box_num
             bounding_box_channel = KITTI_util.Bounding_box_channel
             boundingbox_set = self.h5f.create_dataset( 'bounding_box',shape=(total_block_N,max_bounding_box_num,bounding_box_channel),\
-                    maxshape=(None,max_bounding_box_num,bounding_box_channel),dtype=np.int16,compression="gzip", chunks = (chunks_n,max_bounding_box_num,bounding_box_channel)  )
+                    maxshape=(None,max_bounding_box_num,bounding_box_channel),dtype=np.float32,compression="gzip", chunks = (chunks_n,max_bounding_box_num,bounding_box_channel)  )
             boundingbox_set.attrs['valid_num'] = 0
 
         # predicted label

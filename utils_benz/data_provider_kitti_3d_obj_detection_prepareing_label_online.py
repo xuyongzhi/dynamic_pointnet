@@ -6,11 +6,6 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, 'utils_xyz'))
-sys.path.append(os.path.join(ROOT_DIR, 'config'))
-
-
 #from plyfile import (PlyData, PlyElement, make2d, PlyParseError, PlyProperty)
 import numpy as np
 import h5py
@@ -31,8 +26,6 @@ DATASET_DIR['stanford_indoor3d'] = os.path.join(DATA_DIR,'stanford_indoor3d')
 matterport3D_h5f_dir = os.path.join(DATA_DIR,'Matterport3D_H5F')
 DATASET_DIR['matterport3d'] = matterport3D_h5f_dir
 DATASET_DIR['Voxel'] = os.path.join(DATA_DIR,'Voxel')
-DATASET_DIR['KITTIH5F'] = os.path.join(DATA_DIR,'KITTIH5F')
-
 
 
 DEBUGTMP = True
@@ -75,13 +68,14 @@ class Net_Provider_kitti():          ## benz_m
             open_type = 'a' # need to write pred labels
         else:
             open_type = 'r'
-        train_file_list, train_bxmh5_fls= self.get_bxmh5_fn_ls( train_file_list )
-        eval_file_list, eval_bxmh5_fls = self.get_bxmh5_fn_ls( eval_file_list )
+        train_file_list, train_bxmh5_fls, train_label_fn_ls = self.get_bxmh5_fn_ls( train_file_list )
+        eval_file_list, eval_bxmh5_fls, eval_label_fn_ls = self.get_bxmh5_fn_ls( eval_file_list )
         self.train_file_N = train_file_N = len(train_file_list)
         self.eval_file_N = eval_file_N = len(eval_file_list)
         self.g_file_N = train_file_N + eval_file_N
         self.sph5_file_list =  sph5_file_list = train_file_list + eval_file_list
         self.bxmh5_fn_ls = train_bxmh5_fls + eval_bxmh5_fls
+        self.labels_fn_ls = labels_fn_ls  = train_label_fn_ls + eval_label_fn_ls
         if len(sph5_file_list) > 6:
             print('WARING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\ntoo many (%d) files can lead to long read time'%(len(sph5_file_list)))
         #-----------------------------------------------------------------------
@@ -109,10 +103,10 @@ class Net_Provider_kitti():          ## benz_m
             norm_h5f = Normed_H5f(h5f,fn)
             self.norm_h5f_L.append( norm_h5f )
 
-            # label_file_name = os.path.basename(labels_fn_ls[i]).replace("_label.txt","")
-            # assert sph5_file_name == label_file_name
-            # label_data_i = self.read_label_data( labels_fn_ls[i] )  ## benz_m, opening all the bounding box
-            # self.label_data_all.append( label_data_i )
+            label_file_name = os.path.basename(labels_fn_ls[i]).replace("_label.txt","")
+            assert sph5_file_name == label_file_name
+            label_data_i = self.read_label_data( labels_fn_ls[i] )  ## benz_m, opening all the bounding box
+            self.label_data_all.append( label_data_i )
 
             file_block_N = self.get_block_n(norm_h5f)
             self.g_block_idxs[i,1] = self.g_block_idxs[i,0] + file_block_N
@@ -166,32 +160,7 @@ class Net_Provider_kitti():          ## benz_m
 
         print('Net_Provider init t: %f ms\n\n'%(1000*(time.time()-t_init0)))
 
-
     def get_bxmh5_fn_ls( self, plsph5_fn_ls ):
-        bxmh5_fn_ls = []
-        plsph5_fn_ls_new  = []
-        for plsph5_fn in plsph5_fn_ls:
-            bxmh5_fn = self.get_bxmh5_fn_1( plsph5_fn )
-            sph5_name  = os.path.basename(plsph5_fn).replace(".sph5","")   ## benz_m, checking
-            bxmh5_name = os.path.basename(bxmh5_fn).replace(".bxmh5","")
-            assert sph5_name==bxmh5_name
-            # assert bxmh5_name==label_name
-            if os.path.exists( bxmh5_fn ):
-                # check shapes match with each other
-                with h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
-                    with h5py.File( plsph5_fn, 'r' ) as plsph5f:
-                            if bxmh5f['bidxmaps_sample_group'].shape[0] == plsph5f['data'].shape[0]:  ## benz_m , double checking the number of label is similar with that of point data
-                                bxmh5_fn_ls.append( bxmh5_fn )
-                                plsph5_fn_ls_new.append( plsph5_fn )
-                            else:
-                                print('bxmh5(%d) and plsph5(%d) shapes do not match for %s'%( bxmh5f['bidxmaps_sample_group'].shape[0], plsph5f['data'].shape[0],plsph5_fn ))
-                                assert False
-            else:
-                print( 'not exist: %s'%(bxmh5_fn) )
-        return plsph5_fn_ls_new, bxmh5_fn_ls
-
-
-    def get_bxmh5_fn_ls_backup( self, plsph5_fn_ls ):
         bxmh5_fn_ls = []
         plsph5_fn_ls_new  = []
         label_fn_ls = []
@@ -546,14 +515,9 @@ class Net_Provider_kitti():          ## benz_m
         # data_i = self.norm_h5f_L[f_idx].get_normed_data(start,end, new_feed_data_elements)
         data_i = self.norm_h5f_L[f_idx].get_data_byeles(start,end, new_feed_data_elements)
 
-
-        label_i = self.norm_h5f_L[f_idx].get_label_byeles(start,end, self.feed_label_elements)
-        num_label = np.int32(label_i[0,0,0])
-        label_channel = label_i.shape[2]
-        labels = label_i[0,1:(1+num_label),:]
         # label_i = self.norm_h5f_L[f_idx].get_label_eles(start,end, self.feed_label_elements)
-        # label_i = self.label_data_all[f_idx][start]
-
+        # t1=time.time()
+        label_i = self.label_data_all[f_idx][start]
         # num_temp = label_i.shape[0]
         # if max_num_label <= num_temp:
         #    max_num_label = num_temp
@@ -568,7 +532,7 @@ class Net_Provider_kitti():          ## benz_m
         # assert data_i.ndim == label_i.ndim and (data_i.shape[0:-1] == label_i.shape[0:-1])
 
 
-        return data_i, labels, sg_bidxmaps, globalb_bottom_center_xyz, fid_start_end
+        return data_i, label_i, sg_bidxmaps, globalb_bottom_center_xyz, fid_start_end
 
 
 
@@ -914,11 +878,10 @@ def main_NormedH5f():
     '''
     t0 = time.time()
     dataset_name = 'matterport3d'
-    dataset_name = 'KITTIH5F'
+    dataset_name = 'Voxel'
 
-    all_fn_globs=['MergedicData/ORG_sph5/4000_gs5_10/']
-    bxmh5_folder_name='ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-neg-3D1_benz'
-
+    all_fn_globs = ['Merged_sph5/32768_gs-100_-100/']
+    bxmh5_folder_name = 'Merged_bxmh5/32768_gs-100_-100_fmn-1-12800_6400_560-16_8_8-0d4_0d8_1d8-0d2_0d4_0d4-pd1-3D3'
     eval_fnglob_or_rate = '0.2'
 
     #all_fn_globs = ['Org_sph5/9000_gs-4_-6d3/']
