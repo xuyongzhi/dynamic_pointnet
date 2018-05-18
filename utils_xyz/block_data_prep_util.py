@@ -754,7 +754,7 @@ class GlobalSubBaseBLOCK():
         assert False
         return -1, -1, -1
 
-    def get_bidxmap(self, cascade_id, valid_sorted_basebids, num_valid_basebids,  debug_meta ):
+    def get_bidxmap(self, cascade_id, global_bid, valid_sorted_basebids, num_valid_basebids,  debug_meta ):
         '''
         valid_sorted_basebids: (valid_base_b_nun) base blocks are sampled at last process, some ids are lost
 
@@ -824,7 +824,7 @@ class GlobalSubBaseBLOCK():
         bidxmap_dic={}
         if cascade_id==self.cascade_num:
             # The global bid in the only one
-            all_sorted_aimbids = np.array( [debug_meta['global_bidx']] )
+            all_sorted_aimbids = np.array( [global_bid] )
         raw_valid_base_bnum = []
         for aim_bid in all_sorted_aimbids:
             base_bids = all_base_bids_indic[aim_bid]
@@ -1274,7 +1274,7 @@ class GlobalSubBaseBLOCK():
     def get_flatten_bidxmaps_sample_num_elename():
         return [ 'flatten_fixed_num', 'flatten_valid_num', 'block_num' ]
 
-    def get_all_bidxmaps(self, rootb_split_idxmap, debug_meta ):
+    def get_all_bidxmaps(self, rootb_split_idxmap, global_bid, debug_meta ):
         '''
         fuse bidxmap from cascade_id 0 to end
         (1)sg_bidxmaps_ls: list, len= self.cascade_num-1, start from cascade_id=1
@@ -1349,7 +1349,7 @@ class GlobalSubBaseBLOCK():
         valid_sorted_basebids_fixed = rootb_split_idxmap
         num_valid_basebids = None
         for cascade_id in range(0,self.cascade_num+1):
-            sg_bidxmap, valid_sorted_basebids_fixed, num_valid_basebids, flatten_bidxmap, bxmap_meta = self.get_bidxmap(cascade_id, valid_sorted_basebids_fixed, num_valid_basebids, debug_meta )
+            sg_bidxmap, valid_sorted_basebids_fixed, num_valid_basebids, flatten_bidxmap, bxmap_meta = self.get_bidxmap( cascade_id, global_bid, valid_sorted_basebids_fixed, num_valid_basebids, debug_meta )
             if IsCheck_bidxmap_extract:  sg_bidxmaps_ls.append( sg_bidxmap )
             sg_bidxmap_fixed = np.ones( shape=(sg_bidxmap.shape[0],sg_bidxmaps_fixed_shape1) ).astype(np.int32) * (-1)
             sg_bidxmap_fixed[:,0:sg_bidxmap.shape[1]] = sg_bidxmap
@@ -3750,7 +3750,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if global_bidx%10 == 0:
                     print('global_block: %d / %d'%(global_bidx, global_block_num))
 
-                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( pl_sph5f['gbixyz'][global_bidx], pl_sph5f.attrs )
+                global_bixyz = pl_sph5f['gbixyz'][global_bidx]
+                global_bid = Sorted_H5f.ixyz_to_block_index_( global_bixyz, pl_sph5f.attrs )
+                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( global_bixyz, pl_sph5f.attrs )
                 globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
                 globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
 
@@ -3758,7 +3760,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 if GlobalSubBaseBLOCK.IsCheck_gsbb['gen_ply_gsbb']:
                     debug_meta['pl_sph5f'] = pl_sph5f
                 sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
-                       gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], debug_meta )
+                       gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], global_bid, debug_meta )
                 sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
                 all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
 
