@@ -565,7 +565,7 @@ def main( ):
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main()
+    main()
     #GenObj_rh5()
-    GenObj_sph5()
+    #GenObj_sph5()
     #GenObj_sh5()

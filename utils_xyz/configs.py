@@ -146,7 +146,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([ 320,  48,  24]).astype(np.int32)
 
     elif gsbb_config == '4E1':
-        NETCONFIG['max_global_sample_rate'] = 20
+        NETCONFIG['max_global_sample_rate'] = 100
         global_stride = np.array([4.8,4.8,4.8]).astype(np.float)
         global_step = np.array([7.8,7.8,7.8]).astype(np.float)
         global_num_point = 80000

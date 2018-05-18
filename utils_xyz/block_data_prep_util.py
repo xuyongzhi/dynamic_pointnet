@@ -3601,7 +3601,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             self.update_del_labels( data_aug_configs, datasource_name )
             for i,global_block_id in enumerate(all_sorted_global_bids):
                 if (i+1) % 30 == 0:
-                    print('sph5 global_block:%d / %d'%(i+1, all_sorted_global_bids.size) )
+                    print('sph5 global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
 
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
@@ -3624,7 +3624,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     for key in global_sampling_meta:
                         global_sampling_meta_sum[key] += global_sampling_meta[key]
 
-                if DEBUGTMP: break
 
             if len(file_datas) == 0:
                 h5f.attrs['intact_void_file'] = 1
@@ -3670,7 +3669,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
                     pl_sph5f.show_summary_info()
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 print('plsph5 file create finished: data shape: %s'%(str(pl_sph5f.data_set.shape)) )
 
     @staticmethod
