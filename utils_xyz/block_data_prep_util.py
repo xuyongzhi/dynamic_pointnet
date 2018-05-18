@@ -3597,9 +3597,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             datasource_name = S_H5f.h5f.attrs['datasource_name']
             self.update_del_labels( data_aug_configs, datasource_name )
-            for global_block_id in all_sorted_global_bids:
-                if global_block_id % 30 == 0:
-                    print('sph5 global_block_id:%d / %d'%(global_block_id, all_sorted_global_bids.size) )
+            for i,global_block_id in enumerate(all_sorted_global_bids):
+                if (i+1) % 30 == 0:
+                    print('sph5 global_block:%d / %d'%(i+1, all_sorted_global_bids.size) )
 
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
