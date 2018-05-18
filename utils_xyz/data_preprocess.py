@@ -386,7 +386,7 @@ class H5Prepare():
 
     def GenPyramid(self, base_stride, base_step, data_aug_configs, MultiProcess=0):
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
-        file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
+        file_list = glob.glob( os.path.join( sh5f_dir, 'StGallenCathedral_station6_rgb_intensity-reduced.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
             #choice = range(0,10000,1000)[0:min(10,len(file_list))]
@@ -532,7 +532,8 @@ def GenObj_sph5():
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4'
     path = '/home/z/Research/dynamic_pointnet/data/Scannet__H5F/ORG_sph5/30000_gs-2d4_-3d4-dec5'
     path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/BasicData/stride_0d05_step_0d05'
-    fn_ls = glob.glob( path+'/*.sph5' )
+    path = '/home/z/Research/dynamic_pointnet/data/ETH__H5F/ORG_sph5/80000_gs4d8_7d8'
+    fn_ls = glob.glob( path+'/untermaederbrunnen_station3_xyz_intensity_rgb.sph5' )
     for fn in fn_ls:
         with h5py.File(fn,'r') as h5f:
             normedh5f = Normed_H5f(h5f,fn)

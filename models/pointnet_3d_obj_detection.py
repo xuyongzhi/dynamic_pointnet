@@ -58,8 +58,8 @@ def placeholder_inputs(batch_size, NUM_POINT, data_num_ele, num_rpn_points, sg_b
     with tf.variable_scope("pls") as pl_sc:
         #pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ num_rpn_points + (data_num_ele,))
         pointclouds_pl = tf.placeholder(tf.float32, [batch_size, NUM_POINT, data_num_ele])
-        # sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
-        sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= [batch_size, sg_bidxmaps_shape[0]-1,22])
+        sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= (batch_size,) + sg_bidxmaps_shape )
+        # sg_bidxmaps_pl = tf.placeholder( tf.int32,shape= [batch_size, sg_bidxmaps_shape[0]-1,22])
         targets = tf.placeholder( tf.float32, [ batch_size, num_rpn_points, num_regression*num_anchors])
         ## postive anchors equal to one and others equal to zero(2 anchors in 1 position)
         positive_equal_one = tf.placeholder( tf.float32, [batch_size, num_rpn_points, num_anchors])

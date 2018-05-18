@@ -589,6 +589,8 @@ class GlobalSubBaseBLOCK():
             return str_
         if aim_format != 'bmh5':
             flag_str = str(self.global_num_point) + '_'
+            if NETCONFIG['max_global_sample_rate']!=None:
+                flag_str += 'mgs'+str(NETCONFIG['max_global_sample_rate'])+'_'
         else:
             flag_str = ''
         flag_str += 'gs'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
@@ -3541,7 +3543,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if cur_global_num_point != gsbb_write.global_num_point:
                 Sorted_H5f.add_new_sample_num_in_plsph5( pl_sph5_filename, gsbb_write )
             else:
-                if not SHOW_ONLY_ERR: print('pyh5 intact: %s'%(pl_sph5_filename))
+                if not SHOW_ONLY_ERR: print('sph5 intact: %s'%(pl_sph5_filename))
         else:
             self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
 
@@ -3599,7 +3601,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             self.update_del_labels( data_aug_configs, datasource_name )
             for i,global_block_id in enumerate(all_sorted_global_bids):
                 if (i+1) % 30 == 0:
-                    print('sph5 global_block:%d / %d'%(i+1, all_sorted_global_bids.size) )
+                    print('sph5 global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
 
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
@@ -3621,6 +3623,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 else:
                     for key in global_sampling_meta:
                         global_sampling_meta_sum[key] += global_sampling_meta[key]
+
 
             if len(file_datas) == 0:
                 h5f.attrs['intact_void_file'] = 1
@@ -4910,9 +4913,9 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:
-                    if DEBUGTMP:
-                        merged_normed_h5f.append_to_dset(ele, in_h5f[ele][...,0:merged_normed_h5f.h5f[ele].shape[-1]] )
-                    #merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
+                    #if DEBUGTMP:
+                    #    merged_normed_h5f.append_to_dset(ele, in_h5f[ele][...,0:merged_normed_h5f.h5f[ele].shape[-1]] )
+                    merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         # average metrics
         if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:
             merged_normed_h5f.h5f.attrs['xyz_scope_aligned_ave'] = merged_normed_h5f.h5f.attrs['xyz_scope_aligned'] / len(in_filename_ls)

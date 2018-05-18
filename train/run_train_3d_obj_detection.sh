@@ -6,11 +6,11 @@
 #***********
 
 train_script=./train_3d_obj_detection.py
-dataset_name=KITTIH5F
+dataset_name=KITTI
 maxepoch=301
 learning_rate=0.002
 decay_epoch_step=50
-feed_label_elements='label_category'
+feed_label_elements='bounding_box'
 
 multip_feed=1
 finetune=0
@@ -27,10 +27,10 @@ bxmh5_folder_name='ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1
 eval_fnglob_or_rate=0
 # *****************************************************************************
 
-modelf_nein='3a_11'
+modelf_nein='3aG_114'
 batch_size=24
 #num_gpus=1
-feed_data_elements='xyz'
+feed_data_elements='xyzrs'
 #feed_data_elements='xyz_1norm'
 loss_weight='E'
 group_pos='center'
