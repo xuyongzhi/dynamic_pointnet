@@ -375,6 +375,8 @@ class GlobalSubBaseBLOCK():
                     if ele_name=='baseb_exact_flat_num' or ele_name=='after_fix_missed_baseb_num' or ele_name=='around_aimb_dis_mean' or ele_name=='around_aimb_dis_std' or ele_name=='sr_count':
                         if ele_name not in h5f.attrs:
                             continue
+                if ele_name=='min_valid_point' or ele_name=='aimbnum_rm_miss_add':
+                    continue
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
         self.update_parameters()
 
@@ -846,24 +848,15 @@ class GlobalSubBaseBLOCK():
             raw_valid_base_bnum.append(len(base_bid_valid_indexs))
             bidxmap_dic[aim_bid] = base_bid_valid_indexs
         raw_valid_base_bnum = np.array(raw_valid_base_bnum)
-        valid_sorted_aimbids_org = np.sort( bidxmap_dic.keys() )
+        valid_sorted_aimbids = np.sort( bidxmap_dic.keys() )
 
         # remove some aim blocks containing too few points
-        if self.min_valid_point[cascade_id]>0:
-            valid_sorted_aimbids = []
-            #empty_rates = np.ones(valid_sorted_aimbids_org.size)
-            #vs = self.voxel_sizes[cascade_id]
-            #full_point_num = vs[0]*vs[1]*vs[2]
-            #if cascade_id==0:
-            #    full_point_num *= ave_point_num_per_rootb
-            for j in range(valid_sorted_aimbids_org.size):
-                if raw_valid_base_bnum[j] >= self.min_valid_point[cascade_id]:
-                    valid_sorted_aimbids.append( valid_sorted_aimbids_org[j] )
-            valid_sorted_aimbids = np.array( valid_sorted_aimbids ).astype(np.int32)
-            if valid_sorted_aimbids.size == 0:
-                valid_sorted_aimbids = valid_sorted_aimbids_org
-        else:
-            valid_sorted_aimbids = valid_sorted_aimbids_org
+        if  self.min_valid_point[cascade_id]>1:
+            for j in range(valid_sorted_aimbids.size):
+                if valid_sorted_aimbids.size <= aim_nsubblock * 0.8:
+                    break
+                if raw_valid_base_bnum[j] < self.min_valid_point[cascade_id]:
+                    valid_sorted_aimbids = np.delete( valid_sorted_aimbids, j )
 
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)
@@ -1120,7 +1113,7 @@ class GlobalSubBaseBLOCK():
         bxmap_meta = {}
         bxmap_meta['count'] = np.array([1])
 
-        aimbnum_rmed = valid_sorted_aimbids_org.size - valid_sorted_aimbids.size
+        aimbnum_rmed = raw_valid_base_bnum.size - valid_sorted_aimbids.size
         aimbnum_miss_add = aim_nsubblock - valid_sorted_aimbids.size
         bxmap_meta['aimbnum_rm_miss_add'] = np.array([[ valid_sorted_aimbids.size, aimbnum_rmed, min(0,aimbnum_miss_add), max(0,aimbnum_miss_add) ]])
         npointsubblock_mean = np.mean(baseb_num_inaim_ls)

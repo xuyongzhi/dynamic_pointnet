@@ -8,7 +8,7 @@
 train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
-maxepoch=61
+maxepoch=251
 learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category"
@@ -42,6 +42,7 @@ bxmh5_folder_name='Merged_bxmh5/10000_gs2_2_fmn1444-2048_960_64_12-24_32_48_24-0
 
 all_fn_globs='Merged_sph5/4096_gs3_3/'
 bxmh5_folder_name='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2'
+bxmh5_folder_name='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-mbf-2M2'
 
 #all_fn_globs='Merged_sph5/1024_gs3_3/'
 #bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1'
@@ -66,27 +67,27 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-feed_data_elements='xyzrsg' 
+#feed_data_elements='xyzrsg' 
 #feed_data_elements='xyzrsg-color_1norm' 
-#feed_data_elements='xyzrsg-nxnynz' 
+feed_data_elements='xyzrsg-nxnynz' 
 
 num_gpus=1
 start_gi=0
 in_cnn_out_kp='NN5'
-loss_weight='E'
+loss_weight='N'
 ShuffleFlag='Y'
 group_pos='mean'
 aug=1
 bs=28
 run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-#-------------------------------------------------------------------------------------------
+##-------------------------------------------------------------------------------------------
+#
+#feed_data_elements='xyzg' 
+#run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+#
+#group_pos='bc'
+#run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
-feed_data_elements='xyzg' 
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-group_pos='bc'
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-feed_data_elements='xyzrsg-nxnynz' 
-group_pos='mean'
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+#feed_data_elements='xyzrsg-nxnynz' 
+#group_pos='mean'
+#run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi

@@ -45,6 +45,7 @@ bxmh5_folder_name='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d
 
 all_fn_globs='Merged_sph5/1024_gs3_3/'
 bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1'
+bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1n'
 # *****************************************************************************
 
 run_train()
@@ -68,7 +69,7 @@ run_train()
 #-------------------------------------------------------------------------------------------
 feed_data_elements='xyzrsg' 
 #feed_data_elements='xyzrsg-color_1norm' 
-#feed_data_elements='xyzrsg-nxnynz' 
+feed_data_elements='xyzrsg-nxnynz' 
 
 num_gpus=1
 start_gi=1
@@ -78,15 +79,4 @@ ShuffleFlag='Y'
 group_pos='mean'
 aug=1
 bs=36
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-#-------------------------------------------------------------------------------------------
-
-feed_data_elements='xyzg' 
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-group_pos='bc'
-run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-feed_data_elements='xyzrsg-nxnynz' 
-group_pos='mean'
 run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi

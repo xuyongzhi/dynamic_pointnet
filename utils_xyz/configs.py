@@ -106,7 +106,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis   = np.array([0.05,0.2,0.5,1.1]).astype(np.float)
         nsubblock_candis =       np.array([2560, 1024, 80, 16, 1]).astype(np.int32)
         npoint_subblock_candis = np.array([24, 32,  48,  27, 48]).astype(np.int32)
-        min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
+        min_valid_point =       np.array( [ 1, 8,   2,   2,  2 ] )
 
     elif gsbb_config == '2M1':
         NETCONFIG['merge_blocks_while_fix_bmap'] = False
