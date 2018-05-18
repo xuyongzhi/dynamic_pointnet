@@ -683,14 +683,15 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	3m & 28 & 1-30 \par 7-7 & xyzrsg\par mean & Rotate Ref & E, NN5 &1-0.695/0.764 \par 10-0.840/0.847\par 60-0.976/0.880 \\
 	\hline
-	3m & 28 & 1-30 \par 7-7 & xyzrsg, nxnynz\par mean & Rotate Ref & E, NN5 &1-0.747/0.814 \par 10-0.882/0.879\par 60-0.985/0.897 \\
+	3m & 28 & 1-30 \par 7-7 & xyzrsg, nxnynz\par mean & Rotate Ref & E, NN5 &1-0.747/0.814 \par 10-0.882/0.879\par 60-0.985/0.897\par 160-0.998/0.905 \\
 	\hline\hline
 	
 	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	
 		(0) The performance of pointnet++ based on farest distance sampling is better. The reason may be on line sampling, the lost part is each epoch is different.\par 
 		(1) group pos: mean \textgreater bc a bit, speed is slower firstly, but higher later.\par
 		(2) Larger points is better: same training accuracy, but reduce overfitting\par 
-		(3) xyzrsg > xyzg } \\
+		(3) xyzrsg > xyzg\par 
+		(4) Shuffle is significantly important for MODELNET } \\
 	\hline
 	
 \end{tabular}

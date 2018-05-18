@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-DATASET = 'ETH'
-#DATASET = 'MODELNET40'
+#DATASET = 'ETH'
+DATASET = 'MODELNET40'
 #DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
@@ -426,8 +426,8 @@ class H5Prepare():
             bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
 
         if DATASET == 'MODELNET40':
-            plsph5_folder = 'ORG_sph5/10000_gs2_2'
-            bxmh5_folder = 'ORG_bxmh5/10000_gs2_2_fmn1444-2048_960_64_12-24_32_48_24-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-4M1'
+            plsph5_folder = 'ORG_sph5/10000_gs3_3d5'
+            bxmh5_folder = 'ORG_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1'
 
         if DATASET == 'KITTI':
             plsph5_folder = 'BasicData/ORG_sph5/4000_gs5_10'
@@ -507,6 +507,7 @@ def GenObj_rh5():
     path = '/home/z/Research/dynamic_pointnet/data/ETH__H5F/BasicData/rawh5'
     fn_ls = glob.glob( path+'/marketplacefeldkirch_station7_intensity_rgb.rh5' )
     fn_ls = glob.glob( path+'/StGallenCathedral_station6_rgb_intensity-reduced.rh5' )
+    fn_ls = glob.glob( path+'/untermaederbrunnen_station3_xyz_intensity_rgb.rh5' )
 
     for fn in fn_ls:
         if not Raw_H5f.check_rh5_intact( fn )[0]:
@@ -559,12 +560,12 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    main()
-    #GenObj_rh5()
+    #main()
+    GenObj_rh5()
     #GenObj_sph5()
     #GenObj_sh5()

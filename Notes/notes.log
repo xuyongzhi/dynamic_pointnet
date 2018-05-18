@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  17 MAY 2018 20:25
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  18 MAY 2018 12:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1552,7 +1552,7 @@ Overfull \hbox (123.11214pt too wide) in paragraph at lines 653--697
 
 [23 <./images/svoxel/novoid/train.png> <./images/svoxel/novoid/test.png>]
 [24]
-Overfull \vbox (158.85822pt too high) has occurred while \output is active []
+Overfull \vbox (170.85822pt too high) has occurred while \output is active []
 
 
 [25]
@@ -1584,7 +1584,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (26 pages, 2594698 bytes).
+Output written on notes.pdf (26 pages, 2594710 bytes).
 PDF statistics:
  375 PDF objects out of 1000 (max. 8388607)
  300 compressed objects within 3 object streams
