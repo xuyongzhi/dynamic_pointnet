@@ -52,8 +52,8 @@ parser.add_argument('--dataset_name', default='rawh5_kitti_32768', help='rawh5_k
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-4_-6d3/', help='The file name glob for both training and evaluation')
 
 parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/90000_gs-4_-6d3_fmn6-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0', help='')
-parser.add_argument('--feed_data_elements', default='xyz', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
+parser.add_argument('--feed_data_elements', default='xyzrs', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
+parser.add_argument('--feed_label_elements', default='bounding_box', help='for object detection, the label data is bounding box')
 
 parser.add_argument('--batch_size', type=int, default= 32, help='Batch Size during training [default: 24]')
 parser.add_argument('--eval_fnglob_or_rate',  default='0.2', help='file name str glob or file number rate: scan1*.nh5 0.2')
@@ -132,6 +132,15 @@ else:
 # FLAGS.feed_data_elements = FLAGS.feed_data_elements.split(',')
 Feed_Data_Elements  = FLAGS.feed_data_elements.split('-')
 Feed_Label_Elements = FLAGS.feed_label_elements.split('-')
+assert Feed_Data_Elements[0][0:3] == 'xyz'
+xyz_elements = Feed_Data_Elements[0][3:]
+Feed_Data_Elements[0] = 'xyz'
+assert len(xyz_elements)<=3
+XYZ_ELEMENTS = []
+if 's' in xyz_elements: XYZ_ELEMENTS.append('sub_mid')
+if 'g' in xyz_elements: XYZ_ELEMENTS.append('global_mid')
+if 'r' in xyz_elements: XYZ_ELEMENTS.append('raw')
+assert len(XYZ_ELEMENTS) > 0
 
 
 LOG_DIR = os.path.join(ROOT_DIR,'train_res/object_detection_result/'+FLAGS.log_dir)
@@ -179,7 +188,7 @@ ALL_fn_globs = FLAGS.all_fn_globs.split(',')
 
 net_provider = Net_Provider_kitti(
                             net_configs=net_configs,
-                            dataset_name=FLAGS.dataset_name,
+                            dataset_name=(FLAGS.dataset_name+'H5F'),
                             all_filename_glob=ALL_fn_globs,
                             eval_fnglob_or_rate=FLAGS.eval_fnglob_or_rate,
                             bxmh5_folder_name = FLAGS.bxmh5_folder_name,
@@ -189,7 +198,9 @@ net_provider = Net_Provider_kitti(
 
 
 NUM_POINT = net_provider.global_num_point
+
 NUM_DATA_ELES = net_provider.data_num_eles
+#NUM_DATA_ELES = 3*len(XYZ_ELEMENTS)
 NUM_LABEL_ELES= net_provider.label_num_eles
 
 TRAIN_FILE_N = net_provider.train_file_N
@@ -247,6 +258,9 @@ def get_configs():
     configs['normxyz_allcas'] = FLAGS.normxyz_allcas
     configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[cascade_num,0] - net_provider.sg_bidxmaps_extract_idx[cascade_num-1,0]
     configs['Cnn_keep_prob'] = 1
+    configs['xyz_elements'] = XYZ_ELEMENTS
+    configs['dataset_name'] = FLAGS.dataset_name
+
 
     is_training_pl = tf.placeholder(tf.bool, shape=())
 
