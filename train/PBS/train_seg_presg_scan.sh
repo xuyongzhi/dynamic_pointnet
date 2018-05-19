@@ -63,7 +63,7 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-feed_data_elements='xyzg' 
+feed_data_elements='xyzr' 
 #feed_data_elements='xyzrsg-color_1norm' 
 #feed_data_elements='xyzrsg-nxnynz' 
 
@@ -73,6 +73,6 @@ in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='bc'
-aug=1
+aug=0
 bs=32
 run_train 5Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi

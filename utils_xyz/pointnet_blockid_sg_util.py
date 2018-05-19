@@ -209,7 +209,6 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
             new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs,  grouped_xyz )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
-            mlps_3dcnn = [ 128, 256, 256]
             for i, num_out_channel in enumerate( mlp_configs['voxel_channels'][cascade_id] ):
                 #kernel_i = [mlp_configs['voxel_kernels'][cascade_id][i]]*3
                 #stride_i = [mlp_configs['voxel_strides'][cascade_id][i]]*3

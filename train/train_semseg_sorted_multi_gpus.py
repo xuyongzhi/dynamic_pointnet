@@ -86,6 +86,7 @@ if IS_GEN_PLY: FLAGS.max_epoch=1
 Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 assert FLAGS.ShuffleFlag=='N' or FLAGS.ShuffleFlag=='Y' or FLAGS.ShuffleFlag=='M'
 #-------------------------------------------------------------------------------
+
 ISTFDEBUG = False
 AutoBreak = False
 Feed_Data_Elements = FLAGS.feed_data_elements.split('-')
@@ -599,7 +600,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
-        #check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
+        check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage, bn_decay  = \
             sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],\

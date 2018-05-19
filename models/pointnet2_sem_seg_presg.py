@@ -10,7 +10,7 @@ import tf_util
 from pointnet_blockid_sg_util import pointnet_sa_module, pointnet_fp_module
 import copy
 
-TMPDEBUG = True
+TMPDEBUG = False
 
 def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, configs):
     #batch_size = None
@@ -313,8 +313,8 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
     start = sg_bm_extract_idx[-2]
     end = sg_bm_extract_idx[-1]
     globalb_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
-    globalb_bottom_center = tf.cast( globalb_bottom_center_mm, tf.float32) * 0.001
-    configs['max_step_stride'] = ( globalb_bottom_center[:,:,3:6] - globalb_bottom_center[:,:,0:3]) * tf.constant(2,tf.float32)
+    globalb_bottom_center = tf.multiply( tf.cast( globalb_bottom_center_mm, tf.float32), 0.001, name='globalb_bottom_center' ) # gpu_0/globalb_bottom_center
+    configs['max_step_stride'] = tf.multiply( globalb_bottom_center[:,:,3:6] - globalb_bottom_center[:,:,0:3], 2.0, name='max_step_stride') # gpu_0/max_step_stride
 
     full_cascades = sg_bm_extract_idx.shape[0]-1
 
