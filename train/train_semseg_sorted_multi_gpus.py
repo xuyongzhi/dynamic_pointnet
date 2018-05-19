@@ -148,9 +148,7 @@ if TRAIN_FILE_N < 2 or FLAGS.only_evaluate:
     FLAGS.multip_feed = False
 # ------------------------------------------------------------------------------
 BN_INIT_DECAY = 0.5
-BN_INIT_DECAY = 0.7
 BN_DECAY_DECAY_RATE = 0.5
-BN_DECAY_DECAY_RATE = 0.7
 BN_DECAY_DECAY_STEP = float(DECAY_STEP)
 BN_DECAY_CLIP = 0.99
 # ------------------------------------------------------------------------------
@@ -455,11 +453,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['bn_decay'] = bn_decay
 
-        ops['check_ops'] = tf.get_collection( 'check' )
-        ops['grouped_xyz'] = tf.get_collection( 'grouped_xyz' )
-        ops['grouped_xyz_submid'] = tf.get_collection( 'grouped_xyz_submid' )
-        ops['grouped_xyz_glomid'] = tf.get_collection( 'grouped_xyz_glomid' )
-        ops['flat_xyz'] = tf.get_collection( 'flat_xyz')
+        collection_keys = ['check_ops','grouped_xyz','grouped_xyz_submid','grouped_xyz_glomid','flat_xyz']
+        for ck in collection_keys:
+            ops[ck] = [op for op in tf.get_collection( ck ) if 'gpu_' in op.name.split('/')[0] ]
 
         from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
         max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
@@ -603,7 +599,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
-        check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
+        #check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage, bn_decay  = \
             sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],\

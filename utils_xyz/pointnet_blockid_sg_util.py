@@ -139,10 +139,9 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         elif use_xyz:
             grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
-        if 'gpu_' in grouped_xyz.name.split('/')[0]:
-            tf.add_to_collection( 'grouped_xyz', grouped_xyz )
-            tf.add_to_collection( 'grouped_xyz_submid', grouped_xyz_submid )
-            tf.add_to_collection( 'grouped_xyz_glomid', grouped_xyz_glomid )
+        tf.add_to_collection( 'grouped_xyz', grouped_xyz )
+        tf.add_to_collection( 'grouped_xyz_submid', grouped_xyz_submid )
+        tf.add_to_collection( 'grouped_xyz_glomid', grouped_xyz_glomid )
 
         if cascade_id>0 and use_xyz and (not cascade_id==cascade_num-1):
             grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
@@ -324,12 +323,15 @@ def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bo
 
     if configs['dataset_name'] == 'MODELNET40':
         IsTolerateBug = 2
+        IsTolerateBug = 0
     else:
         IsTolerateBug = 1
 
     if cascade_id==cascade_num-1:
         # only in this global cascde, the steps and strides in each dimension
         # can be different
+        if configs['dataset_name'] == 'MODELNET40' and configs['global_step'][0]==3.5:
+            configs['global_step'] = np.array( [2.3,2.3,2.3] )
         max_indice_f = ( np.abs(configs['global_step']) - np.array([1,1,1])*configs['sub_block_step_candis'][cascade_id-1] ) / (np.array([1,1,1])*configs['sub_block_stride_candis'][cascade_id-1])
         max_indice_v = np.rint( max_indice_f )
         if configs['dataset_name'] != 'MODELNET40':
@@ -398,17 +400,6 @@ def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bo
     if DEBUG_TMP and not IS_merge_blocks_while_fix_bmap:
         tf.add_to_collection( 'check', points_check )
 
-    #vcheck_idxs = [ [0,0,0], [batch_size-1,block_num-1,point_num-1] ]
-    #for idx in vcheck_idxs:
-    #    idx_str = '%d_%d_%d'%(idx[0],idx[1],idx[2])
-    #    pi = tf.identity( point_indices[idx[0],idx[1],idx[2],2:],name='point_index'+idx_str ) # gpu_0/sa_layer1/point_index0_0_0:0   gpu_0/sa_layer1/point_index0_2399_15:0
-    #    voxel_err0 = tf.reduce_max( tf.abs( voxel_points[idx[0],idx[1],pi[0],pi[1],pi[2],:] - new_points[idx[0],idx[1],idx[2],:] ), name='voxel_err0_'+idx_str )
-    #    voxel_err1 = tf.reduce_sum( voxel_points[idx[0],idx[1],pi[0],pi[1],pi[2],:] )
-    #    voxel_err = tf.cond( tf.less(tf.reduce_min(pi),0), lambda:voxel_err1, lambda:voxel_err0, name='voxel_err_'+idx_str )
-    #    # gpu_0/sa_layer1/voxel_err_0_0_0:0
-    #    # gpu_0/sa_layer1/voxel_err_0_2399_15:0
-    #    voxel_check = tf.assert_less( voxel_err, tf.constant(1e-5), data=[cascade_id, voxel_err], name='check_voxel_'+ idx_str )
-    #    tf.add_to_collection( 'check', voxel_check )
     # ------------------------------------------------------------------
     new_voxel_shape = tf.concat( [ tf.constant([batch_size*block_num],tf.int32), voxel_shape[2:6] ],0 )
     voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )

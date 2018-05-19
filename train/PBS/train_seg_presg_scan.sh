@@ -8,7 +8,7 @@
 train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
-maxepoch=61
+maxepoch=161
 learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category"
@@ -20,9 +20,8 @@ only_evaluate=0
 baselogname='log'
 # *****************************************************************************
 #finetune=1
-#model_epoch=50
-#baselogname='3m/log-3m-ElwNN5-mnc-gsbb_2M1-bs32-lr1-ds_30-Sf_Y-xyz_midnorm_block-1024-MOD_9843-augRef-bd5'
-#baselogname='3m/log-3m-ElwNN5-mnc-gsbb_2M1-bs32-lr1-ds_30-Sf_Y-xyz_midnorm_block-1024-MOD_9843-augRef-bd7'
+#model_epoch=60
+#baselogname='log-5m1-ElwNN5-xyz_g-mean-gsbb_4M1-bs32-lr1-ds_30-Sf_Y-xyzg-10000-MOD_9843-augRef-bd7'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
@@ -73,7 +72,7 @@ start_gi=0
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
-group_pos='mean'
+group_pos='bc'
 aug=1
 bs=32
-run_train 5m1 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+run_train 5Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi

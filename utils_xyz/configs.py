@@ -99,8 +99,8 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
     #---------------------------------------------------------------------------
     #                           MODELNET
     elif gsbb_config == '4M1':
-        global_stride = np.array([3,3,3]).astype(np.float)
-        global_step = np.array([3.5,3.5,3.5]).astype(np.float)
+        global_stride = np.array([2.4,2.4,2.4]).astype(np.float)
+        global_step = np.array([2.3,2.3,2.3]).astype(np.float)
         global_num_point = 10000
         flatbxmap_max_nearest_num = [1,4,4,4]
 
