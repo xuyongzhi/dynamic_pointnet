@@ -27,4 +27,4 @@
 \contentsline {subsection}{\numberline {1.16}Charles Point++, fast distance sampling}{23}{subsection.1.16}
 \contentsline {subsubsection}{\numberline {1.16.1}MODELNET40}{23}{subsubsection.1.16.1}
 \contentsline {subsection}{\numberline {1.17}My point++}{23}{subsection.1.17}
-\contentsline {subsubsection}{\numberline {1.17.1}MODELNET40}{25}{subsubsection.1.17.1}
+\contentsline {subsubsection}{\numberline {1.17.1}MODELNET40}{24}{subsubsection.1.17.1}

@@ -9,22 +9,64 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 
-import geometric_util as geo_util
+#import geometric_util as geo_util
+import provider
 
-def aug_data_asg( batch_xyz, aug_type ):
+def aug_id_to_type( aug_id ):
+    aug_types = {}
+    aug_types['RotateIn'] = False
+    aug_types['RotateVox'] = False
+    aug_types['RotateInXYZMax'] = np.array([15,15,360], dtype=np.float32)*np.pi/180.0
+
+    aug_types['RotateVoxXYZChoices'] = [
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([-2,0,2], dtype=np.float32 ) * np.pi * 0.5 ]
+    aug_types['RotateVoxXYZChoices'] = [
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
+                            np.array([-3,-2,-1,0,1,2,3], dtype=np.float32 ) * np.pi * 0.5 ]
+    if aug_id == 0:
+        pass
+    elif aug_id == 1:
+        aug_types['RotateIn'] = True
+    elif aug_id == 2:
+        aug_types['RotateVox'] = True
+    elif aug_id == 3:
+        aug_types['RotateIn'] = True
+        aug_types['RotateVox'] = True
+    else:
+        raise NotImplementedError
+    return aug_types
+
+def aug_batch( data, feed_data_ele_idxs, aug_types, dataset_name  ):
+    if 'RotateIn' not in aug_types:
+        return data
+    if dataset_name == 'MODELNET40':
+        is_include_normal = 'nxnynz' in feed_data_ele_idxs
+        assert feed_data_ele_idxs['xyz'][0] == 0
+        if is_include_normal:
+            assert feed_data_ele_idxs['nxnynz'][0] == 3
+        data = augment_batch_data_MODELNET( data, is_include_normal )
+    else:
+        assert NotImplementedError
+    return data
+
+def augment_batch_data_MODELNET( batch_data, is_include_normal ):
     '''
-    data augmentation after sampling and grouping
-    Inputs:
-        batch_xyz: [N,W,3]: N global blocks (batches), W points in each global block
-
-    Notes:
-        rotation aug after sampling and grouping can be performed on the fly.
-                     before sampling and grouping cannot yet.
-        (1) rotation after sampling and grouping:  xyz change, bxmap preserve
-        (2) rotation before sampling and grouping: xyz change, bxmap change
+    is_include_normal=False: xyz
+    is_include_normal=True: xyznxnynz
     '''
-    if aug_type == 'gbr': # global block rotation before sg
-        batch_xyz = geo_util.point_rotation_randomly( batch_xyz, rxyz_max = np.pi*np.array([0.1,0.1,2]) )
+    if is_include_normal:
+        rotated_data = provider.rotate_point_cloud_with_normal(batch_data)
+        rotated_data = provider.rotate_perturbation_point_cloud_with_normal(rotated_data)
+    else:
+        rotated_data = provider.rotate_point_cloud(batch_data)
+        rotated_data = provider.rotate_perturbation_point_cloud(rotated_data)
 
-#def aug_data_bsg( batch_xyz,  ):
+    jittered_data = provider.random_scale_point_cloud(rotated_data[:,:,0:3])
+    jittered_data = provider.shift_point_cloud(jittered_data)
+    jittered_data = provider.jitter_point_cloud(jittered_data)
+    rotated_data[:,:,0:3] = jittered_data
+    return provider.shuffle_points(rotated_data)
 

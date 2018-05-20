@@ -7,6 +7,7 @@
 \usepackage{longtable}
 \usepackage{float}
 \usepackage{tikz}
+\usepackage{longtable}
 \usetikzlibrary{shapes.geometric, arrows}
 \hypersetup{
 	citecolor=black,
@@ -21,6 +22,7 @@
 \date{Feb 2018}
 
 \begin{document}
+\noindent
 \begin{titlepage}
 \maketitle
 \end{titlepage}	
@@ -646,7 +648,7 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 
 \end{tabular}
-
+\noindent
 \subsection{My point++}	
 \emph{After fix shuffle problem}
 \subsubsection{MODELNET40}
@@ -658,13 +660,6 @@ test data shape: [ 4172 12800     9] \par
 	
 	model & bs& lr\par bn decay & elements\par group pos & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
 	\hline
-	
-	3m & 32\par 40 after epoch 100 & 1-30 \par 5-5 & xyz-mid\par - & mid, Rotate Ref & E, NN5 &1-0.355/0.375\par 4-0.504/0.544\par 10-0.603/0.640\par 30-0.742/0.759\par 50-0.798/0.804\par 60-0.834/0.823 \par 80-0.869/0.844\par 100-0.893/0.847  \\
-	\hline
-	3m & 32 & 1-30 \par 7-7 & xyz-mid\par -  & mid, Rotate Ref & E, NN5 & 10-0.636/0.684\par 50-0.851/0.826  \\
-	\hline
-	3m & 32 & 1-30 \par 5-5 & xyz\par -  & mid, Rotate Ref & E, NN5 &1-0.589/0.629\par 2-0.648/0.680\par 4-0.713/0.714\par 10-0.807/0.761\par 30-0.942/0.795\par 60-0.982/0.804 \\
-	\hline\hline
 	3m & 36 & 1-30 \par 7-7 & xyzg\par bc & Rotate Ref & E, NN5 &1-0.707/0.775\par 2-0.744/0.804\par 4-0.785/0.817\par 10-0.831/0.826\par 30-0.906/0.857\par 60-0.967/0.852 \\
 	\hline
 	3m & 36 & 1-30 \par 7-7 & xyzg\par mean & Rotate Ref & E, NN5 &1-0.704/0.754\par 2-0.747/0.781\par 4-0.783/0.810\par 10-0.839/0.835\par 60-0.969/0.865 \\
@@ -686,15 +681,31 @@ test data shape: [ 4172 12800     9] \par
 	3m & 28 & 1-30 \par 7-7 & xyzrsg, nxnynz\par mean & Rotate Ref & E, NN5 &1-0.747/0.814 \par 10-0.882/0.879\par 60-0.985/0.897\par 160-0.998/0.905 \\
 	\hline\hline
 	
-	\multicolumn{7}{|p{14cm}|}{ Conclusion:\par	
+	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	
 		(0) The performance of pointnet++ based on farest distance sampling is better. The reason may be on line sampling, the lost part is each epoch is different.\par 
 		(1) group pos: mean \textgreater bc a bit, speed is slower firstly, but higher later.\par
 		(2) Larger points is better: same training accuracy, but reduce overfitting\par 
 		(3) xyzrsg > xyzg\par 
 		(4) Shuffle is significantly important for MODELNET } \\
+	\hline	
+\end{tabular}
+\noindent
+\begin{flushleft}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+	\hline
+	\multicolumn{7}{|p{14cm}|}{bxmh5:10000\_gs3\_3d5\_fmn1444\_mvp1-2560\_1024\_80\_16\_1-24\_32\_48\_27\_48-0d0\_0d2\_0d5\_1d1-0d0\_0d1\_0d3\_0d6-pd3-mbf-neg-4M1\par 
+		 }\\
+	\hline
+	model & bs& lr\par bn decay & elements\par group pos & aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
 	\hline
 	
+	5m1 & 32 & 1-30 & xyzg & RotateRef & E & 60-0.956/0.843\par 200-0.998/0.845\\
+	\hline 
+	5Vm & 32 & 1-30 & xyzr & N & E &10-0.853/0.802\par 60-0.985/0.829\par 160-0.998/0.831\\
+	\hline 
+	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	
+		(0)  } \\
+	\hline	
 \end{tabular}
-
-	
+\end{flushleft}
 \end{document}

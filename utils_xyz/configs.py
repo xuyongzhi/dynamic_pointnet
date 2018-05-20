@@ -179,29 +179,3 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
 #-------------------------------------------------------------------------------
 
-def aug_id_to_type( aug_id ):
-    aug_types = {}
-    aug_types['RotateRef'] = False
-    aug_types['RotateVox'] = False
-    aug_types['RotateRefXYZMax'] = np.array([15,15,360], dtype=np.float32)*np.pi/180.0
-
-    aug_types['RotateVoxXYZChoices'] = [
-                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
-                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
-                            np.array([-2,0,2], dtype=np.float32 ) * np.pi * 0.5 ]
-    aug_types['RotateVoxXYZChoices'] = [
-                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
-                            np.array([], dtype=np.float32 ) * np.pi * 0.5,
-                            np.array([-3,-2,-1,0,1,2,3], dtype=np.float32 ) * np.pi * 0.5 ]
-    if aug_id == 0:
-        pass
-    elif aug_id == 1:
-        aug_types['RotateRef'] = True
-    elif aug_id == 2:
-        aug_types['RotateVox'] = True
-    elif aug_id == 3:
-        aug_types['RotateRef'] = True
-        aug_types['RotateVox'] = True
-    else:
-        raise NotImplementedError
-    return aug_types

@@ -19,6 +19,7 @@ from block_data_prep_util import Normed_H5f,Sorted_H5f,GlobalSubBaseBLOCK
 from ply_util import create_ply
 import geometric_util as geo_util
 from datasets_meta import DatasetsMeta
+import aug_data
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 def DATASET_DIR(dataset_name):
@@ -483,6 +484,7 @@ class Net_Provider():
                 points_indices_in_voxe = np.concatenate( points_indices_in_voxel_ls, 0 )
                 points_indices_in_voxel_all.append( points_indices_in_voxe )
 
+
     def get_global_batch(self, g_start_idx, g_end_idx, aug_types):
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
@@ -490,7 +492,6 @@ class Net_Provider():
 
         data_ls = []
         label_ls = []
-        center_mask = []
         sg_bidxmaps_ls = []
         flatten_bidxmaps_ls = []
         fmap_neighbor_idis_ls = []
@@ -507,62 +508,16 @@ class Net_Provider():
                 end = self.get_block_n(self.norm_h5f_L[f_idx])
             fid_start_end.append( np.expand_dims(np.array([f_idx, start, end]),0) )
 
-            new_feed_data_elements = list( self.feed_data_elements )
-            if 'xyz' not in new_feed_data_elements:
-                new_feed_data_elements = ['xyz'] + new_feed_data_elements
-            if 'xyz_midnorm_block' in new_feed_data_elements:
-                del  new_feed_data_elements[ new_feed_data_elements.index('xyz_midnorm_block') ]
-            if 'xyz_1norm_block' in new_feed_data_elements:
-                del  new_feed_data_elements[ new_feed_data_elements.index('xyz_1norm_block') ]
-
-            new_feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(new_feed_data_elements, self.feed_label_elements)
-            data_i = self.norm_h5f_L[f_idx].get_data_byeles(start,end, new_feed_data_elements)
-            # add data aug here
+            feed_data_ele_idxs,_ = self.norm_h5f_L[0].get_feed_ele_ids(self.feed_data_elements, self.feed_label_elements)
+            data_i = self.norm_h5f_L[f_idx].get_data_byeles(start,end, self.feed_data_elements)
             label_i = self.norm_h5f_L[f_idx].get_label_byeles(start,end, self.feed_label_elements)
-            # data_i: [batch_size,npoint_block,data_nchannels]
-            # label_i: [batch_size,npoint_block,label_nchannels]
             sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises = Normed_H5f.get_bidxmaps( self.bxmh5_fn_ls[f_idx],start,end )
 
             assert data_i.ndim == label_i.ndim
             if self.dataset_name == 'MODELNET40':
-                if not  (data_i.shape[0] == label_i.shape[0]):
-                    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-                    pass
                 assert label_i.shape[-2] == 1
             else:
                 assert (data_i.shape[0:-1] == label_i.shape[0:-1])
-
-            # get xyz_mid
-            xyz_i = data_i[..., new_feed_data_ele_idxs['xyz']]
-            if aug_types['RotateRef']:
-                xyz_i = geo_util.point_rotation_randomly( xyz_i, aug_types['RotateRefXYZMax'] )
-
-            xyz_min = xyz_i.min( axis=1 )
-            xyz_max = xyz_i.max( axis=1 )
-            xyz_mid = (xyz_min + xyz_max)/2
-            xyz_midnorm_block_i = xyz_i - np.expand_dims( xyz_mid,1 )
-            xyz_mid_ls.append( xyz_mid )
-
-            if 'xyz' not in self.feed_data_elements:
-                data_i = np.delete( data_i, new_feed_data_ele_idxs['xyz'], 2 )
-                si = 0
-            else:
-                si = 1
-            if 'xyz_midnorm_block' in self.feed_data_elements:
-                data_i = np.concatenate( [xyz_midnorm_block_i, data_i],2 )
-                assert self.feed_data_elements.index( 'xyz_midnorm_block' ) == si
-                si += 1
-            if 'xyz_1norm_block' in self.feed_data_elements:
-                xyz_1norm_block_i = xyz_midnorm_block_i / self.norm_h5f_L[f_idx].h5f.attrs['block_step']
-                data_i = np.concatenate( [xyz_1norm_block_i, data_i],2 )
-                assert self.feed_data_elements.index( 'xyz_1norm_block' ) == si
-                si += 1
-            assert 'xyz_1norm_file' not in self.feed_data_elements
-            #if 'xyz_1norm_file' in self.feed_data_elements:
-            #    xyz_1norm_file_i = xyz_i / self.norm_h5f_L[f_idx].h5f.attrs['xyz_scope_aligned']
-            #    data_i = np.concatenate( [xyz_1norm_file_i, data_i],2 )
-            #    assert self.feed_data_elements.index( 'xyz_1norm_block' ) == si
-            #    si += 1
 
             data_ls.append(data_i)
             label_ls.append(label_i)
@@ -570,26 +525,13 @@ class Net_Provider():
             flatten_bidxmaps_ls.append(flatten_bidxmaps)
             fmap_neighbor_idis_ls.append(fmap_neighbor_idises )
 
-            center_mask_i = self.get_center_mask(f_idx, xyz_midnorm_block_i)
-            center_mask.append(center_mask_i)
-
         data_batches = np.concatenate(data_ls,0)
         label_batches = np.concatenate(label_ls,0)
         sg_bidxmaps = np.concatenate( sg_bidxmaps_ls,axis=0 )
         flatten_bidxmaps = np.concatenate( flatten_bidxmaps_ls,axis=0 )
         fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
 
-        xyz_mid_batches = np.concatenate( xyz_mid_ls, 0 )
-        center_mask = np.concatenate(center_mask,0)
-
-        # sampling again
-        #if self.num_point_block!=None:
-            #assert data_batches.shape[1] == self.num_point_block
-            #data_batches,label_batches = self.sample(data_batches,label_batches,self.num_point_block)
-
         num_label_eles = len(self.feed_label_elements)
-        center_mask = np.expand_dims(center_mask,axis=-1)
-        center_mask = np.tile(center_mask,(1,1,num_label_eles))
 
         # for each label, there is a weight. For all weight, when the point is
         # at edge, the weight is set to 0
@@ -608,13 +550,15 @@ class Net_Provider():
         elif self.net_configs['loss_weight'] == 'N': # Number
             sample_weights = sample_weights
         elif self.net_configs['loss_weight'] == 'C': # Center
-            sample_weights = np.ones_like(sample_weights) * center_mask
+            assert NotImplementedError
         elif self.net_configs['loss_weight'] == 'CN':
-            sample_weights = sample_weights * center_mask
+            assert NotImplementedError
         else:
             assert False
 
         fid_start_end = np.concatenate( fid_start_end,0 )
+
+        data_batches = aug_data.aug_batch( data_batches, feed_data_ele_idxs, aug_types, self.dataset_name )
 
         #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_step_candis, self.gsbb_load.sub_block_stride_candis )
 
@@ -629,7 +573,8 @@ class Net_Provider():
        # print(sg_bidxmaps.shape)
        # print(flatten_bidxmaps.shape)
 
-        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end, xyz_mid_batches
+        return data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end
+
 
     def get_fn_from_fid(self,fid):
         return self.sph5_file_list[ fid ]
@@ -652,9 +597,8 @@ class Net_Provider():
         flatten_bidxmaps_ls = []
         fmap_neighbor_idis_ls = []
         fid_start_end_ls = []
-        xyz_mid_ls = []
         for idx in g_shuffled_idx_ls:
-            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i, xyz_mid_i = self.get_global_batch(idx,idx+1,aug_types=aug_types)
+            data_i,label_i,smw_i,sg_bidxmaps_i,flatten_bidxmaps_i, fmap_neighbor_idis_i,fid_start_end_i = self.get_global_batch(idx,idx+1,aug_types=aug_types)
             sg_bidxmaps_ls.append(sg_bidxmaps_i)
             flatten_bidxmaps_ls.append(flatten_bidxmaps_i)
             fmap_neighbor_idis_ls.append( fmap_neighbor_idis_i )
@@ -662,7 +606,6 @@ class Net_Provider():
             label_batches.append(label_i)
             sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
-            xyz_mid_ls.append( xyz_mid_i )
         data_batches = np.concatenate(data_batches,axis=0)
         label_batches = np.concatenate(label_batches,axis=0)
         sample_weights = np.concatenate(sample_weights,axis=0)
@@ -670,8 +613,7 @@ class Net_Provider():
         flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
         fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
         fid_start_end = np.concatenate(fid_start_end_ls,0)
-        xyz_mid_batches = np.concatenate( xyz_mid_ls,0 )
-        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end, xyz_mid_batches
+        return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end
 
     def update_train_eval_shuffled_idx(self):
         self.train_shuffled_idx = np.arange(self.train_num_blocks)

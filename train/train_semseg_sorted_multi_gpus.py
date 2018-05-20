@@ -25,7 +25,8 @@ from block_data_net_provider import Normed_H5f,Net_Provider
 import multiprocessing as mp
 from ply_util import create_ply_dset, test_box
 from time import gmtime, strftime
-from configs import NETCONFIG, aug_id_to_type
+from configs import NETCONFIG
+from aug_data import aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
 DEBUG_TMP = True
@@ -72,7 +73,7 @@ parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='NN5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
-parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateRef')
+parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateIn')
 parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
 
 FLAGS = parser.parse_args()
@@ -175,10 +176,10 @@ else:
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
         normxyz_allcas_str = '-xyz_'+xyz_elements
         group_pos_str = '-'+ FLAGS.group_pos
-        if AUG_TYPES['RotateRef'] or AUG_TYPES['RotateVox']:
+        if AUG_TYPES['RotateIn'] or AUG_TYPES['RotateVox']:
             aug_str = '-aug'
-            if AUG_TYPES['RotateRef']:
-                aug_str += 'Ref'
+            if AUG_TYPES['RotateIn']:
+                aug_str += 'In'
             if AUG_TYPES['RotateVox']:
                 aug_str += 'Vox'
         else:
@@ -232,9 +233,9 @@ log_string( 'bn_decay initial: %f, decay rate:%f'%(BN_INIT_DECAY,BN_DECAY_DECAY_
 log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
 log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
 log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
-log_string( 'Aug data: RotateRef:%s   RotateVox:%s'%(AUG_TYPES['RotateRef'], AUG_TYPES['RotateVox']) )
-if AUG_TYPES['RotateRef']:
-    log_string('\tRotateRefXYZMax:%s degree'%(AUG_TYPES['RotateRefXYZMax']*180/np.pi))
+log_string( 'Aug data: RotateIn:%s   RotateVox:%s'%(AUG_TYPES['RotateIn'], AUG_TYPES['RotateVox']) )
+if AUG_TYPES['RotateIn']:
+    log_string('\tRotateInXYZMax:%s degree'%(AUG_TYPES['RotateInXYZMax']*180/np.pi))
 if AUG_TYPES['RotateVox']:
     log_string('\tRotateVoxZChoices:%s degree'%(' '.join( [str(c*180/np.pi) for c in AUG_TYPES['RotateVoxXYZChoices']] ) ) )
 
@@ -565,7 +566,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
 
         if train_feed_buf_q == None:
             IsShuffleIdx = ( epoch%3 == 0 and FLAGS.ShuffleFlag=='M' ) or FLAGS.ShuffleFlag=='Y'
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid \
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end\
                 = net_provider.get_train_batch(start_idx,end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
         else:
             if train_feed_buf_q.qsize() == 0:
@@ -608,7 +609,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         t2 = time.time()
 
         if IS_GEN_PLY:
-            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
+            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict,  cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
             return
 
         loss_sum += loss_val
@@ -633,7 +634,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
     print('train epoch %d finished, batch_idx=%d'%(epoch,batch_idx))
     return train_logstr
 
-def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end ):
+def gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end ):
         '''
         lxyz0 == rawdata -> gpxyz0 ->(mean) -> lxyz1 -> gpxyz1 -> lxyz2 -> gpxyz3 -> lxyz4
         gpxyz3 -> flat0,   gpxyz2 -> flat1,  gpxyz1 -> flat2,  gpxyz0 -> flat3
@@ -785,7 +786,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
         end_idx = (batch_idx+1) * BATCH_SIZE
 
         if eval_feed_buf_q == None:
-            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid\
+            cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, \
                  = net_provider.get_eval_batch(start_idx,end_idx,False, aug_types=AUG_TYPES)
         else:
             if eval_feed_buf_q.qsize() == 0:
@@ -844,7 +845,7 @@ def eval_one_epoch(sess, ops, test_writer, epoch, eval_feed_buf_q, eval_multi_fe
                 eval_logstr = add_log('eval',epoch,batch_idx,loss_sum/(batch_idx+1),t_batch_ls,c_TP_FN_FP = c_TP_FN_FP[0:num_log_batch,:], numpoint_block=NUM_POINT)
 
         if IS_GEN_PLY and not FLAGS.multip_feed and batch_idx==0:
-            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_xyz_mid, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
+            gen_ply_batch( batch_idx, epoch, sess, ops, feed_dict, cur_label, pred_val, cur_data, accuracy_batch, fid_start_end )
             return
     return eval_logstr
 
@@ -894,10 +895,10 @@ def add_feed_buf(train_or_test,feed_buf_q, cpu_id, file_id_start, file_id_end, m
                     block_start_idx = batch_idx * BATCH_SIZE
                     block_end_idx = (batch_idx+1) * BATCH_SIZE
                     if train_or_test == 'train':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid\
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end\
                              = net_provider.get_train_batch(block_start_idx,block_end_idx,IsShuffleIdx, aug_types=AUG_TYPES)
                     elif train_or_test == 'test':
-                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid\
+                        cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, cur_fmap_neighbor_idis, fid_start_end, \
                              = net_provider.get_eval_batch(block_start_idx,block_end_idx,False, aug_types=AUG_TYPES)
                     feed_buf_q.put( [cur_data,cur_label,cur_smp_weights, cur_sg_bidxmaps, cur_flatten_bidxmaps, cur_fmap_neighbor_idis,  batch_idx,epoch] )
                     if type(cur_data) == type(None):
