@@ -811,6 +811,7 @@ class GlobalSubBaseBLOCK():
             vs = self.voxel_sizes[cascade_id]
             full_point_num = vs[0]*vs[1]*vs[2]
             if not aim_npoint_subblock <= full_point_num:
+                print( 'cascade_id %d, full_point_num:%d, aim_npoint_subblock:%d'%( cascade_id, full_point_num, aim_npoint_subblock ) )
                 import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 pass
         #-----------------------------------------------------------------------
@@ -850,11 +851,13 @@ class GlobalSubBaseBLOCK():
 
         # remove some aim blocks containing too few points
         if  self.min_valid_point[cascade_id]>1:
+            del_idx = []
             for j in range(valid_sorted_aimbids.size):
-                if valid_sorted_aimbids.size <= aim_nsubblock * 0.8:
+                if valid_sorted_aimbids.size - len(del_idx) <= aim_nsubblock * 0.8:
                     break
                 if raw_valid_base_bnum[j] < self.min_valid_point[cascade_id]:
-                    valid_sorted_aimbids = np.delete( valid_sorted_aimbids, j )
+                    del_idx.append( j )
+            valid_sorted_aimbids = np.delete( valid_sorted_aimbids, del_idx )
 
         if IsRecordTime: t2a = time.time()
         aim_attrs = self.get_new_attrs(cascade_id)

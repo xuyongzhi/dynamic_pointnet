@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = False
+TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -386,16 +386,16 @@ class H5Prepare():
 
     def GenPyramid(self, base_stride, base_step, data_aug_configs, MultiProcess=0):
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
-        file_list = glob.glob( os.path.join( sh5f_dir, 'StGallenCathedral_station6_rgb_intensity-reduced.sh5' ) )
+        file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
         if TMPDEBUG:
-            #choice = range(0,10000,1000)[0:min(10,len(file_list))]
-            #file_list = [ file_list[c] for c in choice ]
+            choice = range(0,10000,1000)[0:min(10,len(file_list))]
+            file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
             #sh5f_dir = sh5f_dir+'_parts'
             #file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_intensity_rgb--0_0_n100_10_10_100.sh5' ) )
-            file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_*.sh5' ) )
+            #file_list = glob.glob( os.path.join( sh5f_dir, 'untermaederbrunnen_station3_xyz_*.sh5' ) )
 
         IsMultiProcess = MultiProcess>1
         if IsMultiProcess:
@@ -561,12 +561,12 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        h5prep.MergeNormed( data_aug_configs )
+        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        #h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
-    #main()
-    GenObj_rh5()
+    main()
+    #GenObj_rh5()
     #GenObj_sph5()
     #GenObj_sh5()
