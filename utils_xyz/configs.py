@@ -161,7 +161,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([ 320,  48,  24]).astype(np.int32)
 
     elif gsbb_config == '4E1':
-        NETCONFIG['max_global_sample_rate'] = 100
+        NETCONFIG['max_global_sample_rate'] = 200
         global_stride = np.array([4.8,4.8,4.8]).astype(np.float)
         global_step = np.array([7.8,7.8,7.8]).astype(np.float)
         global_num_point = 80000
@@ -169,8 +169,8 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2,0.4,0.8,1.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.2,0.6,1.4,3.0]).astype(np.float)
-        nsubblock_candis =       np.array([ 2048, 560, 240, 128, 1]).astype(np.int32)
-        npoint_subblock_candis = np.array([ 72,  12, 24,  24, 64]).astype(np.int32)
+        nsubblock_candis =       np.array([ 2048, 640, 256, 128, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([ 72,  16, 24,  24, 64]).astype(np.int32)
         min_valid_point = np.array( [ 1, 2, 2, 2, 2 ] )
     else:
         assert False,"gsbb config flag not recognized: %s"%(gsbb_config)

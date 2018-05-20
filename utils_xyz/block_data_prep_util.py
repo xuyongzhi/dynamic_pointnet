@@ -396,6 +396,11 @@ class GlobalSubBaseBLOCK():
         # [cascade_id+1,1] is npoint_subblock of sg_bidxmaps[cascade_id]
         for i in range(0,cascade_num+1):
             sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
+            #try:
+            #    sg_bidxmaps_extract_idx[i+1,0] = sg_bidxmaps_extract_idx[i,0] + self.nsubblock_candis[i]
+            #except:
+            #    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            #    pass
             sg_bidxmaps_extract_idx[i+1,1] = self.npoint_subblock_candis[i]
         self.sg_bidxmaps_extract_idx = sg_bidxmaps_extract_idx
         flatten_bidxmaps_extract_idx = np.zeros(shape=(cascade_num+2,2)).astype(np.int32)
