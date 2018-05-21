@@ -344,6 +344,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
+            assert Input_keep_prob > 0.1
             input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1, name='input_keep_prob' )
             input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='input_drop', keep_prob = input_keep_prob)
             #input_drop_mask = tf.multiply( input_drop_mask, 1, name='input_dropout_mask')

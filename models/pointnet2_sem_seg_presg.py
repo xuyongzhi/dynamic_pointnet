@@ -102,6 +102,11 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [48,48,64] )
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
+    elif model_flag=='4m':
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256] )
+        mlp_pe.append( [256,256,512] )
+        mlp_pe.append( [512,512,1024] )
     elif model_flag=='5a':
         mlp_pe.append( [32,32,64] )
         mlp_pe.append( [64,64,128] )

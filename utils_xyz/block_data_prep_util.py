@@ -433,7 +433,7 @@ class GlobalSubBaseBLOCK():
                     continue
                 base_bid = base_cascade_ids[cascade_id]
                 if cascade_id==self.cascade_num:
-                    aim_step = self.global_step
+                    aim_step = abs(self.global_step)
                 else:
                     aim_step = self.sub_block_step_candis[cascade_id]
                     aim_step = np.array([aim_step,aim_step,aim_step])
@@ -3379,7 +3379,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
     @staticmethod
     def fix_rootb_split_idxmap( rootb_split_idxmap ):
-        assert  Normed_H5f.max_rootb_num  >= rootb_split_idxmap.shape[0]
+        assert  Normed_H5f.max_rootb_num  >= rootb_split_idxmap.shape[0], "rootb_split_idxmap num=%d, max_rootb_num=%d"%(rootb_split_idxmap.shape[0], Normed_H5f.max_rootb_num)
         rootb_split_idxmap_fixed = (np.ones( shape=(Normed_H5f.max_rootb_num,2) ) * (-1)).astype(np.int32)
         rootb_split_idxmap_fixed[0:rootb_split_idxmap.shape[0],:] = rootb_split_idxmap
         return rootb_split_idxmap_fixed
@@ -4037,7 +4037,7 @@ class Normed_H5f():
 
     labels_order = ['label_category','label_instance','label_material','bounding_box']
     label_candi_eles_len = {'label_category':1,'label_instance':1,'label_material':1,'bounding_box':7}
-    max_rootb_num = 10000
+    max_rootb_num = 20000
 
     def __init__(self,h5f,file_name,datasource_name=None):
         '''

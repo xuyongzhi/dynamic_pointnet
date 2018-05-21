@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = False
+TMPDEBUG = True
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -388,8 +388,9 @@ class H5Prepare():
         sh5f_dir = self.BasicDataDir+'/%s'%(get_stride_step_name(base_stride,base_step))
         file_list = glob.glob( os.path.join( sh5f_dir, '*.sh5' ) )
         file_list.sort()
+        N = len(file_list)
         if TMPDEBUG:
-            choice = range(0,10000,1000)[0:min(10,len(file_list))]
+            choice = range(0,N,N//7)
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R

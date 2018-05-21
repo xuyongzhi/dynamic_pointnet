@@ -19,9 +19,9 @@ model_epoch=170
 only_evaluate=0
 baselogname='log'
 # *****************************************************************************
-finetune=1
-model_epoch=100
-baselogname='log-5m-ElwNN5-xyz_rsg-mean-gsbb_4M1-bs48-lr1-ds_30-Sf_Y-xyzrsg-nxnynz-10000-MOD_9843-augIn-bd5'
+#finetune=1
+#model_epoch=100
+#baselogname='log-5m-ElwNN5-xyz_rsg-mean-gsbb_4M1-bs48-lr1-ds_30-Sf_Y-xyzrsg-nxnynz-10000-MOD_9843-augIn-bd5'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
@@ -36,8 +36,8 @@ bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32
 all_fn_globs='Merged_sph5/10000_gs3_3d5/'
 bxmh5_folder_name='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1'
 
-#all_fn_globs='Merged_sph5/4096_gs3_3/'
-#bxmh5_folder_name='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2'
+all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2/'
+bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-mbf-neg-3M1'
 
 #all_fn_globs='Merged_sph5/1024_gs3_3/'
 ##bxmh5_folder_name='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1'
@@ -63,16 +63,16 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-#feed_data_elements='xyzr' 
+feed_data_elements='xyzg' 
 #feed_data_elements='xyzrsg-color_1norm' 
-feed_data_elements='xyzrsg-nxnynz' 
+#feed_data_elements='xyzrsg-nxnynz' 
 
-num_gpus=2
-start_gi=0
+num_gpus=1
+start_gi=1
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='mean'
 aug=1
-bs=46
-run_train 5m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=16
+run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
