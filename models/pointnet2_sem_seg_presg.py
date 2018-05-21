@@ -107,6 +107,11 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,256,512] )
         mlp_pe.append( [512,512,1024] )
+    elif model_flag=='4m1':
+        mlp_pe.append( [32,32,32,64] )
+        mlp_pe.append( [64,64,128] )
+        mlp_pe.append( [128,128,256,] )
+        mlp_pe.append( [256,256,512] )
     elif model_flag=='5a':
         mlp_pe.append( [32,32,64] )
         mlp_pe.append( [64,64,128] )
@@ -390,10 +395,10 @@ def get_loss(pred, label, smpw, label_eles_idx, configs ):
     category_idx = label_eles_idx['label_category'][0]
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
-    input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_dropout_mask:0')
-    if len(input_drop_mask.get_shape()) != 0 and configs['dataset_name']!='MODELNET40':
-        input_drop_mask = tf.squeeze( input_drop_mask,2 )
-        smpw_category = smpw_category * input_drop_mask
+    indrop_keep_mask = tf.get_default_graph().get_tensor_by_name('indrop_keep_mask:0')
+    if len(indrop_keep_mask.get_shape()) != 0 and configs['dataset_name']!='MODELNET40':
+        indrop_keep_mask = tf.squeeze( indrop_keep_mask,2 )
+        smpw_category = smpw_category * tf.cast(indrop_keep_mask,tf.float32)
 
     #classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred)
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)

@@ -69,10 +69,11 @@ feed_data_elements='xyzg'
 
 num_gpus=1
 start_gi=1
-in_cnn_out_kp='NN5'
+in_cnn_out_kp='3N5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='mean'
 aug=1
-bs=16
-run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=26
+
+run_train 4m1 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi

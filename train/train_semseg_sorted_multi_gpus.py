@@ -29,7 +29,7 @@ from configs import NETCONFIG
 from aug_data import aug_id_to_type
 from pointnet2_sem_seg_presg import  placeholder_inputs,get_model,get_loss
 
-DEBUG_TMP = True
+DEBUG_TMP = False
 ISSUMMARY = True
 DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
@@ -74,7 +74,7 @@ parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Ce
 parser.add_argument('--in_cnn_out_kp', default='3N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateIn')
-parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
+parser.add_argument('--start_gi',type=int,default=1, help='start gpu id')
 
 FLAGS = parser.parse_args()
 tf_util.CNN_CONFIGS['norm'] = FLAGS.norm
@@ -323,9 +323,6 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs['global_step'] = net_provider.gsbb_load.global_step
             configs['global_stride'] = net_provider.gsbb_load.global_stride
 
-            if DEBUG_TMP:
-                if FLAGS.dataset_name == 'SCANNET':
-                    configs['sg_bidxmaps_shape'] = (configs['sg_bidxmaps_shape'][0], 78)
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
@@ -339,17 +336,14 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # input drop out
             if Input_keep_prob >= 1.0:
-                input_drop_mask = tf.zeros([])
-                print('no input dropout')
+                indrop_keep_mask = tf.ones((), name='indrop_keep_mask')
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
-                input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            assert Input_keep_prob > 0.1
-            input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1, name='input_keep_prob' )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='input_drop', keep_prob = input_keep_prob)
-            #input_drop_mask = tf.multiply( input_drop_mask, 1, name='input_dropout_mask')
-            input_drop_mask = tf.multiply( input_drop_mask, input_keep_prob, name='input_dropout_mask')
-            # This will  be use in (1)pointnet_sa_module  (2)get_loss
+                assert Input_keep_prob > 0.125
+                input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1, name='input_keep_prob' )
+                input_keep_prob = 0.5
+                indrop_keep_mask = tf.less( tf.random_uniform(shape=[DEVICE_BATCH_SIZE, cas0_point_num,1]), input_keep_prob, name='indrop_keep_mask_' )
+                indrop_keep_mask = tf.cast( indrop_keep_mask, tf.float32, name='indrop_keep_mask' )
 
             # Get training operator
             learning_rate = get_learning_rate(global_step)
@@ -365,8 +359,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #------------------------------------------
             # Allocating variables on CPU first will greatly accelerate multi-gpu training.
             # Ref: https://github.com/kuza55/keras-extras/issues/21
-            get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                             flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
+            #get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+            #                 flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
 
             tower_grads = []
             pred_gpu = []
@@ -374,7 +368,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             debugs = [[]]
             start_gi = FLAGS.start_gi
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
-                with tf.variable_scope(tf.get_variable_scope(), reuse=True):
+                with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
                         gi = gi_ - start_gi
                         # Evenly split input data to each GPU
