@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-#DATASET = 'ETH'
-DATASET = 'MODELNET40'
+DATASET = 'ETH'
+#DATASET = 'MODELNET40'
 #DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 

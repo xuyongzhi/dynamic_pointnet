@@ -858,7 +858,7 @@ class GlobalSubBaseBLOCK():
         if  self.min_valid_point[cascade_id]>1:
             del_idx = []
             for j in range(valid_sorted_aimbids.size):
-                if valid_sorted_aimbids.size - len(del_idx) <= aim_nsubblock * 0.8:
+                if valid_sorted_aimbids.size - len(del_idx) <= aim_nsubblock:
                     break
                 if raw_valid_base_bnum[j] < self.min_valid_point[cascade_id]:
                     del_idx.append( j )
@@ -1565,6 +1565,7 @@ class GlobalSubBaseBLOCK():
             cascade_attrs['root'] = self.root_s_h5f.attrs
             bmh5_metas = []
             for cascade_id in cascade_id_ls:
+                print('cascade %s start: %s\n'%(cascade_id, os.path.basename(self.bmh5_fn)))
                 if cascade_id == 'root':
                     all_sorted_larger_aimbids = all_sorted_blockids_dic[cascade_id]
                 else:
@@ -1601,7 +1602,8 @@ class GlobalSubBaseBLOCK():
                     for base_bid, aim_bids in aimbids_in_smallerbasebid_dic.items():
                         aim_in_base_map_dset = grp.create_dataset( 'base/'+str(base_bid),shape=(len(aim_bids),),dtype=np.int32  )
                         aim_in_base_map_dset[...] = aim_bids
-                pass
+                print('cascade %s OK: %s\n'%(cascade_id, os.path.basename(self.bmh5_fn)))
+
             t_bmh5 = time.time() -t0
             h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
@@ -3754,7 +3756,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
             for global_bidx in range( global_block_num ):
-                if global_bidx%10 == 0:
+                if DEBUGTMP and global_bidx<260:
+                    continue
+                if global_bidx%1 == 0:
                     print('global_block: %d / %d'%(global_bidx, global_block_num))
 
                 global_bixyz = pl_sph5f['gbixyz'][global_bidx]
