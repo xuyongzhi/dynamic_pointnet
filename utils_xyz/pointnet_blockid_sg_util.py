@@ -19,6 +19,7 @@ DEBUG_TMP = True
 # not obtained here from bxmap automatically. Should be set manually.
 IS_merge_blocks_while_fix_bmap = 1
 IsTolerateBug = True
+InDropMethod = 'set1st'
 
 '''
 Checking list:
@@ -136,6 +137,18 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         if cascade_id==0:
             # xyz must be at the first in feed_data_elements !!!!
             grouped_points = tf.concat( [grouped_xyz_feed, grouped_points[...,3:]],-1 )
+
+            if InDropMethod == 'set1st':
+                # set all the dropped item as the first item
+                if len(input_drop_mask.get_shape()) != 0:
+                    tmp1 = tf.multiply( grouped_points, grouped_indrop_mask )
+                    points_1st = grouped_points[:,:,0:1,:]
+                    points_1st = tf.tile( points_1st, [1,1,grouped_points.shape[2],1] )
+                    indrop_mask_inverse = 1 - grouped_indrop_mask
+                    tmp2 = indrop_mask_inverse * points_1st
+                    grouped_points = tf.add( tmp1, tmp2, name='grouped_points_droped' ) # gpu_0/sa_layer0/grouped_points_droped
+                    tf.add_to_collection( 'check', grouped_points )
+
         elif use_xyz:
             grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
@@ -172,9 +185,10 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
 
         if cascade_id == 0:
             root_point_features = new_points
-            if len(input_drop_mask.get_shape()) != 0:
-                new_points = tf.identity(new_points,'points_before_droped') # gpu_0/sa_layer0/points_before_droped:0
-                new_points = tf.multiply( new_points, grouped_indrop_mask, name='droped_points' )   # gpu_0/sa_layer0/droped_points:0
+            if InDropMethod == 'set0':
+                if len(input_drop_mask.get_shape()) != 0:
+                        new_points = tf.identity(new_points,'points_before_droped') # gpu_0/sa_layer0/points_before_droped:0
+                        new_points = tf.multiply( new_points, grouped_indrop_mask, name='droped_points' )   # gpu_0/sa_layer0/droped_points:0
         else:
             root_point_features = None
 
@@ -238,7 +252,6 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
                     print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
             new_points = tf.squeeze( new_points, [1,2,3] )
             new_points = tf.reshape( new_points, [batch_size, -1, 1, new_points.shape[-1].value] )
-
 
         if IsShowModel:
             print('after %s, new_points:%s'%( pooling, shape_str([new_points])))

@@ -344,8 +344,9 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             else:
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1 )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='input_drop', keep_prob = input_keep_prob) # dropout/input_dropout_mask/Merge:0
+            input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1, name='input_keep_prob' )
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='input_drop', keep_prob = input_keep_prob)
+            #input_drop_mask = tf.multiply( input_drop_mask, 1, name='input_dropout_mask')
             input_drop_mask = tf.multiply( input_drop_mask, input_keep_prob, name='input_dropout_mask')
             # This will  be use in (1)pointnet_sa_module  (2)get_loss
 
@@ -456,7 +457,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
         ops['fbmap_neighbor_dis_pl'] = fbmap_neighbor_dis_pl
         ops['bn_decay'] = bn_decay
 
-        collection_keys = ['check_ops','grouped_xyz','grouped_xyz_submid','grouped_xyz_glomid','flat_xyz']
+        collection_keys = ['check','grouped_xyz','grouped_xyz_submid','grouped_xyz_glomid','flat_xyz']
         for ck in collection_keys:
             ops[ck] = [op for op in tf.get_collection( ck ) if 'gpu_' in op.name.split('/')[0] ]
 
@@ -602,7 +603,7 @@ def train_one_epoch(sess, ops, train_writer,epoch,train_feed_buf_q, train_multi_
         feed_dict[ops['flatten_bidxmaps_pl']] = cur_flatten_bidxmaps
         feed_dict[ops['fbmap_neighbor_dis_pl']] = cur_fmap_neighbor_idis
 
-        check_val = sess.run( [ops['check_ops']], feed_dict=feed_dict )
+        check_val = sess.run( [ops['check']], feed_dict=feed_dict )
 
         summary, step, _, loss_val, pred_val, accuracy_batch, max_memory_usage, bn_decay  = \
             sess.run( [ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred'], ops['accuracy_block'],\
