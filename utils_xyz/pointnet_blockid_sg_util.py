@@ -84,7 +84,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         cascade_num = configs['flatten_bm_extract_idx'].shape[0]-1  # include global here (Note: cascade_num does not include global in block_pre_util )
         assert configs['sub_block_step_candis'].size == cascade_num-1
         if cascade_id==0:
-            input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0') # dropout/input_dropout_mask/Merge:0
+            input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_dropout_mask:0') # input_dropout_mask:0
 
         assert len(xyz.shape) == 3
 

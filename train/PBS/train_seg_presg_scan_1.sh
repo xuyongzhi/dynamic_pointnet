@@ -19,9 +19,9 @@ model_epoch=170
 only_evaluate=0
 baselogname='log'
 # *****************************************************************************
-finetune=1
-model_epoch=100
-baselogname='log-5m-ElwNN5-xyz_rsg-mean-gsbb_4M1-bs48-lr1-ds_30-Sf_Y-xyzrsg-nxnynz-10000-MOD_9843-augIn-bd5'
+#finetune=1
+#model_epoch=100
+#baselogname='log-5m-ElwNN5-xyz_rsg-mean-gsbb_4M1-bs48-lr1-ds_30-Sf_Y-xyzrsg-nxnynz-10000-MOD_9843-augIn-bd5'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
@@ -69,10 +69,10 @@ feed_data_elements='xyzrsg-nxnynz'
 
 num_gpus=2
 start_gi=0
-in_cnn_out_kp='NN5'
+in_cnn_out_kp='3N5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='mean'
 aug=1
-bs=46
+bs=32
 run_train 5m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
