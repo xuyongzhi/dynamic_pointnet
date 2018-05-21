@@ -17,4 +17,4 @@
 module load  tensorflow/1.6-cudnn7.1-python2.7
 module list
  
-./train_seg_presg_scan_1.sh -> out_1.log
+./train_seg_presg_scan_2.sh -> out_2.log
