@@ -71,7 +71,7 @@ Search with "name:" to find the definition.
 '''
 
 SHOW_ONLY_ERR = False
-DEBUGTMP = True
+DEBUGTMP = False
 ENABLECHECK = False
 START_T = time.time()
 
@@ -3756,9 +3756,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             debug_meta={}
             debug_meta['bxmh5_fn'] = bxmh5_fn
             for global_bidx in range( global_block_num ):
-                if DEBUGTMP and global_bidx<260:
-                    continue
-                if global_bidx%1 == 0:
+                if global_bidx%20 == 0:
                     print('global_block: %d / %d'%(global_bidx, global_block_num))
 
                 global_bixyz = pl_sph5f['gbixyz'][global_bidx]
@@ -4921,8 +4919,6 @@ def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, Is
 
                 in_normed_h5f = Normed_H5f(in_h5f,fn)
                 for ele in in_h5f:
-                    #if DEBUGTMP:
-                    #    merged_normed_h5f.append_to_dset(ele, in_h5f[ele][...,0:merged_normed_h5f.h5f[ele].shape[-1]] )
                     merged_normed_h5f.append_to_dset(ele, in_h5f[ele] )
         # average metrics
         if 'xyz_scope_aligned' in merged_normed_h5f.h5f.attrs:

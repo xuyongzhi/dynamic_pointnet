@@ -28,8 +28,8 @@ for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
 #DATASET = 'SCANNET'
-DATASET = 'ETH'
-#DATASET = 'MODELNET40'
+#DATASET = 'ETH'
+DATASET = 'MODELNET40'
 #DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
