@@ -385,7 +385,7 @@ def get_loss(pred, label, smpw, label_eles_idx, configs ):
     category_idx = label_eles_idx['label_category'][0]
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
-    input_drop_mask = tf.get_default_graph().get_tensor_by_name('dropout/input_dropout_mask/Merge:0')
+    input_drop_mask = tf.get_default_graph().get_tensor_by_name('input_dropout_mask:0')
     if len(input_drop_mask.get_shape()) != 0 and configs['dataset_name']!='MODELNET40':
         input_drop_mask = tf.squeeze( input_drop_mask,2 )
         smpw_category = smpw_category * input_drop_mask

@@ -35,7 +35,7 @@ DEBUG_MULTIFEED=False
 DEBUG_SMALLDATA=False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='3m', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='5m1', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI,MODELNET40')
 
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/90000_gs-3d6_-6d3/', help='The file name glob for both training and evaluation')
@@ -45,12 +45,12 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/1024_gs3_3/', help='The file name glob for both training and evaluation')
 #parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1', help='')
 
-parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_gs3_3/', help='The file name glob for both training and evaluation')
-parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_gs3_3_fmn1444-1024_320-48_32-0d2_0d4-0d1_0d2-pd3-2M2', help='')
+parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/10000_gs3_3d5/', help='The file name glob for both training and evaluation')
+parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1', help='')
 
 parser.add_argument('--feed_data_elements', default='xyzrsg', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 24]')
+parser.add_argument('--batch_size', type=int, default=1, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=101, help='Epoch to run [default: 50]')
 parser.add_argument('--group_pos',default='mean',help='mean or bc(block center)')
@@ -71,7 +71,7 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='N', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
-parser.add_argument('--in_cnn_out_kp', default='NN5', help='keep prob for input, cnn result, output')
+parser.add_argument('--in_cnn_out_kp', default='3N5', help='keep prob for input, cnn result, output')
 parser.add_argument('--norm', default='batch', help='batch or group')
 parser.add_argument('--aug',type=int,default=0, help='data augmentation. 0: None, 1: RotateIn')
 parser.add_argument('--start_gi',type=int,default=0, help='start gpu id')
@@ -345,7 +345,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
                 input_drop_mask = tf.ones( [DEVICE_BATCH_SIZE, cas0_point_num, 1], tf.float32 )
             input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1 )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask') # dropout/input_dropout_mask/Merge:0
+            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='input_drop', keep_prob = input_keep_prob) # dropout/input_dropout_mask/Merge:0
+            input_drop_mask = tf.multiply( input_drop_mask, input_keep_prob, name='input_dropout_mask')
             # This will  be use in (1)pointnet_sa_module  (2)get_loss
 
             # Get training operator
@@ -414,7 +415,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('accuracy', accuracy)
 
         # Add ops to save and restore all the variables.
-        saver = tf.train.Saver(max_to_keep=10)
+        saver = tf.train.Saver(max_to_keep=5)
 
         # Create a session
         config = tf.ConfigProto()
@@ -492,7 +493,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch % 20 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 
