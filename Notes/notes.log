@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  22 MAY 2018 12:34
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  22 MAY 2018 20:15
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1587,39 +1587,34 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 703--703
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 705--705
-[]\OT1/cmr/m/n/10 xyzrsg-
- []
-
-
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 705--705
 []\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Overfull \hbox (123.11214pt too wide) in paragraph at lines 695--713
+Underfull \hbox (badness 10000) in paragraph at lines 707--707
+[]\OT1/cmr/m/n/10 xyzrsg-
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 707--707
+[]\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 695--715
 [] 
  []
 
 [25]
-Underfull \hbox (badness 10000) in paragraph at lines 719--719
+Underfull \hbox (badness 10000) in paragraph at lines 721--721
 []\OT1/cmr/m/n/10 bxmh5:10000[]gs3[]3d5[]fmn1444[]mvp1-2560[]1024[]80[]16[]1-24
 []32[]48[]27[]48-0d0[]0d2[]0d5[]1d1-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 721--721
+Underfull \hbox (badness 10000) in paragraph at lines 723--723
 []\OT1/cmr/m/n/10 loss
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 724--724
-[]\OT1/cmr/m/n/10 RotateRef| 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 726--726
-[]\OT1/cmr/m/n/10 xyzrsg-
  []
 
 
@@ -1628,19 +1623,29 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 726--726
  []
 
 
-Overfull \hbox (123.11214pt too wide) in paragraph at lines 715--734
+Underfull \hbox (badness 10000) in paragraph at lines 728--728
+[]\OT1/cmr/m/n/10 xyzrsg-
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 728--728
+[]\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 717--736
 [] 
  []
 
 [26]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 735.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 735.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 737.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 737.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 735.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 735.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 737.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 737.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: 3AC839AACA0F2787EBCDE00AC170945B;2323.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 735.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 737.
  ) 
 Here is how much of TeX's memory you used:
  17755 strings out of 494931
@@ -1661,7 +1666,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (27 pages, 2597688 bytes).
+Output written on notes.pdf (27 pages, 2597792 bytes).
 PDF statistics:
  391 PDF objects out of 1000 (max. 8388607)
  314 compressed objects within 4 object streams

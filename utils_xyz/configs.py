@@ -137,6 +137,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         min_valid_point =       np.array( [ 1, 2,   2,   2,  2 ] )
 
     elif gsbb_config == '3M1':
+        NETCONFIG['merge_blocks_while_fix_bmap'] = False
         NETCONFIG['max_global_sample_rate'] = 1
         global_stride = np.array([2.0,2.0,2.0]).astype(np.float)
         global_step = np.array([2.2,2.2,2.2]).astype(np.float)

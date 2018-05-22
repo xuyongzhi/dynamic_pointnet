@@ -359,8 +359,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             #------------------------------------------
             # Allocating variables on CPU first will greatly accelerate multi-gpu training.
             # Ref: https://github.com/kuza55/keras-extras/issues/21
-            #get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-            #                 flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
+            get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
+                             flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
 
             tower_grads = []
             pred_gpu = []
@@ -368,7 +368,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             debugs = [[]]
             start_gi = FLAGS.start_gi
             for gi_ in range(start_gi,start_gi+FLAGS.num_gpus):
-                with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+                with tf.variable_scope(tf.get_variable_scope(), reuse=True):
                     with tf.device('/gpu:%d'%(gi_)), tf.name_scope('gpu_%d'%(gi_)) as scope:
                         gi = gi_ - start_gi
                         # Evenly split input data to each GPU
