@@ -28,7 +28,6 @@
 \end{titlepage}	
 
 \tableofcontents{}
-
 \section{Deep 3D Learning Notes}
 
 \subsection{potential solutions for over fitting}
@@ -646,12 +645,14 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	batch\_size=32, decay\_rate=0.7, decay\_step=200000, learning\_rate=0.001, log\_dir='log', max\_epoch=251, model='pointnet2\_cls\_ssg', momentum=0.9, normal=False, num\_gpus=2, num\_point=1024, optimizer='a     dam &4-0.746/0.819-0.748\par 10-0.802/0.848-0.788\par 40-0.886/0.875-0.858\par 60-0.916/0.892-0.859 \\
 	\hline
+	aug=True, batch\_size=32, decay\_rate=0.7, decay\_step=200000, gpu=1, indrop=True, learning\_rate=0.001, log\_dir='log', max\_epoch=251, model='pointnet2\_cls\_ssg', momentum=0.9, normal=True, num\_point=8     192, optimizer='adam', shuffle=True & 10-0.806/0.853-0.817 \par  60-0.939/0.8946/0.868 \par 100-0.971/0.9036-0.883\\
+	\hline
 
 \end{tabular}
 \noindent
-\subsection{My point++}	
+\subsection{MODELNET40, My point++}	
 \emph{After fix shuffle problem}
-\subsubsection{MODELNET40}
+\subsubsection{3m}
 \begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
 	\hline
 	\multicolumn{7}{|p{14cm}|}{bxmh5:1024\_gs3\_3\_fmn1444-1024\_320-24\_32-0d2\_0d4-0d1\_0d2-pd3-2M1\par 
@@ -685,12 +686,33 @@ test data shape: [ 4172 12800     9] \par
 		(0) The performance of pointnet++ based on farest distance sampling is better. The reason may be on line sampling, the lost part is each epoch is different.\par 
 		(1) group pos: mean \textgreater bc a bit, speed is slower firstly, but higher later.\par
 		(2) Larger points is better: same training accuracy, but reduce overfitting\par 
-		(3) xyzrsg > xyzg\par 
+		(3) xyzrsg $>$ xyzg\par 
 		(4) Shuffle is significantly important for MODELNET } \\
 	\hline	
 \end{tabular}
+
+\subsubsection{4m}
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+	\hline
+	\multicolumn{7}{|p{14cm}|}{bxmh5:4096\_mgs1\_gs2\_2d2\_fmn1444\_mvp1-3200\_1024\_48\_1-18\_24\_56\_56-0d1\_0d2\_0d6-0d0\_0d1\_0d4-pd3-mbf-neg-3M1\par 
+	}\\
+	\hline
+	model & bs& lr\par bn decay & elements\par group pos & aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline
+	
+	4m & 16 & 1-30 & xyzrsg-nxnynz & RotateRef & E\par NN5 & 10-0.688/0.755\par 60-0.845/0.859\par 100-0.873/0.875\\
+	\hline 
+	4m & 16 & 1-30 & xyzrsg-nxnynz & RotateRef & E\par 3N5 & 10-0.623/0.671\par 60-0.766/0.793\par 120-0.821/0.810\\
+	\hline 
+	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	
+	(1) Input drop out increase overfitting here. This is not reasonable!\par
+	(2) Learns much slower than 3m?\par 
+	(3) The variance is greater, maybe because of small bacth size. } \\
+	\hline	
+\end{tabular}
+
+\subsubsection{5m}
 \noindent
-\begin{flushleft}
 \begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
 	\hline
 	\multicolumn{7}{|p{14cm}|}{bxmh5:10000\_gs3\_3d5\_fmn1444\_mvp1-2560\_1024\_80\_16\_1-24\_32\_48\_27\_48-0d0\_0d2\_0d5\_1d1-0d0\_0d1\_0d3\_0d6-pd3-mbf-neg-4M1\par 
@@ -701,11 +723,13 @@ test data shape: [ 4172 12800     9] \par
 	
 	5m1 & 32 & 1-30 & xyzg & RotateRef & E & 60-0.956/0.843\par 200-0.998/0.845\\
 	\hline 
+	5m & 48 & 1-30 & xyzrsg-nxnyznz & RotateRef & E & 60-0.852/0.837\par 100-0.894/0.866\\
+	\hline 
 	5Vm & 32 & 1-30 & xyzr & N & E &10-0.853/0.802\par 60-0.985/0.829\par 160-0.998/0.831\\
 	\hline 
 	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	
 		(0)  } \\
 	\hline	
 \end{tabular}
-\end{flushleft}
+
 \end{document}

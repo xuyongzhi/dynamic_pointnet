@@ -13,7 +13,7 @@ NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative numbe
 # gsbb config
 #_gsbb_config = '3E1'
 #_gsbb_config = '3D1_benz'
-_gsbb_config = '2M2p'
+_gsbb_config = '2S1'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -63,6 +63,18 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
     #---------------------------------------------------------------------------
     #                           SCANNET
+    elif gsbb_config == '2S1':  # ***
+        global_stride = np.array([2.4,2.4,2.4]).astype(np.float)
+        global_step = np.array([4.6,4.6,4.6]).astype(np.float)
+        global_num_point = 10000 * 20
+        flatbxmap_max_nearest_num = [1,4]
+
+        sub_block_stride_candis = np.array([0.1,0.4]).astype(np.float)
+        sub_block_step_candis   = np.array([0.1,0.6]).astype(np.float)
+        nsubblock_candis =       np.array([4800, 480, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([56, 56,  480]).astype(np.int32)
+        min_valid_point =       np.array( [ 1,   3,   2 ] )
+        #                                      5  11
     elif gsbb_config == '3S1':  # ***
         global_stride = np.array([-4.8,-4.8,-4.8]).astype(np.float)
         global_step = np.array([-7,-7,-7]).astype(np.float)
@@ -161,6 +173,19 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
         nsubblock_candis =       np.array([1024, 240, 1]).astype(np.int32)
         npoint_subblock_candis = np.array([48, 27, 160]).astype(np.int32)
+        min_valid_point =       np.array( [ 1,  1,  1 ] )
+        #                                      3  9
+    elif gsbb_config == '2M2pp':
+        NETCONFIG['max_global_sample_rate'] = 1
+        global_stride = np.array([2,2,2]).astype(np.float)
+        global_step = np.array([2,2,2]).astype(np.float)
+        global_num_point = 4096
+        flatbxmap_max_nearest_num = [1,4]
+
+        sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
+        sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
+        nsubblock_candis =       np.array([1024, 240, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([64, 27, 256]).astype(np.int32)
         min_valid_point =       np.array( [ 1,  1,  1 ] )
         #                                      3  9
 
