@@ -595,8 +595,19 @@ class GlobalSubBaseBLOCK():
         else:
             flag_str = ''
         flag_str += 'gs'+my_str(self.global_stride[0])+'_'+my_str(self.global_step[0])
+
+        if NETCONFIG['merge_blocks_while_fix_bmap']:
+            flag_str += '-mbf'
+        if NETCONFIG['redundant_points_in_block'] == 'replicate':
+            flag_str += '-rep'
+        elif NETCONFIG['redundant_points_in_block'] < -500:
+            flag_str += '-neg'
+        else:
+            raise NotImplementedError
+
         if aim_format == 'sph5':
             return flag_str
+
         if aim_format == 'bxmh5':
             flag_str += '_fmn'
             for n in self.flatbxmap_max_nearest_num:
@@ -626,14 +637,6 @@ class GlobalSubBaseBLOCK():
             if i<len(self.sub_block_stride_candis)-1:
                 flag_str += '_'
         flag_str += '-pd'+str(int(self.padding*10))
-        if NETCONFIG['merge_blocks_while_fix_bmap']:
-            flag_str += '-mbf'
-        if NETCONFIG['redundant_points_in_block'] == 'replicate':
-            flag_str += '-rep'
-        elif NETCONFIG['redundant_points_in_block'] < -500:
-            flag_str += '-neg'
-        else:
-            raise NotImplementedError
         flag_str += '-' + self.gsbb_config
         return flag_str
 

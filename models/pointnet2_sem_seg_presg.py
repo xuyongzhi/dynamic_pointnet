@@ -50,6 +50,7 @@ def get_voxel3dcnn_sa_config( model_flag ):
     voxel_paddings = [[]]
     if model_flag=='3Vm':
         mlp_pe.append( [64,64,128] )
+
         voxel_channels.append( [128,128,256] )
         voxel_kernels.append( [3,3,3] )
         voxel_strides.append( [1,1,1] )
@@ -59,6 +60,24 @@ def get_voxel3dcnn_sa_config( model_flag ):
         voxel_kernels.append( [3,3,3,3] )
         voxel_strides.append( [1,1,1,1] )
         voxel_paddings.append( [0,0,0,0] )
+
+    if model_flag=='4Vm':
+        mlp_pe.append( [32,32,64] )
+
+        voxel_channels.append( [64,64,128] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,1,0] )
+
+        voxel_channels.append( [128,128,256] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,0,0] )
+
+        voxel_channels.append( [256,256,512] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,0,0] )
 
     elif model_flag=='5Va':
         mlp_pe.append( [32,32,64] )

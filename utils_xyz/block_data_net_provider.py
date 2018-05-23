@@ -338,6 +338,8 @@ class Net_Provider():
             norm_h5f.h5f.close()
 
     def global_idx_to_local(self,g_start_idx,g_end_idx):
+        # not include g_end_idx (not 100% sure)
+        # include end_file_idx (not 100% sure)
         assert(g_start_idx>=0 and g_start_idx<=self.g_block_idxs[-1,1])
         assert(g_end_idx>=0 and g_end_idx<=self.g_block_idxs[-1,1])
         for i in range(self.g_file_N):
@@ -486,6 +488,7 @@ class Net_Provider():
 
 
     def get_global_batch(self, g_start_idx, g_end_idx, aug_types):
+        # not include g_end_idx (not 100% sure)
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
@@ -621,14 +624,28 @@ class Net_Provider():
         self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
         np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types ):
+    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types, fids=None ):
         assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
         assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
         # all train files are before eval files
         if IsShuffleIdx:
             g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
+
+            # Since we cannot read same file in multi threads, use fids as file
+            # filter. Note: the returned data is partial, the first shape is not
+            # batchsize.
+            if fids!=None:
+                g_shuffled_batch_idx_cleaned = []
+                for batch_idx in g_shuffled_batch_idx:
+                    start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
+                        self.global_idx_to_local(batch_idx, batch_idx+1)
+                    if start_file_idx in fids:
+                        g_shuffled_batch_idx_cleaned.append( batch_idx )
+                g_shuffled_batch_idx = g_shuffled_batch_idx_cleaned
+
             return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
         else:
+            assert fids==None
             return self.get_global_batch(train_start_batch_idx,train_end_batch_idx,aug_types=aug_types)
 
     def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx, aug_types):
