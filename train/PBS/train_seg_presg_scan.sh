@@ -1,7 +1,5 @@
-#!/bin/bash
-
-#*********** presampling feed
 #matterport3D batch_size=16/24 GPU 9G
+#*********** presampling feed
 #			32        >10G
 #***********
 
@@ -12,7 +10,7 @@ maxepoch=101
 learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category"
-multip_feed=0
+multip_feed=1
 
 finetune=0
 model_epoch=170
@@ -36,11 +34,15 @@ bxmh5_folder_name='Merged_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32
 all_fn_globs='Merged_sph5/10000_gs3_3d5/'
 bxmh5_folder_name='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1'
 
-all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2/'
-bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-mbf-neg-3M1'
+#all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2/'
+#bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-mbf-neg-3M1'
+#
+#all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/'
+#bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1'
 
 #all_fn_globs='Merged_sph5/4096_mgs1_gs2_2/'
 #bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2_fmn14_mvp1-1024_240_1-48_27_160-0d2_0d4-0d1_0d2-pd3-mbf-neg-2M2p'
+
 # *****************************************************************************
 
 run_train()
@@ -66,7 +68,7 @@ run_train()
 #feed_data_elements='xyzrsg-color_1norm' 
 feed_data_elements='xyzg-nxnynz' 
 
-num_gpus=2
+num_gpus=1
 start_gi=0
 in_cnn_out_kp='NN5'
 loss_weight='E'
@@ -74,6 +76,7 @@ ShuffleFlag='Y'
 group_pos='mean'
 aug=1
 
-bs=56
-run_train 4Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=20
+run_train 5m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+#run_train 4Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
