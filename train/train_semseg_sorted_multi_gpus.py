@@ -1004,7 +1004,7 @@ def main():
                         fids.append( k+MAX_MULTIFEED_NUM )
                 if tot=='test':
                     fids = [ fid + file_nums['train'] for fid in fids ]
-                print('\n %s fids:%s, cpu_id:%d'%(tot, fids, cpu_id))
+                #print('\n %s fids:%s, cpu_id:%d'%(tot, fids, cpu_id))
 
                 processes[tot+'_feed_'+str(k)] = mp.Process(target=add_feed_buf,args=(tot, feed_buf_qs[tot], cpu_id, two_multi_feed_flags[tot], lock, fids))
 

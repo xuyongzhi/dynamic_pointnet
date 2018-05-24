@@ -10,16 +10,16 @@ maxepoch=101
 learning_rate=0.001
 decay_epoch_step=30
 feed_label_elements="label_category"
-multip_feed=0
+multip_feed=1
 
 finetune=0
 model_epoch=170
 only_evaluate=0
 baselogname='log'
 # *****************************************************************************
-finetune=1
-model_epoch=40
-baselogname='backup/4Vm/log-4Vm-ElwNN5-xyz_g-mean-gsbb_3M1-bs30-lr1-ds_30-Sf_Y-xyzg-nxnynz-4096-MOD_9843-augIn-bd5'
+#finetune=1
+#model_epoch=40
+#baselogname='backup/4Vm/log-4Vm-ElwNN5-xyz_g-mean-gsbb_3M1-bs30-lr1-ds_30-Sf_Y-xyzg-nxnynz-4096-MOD_9843-augIn-bd5'
 # *****************************************************************************
 all_fn_globs='Merged_sph5/90000_gs-3d6_-6d3/'
 bxmh5_folder_name='Merged_bxmh5/90000_gs-3d6_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-mbf-4A1'
@@ -76,7 +76,13 @@ ShuffleFlag='Y'
 group_pos='mean'
 aug=1
 
-bs=50
-#run_train 5m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-run_train 4Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=48
+run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+
+feed_data_elements='xyzg' 
+run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+
+feed_data_elements='xyzs' 
+run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+
 
