@@ -649,37 +649,38 @@ class Net_Provider():
         assert(train_end_block_idx>=0 and train_end_block_idx<=self.train_num_blocks),"train_end_block_idx = %d,  train_num_blocks=%d"%(train_end_block_idx,self.train_num_blocks)
         # all train files are before eval files
         if IsShuffleIdx:
-            g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_block_idx,train_end_block_idx)]
+            g_shuffled_block_idx = self.train_shuffled_idx[range(train_start_block_idx,train_end_block_idx)]
 
             # Since we cannot read same file in multi threads, use fids as file
             # filter. Note: the returned data is partial, the first shape is not
             # batchsize.
-            if fids!=None:
-                g_shuffled_batch_idx = self.clean_g_shuffled_batch_idx( g_shuffled_batch_idx, fids )
 
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
+            if fids!=None:
+                g_shuffled_block_idx = self.clean_g_shuffled_block_idx( g_shuffled_block_idx, fids )
+
+            return self.get_shuffled_global_batch(g_shuffled_block_idx,aug_types)
         else:
             assert fids==None,"current multi processing is deisgned for shuffled mode"
             return self.get_global_batch(train_start_block_idx,train_end_block_idx,aug_types=aug_types)
 
-    def clean_g_shuffled_batch_idx(self, g_shuffled_batch_idx, fids):
-        g_shuffled_batch_idx_cleaned = []
-        for batch_idx in g_shuffled_batch_idx:
+    def clean_g_shuffled_block_idx(self, g_shuffled_block_idx, fids):
+        g_shuffled_block_idx_cleaned = []
+        for batch_idx in g_shuffled_block_idx:
             start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
                 self.global_idx_to_local(batch_idx, batch_idx+1)
             if start_file_idx in fids:
-                g_shuffled_batch_idx_cleaned.append( batch_idx )
-        return g_shuffled_batch_idx_cleaned
+                g_shuffled_block_idx_cleaned.append( batch_idx )
+        return g_shuffled_block_idx_cleaned
 
     def get_eval_batch(self,eval_start_block_idx,eval_end_block_idx,IsShuffleIdx, aug_types, fids=None):
         assert(eval_start_block_idx>=0 and eval_start_block_idx<=self.eval_num_blocks),"eval_start_block_idx = %d,  eval_num_blocks=%d"%(eval_start_block_idx,self.eval_num_blocks)
         assert(eval_end_block_idx>=0 and eval_end_block_idx<=self.eval_num_blocks),"eval_end_block_idx = %d,  eval_num_blocks=%d"%(eval_end_block_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:
-            g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_block_idx,eval_end_block_idx)] + self.eval_global_start_idx
+            g_shuffled_block_idx = self.eval_shuffled_idx[range(eval_start_block_idx,eval_end_block_idx)] + self.eval_global_start_idx
             if fids!=None:
-                g_shuffled_batch_idx = self.clean_g_shuffled_batch_idx( g_shuffled_batch_idx, fids )
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
+                g_shuffled_block_idx = self.clean_g_shuffled_block_idx( g_shuffled_block_idx, fids )
+            return self.get_shuffled_global_batch(g_shuffled_block_idx,aug_types)
         else:
             assert fids==None,"current multi processing is deisgned for shuffled mode"
             eval_start_block_idx  += self.eval_global_start_idx
