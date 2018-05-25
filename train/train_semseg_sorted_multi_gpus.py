@@ -68,7 +68,7 @@ parser.add_argument('--only_evaluate',type=int,help='do not train')
 parser.add_argument('--finetune',type=int,default=0,help='do not train')
 parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of model to be restored')
 
-parser.add_argument('--multip_feed',type=int, default=1,help='IsFeedData_MultiProcessing = True')
+parser.add_argument('--multip_feed',type=int, default=0,help='IsFeedData_MultiProcessing = True')
 parser.add_argument('--ShuffleFlag', default='Y', help='N:no,M:mix,Y:yes')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 parser.add_argument('--in_cnn_out_kp', default='3N5', help='keep prob for input, cnn result, output')
