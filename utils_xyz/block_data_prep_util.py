@@ -1563,6 +1563,13 @@ class GlobalSubBaseBLOCK():
             all_sorted_blockids_dic={}
             all_sorted_blockids_dic['root'] = np.sort([int(k) for k in self.root_s_h5f])
 
+            if self.root_s_h5f.attrs['datasource_name'] == 'KITTI' or True:
+                # remove all the root blocks inside of no bounding box
+                import KITTI_util
+                rootb_indexes = all_sorted_blockids_dic['root']
+                rootb_center, rootb_bottom, rootb_top =  Sorted_H5f.block_index_to_xyz_( rootb_indexes, self.root_s_h5f.attrs )
+                all_sorted_blockids_dic['root'] = np.sort( KITTI_util.rm_rootb_in_no_boundingbox( self.bmh5_fn, rootb_indexes, rootb_center, rootb_bottom, rootb_top ) )
+
             cascade_id_ls = self.cascade_id_ls
             cascade_attrs = {}
             cascade_attrs['root'] = self.root_s_h5f.attrs
