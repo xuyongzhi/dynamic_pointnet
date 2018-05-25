@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -27,9 +27,9 @@ DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40','KITTI']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
-#DATASET = 'SCANNET'
+DATASET = 'SCANNET'
 #DATASET = 'ETH'
-DATASET = 'MODELNET40'
+#DATASET = 'MODELNET40'
 #DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
@@ -390,7 +390,7 @@ class H5Prepare():
         file_list.sort()
         N = len(file_list)
         if TMPDEBUG:
-            choice = range(0,N,N//7)
+            choice = range(0,N,N//12)
             file_list = [ file_list[c] for c in choice ]
             #file_list = file_list[0:2]   # L
             #file_list = file_list[750:len(file_list)] # R
@@ -423,8 +423,8 @@ class H5Prepare():
 
     def MergeNormed(self, data_aug_configs):
         if DATASET == 'SCANNET':
-            plsph5_folder = 'ORG_sph5/30000_gs-2d4_-3d4-du'
-            bxmh5_folder = 'ORG_bxmh5/30000_gs-2d4_-3d4_fmn1444-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1-du'
+            plsph5_folder = 'ORG_sph5/240000_mgs3_gs2d4_4d6'
+            bxmh5_folder = 'ORG_bxmh5/240000_mgs3_gs2d4_4d6_fmn14_mvp2-4800_480_1-48_56_480-0d1_0d6-0d1_0d4-pd3-mbf-neg-2S1'
 
         if DATASET == 'MODELNET40':
             plsph5_folder = 'ORG_sph5/10000_gs3_3d5'
@@ -477,8 +477,8 @@ class H5Prepare():
             print(  "no file, skip merging" )
             return
 
-        allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        #allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
+        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
+        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
 
         for k in range( len(allfn_ls[0]) ):
             merged_file_names = ['','']
@@ -542,7 +542,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 8
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )

@@ -338,6 +338,8 @@ class Net_Provider():
             norm_h5f.h5f.close()
 
     def global_idx_to_local(self,g_start_idx,g_end_idx):
+        # not include g_end_idx (not 100% sure)
+        # include end_file_idx (not 100% sure)
         assert(g_start_idx>=0 and g_start_idx<=self.g_block_idxs[-1,1])
         assert(g_end_idx>=0 and g_end_idx<=self.g_block_idxs[-1,1])
         for i in range(self.g_file_N):
@@ -486,6 +488,7 @@ class Net_Provider():
 
 
     def get_global_batch(self, g_start_idx, g_end_idx, aug_types):
+        # not include g_end_idx (not 100% sure)
         start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
@@ -606,13 +609,17 @@ class Net_Provider():
             label_batches.append(label_i)
             sample_weights.append(smw_i)
             fid_start_end_ls.append(fid_start_end_i)
-        data_batches = np.concatenate(data_batches,axis=0)
-        label_batches = np.concatenate(label_batches,axis=0)
-        sample_weights = np.concatenate(sample_weights,axis=0)
-        sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
-        flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
-        fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
-        fid_start_end = np.concatenate(fid_start_end_ls,0)
+        if len(data_batches)>0:
+            data_batches = np.concatenate(data_batches,axis=0)
+            label_batches = np.concatenate(label_batches,axis=0)
+            sample_weights = np.concatenate(sample_weights,axis=0)
+            sg_bidxmaps = np.concatenate(sg_bidxmaps_ls,0)
+            flatten_bidxmaps = np.concatenate(flatten_bidxmaps_ls,0)
+            fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
+            fid_start_end = np.concatenate(fid_start_end_ls,0)
+        else:
+            data_batches=label_batches=sample_weights=sg_bidxmaps=flatten_bidxmaps=fmap_neighbor_idises=fid_start_end=np.array([])
+
         return data_batches,label_batches,sample_weights,sg_bidxmaps,flatten_bidxmaps, fmap_neighbor_idises,fid_start_end
 
     def update_train_eval_shuffled_idx(self):
@@ -621,28 +628,64 @@ class Net_Provider():
         self.eval_shuffled_idx = np.arange(self.eval_num_blocks)
         np.random.shuffle(self.eval_shuffled_idx)
 
-    def get_train_batch(self,train_start_batch_idx,train_end_batch_idx,IsShuffleIdx, aug_types ):
-        assert(train_start_batch_idx>=0 and train_start_batch_idx<=self.train_num_blocks)
-        assert(train_end_batch_idx>=0 and train_end_batch_idx<=self.train_num_blocks)
+    def update_eval_shuffled_idx(self, eval_num_blocks_limit=None):
+        if eval_num_blocks_limit!=None:
+            tmp = min(self.eval_num_blocks,eval_num_blocks_limit)
+        else:
+            tmp = self.eval_num_blocks
+        self.eval_shuffled_idx = np.arange(tmp)
+        np.random.shuffle(self.eval_shuffled_idx)
+
+    def update_train_shuffled_idx(self, train_num_blocks_limit=None):
+        if train_num_blocks_limit!=None:
+            tmp = min(self.train_num_blocks, train_num_blocks_limit)
+        else:
+            tmp = self.train_num_blocks
+        self.train_shuffled_idx = np.arange( tmp )
+        np.random.shuffle(self.train_shuffled_idx)
+
+    def get_train_batch(self,train_start_block_idx,train_end_block_idx,IsShuffleIdx, aug_types, fids=None ):
+        assert(train_start_block_idx>=0 and train_start_block_idx<=self.train_num_blocks)
+        assert(train_end_block_idx>=0 and train_end_block_idx<=self.train_num_blocks),"train_end_block_idx = %d,  train_num_blocks=%d"%(train_end_block_idx,self.train_num_blocks)
         # all train files are before eval files
         if IsShuffleIdx:
-            g_shuffled_batch_idx = self.train_shuffled_idx[range(train_start_batch_idx,train_end_batch_idx)]
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
-        else:
-            return self.get_global_batch(train_start_batch_idx,train_end_batch_idx,aug_types=aug_types)
+            g_shuffled_block_idx = self.train_shuffled_idx[range(train_start_block_idx,train_end_block_idx)]
 
-    def get_eval_batch(self,eval_start_batch_idx,eval_end_batch_idx,IsShuffleIdx, aug_types):
-        assert(eval_start_batch_idx>=0 and eval_start_batch_idx<=self.eval_num_blocks),"eval_start_batch_idx = %d,  eval_num_blocks=%d"%(eval_start_batch_idx,self.eval_num_blocks)
-        assert(eval_end_batch_idx>=0 and eval_end_batch_idx<=self.eval_num_blocks),"eval_end_batch_idx = %d,  eval_num_blocks=%d"%(eval_end_batch_idx,self.eval_num_blocks)
+            # Since we cannot read same file in multi threads, use fids as file
+            # filter. Note: the returned data is partial, the first shape is not
+            # batchsize.
+
+            if fids!=None:
+                g_shuffled_block_idx = self.clean_g_shuffled_block_idx( g_shuffled_block_idx, fids )
+
+            return self.get_shuffled_global_batch(g_shuffled_block_idx,aug_types)
+        else:
+            assert fids==None,"current multi processing is deisgned for shuffled mode"
+            return self.get_global_batch(train_start_block_idx,train_end_block_idx,aug_types=aug_types)
+
+    def clean_g_shuffled_block_idx(self, g_shuffled_block_idx, fids):
+        g_shuffled_block_idx_cleaned = []
+        for batch_idx in g_shuffled_block_idx:
+            start_file_idx,end_file_idx,local_start_idx,local_end_idx = \
+                self.global_idx_to_local(batch_idx, batch_idx+1)
+            if start_file_idx in fids:
+                g_shuffled_block_idx_cleaned.append( batch_idx )
+        return g_shuffled_block_idx_cleaned
+
+    def get_eval_batch(self,eval_start_block_idx,eval_end_block_idx,IsShuffleIdx, aug_types, fids=None):
+        assert(eval_start_block_idx>=0 and eval_start_block_idx<=self.eval_num_blocks),"eval_start_block_idx = %d,  eval_num_blocks=%d"%(eval_start_block_idx,self.eval_num_blocks)
+        assert(eval_end_block_idx>=0 and eval_end_block_idx<=self.eval_num_blocks),"eval_end_block_idx = %d,  eval_num_blocks=%d"%(eval_end_block_idx,self.eval_num_blocks)
 
         if IsShuffleIdx:
-            g_shuffled_batch_idx = self.eval_shuffled_idx[range(eval_start_batch_idx,eval_end_batch_idx)] + self.eval_global_start_idx
-            return self.get_shuffled_global_batch(g_shuffled_batch_idx,aug_types)
+            g_shuffled_block_idx = self.eval_shuffled_idx[range(eval_start_block_idx,eval_end_block_idx)] + self.eval_global_start_idx
+            if fids!=None:
+                g_shuffled_block_idx = self.clean_g_shuffled_block_idx( g_shuffled_block_idx, fids )
+            return self.get_shuffled_global_batch(g_shuffled_block_idx,aug_types)
         else:
-            eval_start_batch_idx  += self.eval_global_start_idx
-            eval_end_batch_idx  += self.eval_global_start_idx
-            return self.get_global_batch(eval_start_batch_idx,eval_end_batch_idx,aug_types=aug_types)
-
+            assert fids==None,"current multi processing is deisgned for shuffled mode"
+            eval_start_block_idx  += self.eval_global_start_idx
+            eval_end_block_idx  += self.eval_global_start_idx
+            return self.get_global_batch(eval_start_block_idx,eval_end_block_idx,aug_types=aug_types)
 
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
         for k,norm_h5f in enumerate(self.norm_h5f_L):

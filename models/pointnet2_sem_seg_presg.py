@@ -43,33 +43,67 @@ def get_voxel3dcnn_sa_config( model_flag ):
     cascade_num = int(model_flag[0])
     mlp_pe = []
     mlp_be = []
-    voxel_channels = []
-    voxel_kernels = []
-    voxel_strides = []
-    if model_flag=='5Va':
+    # The first cascade is pointnet, so voxel parameters are []
+    voxel_channels = [[]]
+    voxel_kernels = [[]]
+    voxel_strides = [[]]
+    voxel_paddings = [[]]
+    if model_flag=='3Vm':
+        mlp_pe.append( [64,64,128] )
+
+        voxel_channels.append( [128,128,256] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,1,0] )
+
+        voxel_channels.append( [256,256,512,1024] )
+        voxel_kernels.append( [3,3,3,3] )
+        voxel_strides.append( [1,1,1,1] )
+        voxel_paddings.append( [0,0,0,0] )
+
+    if model_flag=='4Vm':
         mlp_pe.append( [32,32,64] )
-        voxel_channels.append( [] )
+
+        voxel_channels.append( [64,64,128] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,1,0] )
+
+        voxel_channels.append( [128,128,256] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,0,0] )
+
+        voxel_channels.append( [256,256,512] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,0,0] )
+
+    elif model_flag=='5Va':
+        mlp_pe.append( [32,32,64] )
         voxel_channels.append( [64,64,64] )
         voxel_channels.append( [64,64,128] )
         voxel_channels.append( [128,128,256] )
         voxel_channels.append( [256,256,512,512] )
-        for l in range(5):
-            mlp_pe.append([])
-            mlp_be.append([])
 
     elif model_flag=='5Vm':
         mlp_pe.append( [32,32,48] )
-        voxel_channels.append( [] )
         voxel_channels.append( [64,128,128] )
         voxel_channels.append( [128,256,256] )
         voxel_channels.append( [256,256,512] )
         voxel_channels.append( [512,1024,512,256] )
-        for l in range(5):
-            mlp_pe.append([])
-            mlp_be.append([])
+
+    for l in range(cascade_num-1):
+        mlp_pe.append([])
+    for l in range(cascade_num): # not used currently
+        mlp_be.append([])
 
     mlp_configs = {}
     mlp_configs['voxel_channels'] = voxel_channels
+    mlp_configs['voxel_kernels'] = voxel_kernels
+    mlp_configs['voxel_strides'] = voxel_strides
+    mlp_configs['voxel_paddings'] = voxel_paddings
+
     mlp_configs['point_encoder'] = mlp_pe
     mlp_configs['block_learning'] = '3DCNN'
     mlp_configs['block_encoder'] = mlp_be
@@ -88,6 +122,10 @@ def get_pointmax_sa_config(model_flag):
     elif model_flag=='2a' or model_flag=='2aG':
         mlp_pe.append( [32,64,64,128] )
         mlp_pe.append( [128,128,256,512] )
+    elif model_flag=='3m':
+        mlp_pe.append( [64,64,64,128] )
+        mlp_pe.append( [128,128,128,256] )
+        mlp_pe.append( [256,256,512,1024] )
     elif model_flag=='3a' or model_flag=='3aG':
         mlp_pe.append( [32,32,64] )
         mlp_pe.append( [64,128,256] )
