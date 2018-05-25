@@ -1563,17 +1563,13 @@ class GlobalSubBaseBLOCK():
             all_sorted_blockids_dic={}
             all_sorted_blockids_dic['root'] = np.sort([int(k) for k in self.root_s_h5f])
 
-            if self.root_s_h5f.attrs['datasource_name'] == 'KITTI' or True:
-                # remove all the root blocks inside of no bounding box
-                import KITTI_util
-                rootb_indexes = all_sorted_blockids_dic['root']
-                rootb_center, rootb_bottom, rootb_top =  Sorted_H5f.block_index_to_xyz_( rootb_indexes, self.root_s_h5f.attrs )
-                all_sorted_blockids_dic['root'] = np.sort( KITTI_util.rm_rootb_in_no_boundingbox( self.bmh5_fn, rootb_indexes, rootb_center, rootb_bottom, rootb_top ) )
-
             cascade_id_ls = self.cascade_id_ls
+            if self.root_s_h5f.attrs['datasource_name']=='KITTI':
+                cascade_id_ls = ['root','global']+self.cascade_id_ls[1:-1] # calculate 'global' first, and then rm unwanted global blocks
             cascade_attrs = {}
             cascade_attrs['root'] = self.root_s_h5f.attrs
             bmh5_metas = []
+
             for cascade_id in cascade_id_ls:
                 print('cascade %s start: %s\n'%(cascade_id, os.path.basename(self.bmh5_fn)))
                 if cascade_id == 'root':
@@ -1589,11 +1585,19 @@ class GlobalSubBaseBLOCK():
                     cascade_attrs[cascade_id] = new_attrs
 
                     bmh5_metas.append( bmh5_meta )
-                    #for key in bmh5_meta_i:
-                    #    if key in bmh5_meta:
-                    #        bmh5_meta[key] += bmh5_meta_i[key]
-                    #    else:
-                    #        bmh5_meta[key] = bmh5_meta_i[key]
+
+                    if cascade_id == 'global' and self.root_s_h5f.attrs['datasource_name']=='KITTI':
+                        import KITTI_util
+                        gb_center, gb_bottom, gb_top =  Sorted_H5f.block_index_to_xyz_( all_sorted_larger_aimbids, new_attrs )
+                        all_sorted_larger_aimbids = np.sort( KITTI_util.rm_gb_with_no_boundingbox( self.bmh5_fn, rootb_indexes, gb_center, gb_bottom, gb_top  ) )
+                        basebids_in_largeraimbid_dic_cleaned = {}
+                        for gb in all_sorted_larger_aimbids:
+                            basebids_in_largeraimbid_dic_cleaned[gb] = basebids_in_largeraimbid_dic[gb]
+                        rootb_ids_cleaned = np.sort( np.unique( np.concatenate( basebids_in_largeraimbid_dic_cleaned.values() ) ))
+
+                        all_sorted_blockids_dic['global'] = basebids_in_largeraimbid_dic_cleaned
+                        all_sorted_blockids_dic['root'] = rootb_ids_cleaned
+
                 group_name = self.get_cascade_grp_name(cascade_id)
 
                 grp = h5f.create_group(group_name)
@@ -1618,6 +1622,7 @@ class GlobalSubBaseBLOCK():
             h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
                 bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
