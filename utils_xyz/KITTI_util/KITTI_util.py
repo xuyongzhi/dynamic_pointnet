@@ -83,8 +83,8 @@ def reading_label_data(label_file_path):
 
 
 def rm_gb_with_no_boundingbox( pl_sph5_filename, gb_center, gb_bottom, gb_top):
-    file_path = os.path.dirname(os.path.dirname(os.path.dirname(pl_sph5_filename)))
-    label_name = os.path.basename(pl_sph5_filename).replace(".sph5",".txt")
+    file_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pl_sph5_filename))))
+    label_name = os.path.basename(pl_sph5_filename).replace(".bmh5",".txt")
     label_file_path = file_path + '/label/' + label_name
     assert os.path.exists(label_file_path)
     label_data = reading_label_data(label_file_path)  ## reading all the label_data
@@ -109,7 +109,7 @@ def rm_gb_with_no_boundingbox( pl_sph5_filename, gb_center, gb_bottom, gb_top):
                         select_indexes.append(block_id)
                         break
 
-    return select_idexs
+    return select_indexes
 
 
 

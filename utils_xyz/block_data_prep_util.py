@@ -1589,9 +1589,6 @@ class GlobalSubBaseBLOCK():
                     if cascade_id == 'global' and self.root_s_h5f.attrs['datasource_name']=='KITTI':
                         import KITTI_util
                         gb_center, gb_bottom, gb_top =  Sorted_H5f.block_index_to_xyz_( all_sorted_larger_aimbids, new_attrs )
-
-                        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
                         all_sorted_larger_aimbids = np.sort( KITTI_util.rm_gb_with_no_boundingbox( self.bmh5_fn, gb_center, gb_bottom, gb_top  ) ) #rootb_indexes is deleted
                         basebids_in_largeraimbid_dic_cleaned = {}
                         for gb in all_sorted_larger_aimbids:
