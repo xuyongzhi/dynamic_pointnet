@@ -27,10 +27,10 @@ DATASETS = ['MATTERPORT', 'SCANNET', 'ETH', 'MODELNET40','KITTI']
 for ds in DATASETS:
     sys.path.append('%s/%s_util'%(BASE_DIR,ds))
 
-DATASET = 'SCANNET'
+#DATASET = 'SCANNET'
 #DATASET = 'ETH'
 #DATASET = 'MODELNET40'
-#DATASET = 'KITTI'
+DATASET = 'KITTI'
 DS_Meta = DatasetsMeta( DATASET )
 
 ORG_DATA_DIR = os.path.join(DATA_DIR, DATASET+'__H5F' )
