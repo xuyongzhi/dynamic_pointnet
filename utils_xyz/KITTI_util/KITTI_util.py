@@ -82,7 +82,7 @@ def reading_label_data(label_file_path):
 
 
 
-def rm_gb_with_no_boundingbox( pl_sph5_filename, gb_center, gb_bottom, gb_top):
+def rm_gb_with_no_boundingbox( pl_sph5_filename, all_sorted_larger_aimbids, gb_center, gb_bottom, gb_top):
     file_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pl_sph5_filename))))
     label_name = os.path.basename(pl_sph5_filename).replace(".bmh5",".txt")
     label_file_path = file_path + '/label/' + label_name
@@ -106,7 +106,7 @@ def rm_gb_with_no_boundingbox( pl_sph5_filename, gb_center, gb_bottom, gb_top):
             if label_data[label_id, 0] > x_min  and label_data[label_id, 0] < x_max:  ## check x scope
                 if label_data[label_id, 1] > y_min and label_data[label_id, 1] < y_max:  ## check y scope
                     if label_data[label_id, 2] > z_min and label_data[label_id, 2] < z_max:  ## check z scope
-                        select_indexes.append(block_id)
+                        select_indexes.append(all_sorted_larger_aimbids[block_id])
                         break
 
     return select_indexes
