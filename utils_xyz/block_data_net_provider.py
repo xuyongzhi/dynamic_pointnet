@@ -195,9 +195,12 @@ class Net_Provider():
         return bxmh5_fn
 
     def get_data_label_shape_info(self):
-        self.feed_data_ele_idxs,self.feed_label_ele_idxs = self.norm_h5f_L[0].get_feed_ele_ids(self.feed_data_elements,self.feed_label_elements)
+        self.feed_data_ele_idxs,self.feed_label_ele_idxs = self.norm_h5f_L[0].get_feed_ele_ids(self.feed_data_elements, self.feed_label_elements)
         self.data_num_eles = len([idx for e in self.feed_data_ele_idxs for idx in self.feed_data_ele_idxs[e] ])
         self.label_num_eles = len([self.feed_label_ele_idxs[e] for e in self.feed_label_ele_idxs])
+        if 'nxnynz' in self.feed_label_elements:
+            self.feed_label_ele_idxs['nxnynz'] = np.arange(self.label_num_eles,self.label_num_eles+3)
+            self.label_num_eles += 3
         self.cascade_num = self.gsbb_load.cascade_num
         self.whole_train_data_shape = np.array([ self.train_num_blocks, self.gsbb_load.global_num_point, self.data_num_eles])
         self.whole_eval_data_shape = np.copy(self.whole_train_data_shape)
@@ -493,6 +496,9 @@ class Net_Provider():
             self.global_idx_to_local(g_start_idx,g_end_idx)
         #t0 = time.time()
 
+        if 'nxnynz' in self.feed_label_elements and 'nxnynz' not in self.feed_data_elements:
+            self.feed_data_elements += ['nxnynz']
+
         data_ls = []
         label_ls = []
         sg_bidxmaps_ls = []
@@ -534,6 +540,13 @@ class Net_Provider():
         flatten_bidxmaps = np.concatenate( flatten_bidxmaps_ls,axis=0 )
         fmap_neighbor_idises = np.concatenate( fmap_neighbor_idis_ls,0 )
 
+        if 'nxnynz' in self.feed_label_elements:
+            nxnynz_batches = data_batches[:,:,feed_data_ele_idxs['nxnynz']]
+            data_batches = np.delete( data_batches, feed_data_ele_idxs['nxnynz'], axis=-1 )
+
+            label_batches = np.tile( label_batches, [1,nxnynz_batches.shape[1],1] )
+            label_batches = np.concatenate( [label_batches, nxnynz_batches], axis=-1 )
+
         num_label_eles = len(self.feed_label_elements)
 
         # for each label, there is a weight. For all weight, when the point is
@@ -561,7 +574,8 @@ class Net_Provider():
 
         fid_start_end = np.concatenate( fid_start_end,0 )
 
-        data_batches = aug_data.aug_batch( data_batches, feed_data_ele_idxs, aug_types, self.dataset_name )
+        is_include_normal = 'nxnynz' in self.feed_data_elements and 'nxnynz' not in self.feed_label_elements
+        data_batches = aug_data.aug_batch( data_batches, is_include_normal, aug_types, self.dataset_name )
 
         #Net_Provider.get_indices_in_voxel( sg_bidxmaps, self.sg_bidxmaps_extract_idx, self.gsbb_load.sub_block_step_candis, self.gsbb_load.sub_block_stride_candis )
 

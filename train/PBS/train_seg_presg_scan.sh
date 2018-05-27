@@ -66,9 +66,9 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-#feed_data_elements='xyzg' 
+feed_data_elements='xyzg' 
 #feed_data_elements='xyzg-color_1norm' 
-feed_data_elements='xyzs-nxnynz' 
+#feed_data_elements='xyzs-nxnynz' 
 
 num_gpus=1
 start_gi=0
@@ -78,7 +78,8 @@ ShuffleFlag='Y'
 group_pos='bc'
 aug=1
 
-bs=29
-run_train 4Vm-S3L3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=28
+feed_label_elements="label_category-nxnynz"
+run_train 4Vm-S3L3_111 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
 

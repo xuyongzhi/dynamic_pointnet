@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  27 MAY 2018 10:54
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  27 MAY 2018 19:44
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1693,11 +1693,6 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 742--742
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 744--744
-[]\OT1/cmr/m/n/10 xyzg-
- []
-
-
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 744--744
 []\OT1/cmr/m/n/10 RotateRef| 
  []
@@ -1723,49 +1718,44 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 748--748
  []
 
 
+Underfull \hbox (badness 10000) in paragraph at lines 750--750
+[]\OT1/cmr/m/n/10 xyzg-
+ []
+
+
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 750--750
 []\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 752--752
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 752--752
+[]\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 754--754
 []\OT1/cmr/m/n/10 xyzg
  []
 
 
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 752--752
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 754--754
 []\OT1/cmr/m/n/10 RotateRef 
  []
 
 
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 752--752
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 754--754
 []\OT1/cmr/m/n/10 RotateVox| 
  []
 
 
-Overfull \hbox (123.11214pt too wide) in paragraph at lines 732--764
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 732--766
 [] 
  []
 
 [27]
-Underfull \hbox (badness 10000) in paragraph at lines 768--768
+Underfull \hbox (badness 10000) in paragraph at lines 770--770
 []\OT1/cmr/m/n/10 bxmh5:4096[]mgs1[]gs2[]2d2[]fmn1444[]mvp1-3200[]1024[]48[]1-1
 8[]24[]56[]56-0d1[]0d2[]0d6-
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 770--770
-[]\OT1/cmr/m/n/10 RotateRef 
- []
-
-
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 770--770
-[]\OT1/cmr/m/n/10 RotateVox| 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 772--772
-[]\OT1/cmr/m/n/10 xyzs
  []
 
 
@@ -1809,50 +1799,105 @@ Overfull \hbox (3.57097pt too wide) in paragraph at lines 776--776
  []
 
 
-Overfull \hbox (123.11214pt too wide) in paragraph at lines 765--783
+Underfull \hbox (badness 10000) in paragraph at lines 778--778
+[]\OT1/cmr/m/n/10 xyzs
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 778--778
+[]\OT1/cmr/m/n/10 RotateRef 
+ []
+
+
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 778--778
+[]\OT1/cmr/m/n/10 RotateVox| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 781--781
+[]\OT1/cmr/m/n/10 4Vm-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 781--781
+[]\OT1/cmr/m/n/10 xyzs
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 781--781
+[]\OT1/cmr/m/n/10 RotateRef 
+ []
+
+
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 781--781
+[]\OT1/cmr/m/n/10 RotateVox| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 783--783
+[]\OT1/cmr/m/n/10 4Vm-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 783--783
+[]\OT1/cmr/m/n/10 xyzs
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 783--783
+[]\OT1/cmr/m/n/10 RotateRef 
+ []
+
+
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 783--783
+[]\OT1/cmr/m/n/10 RotateVox| 
+ []
+
+
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 767--790
 [] 
  []
 
 [28]
-Underfull \hbox (badness 10000) in paragraph at lines 789--789
+Underfull \hbox (badness 10000) in paragraph at lines 796--796
 []\OT1/cmr/m/n/10 bxmh5:10000[]gs3[]3d5[]fmn1444[]mvp1-2560[]1024[]80[]16[]1-24
 []32[]48[]27[]48-0d0[]0d2[]0d5[]1d1-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 791--791
+Underfull \hbox (badness 10000) in paragraph at lines 798--798
 []\OT1/cmr/m/n/10 loss
  []
 
 
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 794--794
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 801--801
 []\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 796--796
+Underfull \hbox (badness 10000) in paragraph at lines 803--803
 []\OT1/cmr/m/n/10 xyzrsg-
  []
 
 
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 796--796
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 803--803
 []\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Overfull \hbox (123.11214pt too wide) in paragraph at lines 785--804
+Overfull \hbox (123.11214pt too wide) in paragraph at lines 792--811
 [] 
  []
 
 [29]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 805.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 805.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 812.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 812.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 805.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 805.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 812.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 812.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: AE66F3A74983BD4558772BDB99960651;2409.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 805.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 812.
  ) 
 Here is how much of TeX's memory you used:
  17760 strings out of 494931
@@ -1873,7 +1918,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (30 pages, 2601992 bytes).
+Output written on notes.pdf (30 pages, 2602312 bytes).
 PDF statistics:
  408 PDF objects out of 1000 (max. 8388607)
  328 compressed objects within 4 object streams

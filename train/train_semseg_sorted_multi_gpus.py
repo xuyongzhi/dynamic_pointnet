@@ -35,7 +35,7 @@ DEBUG_MULTIFEED = False
 DEBUG_SMALLDATA = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='4Vm-S3L3', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='4Vm-S3L3_111', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI,MODELNET40')
 
 parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/', help='The file name glob for both training and evaluation')
@@ -48,8 +48,8 @@ parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name st
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/10000_gs3_3d5/', help='The file name glob for both training and evaluation')
 #parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1', help='')
 
-parser.add_argument('--feed_data_elements', default='xyzrsg', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
-parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
+parser.add_argument('--feed_data_elements', default='xyzg', help='xyzrsg-nxnynz-color_1norm')
+parser.add_argument('--feed_label_elements', default='label_category-nxnynz', help='label_category-label_instance')
 parser.add_argument('--batch_size', type=int, default=40, help='Batch Size during training [default: 24]')
 parser.add_argument('--num_point', type=int, default=-1, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=101, help='Epoch to run [default: 50]')
@@ -323,6 +323,8 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             configs['global_step'] = net_provider.gsbb_load.global_step
             configs['global_stride'] = net_provider.gsbb_load.global_stride
 
+            configs['normal_label'] = 'nxnynz' in FLAGS.feed_label_elements
+
             pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, sgf_config_pls = placeholder_inputs(BATCH_SIZE,BLOCK_SAMPLE,
                                         NUM_DATA_ELES,NUM_LABEL_ELES, configs )
             category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
@@ -380,10 +382,10 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         fbmap_neighbor_dis_device = tf.slice(fbmap_neighbor_dis_pl, [gi*DEVICE_BATCH_SIZE,0,0,0], [DEVICE_BATCH_SIZE,-1,-1,-1])
                         sgf_config_pls_device={}
 
-                        pred, end_points = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
+                        pred, normal_pred = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
                                                             flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay)
 
-                        get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS, configs)
+                        get_loss(pred, normal_pred, label_device, smpws_device, LABEL_ELE_IDXS, configs)
 
                         if pred.shape[1] != 1:
                             ps = pred.shape[1]

@@ -21,7 +21,7 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, conf
     sgf_config_pls = {}
     with tf.variable_scope("pls") as pl_sc:
         pointclouds_pl = tf.placeholder(tf.float32, shape=(batch_size,)+ block_sample + (data_num_ele,))
-        if configs['dataset_name'] == 'MODELNET40':
+        if configs['dataset_name'] == 'MODELNET40' and label_num_ele==1:
             labels_pl = tf.placeholder(tf.int32, shape=(batch_size,1,label_num_ele,))
             smpws_pl = tf.placeholder(tf.float32, shape=(batch_size,1,label_num_ele,))
         else:
@@ -323,6 +323,9 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [512,256] )
+    elif model_flag=='4Vm-S3L3':
+        mlps_fp = [[],[],[]]
+        mlps_fp.append( [128,64] )
 
     #elif model_flag=='1DSa' or model_flag=='1DSaG':
     #    dense_config = {}
@@ -385,9 +388,12 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
         model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
     IsShowModel = True
-    assert '_' not in modelf_nein
-    model_flag = modelf_nein
-    num_neighbors= None
+    if '_' in modelf_nein:
+        model_flag, num_neighbors = modelf_nein.split('_')
+        num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
+    else:
+        model_flag = modelf_nein
+        num_neighbors= None
 
     flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
     sg_bm_extract_idx = configs['sg_bm_extract_idx']
@@ -432,15 +438,12 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
                                                                                  configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
         if k == 0:
             l_points[0] = root_point_features
-        if configs['dataset_name'] != 'MODELNET40':
-            l_points.append(new_points)
-        else:
-            l_points[0] = new_points
+        l_points.append(new_points)
 
         # get pyramid features
         if k >= cascade_num-mlp_configs['scale_num']:
             cur_scale = tf.reduce_max( new_points, axis=1, keepdims=True )
-            cur_scale = tf_util.conv1d( cur_scale, mlp_configs['scale_channel'], 1, padding='VALID', bn=True, is_training=is_training, scope='scale%d'%(k), bn_decay=bn_decay )
+            cur_scale = tf_util.conv1d( cur_scale, mlp_configs['scale_channel'], 1, padding='VALID', activation_fn=None, bn=True, is_training=is_training, scope='scale%d'%(k), bn_decay=bn_decay )
             if len(scales_feature) > 0:
                 _ur_scale = cur_scale + scales_feature[-1]
             scales_feature.append( cur_scale )
@@ -448,12 +451,32 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
     if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
     end_points['l0_points'] = l_points[0]
 
+    # ----------------------
+    if configs['normal_label']:
+        # Feature Propagation layers
+        mlps_e1, mlps_fp = get_fp_module_config( model_flag )
+        for i in range(cascade_num):
+            k = cascade_num-1-i
+            if k!=0:
+                continue
+            start = flatten_bm_extract_idx[k]
+            end = flatten_bm_extract_idx[k+1]
+            flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
+            fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
+            l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
+        if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
+        # predict nxnynz
+        normal_pred = tf_util.conv1d(l_points[0],3, 1, padding='VALID', activation_fn=None, scope='pre_normal')
+    else:
+        normal_pred = None
+
+    # ----------------------
     multi_scales_feature = tf.concat( scales_feature, axis=1 )
     net = multi_scales_feature
 
     # FC layers
     if IsShowModel: print('net:%s'%(shape_str([net])))
-    net = tf_util.conv1d( net, 128, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    net = tf_util.conv1d( net, 128, net.shape[1], padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
 
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
@@ -463,7 +486,7 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
     if IsShowModel:
         print('net:%s'%(shape_str([net])))
 
-    return net, end_points
+    return net, normal_pred
 
 def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
     """
@@ -550,15 +573,20 @@ def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps,
     if IsShowModel:
         print('net:%s'%(shape_str([net])))
 
-    return net, end_points
+    return net, None
 
-def get_loss(pred, label, smpw, label_eles_idx, configs ):
+def get_loss(pred, normal_pred, label, smpw, label_eles_idx, configs ):
     """ pred: BxNxC,
         label: BxN,
 	smpw: BxN """
     category_idx = label_eles_idx['label_category'][0]
     label_category = label[...,category_idx]
     smpw_category = smpw[...,category_idx]
+    if 'nxnynz' in label_eles_idx and configs['dataset_name']=='MODELNET40':
+        label_category = label_category[:,0:1]
+        smpw_category = smpw_category[:,0:1]
+        tmp = label_eles_idx['nxnynz']
+        label_normal = label[..., tmp[0]:(tmp[-1]+1)]
     indrop_keep_mask = tf.get_default_graph().get_tensor_by_name('indrop_keep_mask:0')
     if len(indrop_keep_mask.get_shape()) != 0 and configs['dataset_name']!='MODELNET40':
         indrop_keep_mask = tf.squeeze( indrop_keep_mask,2 )
@@ -572,7 +600,11 @@ def get_loss(pred, label, smpw, label_eles_idx, configs ):
         for s in range(pred.shape[1]):
             classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred[:,s,:], weights=smpw_category, scope='classify_loss_scale_%d'%(s) )
             tf.summary.scalar('classify_loss_scale_%d'%(s), classify_loss)
-    #tf.add_to_collection('losses',classify_loss)
+
+    if 'nxnynz' in label_eles_idx:
+        normal_loss = tf.losses.mean_squared_error(labels=label_normal, predictions=normal_pred, scope='normal_loss' )
+
+
     return classify_loss
 
 if __name__=='__main__':

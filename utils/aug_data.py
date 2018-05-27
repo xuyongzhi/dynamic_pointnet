@@ -39,14 +39,10 @@ def aug_id_to_type( aug_id ):
         raise NotImplementedError
     return aug_types
 
-def aug_batch( data, feed_data_ele_idxs, aug_types, dataset_name  ):
+def aug_batch( data, is_include_normal, aug_types, dataset_name  ):
     if 'RotateIn' not in aug_types:
         return data
     if dataset_name == 'MODELNET40':
-        is_include_normal = 'nxnynz' in feed_data_ele_idxs
-        assert feed_data_ele_idxs['xyz'][0] == 0
-        if is_include_normal:
-            assert feed_data_ele_idxs['nxnynz'][0] == 3
         data = augment_batch_data_MODELNET( data, is_include_normal )
     else:
         assert NotImplementedError
