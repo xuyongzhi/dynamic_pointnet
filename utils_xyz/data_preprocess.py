@@ -431,8 +431,8 @@ class H5Prepare():
             bxmh5_folder = 'ORG_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1'
 
         if DATASET == 'KITTI':
-            plsph5_folder = 'BasicData/ORG_sph5/4000_gs5_10'
-            bxmh5_folder = 'BasicData/ORG_bxmh5/4000_gs5_10_fmn-10-10-10-3000_1000_500-16_8_8-0d4_1d2_2d4-0d2_0d3_0d4-pd3-mbf-neg-3D1_benz'
+            plsph5_folder = 'BasicData/ORG_sph5/4000_mgs10_gs5_10-mbf-neg'
+            bxmh5_folder = 'BasicData/ORG_bxmh5/4000_mgs10_gs5_10-mbf-neg_fmn-10-10-10_mvp2-1600_1800_800_1-16_16_24_32-0d4_1d2_2d4-0d2_0d3_0d4-pd3-3D1_benz'
 
         sph5_folder_names = [ plsph5_folder, bxmh5_folder]
         formats = ['.sph5','.bxmh5']
@@ -562,8 +562,8 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

@@ -1622,7 +1622,6 @@ class GlobalSubBaseBLOCK():
             h5f.attrs['t'] = t_bmh5
             h5f.attrs['is_intact_bmh5'] = 1
             h5f.flush()
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
             with open(bmh5_meta_fn,'w') as bmh5_meta_f:
                 bmh5_meta_f.write('Key notes:\n\tReduce base block lost: decrease block_stride of next cascade, increase padding.\n\n')
