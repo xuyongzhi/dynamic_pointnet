@@ -12,8 +12,10 @@ NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative numbe
 #-------------------------------------------------------------------------------
 # gsbb config
 #_gsbb_config = '3E1'
+_gsbb_config = '3D1_benz'
+#_gsbb_config = '2M2p'
 #_gsbb_config = '3D1_benz'
-_gsbb_config = '2S1'
+#_gsbb_config = '2S1'
 print('\n gsbb_config:%s \n-----------------------------------------------------'%(_gsbb_config))
 
 def get_gsbb_config( gsbb_config = _gsbb_config ):
@@ -56,9 +58,9 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.2, 0.3, 0.4]).astype(np.float)
         sub_block_step_candis   = np.array([0.4, 1.2, 2.4]).astype(np.float)
-        nsubblock_candis        =np.array([3000, 1000, 500]).astype(np.int32)
-        npoint_subblock_candis = np.array([16,  8, 8]).astype(np.int32)
-        min_valid_point = np.array([2,2,2,2])
+        nsubblock_candis        =np.array([1600, 1800, 800, 1]).astype(np.int32)
+        npoint_subblock_candis = np.array([16,  16, 24, 32]).astype(np.int32)
+        min_valid_point = np.array([1,3,3,3])
 
 
     #---------------------------------------------------------------------------

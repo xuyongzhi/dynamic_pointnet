@@ -79,3 +79,38 @@ def reading_label_data(label_file_path):
     label_data_i = label_to_gt_box3d( label, cls='Car', coordinate = 'lidar')
 
     return label_data_i[0]
+
+
+
+def rm_gb_with_no_boundingbox( pl_sph5_filename, gb_center, gb_bottom, gb_top):
+    file_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(pl_sph5_filename))))
+    label_name = os.path.basename(pl_sph5_filename).replace(".bmh5",".txt")
+    label_file_path = file_path + '/label/' + label_name
+    assert os.path.exists(label_file_path)
+    label_data = reading_label_data(label_file_path)  ## reading all the label_data
+    num_label = label_data.shape[0]
+
+    num_blocks = gb_bottom.shape[0]
+
+    select_indexes = []
+    for block_id in range(num_blocks):
+        x_min = gb_bottom[block_id][0]
+        y_min = gb_bottom[block_id][1]
+        z_min = gb_bottom[block_id][2]
+        x_max = gb_top[block_id][0]
+        y_max = gb_top[block_id][1]
+        z_max = gb_top[block_id][2]
+
+
+        for label_id in range(num_label):
+            if label_data[label_id, 0] > x_min  and label_data[label_id, 0] < x_max:  ## check x scope
+                if label_data[label_id, 1] > y_min and label_data[label_id, 1] < y_max:  ## check y scope
+                    if label_data[label_id, 2] > z_min and label_data[label_id, 2] < z_max:  ## check z scope
+                        select_indexes.append(block_id)
+                        break
+
+    return select_indexes
+
+
+
+
