@@ -6,11 +6,11 @@
 train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
-maxepoch=101
-learning_rate=0.001
+maxepoch=61
+learning_rate=0.003
 decay_epoch_step=30
 feed_label_elements="label_category"
-multip_feed=1
+multip_feed=0
 
 finetune=0
 model_epoch=170
@@ -43,6 +43,8 @@ bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18
 #all_fn_globs='Merged_sph5/4096_mgs1_gs2_2/'
 #bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2_fmn14_mvp1-1024_240_1-48_27_160-0d2_0d4-0d1_0d2-pd3-mbf-neg-2M2p'
 
+#all_fn_globs='Merged_sph5/100000_mgs3_gs-4d8_-7/'
+#bxmh5_folder_name='Merged_bxmh5/100000_mgs3_gs-4d8_-7_fmn144_mvp2-8000_480_32_1-128_56_56_48-0d2_0d6_2d2-0d1_0d4_1d6-pd3-mbf-neg-3S1'
 # *****************************************************************************
 
 run_train()
@@ -65,24 +67,25 @@ run_train()
 
 #-------------------------------------------------------------------------------------------
 #feed_data_elements='xyzg' 
-#feed_data_elements='xyzrsg-color_1norm' 
-feed_data_elements='xyzg-nxnynz' 
+#feed_data_elements='xyzg-color_1norm' 
+feed_data_elements='xyzs-nxnynz' 
 
-num_gpus=2
-start_gi=0
+num_gpus=1
+start_gi=1
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
-group_pos='mean'
+group_pos='bc'
 aug=1
 
-bs=48
-run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=28
+run_train 4Vm-S3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
-feed_data_elements='xyzg' 
-run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+run_train 4Vm-S4 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
-feed_data_elements='xyzs' 
-run_train 4m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=23
+in_cnn_out_kp='565'
+feed_data_elements='xyzs-nxnynz' 
+run_train 4Vm-S3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
 

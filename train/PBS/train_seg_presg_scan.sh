@@ -6,9 +6,9 @@
 train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
-maxepoch=101
+maxepoch=61
 learning_rate=0.001
-decay_epoch_step=30
+decay_epoch_step=20
 feed_label_elements="label_category"
 multip_feed=0
 
@@ -66,24 +66,19 @@ run_train()
 
 
 #-------------------------------------------------------------------------------------------
-feed_data_elements='xyzg' 
+#feed_data_elements='xyzg' 
 #feed_data_elements='xyzg-color_1norm' 
-#feed_data_elements='xyzg-nxnynz' 
+feed_data_elements='xyzs-nxnynz' 
 
 num_gpus=1
-start_gi=1
+start_gi=0
 in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='bc'
 aug=1
 
-bs=28
-run_train 4Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=29
+run_train 4Vm-S3L3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
-feed_data_elements='xyzs' 
-run_train 4Vm $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-bs=16
-#run_train 5m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 

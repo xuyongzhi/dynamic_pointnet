@@ -35,18 +35,18 @@ DEBUG_MULTIFEED = False
 DEBUG_SMALLDATA = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelf_nein', default='5m', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
+parser.add_argument('--modelf_nein', default='4Vm-S3L3', help='{model flag}_{neighbor num of cascade 0,0 from 1,and others}')
 parser.add_argument('--dataset_name', default='MODELNET40', help='dataset_name: ETH,STANFORD_INDOOR3D,SCANNET,MATTERPORT,KITTI,MODELNET40')
 
-#parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/', help='The file name glob for both training and evaluation')
-#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1', help='')
+parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/', help='The file name glob for both training and evaluation')
+parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1', help='')
 parser.add_argument('--eval_fnglob_or_rate',  default='test', help='file name str glob or file number rate: scan1*.nh5 0.2')
 
 #parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/1024_gs3_3/', help='The file name glob for both training and evaluation')
 #parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/1024_gs3_3_fmn1444-1024_320-24_32-0d2_0d4-0d1_0d2-pd3-2M1', help='')
 
-parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/10000_gs3_3d5/', help='The file name glob for both training and evaluation')
-parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1', help='')
+#parser.add_argument('--all_fn_globs', type=str,default='Merged_sph5/10000_gs3_3d5/', help='The file name glob for both training and evaluation')
+#parser.add_argument('--bxmh5_folder_name', default='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1', help='')
 
 parser.add_argument('--feed_data_elements', default='xyzrsg', help='xyz_1norm_file-xyz_midnorm_block-color_1norm')
 parser.add_argument('--feed_label_elements', default='label_category', help='label_category-label_instance')
@@ -384,6 +384,11 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                                                             flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay)
 
                         get_loss(pred, label_device, smpws_device, LABEL_ELE_IDXS, configs)
+
+                        if pred.shape[1] != 1:
+                            ps = pred.shape[1]
+                            pred = pred[:,ps-1:ps,:]
+
                         losses = tf.get_collection('losses', scope)
                         total_loss = tf.add_n(losses, name='total_loss')
                         loss_summary = [total_loss]

@@ -34,10 +34,33 @@ def placeholder_inputs(batch_size, block_sample,data_num_ele,label_num_ele, conf
         return pointclouds_pl, labels_pl, smpws_pl,  sg_bidxmaps_pl, flatten_bidxmaps_pl, fbmap_neighbor_idis_pl, sgf_config_pls
 
 def get_sa_module_config(model_flag):
-    if model_flag[1] == 'V':
-        return get_voxel3dcnn_sa_config(model_flag)
+    if '-S' in model_flag:
+        tmp = model_flag.split('-S')
+        assert len(tmp) == 2
+        model_flag = tmp[0]
+
+        tmp = tmp[1]
+        if 'L' in tmp:
+            assert len(tmp) == 3
+            scale_num = int(tmp[0])
+            loss_scale_num = int(tmp[2])
+        else:
+            assert len(tmp) == 1
+            scale_num = int(tmp)
+            loss_scale_num = 1
     else:
-        return get_pointmax_sa_config(model_flag)
+        scale_num = 1
+
+
+    if model_flag[1] == 'V':
+        mlp_configs = get_voxel3dcnn_sa_config(model_flag)
+    else:
+        mlp_configs = get_pointmax_sa_config(model_flag)
+
+    mlp_configs['scale_channel'] = 256      # for multi-scale classification task only
+    mlp_configs['scale_num'] = scale_num
+    mlp_configs['loss_scale_num'] = loss_scale_num
+    return mlp_configs
 
 def get_voxel3dcnn_sa_config( model_flag ):
     cascade_num = int(model_flag[0])
@@ -163,7 +186,7 @@ def get_pointmax_sa_config(model_flag):
         mlp_pe.append( [64,64,128] )
         mlp_pe.append( [128,128,256] )
         mlp_pe.append( [256,256,512] )
-        mlp_pe.append( [512,512,1024] )
+        mlp_pe.append( [512,512,512] )
     elif model_flag=='4m1':
         mlp_pe.append( [32,32,32,64] )
         mlp_pe.append( [64,64,128] )
@@ -247,6 +270,8 @@ def get_pointmax_sa_config(model_flag):
     mlp_configs['point_encoder'] = mlp_pe
     mlp_configs['block_learning'] = 'max'
     mlp_configs['block_encoder'] = mlp_be
+
+
     return mlp_configs
 
 def get_fp_module_config( model_flag ):
@@ -346,24 +371,112 @@ def get_flatten_bidxmap_global_unused( batch_size, nsubblock_last, nearest_block
     fbmap_neighbor_dis_global = tf.zeros(shape = [batch_size, nsubblock_last, nearest_block_num, 1], dtype=tf.float32)
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
+
 def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+    if configs['dataset_name'] == 'MODELNET40':
+        return get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug)
+    else:
+        return get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug)
+
+def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
         model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
     IsShowModel = True
-    if '_' in modelf_nein:
-        # segmentation
-        model_flag, num_neighbors = modelf_nein.split('_')
-        num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
-        assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-        assert num_neighbors[1] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
-        assert num_neighbors[2] <= np.min(configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
-    else:
-        # classification
-        model_flag = modelf_nein
-        num_neighbors= None
+    assert '_' not in modelf_nein
+    model_flag = modelf_nein
+    num_neighbors= None
+
+    flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
+    sg_bm_extract_idx = configs['sg_bm_extract_idx']
+
+    batch_size = rawdata.get_shape()[0].value
+    global_num_point = rawdata.get_shape()[1].value
+    end_points = {}
+
+    cascade_num = int(model_flag[0])
+    assert cascade_num <= sg_bm_extract_idx.shape[0] # sg_bm_extract_idx do not include the global step
+    IsOnlineGlobal = model_flag[-1] == 'G'
+    mlp_configs = get_sa_module_config(model_flag)
+    l_points = []                       # size = l_points+1
+    l_points.append( rawdata )
+    l_xyz = rawdata[...,0:3]     # (2, 512, 128, 6)
+    new_points = rawdata
+
+    if IsShowModel: print('\n\ncascade_num:%d \ngrouped_rawdata:%s'%(cascade_num, shape_str([rawdata]) ))
+    start = sg_bm_extract_idx[-2]
+    end = sg_bm_extract_idx[-1]
+    globalb_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+    globalb_bottom_center = tf.multiply( tf.cast( globalb_bottom_center_mm, tf.float32), 0.001, name='globalb_bottom_center' ) # gpu_0/globalb_bottom_center
+    configs['max_step_stride'] = tf.multiply( globalb_bottom_center[:,:,3:6] - globalb_bottom_center[:,:,0:3], 2.0, name='max_step_stride') # gpu_0/max_step_stride
+
+    full_cascades = sg_bm_extract_idx.shape[0]-1
+
+    scales_feature = []
+
+    for k in range(cascade_num):
+        IsExtraGlobalLayer = False
+
+        if k==cascade_num-1 and IsOnlineGlobal:
+            sg_bidxmap_k = None
+            block_bottom_center_mm = globalb_bottom_center_mm
+        else:
+            start = sg_bm_extract_idx[k]
+            end = sg_bm_extract_idx[k+1]
+            sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
+            block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+
+        l_xyz, new_points, root_point_features = pointnet_sa_module(k, l_xyz, new_points, sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
+                                                                                 configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
+        if k == 0:
+            l_points[0] = root_point_features
+        if configs['dataset_name'] != 'MODELNET40':
+            l_points.append(new_points)
+        else:
+            l_points[0] = new_points
+
+        # get pyramid features
+        if k >= cascade_num-mlp_configs['scale_num']:
+            cur_scale = tf.reduce_max( new_points, axis=1, keepdims=True )
+            cur_scale = tf_util.conv1d( cur_scale, mlp_configs['scale_channel'], 1, padding='VALID', bn=True, is_training=is_training, scope='scale%d'%(k), bn_decay=bn_decay )
+            if len(scales_feature) > 0:
+                _ur_scale = cur_scale + scales_feature[-1]
+            scales_feature.append( cur_scale )
+
+    if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
+    end_points['l0_points'] = l_points[0]
+
+    multi_scales_feature = tf.concat( scales_feature, axis=1 )
+    net = multi_scales_feature
+
+    # FC layers
+    if IsShowModel: print('net:%s'%(shape_str([net])))
+    net = tf_util.conv1d( net, 128, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+
+    if IsShowModel: print('net:%s'%(shape_str([net])))
+    end_points['feats'] = net
+    if configs['Out_keep_prob']<1:
+        net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
+    net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
+    if IsShowModel:
+        print('net:%s'%(shape_str([net])))
+
+    return net, end_points
+
+def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+    """
+        rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
+        out: (N,n1,n2,class)
+        model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
+    """
+    IsShowModel = True
+    model_flag, num_neighbors = modelf_nein.split('_')
+    num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
+    assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[1] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"
+    assert num_neighbors[2] <= np.min(configs['flatbxmap_max_nearest_num'][1:]), "There is not enough neighbour indices generated in bxmh5"
 
     flatten_bm_extract_idx = configs['flatten_bm_extract_idx']
     sg_bm_extract_idx = configs['sg_bm_extract_idx']
@@ -411,34 +524,23 @@ def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten
         else:
             l_points[0] = new_points
 
-        # l_xyz: (2, 512, 128, 6) (2, 512, 3)  (2, 256, 3) (2, 64, 3)
-        # l_points: None  (2, 512, 64) (2, 256, 256) (2, 64, 512)
-        #if IsShowModel: print('pointnet_sa_module %d, l_xyz: %s'%(k,shape_str([l_xyz])))
     if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
     end_points['l0_points'] = l_points[0]
 
     # Feature Propagation layers
-    if configs['dataset_name'] != 'MODELNET40':
-        mlps_e1, mlps_fp = get_fp_module_config( model_flag )
-        for i in range(cascade_num):
-            k = cascade_num-1-i
-            start = flatten_bm_extract_idx[k]
-            end = flatten_bm_extract_idx[k+1]
-            flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
-            fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-            l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
-        # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
-        if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
+    mlps_e1, mlps_fp = get_fp_module_config( model_flag )
+    for i in range(cascade_num):
+        k = cascade_num-1-i
+        start = flatten_bm_extract_idx[k]
+        end = flatten_bm_extract_idx[k+1]
+        flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
+        fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
+        l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
+    # l_points: (2, 25600, 128) (2, 512, 128) (2, 256, 256) (2, 64, 512)
+    if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
     # FC layers
-    if configs['dataset_name'] == 'MODELNET40':
-        net = tf_util.conv1d( l_points[0], 512, 1, padding='VALID', bn=True, is_training=is_training, scope='fc0', bn_decay=bn_decay)
-        if configs['Out_keep_prob']<1:
-            net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout0', name='out_dp')
-        if IsShowModel: print('net:%s'%(shape_str([net])))
-        net = tf_util.conv1d( net, 256, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
-    else:
-        net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
 
     if IsShowModel: print('net:%s'%(shape_str([net])))
     end_points['feats'] = net
@@ -463,8 +565,13 @@ def get_loss(pred, label, smpw, label_eles_idx, configs ):
         smpw_category = smpw_category * tf.cast(indrop_keep_mask,tf.float32)
 
     #classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred)
-    classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)
-    tf.summary.scalar('classify loss', classify_loss)
+    if pred.shape[1] == label_category.shape[1]:
+        classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred, weights=smpw_category)
+        tf.summary.scalar('classify loss', classify_loss)
+    else:
+        for s in range(pred.shape[1]):
+            classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label_category, logits=pred[:,s,:], weights=smpw_category, scope='classify_loss_scale_%d'%(s) )
+            tf.summary.scalar('classify_loss_scale_%d'%(s), classify_loss)
     #tf.add_to_collection('losses',classify_loss)
     return classify_loss
 

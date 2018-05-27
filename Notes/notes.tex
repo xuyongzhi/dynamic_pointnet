@@ -32,6 +32,10 @@
 
 \subsection{potential solutions for over fitting}
 \begin{itemize}
+	\item combine auxiliary tasks:\par 
+	1. use nxnynz as auxiliary loss
+	2. boundary \par 
+	3. planet \par 
 	\item data augmentation: rotation, different size scale
 	\item data regulation: group norm
 	\item dropout
@@ -76,6 +80,10 @@ $$ 3.6=1.8*2 $$
 \tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=orange!10]
 \tikzstyle{decision} = [diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=green!10]
 \tikzstyle{arrow} = [thick,->,>=stealth]
+
+\subsubsection{multi-scale classification}
+
+
 
 \subsubsection{Data Augmentation} 
 \begin{itemize}
@@ -711,18 +719,34 @@ test data shape: [ 4172 12800     9] \par
 	
 	4m & 16 & 1-30 & xyzrsg-nxnynz & RotateRef & E\par NN5 & 10-0.688/0.755\par 60-0.845/0.859\par 100-0.873/0.875\par 200-0.914/0.880\\
 	\hline 
-	4m & 16 & 1-30 & xyzg & RotateRef & E\par NN5 & 10-0.635/0.680\par 60-0.784/0.807\par 120-0.837/0.830\\
+	4m & 16 & 1-30 & xyzg & RotateRef & E\par NN5 & 10-0.635/0.680\par 60-0.784/0.807\par 120-0.837/0.830\par 241-0.878/0.846\\
 	\hline 
 	4m & 16 & 1-30 & xyzrsg-nxnynz & RotateRef & E\par 3N5 & 10-0.623/0.671\par 60-0.766/0.793\par 120-0.821/0.810\\
 	\hline 
+	4m & 16 & 1-30 & xyzg-nxnynz & RotateRef & E\par NN5 & 10-0.691/0.726\par 60-0.840/0.853\par 1100-0.874/0.862\par 120-0.886/0.861\\
+	\hline 
 	4Vm & 56 & 1-30 & xyzg-nxnynz & RotateRef & E\par NN5 & 10-0.894/0.817\par 60-0.993/0.834\par 79-0.997/0.842\\
-	
+	\hline
+\end{tabular}
+\par
+\noindent
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
 	\hline \hline
 	\multicolumn{7}{|p{14cm}|}{bxmh5:4096\_mgs1\_gs2\_2d2\_fmn1444\_mvp1-3200\_1024\_48\_1-18\_24\_56\_56-0d1\_0d2\_0d6-0d0\_0d1\_0d4-pd3-neg-3M1\par No Block Merging 
 	}\\
 	\hline
+	4m & 30 & 1-30 & xyzg-nxnynz & RotateRef & E\par NN5 & 10-0.711/0.705\par 60-0.878/0.850\par 100-0.912/0.869\\
+	\hline 
+	4m & 30 & 1-30 & xyzg & RotateRef & E\par NN5 & 10-0.644/0.682\par 60-0.778/0.802\par 100-0.816/0.827\\
+	\hline 
+	4m & 30 & 1-30 & xyzs & RotateRef & E\par NN5 & 10-0.637/0.676\par 60-0.784/0.792\par 100-0.821/0.828\\
+	\hline 
 	4Vm & 30 & 1-30 & xyzg-nxnynz & RotateRef & E\par NN5 & 10-0.890/0.830\par 51-0.992/0.841\par 100-0.999/0.847\par 113-0.999/0.853\par 129-0.999/0.847\\
 	\hline 
+	4Vm & 30 & 1-30 & xyzg-nxnynz & RotateRef & E\par 575 & 10-0.846/0.796\par 49-0.982/0.841\\
+	\hline 
+	4Vm & 30 & 1-30 & xyzg-nxnynz & RotateRef & E\par N75 & 10-0.848/0.824\par 60-0.989/0.831\\
+	\hline
 	4Vm & 28 & 1-30 & xyzg & RotateRef & E\par NN5 & 10-0.884/0.821\par 60-0.994/0.838\par 80-0.996/0.842\\
 	\hline 
 	4Vm & 30 & 1-30 & xyzg nxnynz & RotateRef\par RotateVox & E\par NN5 & 10-0.752/0.663\par 60-0.949/0.828\par 79-0.969/0.814\\
@@ -731,9 +755,29 @@ test data shape: [ 4172 12800     9] \par
 	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	
 	(1) Input drop out increase overfitting here. This is not reasonable!\par
 	(2) Learns much slower than 3m?\par 
-	(3) The variance is greater, maybe because of small bacth size. } \\
-	\hline \hline
+	(3) The variance is greater, maybe because of small bacth size.\par 
+	(4) Block merge is a little bit helpful for pointnet++
+	(5) xyzs is a little bit better than xyzg for pointnet++ } \\
+	\hline 
 	
+\end{tabular}
+
+\noindent
+\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+	\hline 
+	\multicolumn{7}{|p{14cm}|}{bxmh5:4096\_mgs1\_gs2\_2d2\_fmn1444\_mvp1-3200\_1024\_48\_1-18\_24\_56\_56-0d1\_0d2\_0d6-0d0\_0d1\_0d4-pd3-neg-3M1\par No Block Merging }\\
+	\hline
+	4Vm-S2 & 30 & 3-30 & xyzs & RotateRef\par RotateVox & E\par NN5 & 10-0.885/0.815\par 30-0.979/0.847\\
+	\hline
+	4Vm-S2 & 30 & 3-30 & xyzs nxnynz & RotateRef\par RotateVox & E\par NN5 & 10-0.889/0.843\par 30-0.980/0.843\par 0.995/0.848\\
+	\hline
+	4Vm-S3 & 30 & 3-30 & xyzs nxnynz & RotateRef\par RotateVox & E\par NN5 & 10-0.894/0.838\par 30-0.981/0.851\par 60-0.996/0.853\\
+	\hline
+	4Vm-S4 & 30 & 3-30 & xyzs nxnynz & RotateRef\par RotateVox & E\par NN5 & 10-0.888/0.862\par 30-0.976/0.865\\
+	\hline
+	
+	\multicolumn{7}{|p{16cm}|}{ Conclusion:\par	} \\
+	\hline 
 	
 \end{tabular}
 
@@ -749,7 +793,7 @@ test data shape: [ 4172 12800     9] \par
 	
 	5m1 & 32 & 1-30 & xyzg & RotateRef & E & 60-0.956/0.843\par 200-0.998/0.845\\
 	\hline 
-	5m & 48 & 1-30 & xyzrsg-nxnyznz & RotateRef & E & 60-0.852/0.837\par 100-0.894/0.866\\
+	5m & 48 & 1-30 & xyzrsg-nxnyznz & RotateRef & E & 60-0.852/0.837\par 100-0.894/0.866\par 119-0.923-0.878\par 150-0.938-0.867\\
 	\hline 
 	5Vm & 32 & 1-30 & xyzr & N & E &10-0.853/0.802\par 60-0.985/0.829\par 160-0.998/0.831\\
 	\hline 
