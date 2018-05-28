@@ -383,7 +383,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
                         sgf_config_pls_device={}
 
                         pred, normal_pred = get_model(FLAGS.modelf_nein, pc_device, is_training_pl, NUM_CLASSES, sg_bidxmaps_device,
-                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay)
+                                                            flatten_bidxmaps_device, fbmap_neighbor_dis_device, configs, sgf_config_pls_device, bn_decay=bn_decay, IsShowModel=True  )
 
                         get_loss(pred, normal_pred, label_device, smpws_device, LABEL_ELE_IDXS, configs)
 

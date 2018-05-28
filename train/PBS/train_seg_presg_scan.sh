@@ -9,7 +9,7 @@ dataset_name=SCANNET
 maxepoch=81
 learning_rate=0.001
 decay_epoch_step=20
-multip_feed=1
+multip_feed=0
 
 finetune=0
 model_epoch=170

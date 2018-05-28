@@ -51,6 +51,7 @@ def get_sa_module_config(model_flag):
             loss_scale_num = 1
     else:
         scale_num = 1
+        loss_scale_num = 1
 
 
     if model_flag[1] == 'V':
@@ -60,7 +61,7 @@ def get_sa_module_config(model_flag):
 
     mlp_configs['scale_channel'] = 256      # for multi-scale classification task only
     mlp_configs['scale_num'] = scale_num
-    #mlp_configs['loss_scale_num'] = loss_scale_num
+    mlp_configs['loss_scale_num'] = loss_scale_num
     return mlp_configs
 
 def get_voxel3dcnn_sa_config( model_flag ):
@@ -102,20 +103,20 @@ def get_voxel3dcnn_sa_config( model_flag ):
     if model_flag=='4Vm':
         mlp_pe.append( [32,32,64] )
 
-        voxel_channels.append( [64,64,128] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,1,0] )
+        voxel_channels.append( [64,64,128, 'max'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,1, 0] )
 
-        voxel_channels.append( [128,128,256] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
+        voxel_channels.append( [128,128,256, 'max'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,0, 0] )
 
-        voxel_channels.append( [256,256,512] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
+        voxel_channels.append( [256,256,512, 'max'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,0, 0] )
 
     if model_flag=='4Vs':
         mlp_pe.append( [32,32,64] )
@@ -394,19 +395,18 @@ def get_flatten_bidxmap_global_unused( batch_size, nsubblock_last, nearest_block
     return flatten_bidxmap_global, fbmap_neighbor_dis_global
 
 
-def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+def get_model(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False, IsShowModel=False):
     if configs['dataset_name'] == 'MODELNET40':
-        return get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug)
+        return get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug, IsShowModel)
     else:
-        return get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug)
+        return get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay, IsDebug, IsShowModel)
 
-def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False, IsShowModel=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
         model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
-    IsShowModel = True
     if '_' in modelf_nein:
         model_flag, num_neighbors = modelf_nein.split('_')
         num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
@@ -454,7 +454,7 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
             block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
 
         l_xyz, new_points, root_point_features = pointnet_sa_module(k, l_xyz, new_points, sg_bidxmap_k,  mlp_configs, block_bottom_center_mm,
-                                                                                 configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k) )
+                                                                                 configs,sgf_config_pls, is_training=is_training, bn_decay=bn_decay, scope='sa_layer'+str(k), IsShowModel=IsShowModel )
         if k == 0:
             l_points[0] = root_point_features
         l_points.append(new_points)
@@ -462,12 +462,14 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
         # get pyramid features
         if k >= cascade_num-mlp_configs['scale_num']:
             cur_scale = tf.reduce_max( new_points, axis=1, keepdims=True )
-            cur_scale = tf_util.conv1d( cur_scale, mlp_configs['scale_channel'], 1, padding='VALID', activation_fn=None, bn=True, is_training=is_training, scope='scale%d'%(k), bn_decay=bn_decay )
+            cur_scale = tf_util.conv1d( cur_scale, mlp_configs['scale_channel'], 1, padding='VALID', activation_fn=None, bn=True, is_training=is_training, scope='conv_scale_%d'%(k), bn_decay=bn_decay )
             if len(scales_feature) > 0:
-                _ur_scale = cur_scale + scales_feature[-1]
+                cur_scale = tf.add( cur_scale, scales_feature[-1], name='scale%d'%(k) )
             scales_feature.append( cur_scale )
 
-    if IsShowModel: print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
+    if IsShowModel:
+        print('\nafter pointnet_sa_module, l_points:\n%s'%(shape_str(l_points)))
+        print('\n scale_num: %d \n loss_scale_num:%d \n'%(mlp_configs['scale_num'], mlp_configs['loss_scale_num']))
     end_points['l0_points'] = l_points[0]
 
     # ----------------------
@@ -482,15 +484,18 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
             end = flatten_bm_extract_idx[k+1]
             flatten_bidxmaps_k = flatten_bidxmaps[ :,start[0]:end[0],:,: ]
             fbmap_neighbor_dis_k =  fbmap_neighbor_dis[:,start[0]:end[0],:,:]
-            l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs )
-        if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
+            l_points[k] = pointnet_fp_module( k, num_neighbors, l_points[k], l_points[k+1], flatten_bidxmaps_k, fbmap_neighbor_dis_k, mlps_e1[k],  mlps_fp[k], is_training, bn_decay, scope='fp_layer'+str(i), configs=configs , IsShowModel=IsShowModel)
+        if IsShowModel:
+            print('use normal as label')
+            print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
         # predict nxnynz
         normal_pred = tf_util.conv1d(l_points[0],3, 1, padding='VALID', activation_fn=None, scope='pre_normal')
     else:
         normal_pred = None
 
     # ----------------------
-    multi_scales_feature = tf.concat( scales_feature, axis=1 )
+    #multi_scales_feature = tf.concat( scales_feature[ (mlp_configs['scale_num']-mlp_configs['loss_scale_num']) : mlp_configs['scale_num'] ], axis=1 )
+    multi_scales_feature = scales_feature[-1]
     net = multi_scales_feature
 
     # FC layers
@@ -507,13 +512,12 @@ def get_model_classify(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps
 
     return net, normal_pred
 
-def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False):
+def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps, flatten_bidxmaps, fbmap_neighbor_dis, configs, sgf_config_pls, bn_decay=None, IsDebug=False, IsShowModel=False):
     """
         rawdata: (B, global_num_point, 6)   (xyz is at first 3 channels)
         out: (N,n1,n2,class)
         model_flag:(1)[0] is the cascade num  (2) [-1]==G -> add extra global layer (3) if [1]=='V' -> use voxel 3dcnn for blcok learning, instead of max pooling.
     """
-    IsShowModel = True
     model_flag, num_neighbors = modelf_nein.split('_')
     num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
     assert num_neighbors[0] <= configs['flatbxmap_max_nearest_num'][0], "There is not enough neighbour indices generated in bxmh5"

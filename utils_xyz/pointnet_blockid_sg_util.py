@@ -59,7 +59,7 @@ def get_flatten_bidxmap_concat( flatten_bidxmaps, flatten_bm_extract_idx, cascad
         return flatten_bidxmap_i_concat
 
 def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_bottom_center_mm, configs, sgf_config_pls,
-                       is_training, bn_decay,scope,bn=True, tnet_spec=None, use_xyz=True):
+                       is_training, bn_decay,scope,bn=True, tnet_spec=None, use_xyz=True, IsShowModel=False):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -78,7 +78,6 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         new_xyz: (batch_size,nsubblock1,3)
         new_points: (batch_size,nsubblock1,channel)
     '''
-    IsShowModel = True
     block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
@@ -225,7 +224,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         #    max_points = tf_util.avg_pool2d(new_points, [1,nsample], stride=[1,1], padding='VALID', scope='avgpool1')
         #    new_points = tf.concat([avg_points, max_points], axis=-1)
         elif pooling == '3DCNN':
-            new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs,  grouped_xyz )
+            new_points = grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, configs,  grouped_xyz, IsShowVoxelModel=IsShowModel )
             if IsShowModel:
                 print('voxel points:%s'%(shape_str([new_points])))
             for i, num_out_channel in enumerate( mlp_configs['voxel_channels'][cascade_id] ):
@@ -237,23 +236,32 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
                     padding_i = np.array([[0,0],[1,1],[1,1],[1,1],[0,0]]) * mlp_configs['voxel_paddings'][cascade_id][i]
                 new_points = tf.pad( new_points, padding_i, "CONSTANT" )
 
-                new_points = tf_util.conv3d(new_points,
-                                            num_out_channel,
-                                            kernel_i,
-                                            scope = '3dconv_%d'%(i),
-                                            stride = stride_i,
-                                            padding = 'VALID',
-                                            bn=bn,
-                                            is_training = is_training,
-                                            bn_decay = bn_decay,
-                                            name = 'points_3dcnn_%d'%(i) )
+                if type(num_out_channel) == int:
+                    new_points = tf_util.conv3d(new_points,
+                                                num_out_channel,
+                                                kernel_i,
+                                                scope = '3dconv_%d'%(i),
+                                                stride = stride_i,
+                                                padding = 'VALID',
+                                                bn=bn,
+                                                is_training = is_training,
+                                                bn_decay = bn_decay,
+                                                name = 'points_3dcnn_%d'%(i) )
+                    if IsShowModel:
+                        print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
+                elif num_out_channel == 'max':
+                    new_points = tf_util.max_pool3d( new_points,
+                                                    kernel_i,
+                                                    scope = '3dmax_%d'%(i),
+                                                    stride = stride_i,
+                                                    padding = 'VALID')
+                    if IsShowModel:
+                        print('block learning max pooling %d, new_points:%s'%(i, shape_str([new_points])))
                 # gpu_0/sa_layer1/3dconv_0/points_3dcnn_0:0
                 if configs['Cnn_keep_prob']<1:
                     if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
                         new_points = tf_util.dropout(new_points, keep_prob=configs['Cnn_keep_prob'], is_training=is_training, scope='dropout', name='3dcnn_dp%d'%(i))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
-                if IsShowModel:
-                    print('block learning by 3dcnn %d, new_points:%s'%(i, shape_str([new_points])))
             new_points = tf.squeeze( new_points, [1,2,3] )
             new_points = tf.reshape( new_points, [batch_size, -1, 1, new_points.shape[-1].value] )
 
@@ -283,8 +291,7 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
         # (2, 512, 64)
         return new_xyz, new_points, root_point_features
 
-def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, grouped_xyz):
-    IsShowVoxelModel = True
+def grouped_points_to_voxel_points (cascade_id, new_points, valid_mask, block_bottom_center_mm, configs, grouped_xyz, IsShowVoxelModel=False):
     cascade_num = configs['sub_block_step_candis'].size+1
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
@@ -504,7 +511,7 @@ def unique_nd( inputs, axis=-1, unit=3 ):
     return output, first_unique_masks
 
 
-def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, configs, bn=True):
+def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bidxmap, fbmap_neighbor_idis, mlps_e1, mlps_fp, is_training, bn_decay, scope, configs, bn=True, IsShowModel=False):
     '''
     in Qi's code, 3 larger balls are weighted back-propogated to one point
     Here, I only back-propogate one
@@ -521,7 +528,6 @@ def pointnet_fp_module( cascade_id, num_neighbors, points1, points2, flatten_bid
     Output:
         new_points1: (2, 256, 256)
     '''
-    IsShowModel = True
     if IsShowModel:
         print('\n\npointnet_fp_module %s\n points1: %s\n points2: %s\n flatten_bidxmap: %s\n'%( scope, shape_str([points1]), shape_str([points2]), shape_str([flatten_bidxmap]) ))
     with tf.variable_scope(scope) as sc:
