@@ -1443,10 +1443,10 @@ class GlobalSubBaseBLOCK():
         # tile all the sg_bidxmaps to same(max) shape[0], so that they can be
         # concatenated in one array
         # +1 for global
-        shape0 = np.sum(self.nsubblock_candis[0:self.cascade_num])+1
-        # add 3 for block center xyz
-        tmp = np.append( self.npoint_subblock_candis[0:self.cascade_num] , [self.nsubblock_candis[self.cascade_num-1]] )
-        shape1 = max(tmp) + 6
+        assert self.nsubblock_candis.size == self.cascade_num+1
+        shape0 = np.sum(self.nsubblock_candis)
+        # add 6 for block bottom and center
+        shape1 = max( self.npoint_subblock_candis ) + 6
         return (shape0,shape1)
     def load_one_bidxmap(self,cascade_id,out=['block_num','all_sorted_aimbids','basebids_ina_aim','allbasebids_in_aim_dic'],new_bid=None):
         # load one block id map
