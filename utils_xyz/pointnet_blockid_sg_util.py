@@ -231,7 +231,10 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
             for i, num_out_channel in enumerate( mlp_configs['voxel_channels'][cascade_id] ):
                 kernel_i = [mlp_configs['voxel_kernels'][cascade_id][i]]*3
                 stride_i = [mlp_configs['voxel_strides'][cascade_id][i]]*3
-                padding_i = np.array([[0,0],[1,1],[1,1],[1,1],[0,0]]) * mlp_configs['voxel_paddings'][cascade_id][i]
+                if new_points.shape[1]%2 == 0:
+                    padding_i = np.array([[0,0],[1,0],[1,0],[1,0],[0,0]]) * mlp_configs['voxel_paddings'][cascade_id][i]
+                else:
+                    padding_i = np.array([[0,0],[1,1],[1,1],[1,1],[0,0]]) * mlp_configs['voxel_paddings'][cascade_id][i]
                 new_points = tf.pad( new_points, padding_i, "CONSTANT" )
 
                 new_points = tf_util.conv3d(new_points,

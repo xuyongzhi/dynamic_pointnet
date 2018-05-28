@@ -41,6 +41,7 @@ def get_sa_module_config(model_flag):
 
         tmp = tmp[1]
         if 'L' in tmp:
+            assert False,  "loss_scale_num aborted"
             assert len(tmp) == 3
             scale_num = int(tmp[0])
             loss_scale_num = int(tmp[2])
@@ -59,7 +60,7 @@ def get_sa_module_config(model_flag):
 
     mlp_configs['scale_channel'] = 256      # for multi-scale classification task only
     mlp_configs['scale_num'] = scale_num
-    mlp_configs['loss_scale_num'] = loss_scale_num
+    #mlp_configs['loss_scale_num'] = loss_scale_num
     return mlp_configs
 
 def get_voxel3dcnn_sa_config( model_flag ):
@@ -71,6 +72,20 @@ def get_voxel3dcnn_sa_config( model_flag ):
     voxel_kernels = [[]]
     voxel_strides = [[]]
     voxel_paddings = [[]]
+
+    if model_flag=='3Vs':
+        mlp_pe.append( [32,32,64] )
+
+        voxel_channels.append( [128,128,256] )
+        voxel_kernels.append( [3,3,3] )
+        voxel_strides.append( [1,1,1] )
+        voxel_paddings.append( [1,0,0] )
+
+        voxel_channels.append( [256,256,512,512,256] )
+        voxel_kernels.append( [3,3,3,3,3] )
+        voxel_strides.append( [1,1,1,2,1] )
+        voxel_paddings.append( [1,0,0,0,0] )
+
     if model_flag=='3Vm':
         mlp_pe.append( [64,64,128] )
 
@@ -296,6 +311,10 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [256,256] )
+    elif model_flag=='3Vs':
+        mlps_fp.append( [64,64,32,32] )
+        mlps_fp.append( [256,128,64] )
+        mlps_fp.append( [512,256,256] )
     elif model_flag=='4a' or model_flag=='4aG' or model_flag=='4DSaG' or model_flag=='4Va':
         mlps_fp.append( [128,128,128] )
         mlps_fp.append( [256,128] )
@@ -323,9 +342,9 @@ def get_fp_module_config( model_flag ):
         mlps_fp.append( [128,128] )
         mlps_fp.append( [256,128] )
         mlps_fp.append( [512,256] )
-    elif model_flag=='4Vm-S3L3':
+    elif model_flag=='4m' or model_flag=='4Vm-S2' or  model_flag=='4Vm-S3' or  model_flag=='4Vm-S4':
         mlps_fp = [[],[],[]]
-        mlps_fp.append( [128,64] )
+        mlps_fp.append( [64] )
 
     #elif model_flag=='1DSa' or model_flag=='1DSaG':
     #    dense_config = {}
@@ -563,9 +582,9 @@ def get_model_segment(modelf_nein, rawdata, is_training, num_class, sg_bidxmaps,
     if IsShowModel: print('\nafter pointnet_fp_module, l_points:\n%s\n'%(shape_str(l_points)))
 
     # FC layers
-    net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
-
-    if IsShowModel: print('net:%s'%(shape_str([net])))
+    #net = tf_util.conv1d(l_points[0], l_points[0].get_shape()[-1], 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    #if IsShowModel: print('net:%s'%(shape_str([net])))
+    net = l_points[0]
     end_points['feats'] = net
     if configs['Out_keep_prob']<1:
         net = tf_util.dropout(net, keep_prob=configs['Out_keep_prob'], is_training=is_training, scope='dropout', name='out_dp')
@@ -603,6 +622,7 @@ def get_loss(pred, normal_pred, label, smpw, label_eles_idx, configs ):
 
     if 'nxnynz' in label_eles_idx:
         normal_loss = tf.losses.mean_squared_error(labels=label_normal, predictions=normal_pred, scope='normal_loss' )
+        tf.summary.scalar('normal_loss', classify_loss)
 
 
     return classify_loss
