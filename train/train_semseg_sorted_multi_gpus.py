@@ -362,7 +362,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             # Allocating variables on CPU first will greatly accelerate multi-gpu training.
             # Ref: https://github.com/kuza55/keras-extras/issues/21
             get_model(FLAGS.modelf_nein, pointclouds_pl, is_training_pl, NUM_CLASSES, sg_bidxmaps_pl,
-                             flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay)
+                             flatten_bidxmaps_pl, fbmap_neighbor_dis_pl, configs, sgf_config_pls, bn_decay=bn_decay, IsShowModel=True)
 
             tower_grads = []
             pred_gpu = []
@@ -418,7 +418,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
             tf.summary.scalar('accuracy', accuracy)
 
         # Add ops to save and restore all the variables.
-        saver = tf.train.Saver(max_to_keep=5)
+        saver = tf.train.Saver(max_to_keep=10)
 
         # Create a session
         config = tf.ConfigProto()
@@ -496,7 +496,7 @@ def train_eval(train_feed_buf_q, train_multi_feed_flags, eval_feed_buf_q, eval_m
 
             # Save the variables to disk.
             if not FLAGS.only_evaluate:
-                if (epoch % 20 == 0) or epoch == MAX_EPOCH-1+epoch_start:
+                if (epoch % 10 == 0) or epoch == MAX_EPOCH-1+epoch_start:
                     save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"),global_step=epoch)
                     log_string("Model saved in file: %s" % os.path.basename(save_path))
 

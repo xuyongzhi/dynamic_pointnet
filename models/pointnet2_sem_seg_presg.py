@@ -100,6 +100,24 @@ def get_voxel3dcnn_sa_config( model_flag ):
         voxel_strides.append( [1,1,1,1] )
         voxel_paddings.append( [0,0,0,0] )
 
+    if model_flag=='4Vm1':
+        mlp_pe.append( [64,64,64] )
+
+        voxel_channels.append( [128,128,128, 'max'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,1, 0] )
+
+        voxel_channels.append( [256,256,256, 'max'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,0, 0] )
+
+        voxel_channels.append( [512,512,512, 'avg'] )
+        voxel_kernels.append( [3,3,3, 3] )
+        voxel_strides.append( [1,1,1, 1] )
+        voxel_paddings.append( [1,1,0, 0] )
+
     if model_flag=='4Vm':
         mlp_pe.append( [32,32,64] )
 

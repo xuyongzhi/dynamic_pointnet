@@ -257,6 +257,14 @@ def pointnet_sa_module(cascade_id, xyz, points, bidmap, mlp_configs, block_botto
                                                     padding = 'VALID')
                     if IsShowModel:
                         print('block learning max pooling %d, new_points:%s'%(i, shape_str([new_points])))
+                elif num_out_channel == 'avg':
+                    new_points = tf_util.avg_pool3d( new_points,
+                                                    kernel_i,
+                                                    scope = '3dmax_%d'%(i),
+                                                    stride = stride_i,
+                                                    padding = 'VALID')
+                    if IsShowModel:
+                        print('block learning avg pooling %d, new_points:%s'%(i, shape_str([new_points])))
                 # gpu_0/sa_layer1/3dconv_0/points_3dcnn_0:0
                 if configs['Cnn_keep_prob']<1:
                     if ( not configs['only_last_layer_ineach_cascade'] ) or i == len(mlp_configs['voxel_channels'][cascade_id])-1:
