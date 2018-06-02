@@ -1,1 +1,0 @@
-/home/z/Research/dynamic_pointnet/data/SCANNET__H5F/ORG_bmh5/gs-2d4_-3d4-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1/scene0080_01.bmh5/home/z/Research/dynamic_pointnet/data/SCANNET__H5F/ORG_bmh5/gs-2d4_-3d4-2048_1024_128_24-48_32_48_27-0d1_0d4_1_2d2-0d1_0d2_0d6_1d2-pd3-mbf-4B1/scene0080_01.bmh5
