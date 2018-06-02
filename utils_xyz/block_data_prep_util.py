@@ -415,7 +415,7 @@ class GlobalSubBaseBLOCK():
 
         # cascade_id = cascade_num is also global. Because global has two base:
         # one is root, the other one is cascade_num-1
-        self.cascade_id_ls = cascade_id_ls = ['root']+range(cascade_num+1)+['global']
+        self.cascade_id_ls = cascade_id_ls = ['root']+list(range(cascade_num+1))+['global']
         base_cascade_ids = {}
         base_cascade_ids['global'] = 'root'
         for i in range(cascade_num+1):
@@ -2334,16 +2334,16 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         The xyz_midnorm_block may be not useful if larger scale used in training.
         While using larger block scale in training, xyz_1norm_block and xyz_midnorm_block has to be generated online.
     '''
-    IsCheck_sh5f = {}
-    IsCheck_sh5f['bid_mapping'] = False and ENABLECHECK
-    IsCheck_sh5f['bid_scope'] = False and ENABLECHECK
-    IsCheck_sh5f['index_to_ixyz'] = False and ENABLECHECK
+    IsCheck_self = {}
+    IsCheck_self['bid_mapping'] = False and ENABLECHECK
+    IsCheck_self['bid_scope'] = False and ENABLECHECK
+    IsCheck_self['index_to_ixyz'] = False and ENABLECHECK
 
     file_flag = 'SORTED_H5F'
     labels_order = ['label_category','label_instance','label_mesh','label_material']
-    data_label_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
-    data_label_ele_candidates_order += ['org_row_index']
-    data_label_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_mesh':1,
+    data_ele_candidates_order = ['xyz','nxnynz','color','label','intensity'] + labels_order
+    data_ele_candidates_order += ['org_row_index']
+    data_channels = {'xyz':3,'nxnynz':3,'color':3,'label':1,'label_category':1,'label_instance':1,'label_mesh':1,
                            'label_material':1,'intensity':1,'org_row_index':1,'xyz_1norm_file':3,'xyz_midnorm_block':3,
                            'color_1norm':3}
     IS_CHECK = False # when true, store org_row_index
@@ -2378,10 +2378,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             element_names += ['org_row_index']
 
         element_names = set(element_names)
-        for dn in self.data_label_ele_candidates_order:
+        for dn in self.data_ele_candidates_order:
             if dn in element_names:
-                data_index[dn] = range(last_index,last_index+self.data_label_channels[dn])
-                last_index += self.data_label_channels[dn]
+                data_index[dn] = range(last_index,last_index+self.data_channels[dn])
+                last_index += self.data_channels[dn]
         self.data_idxs = data_index
         self.total_num_channels = last_index
 
@@ -2403,17 +2403,17 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k = 0
         for e in label_eles:
             assert e in Sorted_H5f.labels_order
-            label_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
-            k += Sorted_H5f.data_label_channels[e]
+            label_ele_idxs[e] = range(k,k+Sorted_H5f.data_channels[e])
+            k += Sorted_H5f.data_channels[e]
         return label_ele_idxs
     @staticmethod
     def get_data_ele_ids_sh5(data_eles):
         data_ele_idxs = {}
         k = 0
         for e in data_eles:
-            assert e in Sorted_H5f.data_label_channels, "%s not in self.data_label_channels"%(e)
-            data_ele_idxs[e] = range(k,k+Sorted_H5f.data_label_channels[e])
-            k += Sorted_H5f.data_label_channels[e]
+            assert e in Sorted_H5f.data_channels, "%s not in self.data_channels"%(e)
+            data_ele_idxs[e] = range(k,k+Sorted_H5f.data_channels[e])
+            k += Sorted_H5f.data_channels[e]
         return data_ele_idxs
 
     def set_step_stride(self,block_step,block_stride,stride_to_align=0.1):
@@ -2613,7 +2613,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         i_xyz = np.zeros( block_k.shape+(3,),np.int64)
         assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
-        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+        if Sorted_H5f.IsCheck_self['index_to_ixyz']:
             if block_k.max() >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
                 assert False, "input bid %d exceed limit"%(block_k)
         i_xyz[:,2] = block_k % block_dims_N[2]
@@ -2622,7 +2622,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k =  k / block_dims_N[1]
         i_xyz[:,0] = k % block_dims_N[0]
 
-        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+        if Sorted_H5f.IsCheck_self['index_to_ixyz']:
             bid_tocheck = Sorted_H5f.ixyz_to_block_index_( i_xyz, attrs )
             assert np.sum(bid_tocheck - block_k)==0
         if input_scalar:
@@ -2634,7 +2634,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         i_xyz = np.zeros(3,np.int64)
         assert 'block_dims_N' in attrs
         block_dims_N = attrs['block_dims_N']
-        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+        if Sorted_H5f.IsCheck_self['index_to_ixyz']:
             if block_k >= block_dims_N[0]*block_dims_N[1]*block_dims_N[2]:
                 assert False, "input bid %d exceed limit"%(block_k)
         i_xyz[2] = block_k % block_dims_N[2]
@@ -2643,7 +2643,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         k = int( k / block_dims_N[1] )
         i_xyz[0] = k % block_dims_N[0]
 
-        if Sorted_H5f.IsCheck_sh5f['index_to_ixyz']:
+        if Sorted_H5f.IsCheck_self['index_to_ixyz']:
             bid_tocheck = Sorted_H5f.ixyz_to_block_index_( i_xyz, attrs )
             assert bid_tocheck == block_k
         return i_xyz
@@ -2805,7 +2805,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                         aim_bixyz_max[i] += 1
                         IsForceMoved = True
 
-        IsCheck_Scope = Sorted_H5f.IsCheck_sh5f['bid_scope']
+        IsCheck_Scope = Sorted_H5f.IsCheck_self['bid_scope']
         if IsCheck_Scope:
             base_xyz_min,base_xyz_max,_ = Sorted_H5f.get_block_scope_from_k_(base_bid, base_attrs, IsCropByFile=True)
 
@@ -2874,7 +2874,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             print( 'aim_xyz_max', aim_xyz_max )
 
         if IsCheck_mapping==None:
-            IsCheck_mapping = Sorted_H5f.IsCheck_sh5f['bid_mapping']
+            IsCheck_mapping = Sorted_H5f.IsCheck_self['bid_mapping']
         if IsCheck_mapping:
             #print( 'block_k_new_list:',block_k_new_list,'\n' )
             for k, bid_new in enumerate( aim_bid_ls ):
@@ -3032,11 +3032,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 aim_dset[org_row_N+k:org_row_N+end,:] = dset_buf[choice_k-choice_k.min(),:]
             aim_dset.attrs['valid_num'] = end + org_row_N
 
-    def raw_category_idx_2_mpcat40(self,data_labels_with_rawcategory):
+    def raw_category_idx_2_mpcat40(self,datas_with_rawcategory):
         if self.h5f.attrs['datasource_name']=='MATTERPORT' and 'label_category' in self.data_idxs:
-            assert data_labels_with_rawcategory.ndim == 2
+            assert datas_with_rawcategory.ndim == 2
             raw_category_idx = self.data_idxs['label_category'][0]
-            data_labels_with_rawcategory[:,raw_category_idx] = get_cat40_from_rawcat(data_labels_with_rawcategory[:,raw_category_idx])
+            datas_with_rawcategory[:,raw_category_idx] = get_cat40_from_rawcat(datas_with_rawcategory[:,raw_category_idx])
 
     def generate_one_block_to_obj(self,block_k,out_obj_file,IsLabelColor=False):
         row_step = self.h5_num_row_1M * 10
@@ -3152,7 +3152,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 return dset.shape
 
     @staticmethod
-    def norm_xyz(raw_xyz,h5fattrs,block_id,norm_list,out_norm_data_dic):
+    def norm_xyz_unused(raw_xyz,h5fattrs,block_id,norm_list,out_sp_data_dic):
         block_min,block_max,_ = Sorted_H5f.get_block_scope_from_k_(block_id,h5fattrs)
         if norm_list==None or 'xyz_1norm_file' in norm_list:
             # used by QI
@@ -3167,12 +3167,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 file_scene_zero = h5fattrs['xyz_min']
                 file_scene_scope = h5fattrs['xyz_max'] - h5fattrs['xyz_min']
             xyz_1norm_file = (raw_xyz - file_scene_zero) / file_scene_scope
-            out_norm_data_dic['xyz_1norm_file'] = xyz_1norm_file
+            out_sp_data_dic['xyz_1norm_file'] = xyz_1norm_file
         if norm_list==None or 'xyz_1norm_block' in norm_list:
             # 1norm within the block
             block_scope = block_max - block_min
             xyz_1norm_block = (raw_xyz-block_min) / block_scope
-            out_norm_data_dic['xyz_1norm_block'] = xyz_1norm_block
+            out_sp_data_dic['xyz_1norm_block'] = xyz_1norm_block
 
         # xyz_midnorm
         if norm_list==None or 'xyz_midnorm_block' in norm_list:
@@ -3184,7 +3184,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             xyz_midnorm_block[:,0:2] -= block_mid[0:2]  # I think is better
             # for z, just be positive
             xyz_midnorm_block[:,2] -= h5fattrs['xyz_min'][2]
-            out_norm_data_dic['xyz_midnorm_block'] = xyz_midnorm_block
+            out_sp_data_dic['xyz_midnorm_block'] = xyz_midnorm_block
 
     #***************************************************************************
     #Net feed utils: extract data from unsampled sorted dataset
@@ -3193,11 +3193,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                                           feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'], sample_num=None ):
         xyz_k = np.array(xyz1norm_k) * self.h5f.attrs['xyz_scope_aligned'] + self.h5f.attrs['xyz_min_aligned']
         return self.get_block_data_of_new_stride_step_byxyz(xyz_k,new_stride,new_step,feed_data_elements,feed_label_elements,sample_num)
-    def get_block_data_of_new_stride_step_byxyz( self,xyz_k, new_stride,new_step,
-                                          feed_data_elements=['xyz_midnorm'],feed_label_elements=['label_category'] ):
-        new_sorted_h5f_attrs = self.get_attrs_of_new_stride_step(new_stride,new_step)
-        new_block_id,new_ixyz = Sorted_H5f.xyz_to_block_index_(xyz_k,new_sorted_h5f_attrs)
-        return self.get_block_data_of_new_stride_step_byid(new_block_id,new_sorted_h5f_attrs,feed_data_elements,feed_label_elements)
 
     def get_numpoint_of_new_stride_step_byid( self,new_block_id, new_sorted_h5f_attrs,gsbb):
         root_bids_in_cas0 = gsbb.get_basebids_ina_aim(0,new_block_id)
@@ -3217,7 +3212,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             #    print('void num = %d'%void_num)
         return feed_data, feed_label
 
-    def get_block_data_of_new_stride_step_byid( self,root_bids_in_cas0, feed_data_elements, feed_label_elements, new_block_id=None, new_sorted_h5f_attrss=None ):
+
+    def get_block_data_of_new_stride_step_byid( self, root_bids_in_cas0 ):
+        # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
+        datas = []
+        for cur_block_id in root_bids_in_cas0:
+          dset = self.h5f[str(cur_block_id)]
+          datas.append( dset[:] )
+        datas = np.concatenate(datas,axis=0)
+
+        return datas, self.data_idxs
+
+    def get_block_data_of_new_stride_step_byid_unused( self,root_bids_in_cas0, feed_data_elements, feed_label_elements, new_block_id=None, new_sorted_h5f_attrss=None ):
         # feed data and label ele orders are stored according to feed_data_elements and feed_label_elements
         datas = []
         labels = []
@@ -3233,26 +3239,25 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             raw_xyz = dset_data[...,self.data_idxs['xyz']]
             feed_label = dset_data[:,feed_label_ids_inall].astype(np.int32)
 
-            norm_data_dic = {}
+            sp_data_dic = {}
             if 'xyz' in feed_data_elements:
-                norm_data_dic['xyz'] = raw_xyz
+                sp_data_dic['xyz'] = raw_xyz
             if 'nxnynz' in feed_data_elements:
-                norm_data_dic['nxnynz'] = dset_data[...,self.data_idxs['nxnynz']]
+                sp_data_dic['nxnynz'] = dset_data[...,self.data_idxs['nxnynz']]
             # cal normalizaed data
-            if 'xyz_1norm_file' in feed_data_elements or 'xyz_midnorm_block' in feed_data_elements:
-                assert new_block_id!= None
-                Sorted_H5f.norm_xyz(raw_xyz, new_sorted_h5f_attrs, new_block_id, feed_data_elements, norm_data_dic)
+            assert 'xyz_1norm_file' not in feed_data_elements and 'xyz_midnorm_block' not in feed_data_elements
+
             if 'color_1norm' in feed_data_elements:
                 color = dset_data[...,self.data_idxs['color']]
                 color_1norm = color/255.0
-                norm_data_dic['color_1norm'] = color_1norm
+                sp_data_dic['color_1norm'] = color_1norm
             if 'intensity_1norm' in feed_data_elements:
                 intensity = dset_data[...,self.data_idxs['intensity']]
                 # ETH senmantic3D intensity range from -2047 to 2048
                 intensity_1norm = (intensity+2047)/(2048+2047)
-                norm_data_dic['intensity_1norm']=intensity_1norm
+                sp_data_dic['intensity_1norm']=intensity_1norm
 
-            feed_data = np.concatenate( [norm_data_dic[de] for de in feed_data_elements],axis=-1 )
+            feed_data = np.concatenate( [sp_data_dic[de] for de in feed_data_elements],axis=-1 )
             feed_data, feed_label = self.remove_void( feed_data, feed_label )
 
             datas.append(feed_data)
@@ -3262,7 +3267,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         return datas, labels
 
-    def get_data_larger_block( self,global_block_id,gsbb,feed_data_elements,feed_label_elements, global_num_point, max_rootb_num, data_aug_configs ):
+    def get_data_larger_block( self,global_block_id, gsbb, global_num_point, max_rootb_num, data_aug_configs ):
         '''
         1) global block is the learning block unit. Use current stride and step as base block units.
         2) ( corresponding to farest distance sampling ) Within each global block, select npoint sub-points. Each sub-point is the center of a sub-block. The sub-block stride and step is manually  set to ensure all valid space is used.
@@ -3285,41 +3290,38 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         # (2) GROUP: Collect all the base blocks for each sub-point.
         global_block_datas = []
-        global_block_labels = []
         rootb_split_idxmap = []
         sum_global_point_num = 0
         del_num = 0
         for root_bid_index,root_bid in enumerate( root_bids_in_global ):
-            datas_k, labels_k = self.get_block_data_of_new_stride_step_byid( [root_bid], feed_data_elements, feed_label_elements )
+            datas_k, data_idxs = self.get_block_data_of_new_stride_step_byid( [root_bid])
             # delete some categories: unlabeld, easy
-            datas_k, labels_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, labels_k, feed_label_elements, data_aug_configs )
+            datas_k, del_n  = Sorted_H5f.delete_some_categories( datas_k, data_idxs, data_aug_configs )
 
             del_num += del_n
             num_point_k = datas_k.shape[0]
             if num_point_k !=0:
                 global_block_datas.append( datas_k )
-                global_block_labels.append( labels_k )
                 sum_global_point_num += num_point_k
                 rootb_split_idxmap.append( np.expand_dims( np.array([root_bid, sum_global_point_num]),0 ) )
 
 
         if len( global_block_datas )==0:
             # all void points
-            return np.array([]),None,None,None,None
+            return np.array([]),None,None,None
 
         global_block_datas = np.concatenate(global_block_datas,axis=0).astype( np.float32 )
-        global_block_labels = np.concatenate(global_block_labels,axis=0).astype( np.int32 )
         rootb_split_idxmap = np.concatenate(rootb_split_idxmap,axis=0)
 
         #print('new_n:%d, del_n:%d, del_rate:%3f'%( global_block_datas.shape[0],del_num,1.0*del_num/(del_num+global_block_datas.shape[0]) ))
 
         global_sample_rate = 1.0 * global_num_point /  global_block_datas.shape[0]
-        global_block_datas, global_block_labels, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( \
-            global_block_datas, global_block_labels, rootb_split_idxmap, global_num_point )
+        global_block_datas, rootb_split_idxmap_ds, global_sampling_meta = Sorted_H5f.down_sample_global_block( \
+            global_block_datas, rootb_split_idxmap, global_num_point )
         # fix root b num
         rootb_split_idxmap_fixed = Sorted_H5f.fix_rootb_split_idxmap( rootb_split_idxmap_ds )
 
-        return global_block_datas, global_block_labels, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
+        return global_block_datas, data_idxs, rootb_split_idxmap_fixed, global_sampling_meta, global_sample_rate
 
 
     @staticmethod
@@ -3340,7 +3342,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     @staticmethod
-    def delete_some_categories( datas, labels, feed_label_elements, data_aug_configs ):
+    def delete_some_categories_unused( datas, labels, feed_label_elements, data_aug_configs ):
         # (1) Always: delete unlabeld label_category
         # (2) aug data: delete easy categories
         #import time
@@ -3390,6 +3392,44 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         #print( 't0: %f ms, t1: %f ms,  t2:%f ms'%( (t1-t0)*1000, (t2-t1)*1000, (time.time()-t2)*1000 ) )
         return datas_, labels_, del_n
 
+    @staticmethod
+    def delete_some_categories( datas, data_idxs, data_aug_configs ):
+        # (1) Always: delete unlabeld label_category
+        # (2) aug data: delete easy categories
+        #import time
+        #t0 = time.time()
+        del_labels = data_aug_configs['del_labels']
+
+        if len(del_labels) == 0:
+            return datas,  0
+
+        assert False, "not fully tested yet"
+        for i,ele in enumerate(data_idxs):
+            if ele == 'label_category':
+                label_category_idx = i
+                break
+
+        N = datas.shape[0]
+        del_mask = np.array([False]*N)
+        for i in range(N):
+            del_mask[i] = isin_sorted( del_labels, datas[i, label_category_idx] )
+
+        if np.max( del_mask )  == 0:
+            return datas, 0
+
+        #t2 = time.time()
+        del_choices = np.nonzero( del_mask )[0]
+        datas_ = np.delete( datas, del_choices, axis=0 )
+
+
+        org_n = datas.shape[0]
+        new_n = datas_.shape[0]
+        del_n = org_n - new_n
+        del_rate = 1.0*del_n/org_n
+        #print('del_rate:%3f   %d -> %d'%(del_rate, org_n, new_n))
+        #print( 't0: %f ms, t1: %f ms,  t2:%f ms'%( (t1-t0)*1000, (t2-t1)*1000, (time.time()-t2)*1000 ) )
+        return datas_, del_n
+
 
     @staticmethod
     def fix_rootb_split_idxmap( rootb_split_idxmap ):
@@ -3399,15 +3439,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         return rootb_split_idxmap_fixed
 
     @staticmethod
-    def down_sample_global_block( data, label,  bsplit_idxmap, sample_num ):
+    def down_sample_global_block( data, bsplit_idxmap, sample_num ):
         org_num = bsplit_idxmap[-1,1]
         assert org_num == data.shape[0]
         sampling_meta = {}
         if org_num <= sample_num:
             data_tile = np.tile( data[org_num-1:org_num,:],[sample_num-org_num,1] )
             data = np.concatenate( [data,data_tile], 0 )
-            label_tile = np.tile( label[org_num-1:org_num,:],[sample_num-org_num,1] )
-            label = np.concatenate( [label,label_tile], 0 )
             #bsplit_idxmap[-1,1] = sample_num
             bsplit_idxmap_add = np.array([ [ bsplit_idxmap[-1,0], sample_num ]] )
             bsplit_idxmap = np.concatenate( [bsplit_idxmap, bsplit_idxmap_add], 0 )
@@ -3415,14 +3453,13 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         else:
             del_choice = np.sort( random_choice(  np.arange(org_num), org_num - sample_num, keeporder=True ) )
             data = np.delete( data, del_choice, axis=0 )
-            label = np.delete( label, del_choice, axis=0 )
 
             bsplit_idxmap, missed_rootb_num = Sorted_H5f.down_sample_bsplit_idxmap( bsplit_idxmap, del_choice, sample_num )
 
             sampling_meta['missed_rootb_num'] = missed_rootb_num
         sampling_meta['missed_point_num'] = org_num - sample_num
 
-        return data, label, bsplit_idxmap, sampling_meta
+        return data, bsplit_idxmap, sampling_meta
 
     @staticmethod
     def down_sample_bsplit_idxmap( raw_bsplit_idxmap, del_choice, sample_num ):
@@ -3460,25 +3497,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             bsplit_idxmap = Sorted_H5f.fix_rootb_split_idxmap( bsplit_idxmap )
         return bsplit_idxmap, missed_rootb_num
 
-    def get_batch_of_larger_block( self,global_blockid_start,global_blockid_end,feed_data_elements,feed_label_elements ):
-        gsbb = GlobalSubBaseBLOCK(self.h5f,self.file_name)
-        all_sorted_global_bids = gsbb.get_all_sorted_aimbids('global')
-        assert 0<= global_blockid_start  <=all_sorted_global_bids.shape[0]
-        assert 0<= global_blockid_end <= all_sorted_global_bids.shape[0]
-        all_sorted_global_bids = all_sorted_global_bids[global_blockid_start:global_blockid_end]
-        batch_datas = []
-        batch_labels = []
-        for global_block_id in all_sorted_global_bids:
-            block_datas,block_labels,_,_ = self.get_data_larger_block( global_block_id,gsbb,feed_data_elements,feed_label_elements )
-            batch_datas.append(np.expand_dims(block_datas,axis=0))
-            batch_labels.append(np.expand_dims(block_labels,axis=0))
-        batch_datas = np.concatenate(batch_datas,axis=0)
-        batch_labels = np.concatenate(batch_labels,axis=0)
-
-       # print(batch_datas.shape)
-       # print(batch_labels.shape)
-
-        return batch_datas, batch_labels
 
     @staticmethod
     def check_sgfh5_intact( file_name ):
@@ -3514,6 +3532,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         gsbb_write = GlobalSubBaseBLOCK( root_s_h5f = self.h5f, root_s_h5f_fn = self.file_name )
         aug_str = Sorted_H5f.aug_flag_str( data_aug_configs )
 
+
         if datasource_name == 'MATTERPORT':
             region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
             house_dir_name = os.path.dirname(self.file_name)
@@ -3522,7 +3541,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             out_folder_sph5 = rootsort_dirname + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str + '/' + house_name
             out_folder_bxmh5 = rootsort_dirname + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5' ) + aug_str + '/' + house_name
-            pl_sph5_filename = os.path.join(out_folder_sph5,region_name+'.sph5')
 
         elif datasource_name == 'SCANNET' or datasource_name == 'MODELNET40' or datasource_name=='ETH':
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3555,6 +3573,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb_write.save_bmap_between_dif_stride_step()
         t1 = time.time()
         #-----------------------------------------------------------------------
+        #pl_sp_format = '.sph5'
+        pl_sp_format = '.spbin'
         pl_sph5_filename = os.path.join(out_folder_sph5,scene_name+'.sph5')
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if (not Always_CreateNew_plh5) and IsIntact_pl_sph5:
@@ -3565,7 +3585,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             else:
                 if not SHOW_ONLY_ERR: print('sph5 intact: %s'%(pl_sph5_filename))
         else:
-            self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
+            if pl_sp_format == '.sph5':
+              self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
+            elif pl_sp_format == '.spbin':
+              self.save_pl_spbin( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs )
 
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
@@ -3591,6 +3614,109 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb_write.gen_bmap_ply( pl_sph5_filename )
             gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
+
+    def save_pl_spbin( self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
+        import tensorflow as tf
+        import dataset_utils
+
+        global_num_point = gsbb_write.global_num_point
+        assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
+        print('\n\nstart gen spbin file: ',pl_sph5_filename)
+        t0 = time.time()
+
+        num_gblocks = 0
+        pl_spbin_filename = os.path.splitext(pl_sph5_filename)[0]+'.spbin'
+        with tf.python_io.TFRecordWriter( pl_spbin_filename ) as tfrecord_writer,\
+          h5py.File(pl_sph5_filename,'w') as h5f:
+            global_attrs = gsbb_write.get_new_attrs('global')
+            pl_sph5f = Normed_H5f(h5f,pl_sph5_filename,S_H5f.h5f.attrs['datasource_name'])
+            pl_sph5f.copy_root_attrs_from_sorted(global_attrs,global_num_point,S_H5f.IS_CHECK)
+
+
+            file_datas = []
+            file_global_sample_rate = []
+            file_rootb_split_idxmaps = []
+            global_sampling_meta_sum = {}
+            file_gbixyzs = []
+
+            all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
+            num_global_block_abandoned = 0
+            num_point_abandoned = 0
+
+            datasource_name = S_H5f.h5f.attrs['datasource_name']
+            self.update_del_labels( data_aug_configs, datasource_name )
+
+            for i,global_block_id in enumerate(all_sorted_global_bids):
+                if (i+1) % 30 == 0:
+                    print('spbin global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
+
+                block_datas, data_idxs, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
+                    self.get_data_larger_block( global_block_id, gsbb_write, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
+                global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
+                if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
+                    num_global_block_abandoned += 1
+                    num_point_abandoned += block_datas.shape[0]
+                    continue    # too less points, abandon
+                if block_datas.size == 0:
+                    continue
+
+                file_datas.append(np.expand_dims(block_datas,axis=0))
+                file_global_sample_rate.append( global_sample_rate )
+                file_gbixyzs.append(np.expand_dims(global_bixyz,axis=0))
+                file_rootb_split_idxmaps.append(np.expand_dims(rootb_split_idxmap,axis=0))
+                if len( global_sampling_meta_sum ) == 0:
+                    global_sampling_meta_sum = global_sampling_meta
+                else:
+                    for key in global_sampling_meta:
+                        global_sampling_meta_sum[key] += global_sampling_meta[key]
+
+
+            if len(file_datas) == 0:
+                h5f.attrs['intact_void_file'] = 1
+                print('all point in this file are void : %s\n'%(pl_sph5_filename))
+            else:
+                file_datas = np.concatenate(file_datas,axis=0)
+                file_global_sample_rate = np.array( file_global_sample_rate )
+                file_gbixyzs = np.concatenate(file_gbixyzs,axis=0)
+                file_rootb_split_idxmaps = np.concatenate(file_rootb_split_idxmaps,axis=0)
+
+                # For segmentation datasets, the label is inside file_datas
+                # For classification datasets, the label has to be extracted by
+                # other ways.
+                if datasource_name == 'MODELNET40':
+                    #h5f.attrs['label_category'] = 0
+                    the_label = Sorted_H5f.extract_label_from_name( pl_sph5_filename, datasource_name )
+                    object_labels = np.reshape( the_label, (1,1) )
+                else:
+                    object_labels = None
+                if datasource_name == 'KITTI':
+                    g_xyz_center, g_xyz_bottom, g_xyz_top = Sorted_H5f.ixyz_to_xyz( file_gbixyzs, global_attrs )
+                    import KITTI_util
+                    file_bounding_boxs, file_datas, file_gbixyzs, file_rootb_split_idxmaps = KITTI_util.extract_bounding_box( pl_sph5_filename, g_xyz_center, g_xyz_bottom, g_xyz_top,\
+                                                                                     file_datas, file_gbixyzs, file_rootb_split_idxmaps)
+                    pl_sph5f.append_to_dset( 'bounding_box', file_bounding_boxs )
+                    if file_datas.size == 0:
+                        h5f.attrs['intact_void_file'] = 1
+
+                # Write to TFRecord format
+                num_gblocks = dataset_utils.write_pl_dataset(
+                    tfrecord_writer, S_H5f.h5f.attrs['datasource_name'], file_datas, data_idxs, object_labels, num_gblocks )
+
+                pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
+                pl_sph5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
+                for key in global_sampling_meta_sum:
+                    h5f['rootb_split_idxmap'].attrs[key] = global_sampling_meta_sum[key]
+                h5f['rootb_split_idxmap'].attrs['num_global_block_abandoned'] = num_global_block_abandoned
+                h5f['rootb_split_idxmap'].attrs['num_point_abandoned'] = num_point_abandoned
+                h5f['rootb_split_idxmap'].attrs['max_global_sample_rate'] = NETCONFIG['max_global_sample_rate']
+
+                t_sph5 = time.time() - t0
+                pl_sph5f.h5f.attrs['t'] = t_sph5
+                pl_sph5f.sph5_create_done()
+                if IsShowSummaryFinished:
+                    pl_sph5f.show_summary_info()
+                print('pl spbin file create finished: data shape: %s\n  %s\n\n'%(str(file_datas.shape), pl_spbin_filename) )
+
     def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
         global_num_point = gsbb_write.global_num_point
         assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
@@ -3609,9 +3735,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             global_sampling_meta_sum = {}
             file_gbixyzs = []
 
-            feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
-            feed_data_elements = feed_norm_ele_info['norm_data_eles']
-            feed_label_elements = feed_norm_ele_info['label_eles']
+            #feed_norm_ele_info = Normed_H5f.get_norm_eles_by_attrs(S_H5f.h5f.attrs['element_names'])
+            #feed_data_elements = feed_norm_ele_info['norm_data_eles']
+            #feed_label_elements = feed_norm_ele_info['label_eles']
 
             all_sorted_global_bids = gsbb_write.get_all_sorted_aimbids('global')
             num_global_block_abandoned = 0
@@ -3624,7 +3750,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                     print('sph5 global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
 
                 block_datas, block_labels, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
-                    self.get_data_larger_block( global_block_id,gsbb_write,feed_data_elements,feed_label_elements, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
+                    self.get_data_larger_block( global_block_id, gsbb_write, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
                 global_bixyz = Sorted_H5f.block_index_to_ixyz_( global_block_id, global_attrs )
                 if NETCONFIG['max_global_sample_rate']!=None and  global_sample_rate > NETCONFIG['max_global_sample_rate']:
                     num_global_block_abandoned += 1
@@ -4607,6 +4733,11 @@ class Normed_H5f():
     @staticmethod
     def check_sph5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
+
+        if f_format == '.spbin':
+          return True, ""
+
+
         assert f_format == '.sph5' or f_format == '.prh5' or f_format == '.bxmh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)

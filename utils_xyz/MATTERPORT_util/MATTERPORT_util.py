@@ -61,7 +61,7 @@ with open(category_mapping_fn,'r') as f:
     mapping_vals['index'] = [int(v) for v in mapping_vals['index']]
     mapping_vals['mpcat40index'] = [int(v) for v in mapping_vals['mpcat40index']]
 
-    assert mapping_vals['index'] == range(1,1+len(mapping_vals['index']))
+    assert mapping_vals['index'] == list( range(1,1+len(mapping_vals['index'])) )
 
     #print(mapping_vals['raw_category'])
     #print(mapping_vals['category'])

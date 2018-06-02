@@ -20,6 +20,9 @@ from ply_util import create_ply
 import geometric_util as geo_util
 from datasets_meta import DatasetsMeta
 import aug_data
+import tensorflow as tf
+
+tf.enable_eager_execution()
 
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 def DATASET_DIR(dataset_name):
@@ -701,6 +704,29 @@ class Net_Provider():
             eval_end_block_idx  += self.eval_global_start_idx
             return self.get_global_batch(eval_start_block_idx,eval_end_block_idx,aug_types=aug_types)
 
+    def batch_dataset(self, split, eval_start_block_idx,eval_end_block_idx,IsShuffleIdx, aug_types, fids=None):
+        if split == 'train':
+          get_batch_fn = self.get_eval_batch
+        elif split == 'eval':
+          get_batch_fn = self.get_train_batch
+        data_batches, label_batches, sample_weights, sg_bidxmaps, flatten_bidxmaps, fmap_neighbor_idises, fid_start_end = \
+                get_batch_fn(eval_start_block_idx,eval_end_block_idx,IsShuffleIdx, aug_types, fids)
+
+        dataset = tf.data.Dataset.from_tensor_slices((  {'data': data_batches},
+                                                        {'label': label_batches},
+                                                        {'smp_weights': sample_weights},
+                                                        {'sg_bidxmaps': sg_bidxmaps},
+                                                        {'flatten_bidxmaps': flatten_bidxmaps},
+                                                        {'fmap_neighbor_idises': fmap_neighbor_idises} ))
+        i = 0
+        for batch in dataset:
+          print(i)
+          i+=1
+          print(batch)
+          import pdb; pdb.set_trace()  # XXX BREAKPOINT
+          pass
+        return dataset
+
     def gen_gt_pred_objs(self,visu_fn_glob='The glob for file to be visualized',obj_dump_dir=None):
         for k,norm_h5f in enumerate(self.norm_h5f_L):
             if norm_h5f.file_name.find(visu_fn_glob) > 0:
@@ -766,12 +792,11 @@ def main_NormedH5f():
     error global blocks in 17DRP5sb8fy region1:  1, 9,11,12,15,16
     '''
     t0 = time.time()
-    dataset_name = 'matterport3d'
-    dataset_name = 'scannet'
+    dataset_name = 'MODELNET40'
 
-    all_fn_globs = ['Merged_sph5/90000_gs-4_-6d3/']
-    bxmh5_folder_name = 'Merged_bxmh5/90000_gs-4_-6d3_fmn1444-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
-    eval_fnglob_or_rate = '0_3'
+    all_fn_globs = ['Merged_sph5/4096_mgs1_gs2_2d2_nmbf/']
+    bxmh5_folder_name = ['Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1']
+    eval_fnglob_or_rate = 'test'
 
     #all_fn_globs = ['ORG_sph5/90000_gs-4_-6d3/']
     #bxmh5_folder_name = 'ORG_bxmh5/90000_gs-4_-6d3_fmn1111-6400_2400_320_32-32_16_32_48-0d1_0d3_0d9_2d7-0d1_0d2_0d6_1d8-pd3-4C0'
@@ -789,8 +814,8 @@ def main_NormedH5f():
 
     only_evaluate = False
     Feed_Data_Elements = ['xyz','xyz_1norm_file','xyz_midnorm_block']
-    Feed_Data_Elements = ['xyz','xyz_midnorm_block', 'color_1norm']
-    Feed_Label_Elements = ['label_category','label_instance']
+    Feed_Data_Elements = ['xyz']
+    Feed_Label_Elements = ['label_category']
     #feed_label_elements = ['label_category','label_instance']
     net_configs = {}
     net_configs['loss_weight'] = 'E'
@@ -808,21 +833,29 @@ def main_NormedH5f():
     print('init time:',t1-t0)
 
 
-    ply_flag = 'region'
-    #ply_flag = 'global_block'
+    #ply_flag = 'region'
+    ply_flag = 'global_block'
     #ply_flag = 'sub_block'
     #ply_flag = 'none'
-    steps = { 'region':net_provider.eval_num_blocks, 'global_block':1, 'sub_block':1,'none':8 }
+    steps = { 'region':net_provider.eval_num_blocks, 'global_block':2, 'sub_block':1,'none':8 }
     IsShuffleIdx = False
     for bk in  range(0,net_provider.eval_num_blocks,steps[ply_flag]):
         #end = min(bk+s,net_provider.eval_num_blocks)
         #end = net_provider.eval_num_blocks
         end = min( bk+steps[ply_flag], net_provider.eval_num_blocks )
         t0 = time.time()
+
+        dataset = net_provider.batch_dataset( 'eval', bk, end, False, aug_types='' )
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
         cur_data,cur_label,cur_smp_weights,cur_sg_bidxmaps,cur_flatten_bidxmaps, \
-            cur_fmap_neighbor_idis, fid_start_end, cur_xyz_mid  = net_provider.get_eval_batch(bk, end, False)
+            cur_fmap_neighbor_idis, fid_start_end  = net_provider.get_eval_batch(bk, end, False, aug_types='')
         print('read each block t=%f ms IsShuffleIdx=%s'%( (time.time()-t0)/(end-bk)*1000, IsShuffleIdx ) )
         xyz_idxs = net_provider.feed_data_ele_idxs['xyz']
+
+        if 'color_1norm' not in net_provider.feed_data_ele_idxs:
+          return
+
         color_idxs = net_provider.feed_data_ele_idxs['color_1norm']
         xyz = cur_data[...,xyz_idxs]
         color0 = cur_data[...,color_idxs] * 255
@@ -858,6 +891,6 @@ def main_NormedH5f():
 
 
 if __name__=='__main__':
-    #main_NormedH5f()
+    main_NormedH5f()
     #check_bxmap_pl_shape_match()
-    CheckModelNet()
+    #CheckModelNet()
