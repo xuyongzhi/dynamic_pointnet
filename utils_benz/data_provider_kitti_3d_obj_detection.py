@@ -374,7 +374,7 @@ class Net_Provider_kitti():          ## benz_m
             eval_file_list = [train_file_list[0]]
 
         if len(eval_file_list) == 0:    ## benz_m
-            eval_file_list = [train_file_list[1]]
+            eval_file_list = [train_file_list[0]]
 
 
 

@@ -82,8 +82,7 @@ parser.add_argument('--model_epoch', type=int, default=10, help='the epoch of mo
 parser.add_argument('--auto_break',action='store_true',help='If true, auto break when error occurs')
 parser.add_argument('--loss_weight', default='E', help='E: Equal, N:Number, C:Center, CN')
 
-parser.add_argument('--inkp_min', type=float, default=1.0, help='random input drop minimum')
-parser.add_argument('--inkp_max', type=float, default=1.0, help='random input drop maxmum')
+parser.add_argument('--in_cnn_out_kp', default='9N9', help='keep prob for input, cnn result, output')
 
 parser.add_argument('--normxyz_allcas',default='mid',help='none, mid: mid norm xyz in all cascades')
 
@@ -107,7 +106,7 @@ MODEL_NAME = FLAGS.modelf_nein
 model_flag, num_neighbors = MODEL_NAME.split('_')
 cascade_num = int(model_flag[0])
 ###
-
+Input_keep_prob, Cnn_keep_prob, Out_keep_prob = [0.1 * int(s)  if s!='N' else 1 for s in FLAGS.in_cnn_out_kp]
 
 IS_GEN_PLY= True and FLAGS.only_evaluate
 
@@ -255,6 +254,9 @@ def get_configs():
     configs['sg_bidxmaps_shape'] = net_provider.sg_bidxmaps_shape
     configs['flatten_bidxmaps_shape'] = net_provider.flatten_bidxmaps_shape
     # configs['substract_center'] = FLAGS.substract_center
+    configs['Cnn_keep_prob'] = Cnn_keep_prob
+    configs['Out_keep_prob'] = Out_keep_prob
+
     configs['normxyz_allcas'] = FLAGS.normxyz_allcas
     configs['num_rpn_points'] = net_provider.sg_bidxmaps_extract_idx[cascade_num,0] - net_provider.sg_bidxmaps_extract_idx[cascade_num-1,0]
     configs['Cnn_keep_prob'] = 1
@@ -286,14 +288,21 @@ def train_eval(train_feed_buf_q,eval_feed_buf_q):
 
             # category_labels_pl = labels_pl[...,CATEGORY_LABEL_IDX]
             ## input drop out to use small model learn big data
-            if FLAGS.inkp_min >= FLAGS.inkp_max:
-                input_drop_mask = tf.zeros([])
+            if Input_keep_prob >= 1.0:
+                #input_drop_mask = tf.zeros([])
+                indrop_keep_mask = tf.ones((), name='indrop_keep_mask')
                 print('no input dropout')
             else:
+                #cas0_point_num = pointclouds_pl.get_shape()[1].value
+                #input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
+                #input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
+                #input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask')
                 cas0_point_num = pointclouds_pl.get_shape()[1].value
-                input_drop_mask = tf.ones( [BATCH_SIZE, cas0_point_num, 1], tf.float32 )
-            input_keep_prob = tf.random_uniform( shape=[], minval=FLAGS.inkp_min, maxval=FLAGS.inkp_max )
-            input_drop_mask = tf_util.dropout( input_drop_mask, is_training_pl, scope='dropout', keep_prob = input_keep_prob, name='input_dropout_mask')
+                assert Input_keep_prob > 0.125
+                input_keep_prob = tf.random_uniform( shape=[], minval=Input_keep_prob, maxval=1, name='input_keep_prob' )
+                input_keep_prob = 0.5
+                indrop_keep_mask = tf.less( tf.random_uniform(shape=[BATCH_SIZE, cas0_point_num,1]), input_keep_prob, name='indrop_keep_mask_' )
+                indrop_keep_mask = tf.cast( indrop_keep_mask, tf.float32, name='indrop_keep_mask' )
 
 
             ##TODO: getting into 3D detection, output correspoding feature maps
