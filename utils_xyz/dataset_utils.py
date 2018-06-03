@@ -108,17 +108,6 @@ def image_to_tfexample(image_data, image_format, height, width, class_id):
   }))
 
 
-def pointcloud_to_tfexample(points, object_label):
-    assert points.dtype == np.float32
-    points_bin = points.tobytes()
-    points_shape_bin = np.array(points.shape, np.int32).tobytes()
-    example = tf.train.Example(features=tf.train.Features(feature={
-      'points/encoded': bytes_feature(points_bin),
-      'points/shape': bytes_feature(points_shape_bin),
-      'object/label': int64_feature(object_label)
-    }))
-    return example
-
 
 def process_pl_to_uint16( points, point_idxs ):
   # Preprocess point cloud and transfer all to uint16
@@ -159,6 +148,17 @@ def process_pl_to_uint16( points, point_idxs ):
   return points, data_ele_idxs
 
 
+def pointcloud_to_tfexample(points, object_label):
+    assert points.dtype == np.float32
+    points_bin = points.tobytes()
+    points_shape_bin = np.array(points.shape, np.int32).tobytes()
+    example = tf.train.Example(features=tf.train.Features(feature={
+      'points/encoded': bytes_feature(points_bin),
+      'points/shape': bytes_feature(points_shape_bin),
+      'object/label': int64_feature(object_label)
+    }))
+    return example
+
 def write_pl_dataset(tfrecord_writer, datasource_name, points, point_idxs, object_labels, offset=0, pl_spbin_filename=None ):
   # points: [num_gblocks, num_point, channels], np.float32
   # point_idxs: {'xyz':[0,1,2], 'nxnynz':[3,4,5]}
@@ -174,35 +174,26 @@ def write_pl_dataset(tfrecord_writer, datasource_name, points, point_idxs, objec
 
   return offset + num_gblocks
 
+def bxmap_to_tfexample(sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+  assert sg_all_bidxmaps.dtype == np.int32
+  assert bidxmaps_flat.dtype == np.int32
+  assert fmap_neighbor_idis.dtype == np.float32
 
-def write_bxmap_dataset(bxm_tfrecord_writer, datasource_name, sg_all_bidxmaps, all_flatten_bidxmaps):
-  IsCheck = True
+  sg_all_bidxmaps_bin = sg_all_bidxmaps.tobytes()
+  bidxmaps_flat_bin = bidxmaps_flat.tobytes()
+  fmap_neighbor_idis_bin = fmap_neighbor_idis.tobytes()
+  example = tf.train.Example(features=tf.train.Features(feature={
+    'sg_all_bidxmaps': bytes_feature(sg_all_bidxmaps_bin),
+    'bidxmaps_flat': bytes_feature(bidxmaps_flat_bin),
+    'fmap_neighbor_idis': bytes_feature(fmap_neighbor_idis_bin)
+  }))
+  return example
 
-  with tf.Graph().as_default():
-    pl_placeholder = tf.placeholder(dtype=tf.uint16)
-    encoded_pl = tf.image.encode_png(pl_placeholder)
-    pl_str_check = tf.placeholder(dtype=tf.string)
-    pl_check = tf.image.decode_png(pl_str_check, dtype=tf.uint16)
-
-    with tf.Session() as sess:
-      num_gblocks = points.shape[0]
-      for j in range(num_gblocks):
-        pl_str = sess.run(encoded_pl,
-                          feed_dict={pl_placeholder: points[j]} )
-
-        if IsCheck:
-          data_check = sess.run(pl_check,
-                                feed_dict={pl_str_check:pl_str})
-          assert  np.sum(data_check != points[j])==0, ("decode check failed")
-
-        if object_labels == None:
-          object_classid = None
-        else:
-          object_classid = object_labels[j]
-        example = pointcloud_to_tfexample(datasource_name, pl_str, points.shape[1], data_ele_idxs, object_classid)
-        tfrecord_writer.write(example.SerializeToString())
-
-  return offset + num_gblocks
+def write_bxmap_dataset(bxm_tfrecord_writer, datasource_name, sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+  num_gblocks = sg_all_bidxmaps.shape[0]
+  for j in range(num_gblocks):
+    example = bxmap_to_tfexample(sg_all_bidxmaps[j], bidxmaps_flat[j], fmap_neighbor_idis[j])
+    bxm_tfrecord_writer.write(example.SerializeToString())
 
 
 def download_and_uncompress_tarball(tarball_url, dataset_dir):

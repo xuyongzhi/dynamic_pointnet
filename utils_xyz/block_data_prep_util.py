@@ -3718,7 +3718,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
                     pl_sph5f.show_summary_info()
-                import pdb; pdb.set_trace()  # XXX BREAKPOINT
                 print('pl tfrecord file create finished: data shape: %s\n  %s\n\n'%(str(file_datas.shape), pl_tfrecord_filename) )
 
     def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
@@ -3882,11 +3881,12 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         bxmh5:
         '''
         import tensorflow as tf
+        import dataset_utils
         print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
         t0 = time.time()
-        bxmbin_fn = os.path.splitext(bxmh5_fn)[0]+'.bxmbin'
+        tfrecord_fn = os.path.splitext(bxmh5_fn)[0]+'.tfrecord'
         with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f,\
-          tf.python_io.TFRecordWriter( bxmbin_fn ) as bxm_tfrecord_writer:
+          tf.python_io.TFRecordWriter( tfrecord_fn ) as bxm_tfrecord_writer:
             if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
                 rootb_split_idxmap = pl_sph5f['rootb_split_idxmap']
             else:
@@ -3928,27 +3928,22 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if global_block_num != 0:
                 sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
                 all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
-            import pdb; pdb.set_trace()  # XXX BREAKPOINT
-
 
             # Write to TFRecord format
-            num_gblocks = dataset_utils.write_bxmap_dataset(
+            bidxmaps_flat = all_flatten_bidxmaps[...,0:2].astype(np.int32)
+            fmap_neighbor_idis = all_flatten_bidxmaps[...,2:3].astype(np.float32)
+            dataset_utils.write_bxmap_dataset(
                 bxm_tfrecord_writer,
                 S_H5f.h5f.attrs['datasource_name'],
                 sg_all_bidxmaps,
-                all_flatten_bidxmaps)
+                bidxmaps_flat,
+                fmap_neighbor_idis)
 
-            bxmh5f.append_to_dset('bidxmaps_sample_group', sg_all_bidxmaps)
             bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
-            if all_flatten_bidxmaps.shape[2]>0:
-                bxmh5f.append_to_dset('bidxmaps_flat', all_flatten_bidxmaps[...,0:2].astype(np.int32))
-                bxmh5f.append_to_dset('fmap_neighbor_idis', all_flatten_bidxmaps[...,2:3].astype(np.float32))
 
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
             gsbb_write.write_gsbbattrs_to_bmh5_bxmh5( bxmh5f.h5f.attrs, file_format='bxmh5' )
-            #gsbb_write.load_para_from_bxmh5( bxmh5_fn )
-            #gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
 
             t_bxmh5 = time.time() - t0
             bxmh5f.h5f.attrs['t'] = t_bxmh5
