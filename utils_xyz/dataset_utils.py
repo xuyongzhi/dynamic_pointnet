@@ -174,25 +174,34 @@ def write_pl_dataset(tfrecord_writer, datasource_name, points, point_idxs, objec
 
   return offset + num_gblocks
 
-def bxmap_to_tfexample(sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+def pl_bxm_to_tfexample(points, object_label, sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+  assert points.dtype == np.float32
   assert sg_all_bidxmaps.dtype == np.int32
   assert bidxmaps_flat.dtype == np.int32
   assert fmap_neighbor_idis.dtype == np.float32
+
+  points_bin = points.tobytes()
+  points_shape_bin = np.array(points.shape, np.int32).tobytes()
 
   sg_all_bidxmaps_bin = sg_all_bidxmaps.tobytes()
   bidxmaps_flat_bin = bidxmaps_flat.tobytes()
   fmap_neighbor_idis_bin = fmap_neighbor_idis.tobytes()
   example = tf.train.Example(features=tf.train.Features(feature={
-    'sg_all_bidxmaps': bytes_feature(sg_all_bidxmaps_bin),
-    'bidxmaps_flat': bytes_feature(bidxmaps_flat_bin),
-    'fmap_neighbor_idis': bytes_feature(fmap_neighbor_idis_bin)
+      'points/encoded': bytes_feature(points_bin),
+      'points/shape': bytes_feature(points_shape_bin),
+      'object/label': int64_feature(object_label),
+      'sg_all_bidxmaps': bytes_feature(sg_all_bidxmaps_bin),
+      'bidxmaps_flat': bytes_feature(bidxmaps_flat_bin),
+      'fmap_neighbor_idis': bytes_feature(fmap_neighbor_idis_bin)
   }))
   return example
 
-def write_bxmap_dataset(bxm_tfrecord_writer, datasource_name, sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+def write_pl_bxm_tfrecord(bxm_tfrecord_writer, datasource_name, points, point_idxs, object_labels,\
+                        sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
   num_gblocks = sg_all_bidxmaps.shape[0]
+  assert num_gblocks == points.shape[0]
   for j in range(num_gblocks):
-    example = bxmap_to_tfexample(sg_all_bidxmaps[j], bidxmaps_flat[j], fmap_neighbor_idis[j])
+    example = pl_bxm_to_tfexample(points[j], object_labels[j], sg_all_bidxmaps[j], bidxmaps_flat[j], fmap_neighbor_idis[j])
     bxm_tfrecord_writer.write(example.SerializeToString())
 
 
