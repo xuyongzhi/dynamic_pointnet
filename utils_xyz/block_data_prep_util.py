@@ -3573,8 +3573,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb_write.save_bmap_between_dif_stride_step()
         t1 = time.time()
         #-----------------------------------------------------------------------
-        #pl_sp_format = '.sph5'
-        pl_sp_format = '.spbin'
+        use_tfdataset = True
+
         pl_sph5_filename = os.path.join(out_folder_sph5,scene_name+'.sph5')
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if (not Always_CreateNew_plh5) and IsIntact_pl_sph5:
@@ -3585,10 +3585,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             else:
                 if not SHOW_ONLY_ERR: print('sph5 intact: %s'%(pl_sph5_filename))
         else:
-            if pl_sp_format == '.sph5':
-              self.save_pl_sph5( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
-            elif pl_sp_format == '.spbin':
-              self.save_pl_spbin( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs )
+            if not use_tfdataset:
+              self.save_pl_sph5oe( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs)
+            else:
+              self.save_pl_tfrecord( pl_sph5_filename, gsbb_write, self, IsShowSummaryFinished, data_aug_configs )
 
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
         if ck_str == 'void file':
@@ -3602,7 +3602,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         if (not Always_CreateNew_bxmh5) and  IsIntact_sph5_bmap:
             if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bxmh5_fn))
         else:
-            Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
+            if not use_tfdataset:
+              Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
+            else:
+              Sorted_H5f.save_bxmap_bin( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
         t3 = time.time()
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
@@ -3615,18 +3618,18 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             gsbb_write.gen_bxmap_ply( pl_sph5_filename, bxmh5_fn )
 
 
-    def save_pl_spbin( self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
+    def save_pl_tfrecord( self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
         import tensorflow as tf
         import dataset_utils
 
         global_num_point = gsbb_write.global_num_point
         assert global_num_point >= gsbb_write.max_global_num_point, "max_global_num_point=%d pl_sph5 file not exist, cannot add global_num_point=%d"%(gsbb_write.max_global_num_point,global_num_point)
-        print('\n\nstart gen spbin file: ',pl_sph5_filename)
+        print('\n\nstart gen tfrecord file: ',pl_sph5_filename)
         t0 = time.time()
 
         num_gblocks = 0
-        pl_spbin_filename = os.path.splitext(pl_sph5_filename)[0]+'.spbin'
-        with tf.python_io.TFRecordWriter( pl_spbin_filename ) as tfrecord_writer,\
+        pl_tfrecord_filename = os.path.splitext(pl_sph5_filename)[0]+'.tfrecord'
+        with tf.python_io.TFRecordWriter( pl_tfrecord_filename ) as tfrecord_writer,\
           h5py.File(pl_sph5_filename,'w') as h5f:
             global_attrs = gsbb_write.get_new_attrs('global')
             pl_sph5f = Normed_H5f(h5f,pl_sph5_filename,S_H5f.h5f.attrs['datasource_name'])
@@ -3648,7 +3651,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
             for i,global_block_id in enumerate(all_sorted_global_bids):
                 if (i+1) % 30 == 0:
-                    print('spbin global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
+                    print('tfrecord global_block:%d, abandon %d, total %d'%(i+1, num_global_block_abandoned, all_sorted_global_bids.size) )
 
                 block_datas, data_idxs, rootb_split_idxmap, global_sampling_meta, global_sample_rate = \
                     self.get_data_larger_block( global_block_id, gsbb_write, gsbb_write.global_num_point, Normed_H5f.max_rootb_num, data_aug_configs )
@@ -3700,7 +3703,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
                 # Write to TFRecord format
                 num_gblocks = dataset_utils.write_pl_dataset(
-                    tfrecord_writer, S_H5f.h5f.attrs['datasource_name'], file_datas, data_idxs, object_labels, num_gblocks )
+                    tfrecord_writer, S_H5f.h5f.attrs['datasource_name'], file_datas, data_idxs, object_labels, num_gblocks, pl_tfrecord_filename )
 
                 pl_sph5f.append_to_dset('gbixyz',file_gbixyzs)
                 pl_sph5f.append_to_dset('rootb_split_idxmap', file_rootb_split_idxmaps)
@@ -3715,7 +3718,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 pl_sph5f.sph5_create_done()
                 if IsShowSummaryFinished:
                     pl_sph5f.show_summary_info()
-                print('pl spbin file create finished: data shape: %s\n  %s\n\n'%(str(file_datas.shape), pl_spbin_filename) )
+                import pdb; pdb.set_trace()  # XXX BREAKPOINT
+                print('pl tfrecord file create finished: data shape: %s\n  %s\n\n'%(str(file_datas.shape), pl_tfrecord_filename) )
 
     def save_pl_sph5(self, pl_sph5_filename, gsbb_write, S_H5f, IsShowSummaryFinished, data_aug_configs):
         global_num_point = gsbb_write.global_num_point
@@ -3870,6 +3874,87 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             pl_h5f[global_num_point_str + '-rootb_split_idxmap'].attrs['missed_rootb_num'] = missed_rootb_num
             pl_sph5f.sph5_create_done()
         print('finish adding global_num_point (%d) to plsph5 file: %s'%(global_num_point, pl_sph5_filename) )
+
+
+    @staticmethod
+    def save_bxmap_bin(bxmh5_fn, gsbb_write, S_H5f, pl_sph5_filename ):
+        '''
+        bxmh5:
+        '''
+        import tensorflow as tf
+        print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
+        t0 = time.time()
+        bxmbin_fn = os.path.splitext(bxmh5_fn)[0]+'.bxmbin'
+        with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f,\
+          tf.python_io.TFRecordWriter( bxmbin_fn ) as bxm_tfrecord_writer:
+            if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
+                rootb_split_idxmap = pl_sph5f['rootb_split_idxmap']
+            else:
+                rootb_split_idxmap = pl_sph5f[str(gsbb_write.global_num_point)+'-rootb_split_idxmap']
+            global_block_num = rootb_split_idxmap.shape[0]
+
+            bxmh5f = Normed_H5f(bxmh5f,bxmh5_fn,S_H5f.h5f.attrs['datasource_name'])
+            bxmh5f.create_bidxmap_dsets( gsbb_write )
+
+            sg_all_bidxmaps = []
+            all_flatten_bidxmaps = []
+            sum_bxmap_metas = []
+            globalb_bottom_center_xyz = np.zeros( shape=(global_block_num,2,3), dtype=np.float32 )
+
+            debug_meta={}
+            debug_meta['bxmh5_fn'] = bxmh5_fn
+            for global_bidx in range( global_block_num ):
+                if global_bidx%20 == 0:
+                    print('global_block: %d / %d'%(global_bidx, global_block_num))
+
+                global_bixyz = pl_sph5f['gbixyz'][global_bidx]
+                global_bid = Sorted_H5f.ixyz_to_block_index_( global_bixyz, pl_sph5f.attrs )
+                gb_center, gb_bottom, gb_top =  Sorted_H5f.ixyz_to_xyz( global_bixyz, pl_sph5f.attrs )
+                globalb_bottom_center_xyz[global_bidx, 0,:] = gb_bottom
+                globalb_bottom_center_xyz[global_bidx, 1,:] = gb_center
+
+                debug_meta['global_bidx'] = global_bidx
+                if GlobalSubBaseBLOCK.IsCheck_gsbb['gen_ply_gsbb']:
+                    debug_meta['pl_sph5f'] = pl_sph5f
+                sg_bidxmaps, flatten_bidxmaps, bxmap_metas =\
+                       gsbb_write.get_all_bidxmaps( rootb_split_idxmap[global_bidx], global_bid, debug_meta )
+                sg_all_bidxmaps.append(np.expand_dims(sg_bidxmaps,0))
+                all_flatten_bidxmaps.append(np.expand_dims(flatten_bidxmaps,0))
+
+                if len(sum_bxmap_metas)==0: sum_bxmap_metas = bxmap_metas
+                else:
+                    for key in sum_bxmap_metas:
+                        sum_bxmap_metas[key] = sum_bxmap_metas[key] +  bxmap_metas[key]
+            if global_block_num != 0:
+                sg_all_bidxmaps = np.concatenate(sg_all_bidxmaps,0)
+                all_flatten_bidxmaps = np.concatenate(all_flatten_bidxmaps,0)
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+
+            # Write to TFRecord format
+            num_gblocks = dataset_utils.write_bxmap_dataset(
+                bxm_tfrecord_writer,
+                S_H5f.h5f.attrs['datasource_name'],
+                sg_all_bidxmaps,
+                all_flatten_bidxmaps)
+
+            bxmh5f.append_to_dset('bidxmaps_sample_group', sg_all_bidxmaps)
+            bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
+            if all_flatten_bidxmaps.shape[2]>0:
+                bxmh5f.append_to_dset('bidxmaps_flat', all_flatten_bidxmaps[...,0:2].astype(np.int32))
+                bxmh5f.append_to_dset('fmap_neighbor_idis', all_flatten_bidxmaps[...,2:3].astype(np.float32))
+
+            for key in sum_bxmap_metas:
+                setattr(gsbb_write, key, sum_bxmap_metas[key])
+            gsbb_write.write_gsbbattrs_to_bmh5_bxmh5( bxmh5f.h5f.attrs, file_format='bxmh5' )
+            #gsbb_write.load_para_from_bxmh5( bxmh5_fn )
+            #gsbb_write.write_bxm_paras_in_txt( bxmh5_fn, pl_sph5_filename )
+
+            t_bxmh5 = time.time() - t0
+            bxmh5f.h5f.attrs['t'] = t_bxmh5
+            bxmh5f.sph5_create_done( bmh5_fn = gsbb_write.bmh5_fn, pl_sph5_fn = pl_sph5_filename )
+            print('write finish: %s'%(bxmh5_fn))
+
 
     @staticmethod
     def save_bxmap_h5f(bxmh5_fn, gsbb_write, S_H5f, pl_sph5_filename ):
@@ -4734,7 +4819,7 @@ class Normed_H5f():
     def check_sph5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
 
-        if f_format == '.spbin':
+        if f_format == '.tfrecord':
           return True, ""
 
 
