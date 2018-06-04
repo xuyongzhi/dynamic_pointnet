@@ -25,8 +25,6 @@ DATA_DIR = os.path.join(ROOT_DIR, 'data')
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils_xyz'))
 
-from block_data_net_provider import Net_Provider
-
 from absl import app as absl_app
 from absl import flags
 import tensorflow as tf  # pylint: disable=g-bad-import-order
@@ -34,6 +32,13 @@ import tensorflow as tf  # pylint: disable=g-bad-import-order
 from official.utils.flags import core as flags_core
 import resnet_model
 import resnet_run_loop
+import os, glob, sys
+
+BASE_DIR = os.path.abspath(__file__)
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(ROOT_DIR)
+
+from dataset_utils import parse_pl_record
 
 _DEFAULT_IMAGE_SIZE = 224
 _NUM_CHANNELS = 3
@@ -56,143 +61,9 @@ def get_filenames(is_training, data_dir):
   """Return filenames for dataset."""
   assert os.path.exists(data_dir), ('not exsit: %s'%(data_dir))
   if is_training:
-    return [
-        os.path.join(data_dir, 'train-%05d-of-01024' % i)
-        for i in range(_NUM_TRAIN_FILES)]
+    return glob.glob(os.path.join(data_dir, '*.tfrecord'))
   else:
-    return [
-        os.path.join(data_dir, 'validation-%05d-of-00128' % i)
-        for i in range(128)]
-
-
-def _parse_example_proto(example_serialized):
-  """Parses an Example proto containing a training example of an image.
-
-  The output of the build_image_data.py image preprocessing script is a dataset
-  containing serialized Example protocol buffers. Each Example proto contains
-  the following fields (values are included as examples):
-
-    image/height: 462
-    image/width: 581
-    image/colorspace: 'RGB'
-    image/channels: 3
-    image/class/label: 615
-    image/class/synset: 'n03623198'
-    image/class/text: 'knee pad'
-    image/object/bbox/xmin: 0.1
-    image/object/bbox/xmax: 0.9
-    image/object/bbox/ymin: 0.2
-    image/object/bbox/ymax: 0.6
-    image/object/bbox/label: 615
-    image/format: 'JPEG'
-    image/filename: 'ILSVRC2012_val_00041207.JPEG'
-    image/encoded: <JPEG encoded string>
-
-  Args:
-    example_serialized: scalar Tensor tf.string containing a serialized
-      Example protocol buffer.
-
-  Returns:
-    image_buffer: Tensor tf.string containing the contents of a JPEG file.
-    label: Tensor tf.int32 containing the label.
-    bbox: 3-D float Tensor of bounding boxes arranged [1, num_boxes, coords]
-      where each coordinate is [0, 1) and the coordinates are arranged as
-      [ymin, xmin, ymax, xmax].
-  """
-  # Dense features in Example proto.
-  feature_map = {
-      'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
-                                          default_value=''),
-      'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64,
-                                              default_value=-1),
-      'image/class/text': tf.FixedLenFeature([], dtype=tf.string,
-                                             default_value=''),
-  }
-  sparse_float32 = tf.VarLenFeature(dtype=tf.float32)
-  # Sparse features in Example proto.
-  feature_map.update(
-      {k: sparse_float32 for k in ['image/object/bbox/xmin',
-                                   'image/object/bbox/ymin',
-                                   'image/object/bbox/xmax',
-                                   'image/object/bbox/ymax']})
-
-  features = tf.parse_single_example(example_serialized, feature_map)
-  label = tf.cast(features['image/class/label'], dtype=tf.int32)
-
-  xmin = tf.expand_dims(features['image/object/bbox/xmin'].values, 0)
-  ymin = tf.expand_dims(features['image/object/bbox/ymin'].values, 0)
-  xmax = tf.expand_dims(features['image/object/bbox/xmax'].values, 0)
-  ymax = tf.expand_dims(features['image/object/bbox/ymax'].values, 0)
-
-  # Note that we impose an ordering of (y, x) just to make life difficult.
-  bbox = tf.concat([ymin, xmin, ymax, xmax], 0)
-
-  # Force the variable number of bounding boxes into the shape
-  # [1, num_boxes, coords].
-  bbox = tf.expand_dims(bbox, 0)
-  bbox = tf.transpose(bbox, [0, 2, 1])
-
-  return features['image/encoded'], label, bbox
-
-
-def parse_record(raw_record, is_training):
-  """Parses a record containing a training example of an image.
-
-  The input record is parsed into a label and image, and the image is passed
-  through preprocessing steps (cropping, flipping, and so on).
-
-  Args:
-    raw_record: scalar Tensor tf.string containing a serialized
-      Example protocol buffer.
-    is_training: A boolean denoting whether the input is for training.
-
-  Returns:
-    Tuple with processed image tensor and one-hot-encoded label tensor.
-  """
-  image_buffer, label, bbox = _parse_example_proto(raw_record)
-
-  image = imagenet_preprocessing.preprocess_image(
-      image_buffer=image_buffer,
-      bbox=bbox,
-      output_height=_DEFAULT_IMAGE_SIZE,
-      output_width=_DEFAULT_IMAGE_SIZE,
-      num_channels=_NUM_CHANNELS,
-      is_training=is_training)
-
-  return image, label
-
-
-def input_fn_unused(is_training, data_dir, batch_size, num_epochs=1):
-  """Input function which provides batches for train or eval.
-
-  Args:
-    is_training: A boolean denoting whether the input is for training.
-    data_dir: The directory containing the input data.
-    batch_size: The number of samples per batch.
-    num_epochs: The number of epochs to repeat the dataset.
-
-  Returns:
-    A dataset that can be used for iteration.
-  """
-  filenames = get_filenames(is_training, data_dir)
-  dataset = tf.data.Dataset.from_tensor_slices(filenames)
-
-  if is_training:
-    # Shuffle the input files
-    dataset = dataset.shuffle(buffer_size=_NUM_TRAIN_FILES)
-
-  # Convert to individual records.
-  # cycle_length = 10 means 10 files will be read and deserialized in parallel.
-  # This number is low enough to not cause too much contention on small systems
-  # but high enough to provide the benefits of parallelization. You may want
-  # to increase this number if you have a large number of CPU cores.
-  dataset = dataset.apply(tf.contrib.data.parallel_interleave(
-      tf.data.TFRecordDataset, cycle_length=10))
-
-  return resnet_run_loop.process_record_dataset(
-      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_record,
-      num_epochs
-  )
+    return glob.glob(os.path.join(data_dir, '*.tfrecord'))
 
 
 def input_fn(is_training, data_dir, batch_size, num_epochs=1):
@@ -207,32 +78,28 @@ def input_fn(is_training, data_dir, batch_size, num_epochs=1):
   Returns:
     A dataset that can be used for iteration.
   """
-  import pdb; pdb.set_trace()  # XXX BREAKPOINT
-  net_configs = {}
-  net_configs['loss_weight'] = 'E'
-  net_provider = Net_Provider(  net_configs = net_configs,
-                                dataset_name = DATASET_NAME,
-                                all_filename_globs = data_dir,
-                                eval_fnglob_or_rate = flags.eval_fnglob_or_rate,
-                                bxmh5_folder_name = flags.bxmh5_folder_name,
-                                only_evaluate = False,
-                                feed_data_elements = flags.feed_data_elements,
-                                feed_label_elements = flags.feed_label_elements )
+  filenames = get_filenames(is_training, data_dir)
+  assert len(filenames)>0, (data_dir)
+  print('\ngot {} tfrecord files\n'.format(len(filenames)))
+  dataset = tf.data.TFRecordDataset(filenames,
+                                    compression_type="",
+                                    buffer_size=_SHUFFLE_BUFFER,
+                                    num_parallel_reads=None)
 
-  if is_training:
-    # Shuffle the input files
-    dataset = dataset.shuffle(buffer_size=_NUM_TRAIN_FILES)
+  #if is_training:
+  #  # Shuffle the input files
+  #  dataset = dataset.shuffle(buffer_size=_NUM_TRAIN_FILES)
 
   # Convert to individual records.
   # cycle_length = 10 means 10 files will be read and deserialized in parallel.
   # This number is low enough to not cause too much contention on small systems
   # but high enough to provide the benefits of parallelization. You may want
   # to increase this number if you have a large number of CPU cores.
-  dataset = dataset.apply(tf.contrib.data.parallel_interleave(
-      tf.data.TFRecordDataset, cycle_length=10))
+  #dataset = dataset.apply(tf.contrib.data.parallel_interleave(
+  #    tf.data.TFRecordDataset, cycle_length=10))
 
   return resnet_run_loop.process_record_dataset(
-      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_record,
+      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_pl_record,
       num_epochs
   )
 
@@ -371,8 +238,21 @@ def run_imagenet(flags_obj):
       shape=[_DEFAULT_IMAGE_SIZE, _DEFAULT_IMAGE_SIZE, _NUM_CHANNELS])
 
 
+def show_data():
+  data_dir = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+  batch_size = 5
+  with tf.Graph().as_default():
+    dataset = input_fn(False, data_dir, batch_size)
+    iterator = dataset.make_one_shot_iterator().get_next()
+    with tf.Session() as sess:
+      features, label = sess.run(iterator)
+      print('points:{}'.format(features['points'][0,0:10]))
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    pass
+
 def main(_):
-  run_imagenet(flags.FLAGS)
+  #run_imagenet(flags.FLAGS)
+  show_data()
 
 
 if __name__ == '__main__':

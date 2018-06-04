@@ -3547,6 +3547,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             scannet_h5f_dir = os.path.dirname( os.path.dirname( os.path.dirname(self.file_name) ))
             out_folder_sph5 =  scannet_h5f_dir + '/ORG_sph5/' + gsbb_write.get_pyramid_flag( 'sph5' ) + aug_str
             out_folder_bxmh5 =  scannet_h5f_dir + '/ORG_bxmh5/' + gsbb_write.get_pyramid_flag( 'bxmh5'  ) + aug_str
+            out_folder_tfrecord =  scannet_h5f_dir + '/ORG_tfrecord/' + gsbb_write.get_pyramid_flag( 'bxmh5'  ) + aug_str
 
         elif datasource_name == 'KITTI':               ## benz_m
             scene_name  =  region_name = os.path.splitext( os.path.basename(self.file_name) )[0]
@@ -3561,6 +3562,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             os.makedirs(out_folder_sph5)
         if not os.path.exists(out_folder_bxmh5):
             os.makedirs(out_folder_bxmh5)
+        if not os.path.exists(out_folder_tfrecord):
+            os.makedirs(out_folder_tfrecord)
 
         IsIntact_sh5,ck_str = Sorted_H5f.check_sh5_intact( self.file_name )
         if not IsIntact_sh5:
@@ -3597,7 +3600,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         #-----------------------------------------------------------------------
         t2 = time.time()
         # save bxmap file
-        bxmh5_fn = os.path.join(out_folder_bxmh5,region_name+'.bxmh5')
+        bxmh5_fn = os.path.join(out_folder_bxmh5, region_name+'.bxmh5')
         IsIntact_sph5_bmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
         if (not Always_CreateNew_bxmh5) and  IsIntact_sph5_bmap:
             if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bxmh5_fn))
@@ -3605,7 +3608,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if not use_tfdataset:
               Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
             else:
-              Sorted_H5f.save_bxmap_h5_tfrecord( sampled_pl, bxmh5_fn, gsbb_write, self, pl_sph5_filename )
+              tfrecord_fn = os.path.join(out_folder_tfrecord, region_name+'.tfrecord')
+              Sorted_H5f.save_bxmap_h5_tfrecord( sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, self, pl_sph5_filename )
         t3 = time.time()
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
@@ -3875,7 +3879,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     @staticmethod
-    def save_bxmap_h5_tfrecord(sampled_pl, bxmh5_fn, gsbb_write, S_H5f, pl_sph5_filename ):
+    def save_bxmap_h5_tfrecord(sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, S_H5f, pl_sph5_filename ):
         '''
         bxmh5:
         '''
@@ -3883,7 +3887,6 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         import dataset_utils
         print( 'start writing bxmap h5f: %s'%(bxmh5_fn))
         t0 = time.time()
-        tfrecord_fn = os.path.splitext(bxmh5_fn)[0]+'.tfrecord'
         with h5py.File(pl_sph5_filename,'r') as pl_sph5f, h5py.File(bxmh5_fn,'w') as bxmh5f,\
           tf.python_io.TFRecordWriter( tfrecord_fn ) as bxm_tfrecord_writer:
             if gsbb_write.global_num_point == pl_sph5f.attrs['sample_num']:
@@ -3931,6 +3934,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             # Write to TFRecord format
             bidxmaps_flat = all_flatten_bidxmaps[...,0:2].astype(np.int32)
             fmap_neighbor_idis = all_flatten_bidxmaps[...,2:3].astype(np.float32)
+
             dataset_utils.write_pl_bxm_tfrecord(
                 bxm_tfrecord_writer,
                 S_H5f.h5f.attrs['datasource_name'],
@@ -4815,11 +4819,6 @@ class Normed_H5f():
     @staticmethod
     def check_sph5_intact( file_name ):
         f_format = os.path.splitext(file_name)[-1]
-
-        if f_format == '.tfrecord':
-          return True, ""
-
-
         assert f_format == '.sph5' or f_format == '.prh5' or f_format == '.bxmh5'
         if not os.path.exists(file_name):
             return False, "%s not exist"%(file_name)

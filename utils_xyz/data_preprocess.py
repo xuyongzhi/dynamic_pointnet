@@ -427,8 +427,8 @@ class H5Prepare():
             bxmh5_folder = 'ORG_bxmh5/240000_mgs3_gs2d4_4d6_fmn14_mvp2-4800_480_1-48_56_480-0d1_0d6-0d1_0d4-pd3-mbf-neg-2S1'
 
         if DATASET == 'MODELNET40':
-            plsph5_folder = 'ORG_sph5/10000_gs3_3d5'
-            bxmh5_folder = 'ORG_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_32_48_27_48-0d0_0d2_0d5_1d1-0d0_0d1_0d3_0d6-pd3-mbf-neg-4M1'
+            plsph5_folder = 'ORG_sph5/4096_mgs1_gs2_2-mbf-neg'
+            bxmh5_folder = '4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 
         if DATASET == 'KITTI':
             plsph5_folder = 'BasicData/ORG_sph5/4000_mgs10_gs5_10-mbf-neg'
@@ -458,7 +458,8 @@ class H5Prepare():
                 print('void file: %s'%(pl_fn))
                 void_f_n += 1
                 continue
-            bxmh5_fn = ORG_DATA_DIR + '/' + sph5_folder_names[1] + '/' + region_name + formats[1]
+            bxmh5_fn = ORG_DATA_DIR + '/ORG_bxmh5/' + sph5_folder_names[1] + '/' + region_name + formats[1]
+            tfrecord_fn = ORG_DATA_DIR + '/ORG_tfrecord/' + sph5_folder_names[1] + '/' + region_name + '.tfrecord'
             if not os.path.exists( bxmh5_fn ):
                 if IsOnlyIntact: continue
                 print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
@@ -542,7 +543,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 0
+        MultiProcess = 5
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )
