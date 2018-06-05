@@ -19,7 +19,7 @@ import json
 from  datasets_meta import DatasetsMeta
 import geometric_util as geo_util
 
-TMPDEBUG = True
+TMPDEBUG = False
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR,'data')
 
@@ -543,7 +543,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 5
+        MultiProcess = 7
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )

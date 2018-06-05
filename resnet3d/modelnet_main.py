@@ -40,6 +40,8 @@ sys.path.append(ROOT_DIR)
 
 from dataset_utils import parse_pl_record
 
+_DATA_PARAS = None
+
 _DEFAULT_IMAGE_SIZE = 224
 _NUM_CHANNELS = 3
 _NUM_CLASSES = 40
@@ -66,7 +68,7 @@ def get_filenames(is_training, data_dir):
     return glob.glob(os.path.join(data_dir, '*.tfrecord'))
 
 
-def input_fn(is_training, data_dir, batch_size, num_epochs=1):
+def input_fn(is_training, data_dir, batch_size, data_paras=None, num_epochs=1):
   """Input function which provides batches for train or eval.
 
   Args:
@@ -99,7 +101,7 @@ def input_fn(is_training, data_dir, batch_size, num_epochs=1):
   #    tf.data.TFRecordDataset, cycle_length=10))
 
   return resnet_run_loop.process_record_dataset(
-      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_pl_record,
+      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_pl_record, data_paras,
       num_epochs
   )
 
@@ -108,17 +110,51 @@ def get_synth_input_fn():
   return resnet_run_loop.get_synth_input_fn(
       _DEFAULT_IMAGE_SIZE, _DEFAULT_IMAGE_SIZE, _NUM_CHANNELS, _NUM_CLASSES)
 
+def get_data_shapes_from_tfrecord(data_dir):
+  global _DATA_PARAS
+
+  batch_size = 1
+  with tf.Graph().as_default():
+    dataset = input_fn(True, data_dir, batch_size)
+    iterator = dataset.make_one_shot_iterator().get_next()
+    with tf.Session() as sess:
+      features, label = sess.run(iterator)
+
+      for key in features:
+        _DATA_PARAS[key] = features[key][0].shape
+
+def get_data_meta_from_hdf5(data_dir):
+  global _DATA_PARAS
+  from block_data_prep_util import GlobalSubBaseBLOCK
+  gsbb_load = GlobalSubBaseBLOCK()
+  basen = os.path.basename(data_dir)
+  dirn = os.path.dirname(os.path.dirname(data_dir))
+  bxmh5_dir = os.path.join(dirn, 'ORG_bxmh5', basen)
+  bxmh5_fns = glob.glob(os.path.join(bxmh5_dir,'*.bxmh5'))
+  assert len(bxmh5_fns) > 0, (bxmh5_dir)
+  bxmh5_fn = bxmh5_fns[0]
+  gsbb_load.load_para_from_bxmh5(bxmh5_fn)
+
+  _DATA_PARAS['dataset_name'] = DATASET_NAME
+  _DATA_PARAS['sg_bm_extract_idx'] = gsbb_load.sg_bidxmaps_extract_idx
+  _DATA_PARAS['flatten_bm_extract_idx'] = gsbb_load.flatten_bidxmaps_extract_idx
+  _DATA_PARAS['global_step'] = gsbb_load.global_step
+  _DATA_PARAS['global_stride'] = gsbb_load.global_stride
+  _DATA_PARAS['sub_block_stride_candis'] = gsbb_load.sub_block_stride_candis
+  _DATA_PARAS['sub_block_step_candis'] = gsbb_load.sub_block_step_candis
+  _DATA_PARAS['flatbxmap_max_nearest_num'] = gsbb_load.flatbxmap_max_nearest_num
+
 
 ###############################################################################
 # Running the model
 ###############################################################################
-class ImagenetModel(resnet_model.Model):
-  """Model class with appropriate defaults for Imagenet data."""
+class ModelnetModel(resnet_model.Model):
+  """Model class with appropriate defaults for Modelnet data."""
 
-  def __init__(self, resnet_size, data_format=None, num_classes=_NUM_CLASSES,
+  def __init__(self, model_flag, resnet_size, data_format=None, num_classes=_NUM_CLASSES,
                resnet_version=resnet_model.DEFAULT_VERSION,
-               dtype=resnet_model.DEFAULT_DTYPE):
-    """These are the parameters that work for Imagenet data.
+               dtype=resnet_model.DEFAULT_DTYPE, data_paras={}):
+    """These are the parameters that work for Modelnet data.
 
     Args:
       resnet_size: The number of convolutional layers needed in the model.
@@ -139,7 +175,8 @@ class ImagenetModel(resnet_model.Model):
       bottleneck = True
       final_size = 2048
 
-    super(ImagenetModel, self).__init__(
+    super(ModelnetModel, self).__init__(
+        model_flag = model_flag,
         resnet_size=resnet_size,
         bottleneck=bottleneck,
         num_classes=num_classes,
@@ -153,7 +190,8 @@ class ImagenetModel(resnet_model.Model):
         final_size=final_size,
         resnet_version=resnet_version,
         data_format=data_format,
-        dtype=dtype
+        dtype=dtype,
+        data_paras=data_paras
     )
 
 
@@ -199,10 +237,11 @@ def modelnet_model_fn(features, labels, mode, params):
       decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
 
   return resnet_run_loop.resnet_model_fn(
+      model_flag=params['model_flag'],
       features=features,
       labels=labels,
       mode=mode,
-      model_class=ImagenetModel,
+      model_class=ModelnetModel,
       resnet_size=params['resnet_size'],
       weight_decay=1e-4,
       learning_rate_fn=learning_rate_fn,
@@ -211,17 +250,26 @@ def modelnet_model_fn(features, labels, mode, params):
       resnet_version=params['resnet_version'],
       loss_scale=params['loss_scale'],
       loss_filter_fn=None,
-      dtype=params['dtype']
+      dtype=params['dtype'],
+      data_paras=params['data_paras']
   )
 
 
 def define_modelnet_flags():
+  global _DATA_PARAS
+  _DATA_PARAS = {}
+
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
-  flags.DEFINE_string('bxm_folder','4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1','')
+  flags.DEFINE_string('model_flag', '3Vm','')
+  flags.DEFINE_string('bxm_folder', '4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1','')
+  data_dir = os.path.join(DATA_DIR, '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
-                          data_dir=os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_sph5/4096_mgs1_gs2_2d2_nmbf') )
+                          data_dir=data_dir,
+                          batch_size=2)
+  get_data_shapes_from_tfrecord(data_dir)
+  get_data_meta_from_hdf5(data_dir)
 
 
 def run_imagenet(flags_obj):
@@ -232,27 +280,12 @@ def run_imagenet(flags_obj):
   """
   input_function = (flags_obj.use_synthetic_data and get_synth_input_fn()
                     or input_fn)
-
   resnet_run_loop.resnet_main(
-      flags_obj, modelnet_model_fn, input_function, DATASET_NAME,
-      shape=[_DEFAULT_IMAGE_SIZE, _DEFAULT_IMAGE_SIZE, _NUM_CHANNELS])
+      flags_obj, modelnet_model_fn, input_function, DATASET_NAME, _DATA_PARAS)
 
-
-def show_data():
-  data_dir = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
-  batch_size = 5
-  with tf.Graph().as_default():
-    dataset = input_fn(False, data_dir, batch_size)
-    iterator = dataset.make_one_shot_iterator().get_next()
-    with tf.Session() as sess:
-      features, label = sess.run(iterator)
-      print('points:{}'.format(features['points'][0,0:10]))
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-    pass
 
 def main(_):
-  #run_imagenet(flags.FLAGS)
-  show_data()
+  run_imagenet(flags.FLAGS)
 
 
 if __name__ == '__main__':

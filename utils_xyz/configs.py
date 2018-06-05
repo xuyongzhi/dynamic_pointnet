@@ -7,7 +7,7 @@ import numpy as np
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
 NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is very large for global block with few points which should be abandoned.
-NETCONFIG['merge_blocks_while_fix_bmap'] = True
+NETCONFIG['merge_blocks_while_fix_bmap'] = False
 NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
@@ -163,31 +163,6 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
         npoint_subblock_candis = np.array([18,  24, 56, 56]).astype(np.int32)
         min_valid_point =       np.array( [ 1, 2,   2,   2,  2 ] )
 
-
-    elif gsbb_config == '2M1':
-        global_stride = np.array([3,3,3]).astype(np.float)
-        global_step = np.array([3,3,3]).astype(np.float)
-        global_num_point = 1024
-        flatbxmap_max_nearest_num = [1,4,4,4]
-
-        sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
-        sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
-        nsubblock_candis =       np.array([1024, 320]).astype(np.int32)
-        npoint_subblock_candis = np.array([24, 32]).astype(np.int32)
-
-    elif gsbb_config == '2M2p':
-        NETCONFIG['max_global_sample_rate'] = 1
-        global_stride = np.array([2,2,2]).astype(np.float)
-        global_step = np.array([2,2,2]).astype(np.float)
-        global_num_point = 4096
-        flatbxmap_max_nearest_num = [1,4]
-
-        sub_block_stride_candis = np.array([0.1,0.2]).astype(np.float)
-        sub_block_step_candis   = np.array([0.2,0.4]).astype(np.float)
-        nsubblock_candis =       np.array([1024, 240, 1]).astype(np.int32)
-        npoint_subblock_candis = np.array([48, 27, 160]).astype(np.int32)
-        min_valid_point =       np.array( [ 1,  1,  1 ] )
-        #                                      3  9
     elif gsbb_config == '2M2pp':
         NETCONFIG['max_global_sample_rate'] = 1
         global_stride = np.array([2,2,2]).astype(np.float)

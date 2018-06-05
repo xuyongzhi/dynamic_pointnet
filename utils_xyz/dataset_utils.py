@@ -115,7 +115,7 @@ def write_pl_bxm_tfrecord(bxm_tfrecord_writer, datasource_name, points, point_id
     bxm_tfrecord_writer.write(example.SerializeToString())
 
 
-def parse_pl_record(tfrecord_serialized, is_training):
+def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
     feature_map = {
         'object/label': tf.FixedLenFeature([], tf.int64),
         'points/shape': tf.FixedLenFeature([], tf.string),
@@ -132,27 +132,41 @@ def parse_pl_record(tfrecord_serialized, is_training):
                                                 name='pl_features')
 
     points = tf.decode_raw(tfrecord_features['points/encoded'], tf.float32)
-    shape = tf.decode_raw(tfrecord_features['points/shape'], tf.int32)
+    if feature_shapes == None:
+      points_shape = tf.decode_raw(tfrecord_features['points/shape'], tf.int32)
+    else:
+      points_shape = feature_shapes['points']
     # the image tensor is flattened out, so we have to reconstruct the shape
-    points = tf.reshape(points, shape)
+    points = tf.reshape(points, points_shape)
 
     object_label = tf.cast(tfrecord_features['object/label'], tf.int32)
+    object_label = tf.expand_dims(object_label,0)
 
     sg_all_bidxmaps = tf.decode_raw(tfrecord_features['sg_all_bidxmaps/encoded'], tf.int32)
-    sg_all_bidxmaps_shape = tf.decode_raw(tfrecord_features['sg_all_bidxmaps/shape'], tf.int32)
+    if feature_shapes == None:
+      sg_all_bidxmaps_shape = tf.decode_raw(tfrecord_features['sg_all_bidxmaps/shape'], tf.int32)
+    else:
+      sg_all_bidxmaps_shape = feature_shapes['sg_all_bidxmaps']
     sg_all_bidxmaps = tf.reshape(sg_all_bidxmaps, sg_all_bidxmaps_shape)
 
     bidxmaps_flat = tf.decode_raw(tfrecord_features['bidxmaps_flat/encoded'], tf.int32)
-    bidxmaps_flat_shape = tf.decode_raw(tfrecord_features['bidxmaps_flat/shape'], tf.int32)
+    if feature_shapes == None:
+      bidxmaps_flat_shape = tf.decode_raw(tfrecord_features['bidxmaps_flat/shape'], tf.int32)
+    else:
+      bidxmaps_flat_shape = feature_shapes['bidxmaps_flat']
     bidxmaps_flat = tf.reshape(bidxmaps_flat, bidxmaps_flat_shape)
 
     fmap_neighbor_idis = tf.decode_raw(tfrecord_features['fmap_neighbor_idis/encoded'], tf.float32)
-    fmap_neighbor_idis_shape = tf.decode_raw(tfrecord_features['fmap_neighbor_idis/shape'], tf.int32)
+    if feature_shapes == None:
+      fmap_neighbor_idis_shape = tf.decode_raw(tfrecord_features['fmap_neighbor_idis/shape'], tf.int32)
+    else:
+      fmap_neighbor_idis_shape = feature_shapes['fmap_neighbor_idis']
     fmap_neighbor_idis = tf.reshape(fmap_neighbor_idis, fmap_neighbor_idis_shape)
 
     features = {}
     features['points'] = points
     features['sg_all_bidxmaps'] = sg_all_bidxmaps
+    features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
 
