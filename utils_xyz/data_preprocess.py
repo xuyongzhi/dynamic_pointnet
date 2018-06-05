@@ -63,22 +63,36 @@ def GenPyramidSortedFlie( fn, data_aug_configs ):
                             data_aug_configs = data_aug_configs )
     return fn
 
-def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=2 ):
+def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, tfrecordfn_ls, merged_n=2 ):
     nf = len(nonvoid_plfn_ls)
     merged_n = min( merged_n, nf )
     group_n = int( nf/merged_n )
-    allfn_ls = [ [], [] ]
+    allfn_ls = [ [], [], [] ]
     all_group_name_ls = []
     for i in range( 0, nf, group_n ):
         end = min( nf, i+group_n )
         allfn_ls[0].append( nonvoid_plfn_ls[i:end] )
         allfn_ls[1].append( bxmh5_fn_ls[i:end] )
+        allfn_ls[2].append( tfrecordfn_ls[i:end] )
         all_group_name_ls.append( '%d_%d'%(i, end) )
     return allfn_ls, all_group_name_ls
 
-def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n ):
-    plsph5_folder = ORG_DATA_DIR + '/' + plsph5_folder
-    bxmh5_folder = ORG_DATA_DIR + '/' + bxmh5_folder
+def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, tfrecordfn_ls, void_f_n ):
+    folder_names = {}
+    folder_names['sph5'] = plsph5_folder
+    folder_names['bxmh5'] = folder_names['tfrecord'] = bxmh5_folder
+
+    real_fn_ls = {}
+    real_fn_ls['sph5'] = nonvoid_plfn_ls
+    real_fn_ls['bxmh5'] = bxmh5_fn_ls
+    real_fn_ls['tfrecord'] = tfrecordfn_ls
+
+    eles = ['sph5', 'bxmh5', 'tfrecord']
+    dirs = {}
+    for e in eles:
+      dirs[e] = '%s/ORG_%s/%s'%( ORG_DATA_DIR, e, folder_names[e] )
+
+    # get the desiged base file names of train and test from benchmark
     if DATASET == 'SCANNET_util':
         train_basefn_ls = list(np.loadtxt('./SCANNET_util/scannet_trainval.txt','string'))
         test_basefn_ls = list(np.loadtxt('./SCANNET_util/scannet_test.txt','string'))
@@ -90,18 +104,23 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
         test_basefn_ls = list(np.loadtxt('./KITTI_util/test.txt','string'))
 
 
-    train_bxmh5_ls = [ os.path.join(bxmh5_folder, fn+'.bxmh5')  for fn in train_basefn_ls]
-    train_sph5_ls = [ os.path.join(plsph5_folder, fn+'.sph5')  for fn in train_basefn_ls]
-    test_bxmh5_ls = [ os.path.join(bxmh5_folder, fn+'.bxmh5')  for fn in test_basefn_ls]
-    test_sph5_ls = [ os.path.join(plsph5_folder, fn+'.sph5')  for fn in test_basefn_ls]
+    train_fn_ls = {}
+    test_fn_ls = {}
+    for e in eles:
+      # get desiged file name list
+      train_fn_ls[e] = [os.path.join(dirs[e], fn + '.' + e) for fn in train_basefn_ls]
+      test_fn_ls[e] = [os.path.join(dirs[e], fn + '.' + e) for fn in test_basefn_ls]
+      # check all file exist
+      train_fn_ls[e] = [fn for fn in train_fn_ls[e] if fn in real_fn_ls[e]]
+      test_fn_ls[e] = [fn for fn in test_fn_ls[e] if fn in real_fn_ls[e]]
 
-    # check all file exist
-    train_bxmh5_ls = [ fn for fn in train_bxmh5_ls if fn in bxmh5_fn_ls ]
-    train_sph5_ls = [ fn for fn in train_sph5_ls if fn in nonvoid_plfn_ls ]
-    test_bxmh5_ls = [ fn for fn in test_bxmh5_ls if fn in bxmh5_fn_ls ]
-    test_sph5_ls = [ fn for fn in test_sph5_ls if fn in nonvoid_plfn_ls ]
-    assert len(train_bxmh5_ls) ==  len(train_sph5_ls)
-    assert len(test_bxmh5_ls) == len(test_sph5_ls)
+      assert len(train_fn_ls[e]) == len(train_basefn_ls)
+      assert len(test_fn_ls[e]) == len(test_basefn_ls)
+
+    assert len(train_fn_ls['sph5']) ==  len(train_fn_ls['bxmh5'])
+    assert len(train_fn_ls['sph5']) ==  len(train_fn_ls['tfrecord'])
+    assert len(test_fn_ls['sph5']) ==  len(test_fn_ls['bxmh5'])
+    assert len(test_fn_ls['sph5']) ==  len(test_fn_ls['tfrecord'])
 
     train_num = {}
     train_num['SCANNET'] = 1201
@@ -112,22 +131,18 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     train_num['KITTI'] = 7
     test_num['KITTI'] = 8
 
+    for e in eles:
+      assert len(train_fn_ls[e]) + len(test_fn_ls[e]) + void_f_n == train_num[DATASET] + test_num[DATASET]
+      if void_f_n==0:
+        assert len(train_fn_ls[e]) ==  train_num[DATASET]
+        assert len(test_fn_ls[e]) == test_num[DATASET]
 
-    if void_f_n==0:
-        assert len(train_bxmh5_ls) ==  train_num[DATASET]
-        assert len(train_sph5_ls) == train_num[DATASET]
-        assert len(test_bxmh5_ls) == test_num[DATASET]
-        assert len(test_sph5_ls) == test_num[DATASET]
+      train_fn_ls[e].sort()
+      test_fn_ls[e].sort()
 
-
-    assert len(train_bxmh5_ls) + len(test_bxmh5_ls) + void_f_n == train_num[DATASET] + test_num[DATASET]
-    train_bxmh5_ls.sort()
-    train_sph5_ls.sort()
-    test_bxmh5_ls.sort()
-    test_sph5_ls.sort()
-
-    all_bxmh5_ls = []
-    all_sph5_ls = []
+    all_lses = {}
+    for e in eles:
+      all_lses[e]  =[]
     all_group_name_ls = []
 
     # split test ls
@@ -136,14 +151,16 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     group_ns['MODELNET40'] = 830
     group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
-    for k in range( 0, len(test_bxmh5_ls), group_n ):
+
+    for e in eles:
+      for k in range( 0, len(test_fn_ls[e]), group_n ):
         end  = min( k+group_n, len(test_bxmh5_ls) )
-        all_bxmh5_ls += [test_bxmh5_ls[k:end]]
-        all_sph5_ls += [test_sph5_ls[k:end]]
-        fn_0 = os.path.splitext( os.path.basename(test_bxmh5_ls[k]) )[0]
-        fn_1 = os.path.splitext( os.path.basename(test_bxmh5_ls[end-1]) )[0]
-        #fn_1 = fn_1[5:len(fn_1)]
-        all_group_name_ls += ['test_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
+        all_lses[e] += [test_fn_ls[k:end]]
+        if e=='tfrecord':
+          fn_0 = os.path.splitext( os.path.basename(test_bxmh5_ls[k]) )[0]
+          fn_1 = os.path.splitext( os.path.basename(test_bxmh5_ls[end-1]) )[0]
+          #fn_1 = fn_1[5:len(fn_1)]
+          all_group_name_ls += ['test_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
 
     # split train ls
     group_ns = {}
@@ -151,16 +168,18 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     group_ns['MODELNET40'] = 2000
     group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
-    for k in range( 0, len(train_bxmh5_ls), group_n ):
-        end  = min( k+group_n, len(train_bxmh5_ls) )
-        all_bxmh5_ls += [train_bxmh5_ls[k:end]]
-        all_sph5_ls += [train_sph5_ls[k:end]]
-        fn_0 = os.path.splitext( os.path.basename(train_bxmh5_ls[k]) )[0]
-        fn_1 = os.path.splitext( os.path.basename(train_bxmh5_ls[end-1]) )[0]
-        #fn_1 = fn_1[5:len(fn_1)]
-        all_group_name_ls += ['train_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
+    for e in eles:
+      for k in range( 0, len(train_fn_ls[e]), group_n ):
+        end  = min( k+group_n, len(train_fn_ls[e]) )
+        all_lses[e] += [train_fn_ls[e][k:end]]
+        if e=='tfrecord':
+          fn_0 = os.path.splitext( os.path.basename(train_bxmh5_ls[k]) )[0]
+          fn_1 = os.path.splitext( os.path.basename(train_bxmh5_ls[end-1]) )[0]
+          #fn_1 = fn_1[5:len(fn_1)]
+          all_group_name_ls += ['train_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
 
-    return [all_sph5_ls, all_bxmh5_ls], all_group_name_ls
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    return [all_lses['sph5'], all_lses['bxmh5'], all_lses['tfrecord']], all_group_name_ls
 
 
 def WriteRawH5f( fn, rawh5f_dir ):
@@ -422,48 +441,56 @@ class H5Prepare():
 
 
     def MergeNormed(self, data_aug_configs):
+        #split_method = 'benchmark'
+        split_method = 'order'
+
         if DATASET == 'SCANNET':
             plsph5_folder = 'ORG_sph5/240000_mgs3_gs2d4_4d6'
             bxmh5_folder = 'ORG_bxmh5/240000_mgs3_gs2d4_4d6_fmn14_mvp2-4800_480_1-48_56_480-0d1_0d6-0d1_0d4-pd3-mbf-neg-2S1'
 
         if DATASET == 'MODELNET40':
-            plsph5_folder = 'ORG_sph5/4096_mgs1_gs2_2-mbf-neg'
-            bxmh5_folder = '4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+            plsph5_folder = '4096_mgs1_gs2_2-neg'
+            bxmh5_folder = '4096_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 
         if DATASET == 'KITTI':
             plsph5_folder = 'BasicData/ORG_sph5/4000_mgs10_gs5_10-mbf-neg'
             bxmh5_folder = 'BasicData/ORG_bxmh5/4000_mgs10_gs5_10-mbf-neg_fmn-10-10-10_mvp2-1600_1800_800_1-16_16_24_32-0d4_1d2_2d4-0d2_0d3_0d4-pd3-3D1_benz'
 
-        sph5_folder_names = [ plsph5_folder, bxmh5_folder]
-        formats = ['.sph5','.bxmh5']
+        folder_names = [ plsph5_folder, bxmh5_folder, bxmh5_folder]
+        formats = ['sph5','bxmh5','tfrecord']
         pl_base_fn_ls = []
-        pl_region_h5f_path = ORG_DATA_DIR + '/' + sph5_folder_names[0]
-        plfn_ls = glob.glob( pl_region_h5f_path + '/*' +  formats[0] )
+        pl_region_h5f_path = ORG_DATA_DIR + '/ORG_sph5/' + folder_names[0]
+        plfn_ls = glob.glob( pl_region_h5f_path + '/*.' +  formats[0] )
         plfn_ls.sort()
         if len(plfn_ls) == 0:
-            print('no file mathces %s'%(pl_region_h5f_path + '/*' +  formats[0] ))
-        print('%d files found for %s'%(len(plfn_ls), pl_region_h5f_path + '/*' +  formats[0] ))
+            print('no file mathces %s'%(pl_region_h5f_path + '/*.' +  formats[0] ))
+        print('%d files found for %s'%(len(plfn_ls), pl_region_h5f_path + '/*.' +  formats[0] ))
 
         nonvoid_plfn_ls = []
         bxmh5_fn_ls = []
+        tfrecordfn_ls = []
         void_f_n = 0
-        IsOnlyIntact = True
         for pl_fn in plfn_ls:
             is_intact, ck_str = Normed_H5f.check_sph5_intact( pl_fn )
             region_name = os.path.splitext(os.path.basename( pl_fn ))[0]
             if not is_intact:
                 print(' ! ! ! Abort merging %s not intact: %s'%(formats[0], pl_fn))
-                assert False
+                if split_method=='benchmark':
+                  assert False
+                else:
+                  continue
             if ck_str == 'void file':
                 print('void file: %s'%(pl_fn))
                 void_f_n += 1
                 continue
-            bxmh5_fn = ORG_DATA_DIR + '/ORG_bxmh5/' + sph5_folder_names[1] + '/' + region_name + formats[1]
-            tfrecord_fn = ORG_DATA_DIR + '/ORG_tfrecord/' + sph5_folder_names[1] + '/' + region_name + '.tfrecord'
-            if not os.path.exists( bxmh5_fn ):
-                if IsOnlyIntact: continue
+            bxmh5_fn = ORG_DATA_DIR + '/ORG_bxmh5/' + folder_names[1] + '/' + region_name + '.' + formats[1]
+            tfrecord_fn = ORG_DATA_DIR + '/ORG_tfrecord/' + folder_names[1] + '/' + region_name + '.tfrecord'
+            if not (os.path.exists( bxmh5_fn ) and os.path.exists(tfrecord_fn)):
                 print(' ! ! ! Abort merging %s not exist: %s'%(formats[0], bxmh5_fn))
-                assert False
+                if split_method=='benchmark':
+                  assert False
+                else:
+                  continue
             if not DATASET == 'KITTI':    ## benz_m, in my case, there is no bidxmaps_flat
                 with h5py.File( pl_fn, 'r' ) as plh5f, h5py.File( bxmh5_fn, 'r' ) as bxmh5f:
                     if not plh5f['data'].shape[0] == bxmh5f['bidxmaps_flat'].shape[0]:
@@ -474,22 +501,30 @@ class H5Prepare():
                         pass
             nonvoid_plfn_ls.append( pl_fn )
             bxmh5_fn_ls.append( bxmh5_fn )
+            tfrecordfn_ls.append(tfrecord_fn)
         if len( nonvoid_plfn_ls )  == 0:
             print(  "no file, skip merging" )
             return
 
-        #allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, void_f_n )
-        allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, merged_n=1 )
+        if split_method == 'benchmark':
+          allfn_ls, all_group_name_ls = split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_fn_ls, tfrecordfn_ls, void_f_n )
+        else:
+          allfn_ls, all_group_name_ls = split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, tfrecordfn_ls, merged_n=5 )
 
         for k in range( len(allfn_ls[0]) ):
-            merged_file_names = ['','']
+            merged_file_names = ['','','']
 
-            for j in range(2):
-                merged_path = MERGED_DATA_DIR + '/Merged' + sph5_folder_names[j][3:len(sph5_folder_names[j])] + '/'
-                merged_file_names[j] = merged_path + all_group_name_ls[k] + formats[j]
+            for j in range(3):
+                merged_path = MERGED_DATA_DIR + '/Merged_' + formats[j] + '/' + folder_names[j][3:len(folder_names[j])] + '/'
+                merged_file_names[j] = merged_path + all_group_name_ls[k] + '.' + formats[j]
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
-                MergeNormed_H5f( allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
+                if j<2:
+                  MergeNormed_H5f(allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
+                else:
+                  from dataset_utils import merge_tfrecord
+                  merge_tfrecord(allfn_ls[j][k], merged_file_names[j])
+
             # check after merged
             if not DATASET == 'KITTI':    ## benz_m, in my case, there is no bidxmaps_flat
                 with h5py.File( merged_file_names[0], 'r' ) as plh5f, h5py.File( merged_file_names[1], 'r' ) as bxmh5f:
@@ -543,7 +578,7 @@ def GenObj_sph5():
 
 def main( ):
         t0 = time.time()
-        MultiProcess = 7
+        MultiProcess = 5
         h5prep = H5Prepare()
 
         #h5prep.ParseRaw( MultiProcess )

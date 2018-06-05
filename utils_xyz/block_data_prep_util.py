@@ -3678,6 +3678,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             if len(file_datas) == 0:
                 h5f.attrs['intact_void_file'] = 1
                 print('all point in this file are void : %s\n'%(pl_sph5_filename))
+                return None
             else:
                 file_datas = np.concatenate(file_datas,axis=0)
                 file_global_sample_rate = np.array( file_global_sample_rate )
