@@ -174,10 +174,11 @@ def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
 
 
 def read_tfrecord():
+  import ply_util
   path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp/'
   filenames = glob.glob(os.path.join(path,'airplane_0001.tfrecord'))
   path = '/home/z/Research/dynamic_pointnet/data/MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
-  filenames = glob.glob(os.path.join(path,'0_1883.tfrecord'))
+  filenames = glob.glob(os.path.join(path,'test_night_stand_0263_to_toilet_0354-822.tfrecord'))
 
   with tf.Graph().as_default():
     dataset = tf.data.TFRecordDataset(filenames,
@@ -185,7 +186,7 @@ def read_tfrecord():
                                       buffer_size=1024*100,
                                       num_parallel_reads=5)
 
-    batch_size = 1
+    batch_size = 10
     is_training = False
 
     dataset = dataset.prefetch(buffer_size=batch_size)
@@ -201,6 +202,9 @@ def read_tfrecord():
       features, object_label = sess.run(dataset.make_one_shot_iterator().get_next())
       print(features['points'][0])
       print(object_label)
+      for i in range(batch_size):
+        plyfn = '/tmp/tfrecord_%d.ply'%(i)
+        ply_util.create_ply(features['points'][i], plyfn)
     import pdb; pdb.set_trace()  # XXX BREAKPOINT
     pass
 

@@ -106,6 +106,7 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
 
     train_fn_ls = {}
     test_fn_ls = {}
+    print('checking all files exsit')
     for e in eles:
       # get desiged file name list
       train_fn_ls[e] = [os.path.join(dirs[e], fn + '.' + e) for fn in train_basefn_ls]
@@ -131,15 +132,22 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     train_num['KITTI'] = 7
     test_num['KITTI'] = 8
 
+    is_shuffle = True
+    from random import shuffle
     for e in eles:
       assert len(train_fn_ls[e]) + len(test_fn_ls[e]) + void_f_n == train_num[DATASET] + test_num[DATASET]
       if void_f_n==0:
         assert len(train_fn_ls[e]) ==  train_num[DATASET]
         assert len(test_fn_ls[e]) == test_num[DATASET]
 
-      train_fn_ls[e].sort()
-      test_fn_ls[e].sort()
+      if is_shuffle:
+        shuffle(train_fn_ls[e])
+        shuffle(test_fn_ls[e])
+      else:
+        train_fn_ls[e].sort()
+        test_fn_ls[e].sort()
 
+    print('all files existing checked PK, start grouping')
     all_lses = {}
     for e in eles:
       all_lses[e]  =[]
@@ -148,24 +156,26 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
     # split test ls
     group_ns = {}
     group_ns['SCANNET'] = 105
-    group_ns['MODELNET40'] = 830
+    group_ns['MODELNET40'] = 823
     group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
 
     for e in eles:
       for k in range( 0, len(test_fn_ls[e]), group_n ):
-        end  = min( k+group_n, len(test_bxmh5_ls) )
-        all_lses[e] += [test_fn_ls[k:end]]
+        end  = min( k+group_n, len(test_fn_ls[e]) )
+        all_lses[e] += [test_fn_ls[e][k:end]]
         if e=='tfrecord':
-          fn_0 = os.path.splitext( os.path.basename(test_bxmh5_ls[k]) )[0]
-          fn_1 = os.path.splitext( os.path.basename(test_bxmh5_ls[end-1]) )[0]
-          #fn_1 = fn_1[5:len(fn_1)]
+          fn_0 = os.path.splitext( os.path.basename(test_fn_ls[e][k]) )[0]
+          fn_1 = os.path.splitext( os.path.basename(test_fn_ls[e][end-1]) )[0]
+          if is_shuffle:
+            fn_0 = fn_0.split('_')[-1]
+            fn_1 = fn_1.split('_')[-1]
           all_group_name_ls += ['test_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
 
     # split train ls
     group_ns = {}
     group_ns['SCANNET'] = 301
-    group_ns['MODELNET40'] = 2000
+    group_ns['MODELNET40'] = 1969
     group_ns['KITTI'] = 5
     group_n = group_ns[DATASET]
     for e in eles:
@@ -173,12 +183,11 @@ def split_fn_ls_benchmark( plsph5_folder, bxmh5_folder, nonvoid_plfn_ls, bxmh5_f
         end  = min( k+group_n, len(train_fn_ls[e]) )
         all_lses[e] += [train_fn_ls[e][k:end]]
         if e=='tfrecord':
-          fn_0 = os.path.splitext( os.path.basename(train_bxmh5_ls[k]) )[0]
-          fn_1 = os.path.splitext( os.path.basename(train_bxmh5_ls[end-1]) )[0]
+          fn_0 = os.path.splitext( os.path.basename(train_fn_ls[e][k]) )[0]
+          fn_1 = os.path.splitext( os.path.basename(train_fn_ls[e][end-1]) )[0]
           #fn_1 = fn_1[5:len(fn_1)]
           all_group_name_ls += ['train_'+fn_0+'_to_'+fn_1+'-'+str(end-k)]
 
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     return [all_lses['sph5'], all_lses['bxmh5'], all_lses['tfrecord']], all_group_name_ls
 
 
@@ -441,8 +450,8 @@ class H5Prepare():
 
 
     def MergeNormed(self, data_aug_configs):
-        #split_method = 'benchmark'
-        split_method = 'order'
+        split_method = 'benchmark'
+        #split_method = 'order'
 
         if DATASET == 'SCANNET':
             plsph5_folder = 'ORG_sph5/240000_mgs3_gs2d4_4d6'
@@ -520,10 +529,13 @@ class H5Prepare():
                 if not os.path.exists(merged_path):
                     os.makedirs(merged_path)
                 if j<2:
-                  MergeNormed_H5f(allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
+                  status = MergeNormed_H5f(allfn_ls[j][k], merged_file_names[j], IsShowSummaryFinished=True)
                 else:
-                  from dataset_utils import merge_tfrecord
-                  merge_tfrecord(allfn_ls[j][k], merged_file_names[j])
+                  if status != 'already_intact':
+                    from dataset_utils import merge_tfrecord
+                    merge_tfrecord(allfn_ls[j][k], merged_file_names[j])
+                  else:
+                    print('bxmh5 already intact, skip tfrecord as well')
 
             # check after merged
             if not DATASET == 'KITTI':    ## benz_m, in my case, there is no bidxmaps_flat
@@ -598,8 +610,8 @@ def main( ):
         # data_aug_configs['delete_unlabelled'] = True
         # data_aug_configs['delete_easy_categories_num'] = 3
 
-        h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        #h5prep.MergeNormed( data_aug_configs )
+        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+        h5prep.MergeNormed( data_aug_configs )
         print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':

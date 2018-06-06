@@ -5108,16 +5108,16 @@ class Normed_H5f():
 def MergeNormed_H5f(in_filename_ls,merged_filename, Always_CreateNew = False, IsShowSummaryFinished=False):
     if len(in_filename_ls) == 0:
         print('no .sph5/.prh5 file in the list')
-        return
+        return ''
     for k,fn in enumerate(in_filename_ls):
         if not Normed_H5f.check_sph5_intact( fn )[0]:
             print('Abort merging. file not intact: %s'%(fn))
-            return
+            return ''
     if not Always_CreateNew:
         IsIntact,_ = Normed_H5f.check_sph5_intact(merged_filename)
         if IsIntact:
             if not SHOW_ONLY_ERR: print('sph5/prh5 file intact: %s'%(merged_filename))
-            return
+            return 'already_intact'
     if not os.path.exists( os.path.dirname(merged_filename) ):
         os.makedirs( os.path.dirname(merged_filename) )
     print('start generating merged file: %s'%(merged_filename))
