@@ -290,7 +290,9 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
   else:
     # Metrics are currently not compatible with distribution strategies during
     # training. This does not affect the overall performance of the model.
-    accuracy = (tf.no_op(), tf.constant(0))
+    #accuracy = (tf.no_op(), tf.constant(0))
+    # xyz tem try
+    accuracy = tf.metrics.accuracy(labels, predictions['classes'])
 
   metrics = {'accuracy': accuracy}
 
@@ -365,12 +367,13 @@ def resnet_main(
   session_config = tf.ConfigProto(
       inter_op_parallelism_threads=flags_obj.inter_op_parallelism_threads,
       intra_op_parallelism_threads=flags_obj.intra_op_parallelism_threads,
+      gpu_options = tf.GPUOptions(allow_growth = True),
       allow_soft_placement=True)
 
   if flags_core.get_num_gpus(flags_obj) == 0:
     distribution = tf.contrib.distribute.OneDeviceStrategy('device:CPU:0')
   elif flags_core.get_num_gpus(flags_obj) == 1:
-    distribution = tf.contrib.distribute.OneDeviceStrategy('device:GPU:0')
+    distribution = tf.contrib.distribute.OneDeviceStrategy('device:GPU:%d'%(flags_obj.gpu_id))
   else:
     distribution = tf.contrib.distribute.MirroredStrategy(
         num_gpus=flags_core.get_num_gpus(flags_obj)
@@ -449,11 +452,12 @@ def resnet_main(
         flags_obj.stop_threshold, eval_results['accuracy']):
       break
 
-  #if flags_obj.export_dir is not None:
-  #  # Exports a saved model for the given classifier.
-  #  input_receiver_fn = export.build_tensor_serving_input_receiver_fn(
-  #      shape, batch_size=flags_obj.batch_size)
-  #  classifier.export_savedmodel(flags_obj.export_dir, input_receiver_fn)
+  if flags_obj.export_dir is not None:
+    # Exports a saved model for the given classifier.
+    input_receiver_fn = export.build_tensor_serving_input_receiver_fn(
+        shape, batch_size=flags_obj.batch_size)
+    classifier.export_savedmodel(flags_obj.export_dir, input_receiver_fn)
+
 
 
 def define_resnet_flags(resnet_size_choices=None):

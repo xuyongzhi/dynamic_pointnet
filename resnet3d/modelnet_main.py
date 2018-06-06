@@ -34,6 +34,7 @@ import resnet_model
 import resnet_run_loop
 import os, glob, sys
 
+
 BASE_DIR = os.path.abspath(__file__)
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(ROOT_DIR)
@@ -53,8 +54,10 @@ _NUM_IMAGES = {
 
 _NUM_TRAIN_FILES = 1024
 _SHUFFLE_BUFFER = 10000
+_SHUFFLE_BUFFER = 1000
 
 DATASET_NAME = 'MODELNET40'
+
 
 ###############################################################################
 # Data processing
@@ -63,10 +66,9 @@ def get_filenames(is_training, data_dir):
   """Return filenames for dataset."""
   assert os.path.exists(data_dir), ('not exsit: %s'%(data_dir))
   if is_training:
-    return glob.glob(os.path.join(data_dir, '*.tfrecord'))
+    return glob.glob(os.path.join(data_dir, 'train_*.tfrecord'))
   else:
-    return glob.glob(os.path.join(data_dir, '*.tfrecord'))
-
+    return glob.glob(os.path.join(data_dir, 'test_*.tfrecord'))
 
 def input_fn(is_training, data_dir, batch_size, data_paras=None, num_epochs=1):
   """Input function which provides batches for train or eval.
@@ -83,10 +85,10 @@ def input_fn(is_training, data_dir, batch_size, data_paras=None, num_epochs=1):
   filenames = get_filenames(is_training, data_dir)
   assert len(filenames)>0, (data_dir)
   print('\ngot {} tfrecord files\n'.format(len(filenames)))
-  dataset = tf.data.TFRecordDataset(filenames,
-                                    compression_type="",
-                                    buffer_size=_SHUFFLE_BUFFER,
-                                    num_parallel_reads=None)
+  dataset = tf.data.TFRecordDataset(filenames)
+                                   # compression_type="",
+                                   # buffer_size=_SHUFFLE_BUFFER,
+                                   # num_parallel_reads=None)
 
   #if is_training:
   #  # Shuffle the input files
@@ -110,6 +112,7 @@ def get_synth_input_fn():
   return resnet_run_loop.get_synth_input_fn(
       _DEFAULT_IMAGE_SIZE, _DEFAULT_IMAGE_SIZE, _NUM_CHANNELS, _NUM_CLASSES)
 
+
 def get_data_shapes_from_tfrecord(data_dir):
   global _DATA_PARAS
 
@@ -122,6 +125,7 @@ def get_data_shapes_from_tfrecord(data_dir):
 
       for key in features:
         _DATA_PARAS[key] = features[key][0].shape
+      print('\n\nget shape from tfrecord OK:\n %s\n\n'%(_DATA_PARAS))
 
 def get_data_meta_from_hdf5(data_dir):
   global _DATA_PARAS
@@ -129,7 +133,7 @@ def get_data_meta_from_hdf5(data_dir):
   gsbb_load = GlobalSubBaseBLOCK()
   basen = os.path.basename(data_dir)
   dirn = os.path.dirname(os.path.dirname(data_dir))
-  bxmh5_dir = os.path.join(dirn, 'ORG_bxmh5', basen)
+  bxmh5_dir = os.path.join(dirn, 'Merged_bxmh5', basen)
   bxmh5_fns = glob.glob(os.path.join(bxmh5_dir,'*.bxmh5'))
   assert len(bxmh5_fns) > 0, (bxmh5_dir)
   bxmh5_fn = bxmh5_fns[0]
@@ -255,6 +259,7 @@ def modelnet_model_fn(features, labels, mode, params):
   )
 
 
+
 def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
@@ -263,14 +268,18 @@ def define_modelnet_flags():
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
   flags.DEFINE_string('model_flag', '3Vm','')
-  flags.DEFINE_string('bxm_folder', '4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1','')
-  data_dir = os.path.join(DATA_DIR, '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
+  data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
-                          batch_size=2)
+                          batch_size=24,
+                          num_gpus=1)
+  flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)
 
+def define_modelnet_flags_2():
+  model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', flags.FLAGS.model_flag)
+  flags_core.set_defaults(model_dir=model_dir)
 
 def run_imagenet(flags_obj):
   """Run ResNet ImageNet training and eval loop.
@@ -285,6 +294,8 @@ def run_imagenet(flags_obj):
 
 
 def main(_):
+  define_modelnet_flags_2()
+
   run_imagenet(flags.FLAGS)
 
 
