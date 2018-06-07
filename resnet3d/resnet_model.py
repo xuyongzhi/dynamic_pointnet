@@ -39,7 +39,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
 DEBUG_TMP = False
-
+IS_SHOWMODEL = True
 
 _BATCH_NORM_DECAY = 0.997
 _BATCH_NORM_EPSILON = 1e-5
@@ -396,7 +396,7 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
 
 
 def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
-                         strides, data_format):
+                         _kernel_size, strides, data_format):
   """A single block for ResNet v2, without a bottleneck.
 
   Similar to _building_block_v2(), except using the "bottleneck" blocks
@@ -435,28 +435,32 @@ def _bottleneck_block_v2(inputs, filters, training, projection_shortcut,
   # since it performs a 1x1 convolution.
   if projection_shortcut is not None:
     shortcut = projection_shortcut(inputs)
+    if IS_SHOWMODEL: print( tensor_info(shortcut, 'shortcut k,s=1,%d'%(strides), 'bottle_v2'))
 
   inputs = conv2d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=1, strides=1,
       data_format=data_format)
+  if IS_SHOWMODEL: print( tensor_info(inputs, 'conv2d k,s=1,1', 'bottle_v2'))
 
   inputs = batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
   inputs = conv2d_fixed_padding(
-      inputs=inputs, filters=filters, kernel_size=3, strides=strides,
+      inputs=inputs, filters=filters, kernel_size=_kernel_size, strides=strides,
       data_format=data_format)
+  if IS_SHOWMODEL: print( tensor_info(inputs, 'conv2d k,s=%d,%d'%(_kernel_size,strides), 'bottle_v2'))
 
   inputs = batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
   inputs = conv2d_fixed_padding(
       inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
       data_format=data_format)
+  if IS_SHOWMODEL: print( tensor_info(inputs, 'conv2d k,s=1,1', 'bottle_v2')+'\n' )
 
   return inputs + shortcut
 
 
-def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
-                training, name, data_format):
+def block_layer(inputs, filters, bottleneck, block_fn, blocks, _kernel_size,
+                strides, training, name, data_format):
   """Creates one layer of blocks for the ResNet model.
 
   Args:
@@ -487,11 +491,11 @@ def block_layer(inputs, filters, bottleneck, block_fn, blocks, strides,
         data_format=data_format)
 
   # Only the first block per block_layer uses projection_shortcut and strides
-  inputs = block_fn(inputs, filters, training, projection_shortcut, strides,
-                    data_format)
+  inputs = block_fn(inputs, filters, training, projection_shortcut, _kernel_size,
+                    strides, data_format)
 
   for _ in range(1, blocks):
-    inputs = block_fn(inputs, filters, training, None, 1, data_format)
+    inputs = block_fn(inputs, filters, training, None, _kernel_size, 1, data_format)
 
   return tf.identity(inputs, name)
 
@@ -567,16 +571,17 @@ class Model(object):
     self.data_format = data_format
     self.num_classes = num_classes
     self.num_filters = num_filters
-    self.kernel_size = kernel_size
-    self.conv_stride = conv_stride
-    self.first_pool_size = first_pool_size
-    self.first_pool_stride = first_pool_stride
+    #self.kernel_size = kernel_size
+    #self.conv_stride = conv_stride
+    #self.first_pool_size = first_pool_size
+    #self.first_pool_stride = first_pool_stride
     self.block_sizes = block_sizes
     self.block_strides = block_strides
     self.final_size = final_size
     self.dtype = dtype
     self.pre_activation = resnet_version == 2
     self.data_paras = data_paras
+    self.block_num_count = 0
 
     self._preprocess_configs()
 
@@ -595,8 +600,7 @@ class Model(object):
     for key in self.data_paras:
       setattr(self, key, self.data_paras[key])
 
-    self.use_xyz = True
-    self.IsShowModel = True
+    self.use_xyz = False
     self.mean_grouping_position = True
     self.xyz_elements = ['raw', 'sub_mid', 'global_mid']
 
@@ -674,7 +678,7 @@ class Model(object):
           training)
 
   def _call(self, inputs, sg_bidxmaps, bidxmaps_flat, fmap_neighbor_idis, is_training):
-    if self.IsShowModel: print('')
+    if IS_SHOWMODEL: print('')
     self.is_training = is_training
     sg_bm_extract_idx = self.data_paras['sg_bm_extract_idx']
 
@@ -693,6 +697,13 @@ class Model(object):
       full_cascades = sg_bm_extract_idx.shape[0]-1
       scales_feature = []
 
+      if self.data_format == 'channels_first':
+        # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
+        # This provides a large performance boost on GPU. See
+        # https://www.tensorflow.org/performance/performance_guide#data_formats
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        new_points = tf.transpose(new_points, [0, 3, 1, 2])
+
       for k in range(self.cascade_num):
           IsExtraGlobalLayer = False
 
@@ -704,29 +715,80 @@ class Model(object):
               end = sg_bm_extract_idx[k+1]
               sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
               block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+          block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm')
 
-          l_xyz, new_points, root_point_features = self.pointnet_sa_module(k, l_xyz,
+          l_xyz, new_points, root_point_features = self.res_sa_module(k, l_xyz,
                           new_points, sg_bidxmap_k, block_bottom_center_mm, scope='sa_layer'+str(k) )
           if k == 0:
               l_points[0] = root_point_features
           l_points.append(new_points)
-          if self.IsShowModel: print('------------------\n')
+          if IS_SHOWMODEL: print('------------------\n')
 
       # ----------------------
       inputs = new_points
       axes = [2] if self.data_format == 'channels_first' else [1]
       inputs = tf.reduce_mean(inputs, axes)
       inputs = tf.identity(inputs, 'final_reduce_mean')
-      if self.IsShowModel: print( tensor_info(inputs, 'reduce_mean', 'final') )
+      if IS_SHOWMODEL: print( tensor_info(inputs, 'reduce_mean', 'final') )
 
       inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
       inputs = tf.identity(inputs, 'final_dense')
-      if self.IsShowModel: print( tensor_info(inputs, 'dense', 'final') +'\n\n' )
+      if IS_SHOWMODEL: print( tensor_info(inputs, 'dense', 'final') +'\n\n' )
       return inputs
 
+  def res_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
+    new_xyz, grouped_xyz, inputs, valid_mask = self.grouping(cascade_id, xyz,
+                        points, bidmap, block_bottom_center_mm, scope)
 
-  def pointnet_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm,
-                       scope):
+    if cascade_id == 0:
+      inputs = self.initial_layer(inputs)
+    else:
+      inputs = self.grouped_points_to_voxel_points( cascade_id, inputs,
+                          valid_mask, block_bottom_center_mm, grouped_xyz)
+
+    outputs= self.res_sa_model(cascade_id,
+                inputs, grouped_xyz, valid_mask, block_bottom_center_mm, scope)
+
+    if cascade_id == 0:
+      root_point_features = outputs
+      outputs = tf.reduce_max(outputs, axis=2)
+      if IS_SHOWMODEL: print( tensor_info(outputs, 'max', 'cas0') +'\n' )
+    return new_xyz, outputs, root_point_features
+
+  def initial_layer(self, inputs):
+      inputs = conv2d_fixed_padding(
+          inputs=inputs, filters=self.num_filters, kernel_size=1,
+          strides=1, data_format=self.data_format)
+      inputs = tf.identity(inputs, 'initial_conv')
+
+      # We do not include batch normalization or activation functions in V2
+      # for the initial conv1 because the first ResNet unit will perform these
+      # for both the shortcut and non-shortcut paths as part of the first
+      # block's projection. Cf. Appendix of [2].
+      if self.resnet_version == 1:
+        inputs = batch_norm(inputs, training, self.data_format)
+        inputs = tf.nn.relu(inputs)
+      if IS_SHOWMODEL:print(tensor_info(inputs,'conv2d ks:1,1','initial'))
+
+      return inputs
+
+  def res_sa_model(self, cascade_id, inputs, grouped_xyz,
+                   valid_mask, block_bottom_center_mm, scope):
+      block_sizes = self.block_sizes[cascade_id]
+      for i, num_blocks in enumerate(block_sizes):
+        if IS_SHOWMODEL:
+          print('--------------cascade_id %d, block %d----------------'%(cascade_id, i))
+        num_filters = self.num_filters * (2**self.block_num_count)
+        inputs = block_layer(
+            inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
+            block_fn=self.block_fn, blocks=num_blocks,
+            _kernel_size=1 if cascade_id==0 else 3,
+            strides=self.block_strides[i], training=self.is_training,
+            name='block_layer{}'.format(i + 1), data_format=self.data_format)
+        self.block_num_count += 1
+      return inputs
+
+  def pointnet_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
     '''
     Input cascade_id==0:
         xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
@@ -745,7 +807,6 @@ class Model(object):
         new_xyz: (batch_size,nsubblock1,3)
         new_points: (batch_size,nsubblock1,channel)
     '''
-    block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_xyz, grouped_xyz, new_points, valid_mask = self.grouping(cascade_id, xyz,
                         points, bidmap, block_bottom_center_mm, scope)
     new_points, root_point_features = self.sa_model(cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope)
@@ -760,6 +821,8 @@ class Model(object):
         #    indrop_keep_mask = tf.get_default_graph().get_tensor_by_name('indrop_keep_mask:0') # indrop_keep_mask:0
 
         assert len(xyz.shape) == 3
+        assert len(xyz.shape) == len(points.shape) == len(bidmap.shape) == \
+          len(block_bottom_center_mm.shape) == 3
 
         if bidmap==None:
             grouped_xyz = tf.expand_dims( xyz, 1 )
@@ -830,7 +893,7 @@ class Model(object):
         if cascade_id>0 and self.use_xyz and (not cascade_id==self.cascade_num-1):
             grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
-        if self.IsShowModel:
+        if IS_SHOWMODEL:
           sc = 'grouping %d'%(cascade_id)
           print(tensor_info(xyz, 'xyz', sc))
           print(tensor_info(new_xyz, 'new_xyz', sc))
@@ -840,6 +903,7 @@ class Model(object):
 
         new_points = grouped_points
         return new_xyz, grouped_xyz, new_points, valid_mask
+
 
   def sa_model(self, cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope):
     batch_size = new_points.get_shape()[0].value
@@ -860,7 +924,7 @@ class Model(object):
             new_points = batch_norm(new_points, self.is_training, self.data_format)
             new_points = tf.nn.relu(new_points)
 
-            if self.IsShowModel:
+            if IS_SHOWMODEL:
               print(tensor_info(new_points, 'conv2d ks:1-1', 'cascade %d'%(cascade_id)))
 
         if cascade_id == 0:
@@ -886,7 +950,7 @@ class Model(object):
             new_points = tf.reduce_max(new_points, axis=[2], keepdims=True, name='points_after_max')
         elif pooling == '3DCNN':
             new_points = self.grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz)
-            if self.IsShowModel:
+            if IS_SHOWMODEL:
               print(tensor_info(new_points, 'voxel input', 'cascade %d'%(cascade_id)))
             for i, num_out_channel in enumerate( self.mlp_configs['voxel_channels'][cascade_id] ):
 
@@ -906,7 +970,7 @@ class Model(object):
                             data_format = self.data_format)
                     new_points = batch_norm(new_points, self.is_training, self.data_format)
                     new_points = tf.nn.relu(new_points)
-                    if self.IsShowModel:
+                    if IS_SHOWMODEL:
                       print(tensor_info(new_points, 'conv3d ks:%d,%d'%(kernel_size, strides), 'cascade %d'%(cascade_id)))
                 elif num_out_channel == 'max' or 'ave':
                   if num_out_channel == 'max':
@@ -920,7 +984,7 @@ class Model(object):
                               padding = 'valid',
                               name = '3d%s_%d'%(num_out_channel, i),
                               data_format = self.data_format)
-                  if self.IsShowModel:
+                  if IS_SHOWMODEL:
                       print(tensor_info(new_points, '%s ks:%d,%d'%(num_out_channel, kernel_size, strides), 'cascade %d'%(cascade_id)))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
             if cascade_id < self.cascade_num-1:

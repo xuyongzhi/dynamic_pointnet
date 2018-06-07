@@ -6,3 +6,4 @@
 - check weight decay
 - check use bias or not
 - add dropout
+- enable use_xyz
