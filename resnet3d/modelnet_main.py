@@ -272,7 +272,7 @@ def define_modelnet_flags():
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
                           batch_size=24,
-                          num_gpus=1)
+                          num_gpus=2)
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)

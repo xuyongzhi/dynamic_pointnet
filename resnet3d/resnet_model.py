@@ -37,7 +37,6 @@ import os, sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
-import tf_util
 
 DEBUG_TMP = False
 
@@ -60,19 +59,6 @@ def get_voxel3dcnn_sa_config( model_flag ):
     voxel_strides = [[]]
     voxel_paddings = [[]]
 
-    if model_flag=='3Vs':
-        mlp_pe.append( [32,32,64] )
-
-        voxel_channels.append( [128,128,256] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
-
-        voxel_channels.append( [256,256,512,512,256] )
-        voxel_kernels.append( [3,3,3,3,3] )
-        voxel_strides.append( [1,1,1,2,1] )
-        voxel_paddings.append( [1,0,0,0,0] )
-
     if model_flag=='3Vm':
         mlp_pe.append( [64,64,128] )
 
@@ -84,76 +70,8 @@ def get_voxel3dcnn_sa_config( model_flag ):
         voxel_channels.append( [256,256,512,1024] )
         voxel_kernels.append( [3,3,3,3] )
         voxel_strides.append( [1,1,1,1] )
-        voxel_paddings.append( [0,0,0,0] )
+        voxel_paddings.append( [1,1,1,0] )
 
-    if model_flag=='4Vm1':
-        mlp_pe.append( [64,64,64] )
-
-        voxel_channels.append( [128,128,128, 'max'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,1, 0] )
-
-        voxel_channels.append( [256,256,256, 'max'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,0, 0] )
-
-        voxel_channels.append( [512,512,512, 'avg'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,0, 0] )
-
-    if model_flag=='4Vm':
-        mlp_pe.append( [32,32,64] )
-
-        voxel_channels.append( [64,64,128, 'max'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,1, 0] )
-
-        voxel_channels.append( [128,128,256, 'max'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,0, 0] )
-
-        voxel_channels.append( [256,256,512, 'max'] )
-        voxel_kernels.append( [3,3,3, 3] )
-        voxel_strides.append( [1,1,1, 1] )
-        voxel_paddings.append( [1,1,0, 0] )
-
-    if model_flag=='4Vs':
-        mlp_pe.append( [32,32,64] )
-
-        voxel_channels.append( [64,64,128] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
-
-        voxel_channels.append( [128,128,256] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
-
-        voxel_channels.append( [256,256,512] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,0,0] )
-
-
-    elif model_flag=='5Va':
-        mlp_pe.append( [32,32,64] )
-        voxel_channels.append( [64,64,64] )
-        voxel_channels.append( [64,64,128] )
-        voxel_channels.append( [128,128,256] )
-        voxel_channels.append( [256,256,512,512] )
-
-    elif model_flag=='5Vm':
-        mlp_pe.append( [32,32,48] )
-        voxel_channels.append( [64,128,128] )
-        voxel_channels.append( [128,256,256] )
-        voxel_channels.append( [256,256,512] )
-        voxel_channels.append( [512,1024,512,256] )
 
     for l in range(cascade_num-1):
         mlp_pe.append([])
@@ -307,6 +225,19 @@ def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
       kernel_initializer=tf.variance_scaling_initializer(),
       data_format=data_format)
 
+def conv3d_fixed_padding(inputs, filters, kernel_size, strides, padding, data_format):
+  """Strided 3-D convolution with explicit padding."""
+  # The padding is consistent and is based only on `kernel_size`, not on the
+  # dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
+  if strides > 1:
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
+    inputs = fixed_padding(inputs, kernel_size, data_format)
+
+  return tf.layers.conv3d(
+      inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
+      padding=padding, use_bias=False,
+      kernel_initializer=tf.variance_scaling_initializer(),
+      data_format=data_format)
 
 ################################################################################
 # ResNet block definitions.
@@ -610,6 +541,7 @@ class Model(object):
     if not data_format:
       data_format = (
           'channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
+    data_format = 'channels_last'
 
     self.resnet_version = resnet_version
     if resnet_version not in (1, 2):
@@ -662,7 +594,7 @@ class Model(object):
     for key in self.data_paras:
       setattr(self, key, self.data_paras[key])
 
-    self.IsShowModel = False
+    self.IsShowModel = True
     self.mean_grouping_position = True
     self.xyz_elements = ['raw', 'sub_mid', 'global_mid']
 
@@ -776,35 +708,20 @@ class Model(object):
               l_points[0] = root_point_features
           l_points.append(new_points)
 
-          # get pyramid features
-          if k >= self.cascade_num - self.mlp_configs['scale_num']:
-              cur_scale = tf.reduce_max( new_points, axis=1, keepdims=True )
-              cur_scale = tf_util.conv1d( cur_scale, self.mlp_configs['scale_channel'], 1, padding='VALID', activation_fn=None,\
-                                         bn=True, is_training=is_training, scope='conv_scale_%d'%(k), bn_decay=_BATCH_NORM_DECAY )
-              if len(scales_feature) > 0:
-                  cur_scale = tf.add( cur_scale, scales_feature[-1], name='scale%d'%(k) )
-              scales_feature.append( cur_scale )
-
       if self.IsShowModel:
           print('\nafter pointnet_sa_module, l_points:\n%s'%(tensor_info(l_points)))
-          print('\n scale_num: %d \n loss_scale_num:%d \n'%(self.mlp_configs['scale_num'], self.mlp_configs['loss_scale_num']))
 
       # ----------------------
-      #multi_scales_feature = tf.concat( scales_feature[ (mlp_configs['scale_num']-mlp_configs['loss_scale_num']) : mlp_configs['scale_num'] ], axis=1 )
-      multi_scales_feature = scales_feature[-1]
-      net = multi_scales_feature
+      inputs = new_points
+      axes = [2] if self.data_format == 'channels_first' else [1]
+      inputs = tf.reduce_mean(inputs, axes)
+      inputs = tf.identity(inputs, 'final_reduce_mean')
+      if self.IsShowModel: print( tensor_info(inputs, 'final_reduce_mean') )
 
-      # FC layers
-      if self.IsShowModel: print('net:%s'%(tensor_info([net])))
-      net = tf_util.conv1d( net, 128, net.shape[1], padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=_BATCH_NORM_DECAY)
-
-      if self.IsShowModel: print('net:%s'%(tensor_info([net])))
-      #net = tf_util.dropout(net, keep_prob=0.5, is_training=self.is_training, scope='dropout', name='out_dp')
-      net = tf_util.conv1d(net, self.num_classes, 1, padding='VALID', activation_fn=None, scope='fc2')
-      if self.IsShowModel:
-          print('net:%s'%(tensor_info([net])))
-
-      return net
+      inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
+      inputs = tf.identity(inputs, 'final_dense')
+      if self.IsShowModel: print( tensor_info(inputs, 'final_dense') +'\n\n' )
+      return inputs
 
   def pointnet_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm,
                        scope, bn=True, tnet_spec=None, use_xyz=True):
@@ -826,8 +743,14 @@ class Model(object):
         new_xyz: (batch_size,nsubblock1,3)
         new_points: (batch_size,nsubblock1,channel)
     '''
-
     block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm') # gpu_0/sa_layer3/block_bottom_center_mm:0
+    new_xyz, grouped_xyz, new_points, valid_mask = self.grouping(cascade_id, xyz,
+                        points, bidmap, block_bottom_center_mm, scope, use_xyz )
+    new_points, root_point_features = self.sa_model(cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope, bn, tnet_spec)
+    return new_xyz, new_points, root_point_features
+
+  def grouping(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm,
+                       scope, use_xyz=True):
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
         assert self.cascade_num == self.flatten_bm_extract_idx.shape[0]-1  # include global here (Note: cascade_num does not include global in block_pre_util )
@@ -917,14 +840,27 @@ class Model(object):
                     cascade_id, tensor_info([xyz]), tensor_info([grouped_xyz]), tensor_info([new_xyz]), tensor_info([grouped_points]), nsample))
 
         new_points = grouped_points
+        return new_xyz, grouped_xyz, new_points, valid_mask
+
+  def sa_model(self, cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope, bn=True, tnet_spec=None):
+    batch_size = new_points.get_shape()[0].value
+    with tf.variable_scope(scope) as sc:
         if valid_mask!=None:
             new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
+        if self.data_format == 'channels_first':
+          assert False, "not ready yet"
+          # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
+          # This provides a large performance boost on GPU. See
+          # https://www.tensorflow.org/performance/performance_guide#data_formats
+          new_points = tf.transpose(new_points, [0, 3, 1, 2])
 
         for i, num_out_channel in enumerate(self.mlp_configs['point_encoder'][cascade_id]):
-            new_points = tf_util.conv2d(new_points, num_out_channel, [1,1],
-                                        padding='VALID', stride=[1,1],
-                                        bn=bn, is_training=self.is_training,
-                                        scope='conv%d'%(i), bn_decay=_BATCH_NORM_DECAY)
+            new_points = conv2d_fixed_padding(
+                inputs=new_points, filters=num_out_channel, kernel_size=1,
+                strides=1, data_format=self.data_format)
+            new_points = batch_norm(new_points, self.is_training, self.data_format)
+            new_points = tf.nn.relu(new_points)
+
             if self.IsShowModel:
                 print('point encoder1 %d, new_points:%s'%(i, tensor_info([new_points])))
 
@@ -969,58 +905,54 @@ class Model(object):
             if self.IsShowModel:
                 print('voxel points:%s'%(tensor_info([new_points])))
             for i, num_out_channel in enumerate( self.mlp_configs['voxel_channels'][cascade_id] ):
-                kernel_i = [self.mlp_configs['voxel_kernels'][cascade_id][i]]*3
-                stride_i = [self.mlp_configs['voxel_strides'][cascade_id][i]]*3
-                if new_points.shape[1]%2 == 0:
-                    padding_i = np.array([[0,0],[1,0],[1,0],[1,0],[0,0]]) * self.mlp_configs['voxel_paddings'][cascade_id][i]
-                else:
-                    padding_i = np.array([[0,0],[1,1],[1,1],[1,1],[0,0]]) * self.mlp_configs['voxel_paddings'][cascade_id][i]
-                new_points = tf.pad( new_points, padding_i, "CONSTANT" )
 
+                if self.mlp_configs['voxel_paddings'][cascade_id][i] == 0:
+                  padding = 'VALID'
+                else:
+                  padding = 'SAME'
                 if type(num_out_channel) == int:
-                    new_points = tf_util.conv3d(new_points,
-                                                num_out_channel,
-                                                kernel_i,
-                                                scope = '3dconv_%d'%(i),
-                                                stride = stride_i,
-                                                padding = 'VALID',
-                                                bn=bn,
-                                                is_training = self.is_training,
-                                                bn_decay = _BATCH_NORM_DECAY,
-                                                name = 'points_3dcnn_%d'%(i) )
+                    new_points = conv3d_fixed_padding(
+                            inputs = new_points,
+                            filters = num_out_channel,
+                            kernel_size = self.mlp_configs['voxel_kernels'][cascade_id][i],
+                            strides = self.mlp_configs['voxel_strides'][cascade_id][i],
+                            padding = padding,
+                            data_format = self.data_format)
+                    new_points = batch_norm(new_points, self.is_training, self.data_format)
+                    new_points = tf.nn.relu(new_points)
                     if self.IsShowModel:
                         print('block learning by 3dcnn %d, new_points:%s'%(i, tensor_info([new_points])))
-                elif num_out_channel == 'max':
-                    new_points = tf_util.max_pool3d( new_points,
-                                                    kernel_i,
-                                                    scope = '3dmax_%d'%(i),
-                                                    stride = stride_i,
-                                                    padding = 'VALID')
-                    if self.IsShowModel:
-                        print('block learning max pooling %d, new_points:%s'%(i, tensor_info([new_points])))
-                elif num_out_channel == 'avg':
-                    new_points = tf_util.avg_pool3d( new_points,
-                                                    kernel_i,
-                                                    scope = '3dmax_%d'%(i),
-                                                    stride = stride_i,
-                                                    padding = 'VALID')
-                    if self.IsShowModel:
-                        print('block learning avg pooling %d, new_points:%s'%(i, tensor_info([new_points])))
+                elif num_out_channel == 'max' or 'ave':
+                  if num_out_channel == 'max':
+                    pool_fn = tf.layers.max_pooling3d
+                  elif num_out_channel == 'ave':
+                    pool_fn = tf.layers.average_pooling3d
+                  new_points = pool_fn(
+                              inputs = new_points,
+                              pool_size = kernel_i,
+                              strides = stride_i,
+                              padding = 'valid',
+                              name = '3d%s_%d'%(num_out_channel, i),
+                              data_format = self.data_format)
+                  if self.IsShowModel:
+                      print('block learning m%s pooling %d, new_points:%s'%(num_out_channel, i, tensor_info([new_points])))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
-            new_points = tf.squeeze( new_points, [1,2,3] )
+            if cascade_id < self.cascade_num-1:
+              new_points = tf.squeeze( new_points, [1,2,3] )
+            else:
+              new_points = tf.squeeze( new_points )
             new_points = tf.reshape( new_points, [batch_size, -1, 1, new_points.shape[-1].value] )
 
         if self.IsShowModel:
             print('after %s, new_points:%s'%( pooling, tensor_info([new_points])))
 
-        # (2, 512, 1, 64)
         new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlps_1[-1])
 
         if self.IsShowModel:
-            print('pointnet_sa_module return\n new_xyz: %s\n new_points:%s\n\n'%(tensor_info([new_xyz]),tensor_info([new_points])))
+            print('pointnet_sa_module return\n  new_points:%s\n\n'%(tensor_info([new_points])))
             #import pdb;pdb.set_trace()
         # (2, 512, 64)
-        return new_xyz, new_points, root_point_features
+        return new_points, root_point_features
 
 
   def grouped_points_to_voxel_points (self, cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz):

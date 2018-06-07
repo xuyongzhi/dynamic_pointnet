@@ -290,9 +290,7 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
   else:
     # Metrics are currently not compatible with distribution strategies during
     # training. This does not affect the overall performance of the model.
-    #accuracy = (tf.no_op(), tf.constant(0))
-    # xyz tem try
-    accuracy = tf.metrics.accuracy(labels, predictions['classes'])
+    accuracy = (tf.no_op(), tf.constant(0))
 
   metrics = {'accuracy': accuracy}
 
