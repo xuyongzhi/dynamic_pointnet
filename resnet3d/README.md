@@ -5,3 +5,4 @@
 - check batch decay
 - check weight decay
 - check use bias or not
+- add dropout

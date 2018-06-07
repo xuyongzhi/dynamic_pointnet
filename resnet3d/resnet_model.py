@@ -136,7 +136,7 @@ def tensor_info(tensor_ls, tensor_name_ls=None, scope=None):
   for i in range(len(tensor_ls)):
     if scope!=None:
       tensor_info += '%-20s'%(scope)
-    tensor_info += '%-20s:\t'%(tensor_name_ls[i])
+    tensor_info += '%-20s: '%(tensor_name_ls[i])
     if tensor_ls[i] == None:
         tensor_info += 'None'
     else:
@@ -835,8 +835,8 @@ class Model(object):
           print(tensor_info(xyz, 'xyz', sc))
           print(tensor_info(new_xyz, 'new_xyz', sc))
           print(tensor_info(grouped_xyz, 'grouped_xyz', sc))
-          print('')
           print(tensor_info(grouped_points, 'grouped_points', sc))
+          print('')
 
         new_points = grouped_points
         return new_xyz, grouped_xyz, new_points, valid_mask
