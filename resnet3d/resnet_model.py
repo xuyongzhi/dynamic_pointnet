@@ -398,9 +398,16 @@ class ResConvOps(object):
   _conv2d_num = 0
   _conv3d_num = 0
   IsShowModel = False
+  _epoch = 0
+
+  def __init__(self):
+    if ResConvOps._epoch==0:
+      self.IsShowModel = True
+    ResConvOps._epoch += 1
+    #print('epoch: %d'%(ResConvOps._epoch))
 
   def show_layers_num_summary(self):
-    print('block layers num:{}\nconv2d num:{}\nconv3d num:{}'.format(
+    print('block layers num:{}\nconv2d num:{}\nconv3d num:{}\n'.format(
                   self._block_layers_num, self._conv2d_num, self._conv3d_num))
 
   def conv2d3d_fixed_padding(self, inputs, filters,
@@ -588,6 +595,7 @@ class Model(ResConvOps):
     Raises:
       ValueError: if invalid version is selected.
     """
+    super(Model, self).__init__()
     self.model_flag = model_flag
     self.resnet_size = resnet_size
 
@@ -784,6 +792,7 @@ class Model(ResConvOps):
       if self.IsShowModel:
         print( tensor_info(inputs, 'dense', 'final') +'\n\n' )
         self.show_layers_num_summary()
+        print('------------------------------------------------------------')
       return inputs
 
   def res_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
