@@ -431,7 +431,7 @@ def resnet_main(
                           flags_obj.epochs_between_evals)
 
   # train for one step to check max memory usage
-  classifier.train(input_fn=input_fn_train, hooks=train_hooks, steps=1)
+  classifier.train(input_fn=input_fn_train, hooks=train_hooks, steps=10)
   with tf.Session() as sess:
     max_memory_usage_v = sess.run(max_memory_usage)
     print('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
