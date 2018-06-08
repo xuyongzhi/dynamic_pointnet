@@ -221,9 +221,9 @@ def _get_block_paras(resnet_size):
   block_strides = {}
   block_paddings = {}   # only used when strides == 1
 
-  block_sizes[50]    = [[3], [3,1], [3,3,3]]
+  block_sizes[50]    = [[3], [3,1], [2,2,2]]
   block_kernels[50]  = [[1], [2,3], [3,3,3]]
-  block_strides[50]  = [[1], [1,1], [2,1,1]]
+  block_strides[50]  = [[1], [1,1], [1,1,1]]
   block_paddings[50] = [['s'], ['s','v'], ['v','v','v']]
 
   if resnet_size not in block_sizes:

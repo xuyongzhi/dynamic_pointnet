@@ -180,7 +180,7 @@ def batch_norm(inputs, training, data_format):
   # We set fused=True for a significant performance boost. See
   # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
   return tf.layers.batch_normalization(
-      inputs=inputs, axis=1 if data_format == 'channels_first' else 3,
+      inputs=inputs, axis=1 if data_format == 'channels_first' else -1,
       momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
       scale=True, training=training, fused=True)
 
@@ -781,6 +781,7 @@ class Model(ResConvOps):
           if self.IsShowModel: print('------------------\n')
 
       # ----------------------
+      if self.IsShowModel: print( tensor_info(new_points, 'end', 'res blocks') )
       inputs = new_points
       axes = [2] if self.data_format == 'channels_first' else [1]
       inputs = tf.reduce_mean(inputs, axes)
@@ -818,7 +819,11 @@ class Model(ResConvOps):
       if self.voxel3d:
         # self.grouping only spport 2D point cloud
         tmp = np.array( [outputs.shape[j].value for j in range(1,4)] )
-        assert (tmp==1).all()
+        tmp = tmp[0]*tmp[1]*tmp[2]
+        if cascade_id != self.cascade_num-1:
+          assert tmp==1
+        else:
+          assert outputs.shape[0].value == batch_size # global block
         outputs = tf.reshape(outputs, [batch_size,-1,outputs.shape[-1].value])
 
     return new_xyz, outputs, root_point_features
