@@ -33,6 +33,7 @@ from official.utils.flags import core as flags_core
 import resnet_model
 import resnet_run_loop
 import os, glob, sys
+import numpy as np
 
 
 BASE_DIR = os.path.abspath(__file__)
@@ -179,18 +180,18 @@ class ModelnetModel(resnet_model.Model):
       bottleneck = True
       final_size = 2048
 
+    block_sizes, block_kernels, block_strides, block_paddings = _get_block_paras(resnet_size)
+
     super(ModelnetModel, self).__init__(
         model_flag = model_flag,
         resnet_size=resnet_size,
         bottleneck=bottleneck,
         num_classes=num_classes,
-        num_filters=32,
-        kernel_size=None,
-        conv_stride=None,
-        first_pool_size=None,
-        first_pool_stride=None,
-        block_sizes=_get_block_sizes(resnet_size),
-        block_strides=[1, 2, 2, 2],
+        num_filters=16,
+        block_sizes=block_sizes,
+        block_kernels=block_kernels,
+        block_strides=block_strides,
+        block_paddings=block_paddings,
         final_size=final_size,
         resnet_version=resnet_version,
         data_format=data_format,
@@ -199,7 +200,7 @@ class ModelnetModel(resnet_model.Model):
     )
 
 
-def _get_block_sizes(resnet_size):
+def _get_block_paras(resnet_size):
   """Retrieve the size of each block_layer in the ResNet model.
 
   The number of block layers used for the Resnet model varies according
@@ -215,24 +216,31 @@ def _get_block_sizes(resnet_size):
   Raises:
     KeyError: if invalid resnet_size is received.
   """
-  choices = {
-      18: [2, 2, 2, 2],
-      34: [3, 4, 6, 3],
-      #50: [3, 4, 6, 3],
-      50:[[3], [3], [3]],
-      101: [3, 4, 23, 3],
-      152: [3, 8, 36, 3],
-      200: [3, 24, 36, 3]
-  }
+  block_sizes = {}
+  block_kernels = {}
+  block_strides = {}
+  block_paddings = {}   # only used when strides == 1
 
-  try:
-    return choices[resnet_size]
-  except KeyError:
+  block_sizes[50]    = [[3], [3,1], [3,3,3]]
+  block_kernels[50]  = [[1], [2,3], [3,3,3]]
+  block_strides[50]  = [[1], [1,1], [2,1,1]]
+  block_paddings[50] = [['s'], ['s','v'], ['v','v','v']]
+
+  if resnet_size not in block_sizes:
     err = ('Could not find layers for selected Resnet size.\n'
            'Size received: {}; sizes allowed: {}.'.format(
-               resnet_size, choices.keys()))
+               resnet_size, resnet_size.keys()))
     raise ValueError(err)
 
+  # check settings
+  for k in block_kernels:
+    # cascade_id 0 is pointnet
+    assert (np.array(block_kernels[k][0])==1).all()
+    assert (np.array(block_strides[k][0])==1).all()
+
+
+  return block_sizes[resnet_size], block_kernels[resnet_size],\
+    block_strides[resnet_size], block_paddings[resnet_size]
 
 def modelnet_model_fn(features, labels, mode, params):
   """Our model_fn for ResNet to be used with our Estimator."""
@@ -272,7 +280,7 @@ def define_modelnet_flags():
   data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
-                          batch_size=24,
+                          batch_size=16,
                           num_gpus=2)
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
