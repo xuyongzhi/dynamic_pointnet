@@ -287,8 +287,25 @@ def define_modelnet_flags():
   get_data_meta_from_hdf5(data_dir)
 
 def define_modelnet_flags_2():
-  model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', flags.FLAGS.model_flag)
+  global _DATA_PARAS
+  model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', flags.FLAGS.model_flag+'_')
   flags_core.set_defaults(model_dir=model_dir)
+  _DATA_PARAS['model_dir'] = model_dir
+  add_log_file()
+
+def add_log_file():
+  import logging
+  log = logging.getLogger('tensorflow')
+  log.setLevel(logging.DEBUG)
+
+  # create formatter and add it to the handlers
+  formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+  # create file handler which logs even debug messages
+  fh = logging.FileHandler(os.path.join(_DATA_PARAS['model_dir'], 'pred.log'))
+  fh.setLevel(logging.DEBUG)
+  fh.setFormatter(formatter)
+  log.addHandler(fh)
 
 def run_imagenet(flags_obj):
   """Run ResNet ImageNet training and eval loop.

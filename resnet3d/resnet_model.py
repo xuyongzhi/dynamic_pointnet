@@ -323,14 +323,14 @@ def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=3, strides=strides,
       data_format=data_format)
-  if display: print( tensor_info(inputs, 'conv2d', 'block_v2') )
+  if display: self.log( tensor_info(inputs, 'conv2d', 'block_v2') )
 
   inputs = batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=3, strides=1,
       data_format=data_format)
-  if display: print( tensor_info(inputs, 'conv2d', 'block_v2')+'\n' )
+  if display: self.log( tensor_info(inputs, 'conv2d', 'block_v2')+'\n' )
 
   return inputs + shortcut
 
@@ -400,14 +400,22 @@ class ResConvOps(object):
   IsShowModel = False
   _epoch = 0
 
-  def __init__(self):
+  def __init__(self, model_dir):
     if ResConvOps._epoch==0:
       self.IsShowModel = True
+      if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+      self.model_log_fn = os.path.join(model_dir, 'log_model.txt')
+      self.model_log_f = open(self.model_log_fn, 'w')
     ResConvOps._epoch += 1
-    #print('epoch: %d'%(ResConvOps._epoch))
+
+  def log(self, log_str):
+    self.model_log_f.write(log_str+'\n')
+    self.model_log_f.flush()
+    print(log_str)
 
   def show_layers_num_summary(self):
-    print('block layers num:{}\nconv2d num:{}\nconv3d num:{}\n'.format(
+    self.log('block layers num:{}\nconv2d num:{}\nconv3d num:{}\n'.format(
                   self._block_layers_num, self._conv2d_num, self._conv3d_num))
 
   def conv2d3d_fixed_padding(self, inputs, filters,
@@ -484,14 +492,14 @@ class ResConvOps(object):
     if projection_shortcut is not None:
       shortcut = projection_shortcut(inputs)
       if self.IsShowModel:
-        print( tensor_info(shortcut, '%s k,s=1,%d'%(conv_str, strides),
+        self.log( tensor_info(shortcut, '%s k,s=1,%d'%(conv_str, strides),
                           'bottle_v2 shortcut'))
 
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=1, strides=1, padding_s1=padding_s1,
         data_format=data_format)
     if self.IsShowModel:
-      print( tensor_info(inputs, '%s k,s=1,1'%(conv_str), 'bottle_v2'))
+      self.log( tensor_info(inputs, '%s k,s=1,1'%(conv_str), 'bottle_v2'))
 
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
@@ -499,7 +507,7 @@ class ResConvOps(object):
         inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=strides,
         padding_s1=padding_s1, data_format=data_format)
     if self.IsShowModel:
-      print( tensor_info(inputs, '%s k,s=%d,%d'%
+      self.log( tensor_info(inputs, '%s k,s=%d,%d'%
                         (conv_str,b_kernel_size,strides), 'bottle_v2'))
 
     inputs = batch_norm(inputs, training, data_format)
@@ -507,7 +515,7 @@ class ResConvOps(object):
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
         padding_s1=padding_s1, data_format=data_format)
-    if self.IsShowModel: print( tensor_info(inputs, '%s k,s=1,1'%(conv_str),
+    if self.IsShowModel: self.log( tensor_info(inputs, '%s k,s=1,1'%(conv_str),
                                         'bottle_v2')+'\n' )
 
     assert inputs.shape == shortcut.shape
@@ -541,6 +549,8 @@ class ResConvOps(object):
     def projection_shortcut(inputs):
       # 2d resenet use strides>1 to reduce feature map and create shortcut.
       # Here we use kernel>1 and padding_s1='VALID'
+      # Use kernel>1 in shortcut may somewhat impede the identity forward, try
+      # optimize later.
       return self.conv2d3d_fixed_padding(
           inputs=inputs, filters=filters_out,
           kernel_size=b_kernel_size if padding_s1=='v' else 1,
@@ -595,7 +605,7 @@ class Model(ResConvOps):
     Raises:
       ValueError: if invalid version is selected.
     """
-    super(Model, self).__init__()
+    super(Model, self).__init__(data_paras['model_dir'])
     self.model_flag = model_flag
     self.resnet_size = resnet_size
 
@@ -648,7 +658,7 @@ class Model(ResConvOps):
     self.global_numpoint = self.data_paras['points'][0]
     self.cascade_num = int(self.model_flag[0])
     assert self.cascade_num <= self.data_paras['sg_bm_extract_idx'].shape[0]-1
-    #print('cascade_num:{}'.format(self.cascade_num))
+    #self.log('cascade_num:{}'.format(self.cascade_num))
     self.IsOnlineGlobal = self.model_flag[-1] == 'G'
     self.mlp_configs = get_sa_module_config(self.model_flag)
     for key in self.data_paras:
@@ -659,6 +669,7 @@ class Model(ResConvOps):
     self.xyz_elements = ['raw', 'sub_mid', 'global_mid']
     self.xyz_elements = ['global_mid']
     self.voxel3d = True
+
 
   def _custom_dtype_getter(self, getter, name, shape=None, dtype=DEFAULT_DTYPE,
                            *args, **kwargs):
@@ -734,7 +745,7 @@ class Model(ResConvOps):
           training)
 
   def _call(self, inputs, sg_bidxmaps, bidxmaps_flat, fmap_neighbor_idis, is_training):
-    if self.IsShowModel: print('')
+    if self.IsShowModel: self.log('')
     self.is_training = is_training
     sg_bm_extract_idx = self.data_paras['sg_bm_extract_idx']
 
@@ -778,22 +789,23 @@ class Model(ResConvOps):
           if k == 0:
               l_points[0] = root_point_features
           l_points.append(new_points)
-          if self.IsShowModel: print('------------------\n')
+          if self.IsShowModel: self.log('------------------\n')
 
       # ----------------------
-      if self.IsShowModel: print( tensor_info(new_points, 'end', 'res blocks') )
+      if self.IsShowModel: self.log( tensor_info(new_points, 'end', 'res blocks') )
       inputs = new_points
       axes = [2] if self.data_format == 'channels_first' else [1]
       inputs = tf.reduce_mean(inputs, axes)
       inputs = tf.identity(inputs, 'final_reduce_mean')
-      if self.IsShowModel: print( tensor_info(inputs, 'reduce_mean', 'final') )
+      if self.IsShowModel: self.log( tensor_info(inputs, 'reduce_mean', 'final') )
 
       inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
       inputs = tf.identity(inputs, 'final_dense')
       if self.IsShowModel:
-        print( tensor_info(inputs, 'dense', 'final') +'\n\n' )
+        self.log( tensor_info(inputs, 'dense', 'final') +'\n\n' )
         self.show_layers_num_summary()
-        print('------------------------------------------------------------')
+        self.log('------------------------------------------------------------')
+        self.model_log_f.close()
       return inputs
 
   def res_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
@@ -812,14 +824,17 @@ class Model(ResConvOps):
 
     if cascade_id == 0:
       root_point_features = outputs
+      assert len(outputs.shape)==4
       outputs = tf.reduce_max(outputs, axis=2)
-      if self.IsShowModel: print( tensor_info(outputs, 'max', 'cas0') +'\n' )
+      if self.IsShowModel: self.log( tensor_info(outputs, 'max', 'cas0') +'\n' )
     else:
       root_point_features = None
       if self.voxel3d:
         # self.grouping only spport 2D point cloud
+        assert len(outputs.shape)==5
         tmp = np.array( [outputs.shape[j].value for j in range(1,4)] )
         tmp = tmp[0]*tmp[1]*tmp[2]
+        # Except the last cascade, the voxel size should be reduced to 1
         if cascade_id != self.cascade_num-1:
           assert tmp==1
         else:
@@ -841,7 +856,7 @@ class Model(ResConvOps):
       if self.resnet_version == 1:
         inputs = batch_norm(inputs, training, self.data_format)
         inputs = tf.nn.relu(inputs)
-      if self.IsShowModel:print(tensor_info(inputs,'conv2d ks:1,1','initial'))
+      if self.IsShowModel:self.log(tensor_info(inputs,'conv2d ks:1,1','initial'))
 
       return inputs
 
@@ -849,7 +864,7 @@ class Model(ResConvOps):
                    valid_mask, block_bottom_center_mm, scope):
       for i, num_blocks in enumerate(self.block_sizes[cascade_id]):
         if self.IsShowModel:
-          print('--------------cascade_id %d, block %d----------------'%(cascade_id, i))
+          self.log('--------------cascade_id %d, block %d----------------'%(cascade_id, i))
         num_filters = self.num_filters * (2**self.block_num_count)
         num_filters = min(num_filters, 2048)
         inputs = self.block_layer(
@@ -970,11 +985,11 @@ class Model(ResConvOps):
 
         if self.IsShowModel:
           sc = 'grouping %d'%(cascade_id)
-          print(tensor_info(xyz, 'xyz', sc))
-          print(tensor_info(new_xyz, 'new_xyz', sc))
-          print(tensor_info(grouped_xyz, 'grouped_xyz', sc))
-          print(tensor_info(grouped_points, 'grouped_points', sc))
-          print('')
+          self.log(tensor_info(xyz, 'xyz', sc))
+          self.log(tensor_info(new_xyz, 'new_xyz', sc))
+          self.log(tensor_info(grouped_xyz, 'grouped_xyz', sc))
+          self.log(tensor_info(grouped_points, 'grouped_points', sc))
+          self.log('')
 
         new_points = grouped_points
         return new_xyz, grouped_xyz, new_points, valid_mask
@@ -1000,7 +1015,7 @@ class Model(ResConvOps):
             new_points = tf.nn.relu(new_points)
 
             if self.IsShowModel:
-              print(tensor_info(new_points, 'conv2d ks:1-1', 'cascade %d'%(cascade_id)))
+              self.log(tensor_info(new_points, 'conv2d ks:1-1', 'cascade %d'%(cascade_id)))
 
         if cascade_id == 0:
             root_point_features = new_points
@@ -1026,7 +1041,7 @@ class Model(ResConvOps):
         elif pooling == '3DCNN':
             new_points = self.grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz)
             if self.IsShowModel:
-              print(tensor_info(new_points, 'voxel input', 'cascade %d'%(cascade_id)))
+              self.log(tensor_info(new_points, 'voxel input', 'cascade %d'%(cascade_id)))
             for i, num_out_channel in enumerate( self.mlp_configs['voxel_channels'][cascade_id] ):
 
                 if self.mlp_configs['voxel_paddings'][cascade_id][i] == 0:
@@ -1046,7 +1061,7 @@ class Model(ResConvOps):
                     new_points = batch_norm(new_points, self.is_training, self.data_format)
                     new_points = tf.nn.relu(new_points)
                     if self.IsShowModel:
-                      print(tensor_info(new_points, 'conv3d ks:%d,%d'%(kernel_size, strides), 'cascade %d'%(cascade_id)))
+                      self.log(tensor_info(new_points, 'conv3d ks:%d,%d'%(kernel_size, strides), 'cascade %d'%(cascade_id)))
                 elif num_out_channel == 'max' or 'ave':
                   if num_out_channel == 'max':
                     pool_fn = tf.layers.max_pooling3d
@@ -1060,7 +1075,7 @@ class Model(ResConvOps):
                               name = '3d%s_%d'%(num_out_channel, i),
                               data_format = self.data_format)
                   if self.IsShowModel:
-                      print(tensor_info(new_points, '%s ks:%d,%d'%(num_out_channel, kernel_size, strides), 'cascade %d'%(cascade_id)))
+                      self.log(tensor_info(new_points, '%s ks:%d,%d'%(num_out_channel, kernel_size, strides), 'cascade %d'%(cascade_id)))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
             if cascade_id < self.cascade_num-1:
               new_points = tf.squeeze( new_points, [1,2,3] )
