@@ -39,7 +39,6 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
 DEBUG_TMP = False
-IS_SHOWMODEL = True
 
 _BATCH_NORM_DECAY = 0.997
 _BATCH_NORM_EPSILON = 1e-5
@@ -398,6 +397,7 @@ class ResConvOps(object):
   _block_layers_num = 0
   _conv2d_num = 0
   _conv3d_num = 0
+  IsShowModel = False
 
   def show_layers_num_summary(self):
     print('block layers num:{}\nconv2d num:{}\nconv3d num:{}'.format(
@@ -476,14 +476,14 @@ class ResConvOps(object):
     # since it performs a 1x1 convolution.
     if projection_shortcut is not None:
       shortcut = projection_shortcut(inputs)
-      if IS_SHOWMODEL:
+      if self.IsShowModel:
         print( tensor_info(shortcut, '%s k,s=1,%d'%(conv_str, strides),
                           'bottle_v2 shortcut'))
 
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=1, strides=1, padding_s1=padding_s1,
         data_format=data_format)
-    if IS_SHOWMODEL:
+    if self.IsShowModel:
       print( tensor_info(inputs, '%s k,s=1,1'%(conv_str), 'bottle_v2'))
 
     inputs = batch_norm(inputs, training, data_format)
@@ -491,7 +491,7 @@ class ResConvOps(object):
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=strides,
         padding_s1=padding_s1, data_format=data_format)
-    if IS_SHOWMODEL:
+    if self.IsShowModel:
       print( tensor_info(inputs, '%s k,s=%d,%d'%
                         (conv_str,b_kernel_size,strides), 'bottle_v2'))
 
@@ -500,7 +500,7 @@ class ResConvOps(object):
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
         padding_s1=padding_s1, data_format=data_format)
-    if IS_SHOWMODEL: print( tensor_info(inputs, '%s k,s=1,1'%(conv_str),
+    if self.IsShowModel: print( tensor_info(inputs, '%s k,s=1,1'%(conv_str),
                                         'bottle_v2')+'\n' )
 
     assert inputs.shape == shortcut.shape
@@ -726,7 +726,7 @@ class Model(ResConvOps):
           training)
 
   def _call(self, inputs, sg_bidxmaps, bidxmaps_flat, fmap_neighbor_idis, is_training):
-    if IS_SHOWMODEL: print('')
+    if self.IsShowModel: print('')
     self.is_training = is_training
     sg_bm_extract_idx = self.data_paras['sg_bm_extract_idx']
 
@@ -770,18 +770,18 @@ class Model(ResConvOps):
           if k == 0:
               l_points[0] = root_point_features
           l_points.append(new_points)
-          if IS_SHOWMODEL: print('------------------\n')
+          if self.IsShowModel: print('------------------\n')
 
       # ----------------------
       inputs = new_points
       axes = [2] if self.data_format == 'channels_first' else [1]
       inputs = tf.reduce_mean(inputs, axes)
       inputs = tf.identity(inputs, 'final_reduce_mean')
-      if IS_SHOWMODEL: print( tensor_info(inputs, 'reduce_mean', 'final') )
+      if self.IsShowModel: print( tensor_info(inputs, 'reduce_mean', 'final') )
 
       inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
       inputs = tf.identity(inputs, 'final_dense')
-      if IS_SHOWMODEL:
+      if self.IsShowModel:
         print( tensor_info(inputs, 'dense', 'final') +'\n\n' )
         self.show_layers_num_summary()
       return inputs
@@ -803,7 +803,7 @@ class Model(ResConvOps):
     if cascade_id == 0:
       root_point_features = outputs
       outputs = tf.reduce_max(outputs, axis=2)
-      if IS_SHOWMODEL: print( tensor_info(outputs, 'max', 'cas0') +'\n' )
+      if self.IsShowModel: print( tensor_info(outputs, 'max', 'cas0') +'\n' )
     else:
       root_point_features = None
       if self.voxel3d:
@@ -827,14 +827,14 @@ class Model(ResConvOps):
       if self.resnet_version == 1:
         inputs = batch_norm(inputs, training, self.data_format)
         inputs = tf.nn.relu(inputs)
-      if IS_SHOWMODEL:print(tensor_info(inputs,'conv2d ks:1,1','initial'))
+      if self.IsShowModel:print(tensor_info(inputs,'conv2d ks:1,1','initial'))
 
       return inputs
 
   def res_sa_model(self, cascade_id, inputs, grouped_xyz,
                    valid_mask, block_bottom_center_mm, scope):
       for i, num_blocks in enumerate(self.block_sizes[cascade_id]):
-        if IS_SHOWMODEL:
+        if self.IsShowModel:
           print('--------------cascade_id %d, block %d----------------'%(cascade_id, i))
         num_filters = self.num_filters * (2**self.block_num_count)
         num_filters = min(num_filters, 2048)
@@ -954,7 +954,7 @@ class Model(ResConvOps):
         if cascade_id>0 and self.use_xyz and (not cascade_id==self.cascade_num-1):
             grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
-        if IS_SHOWMODEL:
+        if self.IsShowModel:
           sc = 'grouping %d'%(cascade_id)
           print(tensor_info(xyz, 'xyz', sc))
           print(tensor_info(new_xyz, 'new_xyz', sc))
@@ -985,7 +985,7 @@ class Model(ResConvOps):
             new_points = batch_norm(new_points, self.is_training, self.data_format)
             new_points = tf.nn.relu(new_points)
 
-            if IS_SHOWMODEL:
+            if self.IsShowModel:
               print(tensor_info(new_points, 'conv2d ks:1-1', 'cascade %d'%(cascade_id)))
 
         if cascade_id == 0:
@@ -1011,7 +1011,7 @@ class Model(ResConvOps):
             new_points = tf.reduce_max(new_points, axis=[2], keepdims=True, name='points_after_max')
         elif pooling == '3DCNN':
             new_points = self.grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz)
-            if IS_SHOWMODEL:
+            if self.IsShowModel:
               print(tensor_info(new_points, 'voxel input', 'cascade %d'%(cascade_id)))
             for i, num_out_channel in enumerate( self.mlp_configs['voxel_channels'][cascade_id] ):
 
@@ -1031,7 +1031,7 @@ class Model(ResConvOps):
                             data_format = self.data_format)
                     new_points = batch_norm(new_points, self.is_training, self.data_format)
                     new_points = tf.nn.relu(new_points)
-                    if IS_SHOWMODEL:
+                    if self.IsShowModel:
                       print(tensor_info(new_points, 'conv3d ks:%d,%d'%(kernel_size, strides), 'cascade %d'%(cascade_id)))
                 elif num_out_channel == 'max' or 'ave':
                   if num_out_channel == 'max':
@@ -1045,7 +1045,7 @@ class Model(ResConvOps):
                               padding = 'valid',
                               name = '3d%s_%d'%(num_out_channel, i),
                               data_format = self.data_format)
-                  if IS_SHOWMODEL:
+                  if self.IsShowModel:
                       print(tensor_info(new_points, '%s ks:%d,%d'%(num_out_channel, kernel_size, strides), 'cascade %d'%(cascade_id)))
                 # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
             if cascade_id < self.cascade_num-1:

@@ -280,7 +280,7 @@ def define_modelnet_flags():
   data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
-                          batch_size=16,
+                          batch_size=28,
                           num_gpus=2)
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)

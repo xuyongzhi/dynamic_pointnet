@@ -355,6 +355,9 @@ def resnet_main(
       This is only used if flags_obj.export_dir is passed.
   """
 
+  from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
+  max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
+
   # Using the Winograd non-fused algorithms provides a small performance boost.
   os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
 
@@ -433,6 +436,11 @@ def resnet_main(
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
 
+    if cycle_index == 0:
+      with tf.Session() as sess:
+        max_memory_usage_v = sess.run(max_memory_usage)
+        print('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
+
     tf.logging.info('Starting to evaluate.')
 
     # flags_obj.max_train_steps is generally associated with testing and
@@ -455,7 +463,6 @@ def resnet_main(
     input_receiver_fn = export.build_tensor_serving_input_receiver_fn(
         shape, batch_size=flags_obj.batch_size)
     classifier.export_savedmodel(flags_obj.export_dir, input_receiver_fn)
-
 
 
 def define_resnet_flags(resnet_size_choices=None):
