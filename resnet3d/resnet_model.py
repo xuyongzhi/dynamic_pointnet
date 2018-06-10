@@ -666,8 +666,6 @@ class Model(ResConvOps):
 
     self.use_xyz = False
     self.mean_grouping_position = True
-    self.xyz_elements = ['raw', 'sub_mid', 'global_mid']
-    self.xyz_elements = ['global_mid']
     self.voxel3d = True
 
 

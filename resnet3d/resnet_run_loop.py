@@ -438,13 +438,13 @@ def resnet_main(
   classifier.train(input_fn=input_fn_train, hooks=train_hooks, steps=10)
   with tf.Session() as sess:
     max_memory_usage_v = sess.run(max_memory_usage)
-    print('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
+    tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
   for cycle_index in range(total_training_cycle):
     tf.logging.info('Starting a training cycle: %d/%d',
                     cycle_index, total_training_cycle)
 
-    if cycle_index %3 == 0:
+    if (cycle_index-2) %4 == 0:
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
@@ -458,6 +458,10 @@ def resnet_main(
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
 
+    if cycle_index ==0:
+      with tf.Session() as sess:
+        max_memory_usage_v = sess.run(max_memory_usage)
+        tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
     tf.logging.info('Starting to evaluate.')
 

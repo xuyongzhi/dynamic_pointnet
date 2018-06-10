@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Runs a ResNet model on the ImageNet dataset."""
+"""Runs a ResNet model on the ModelNet dataset."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -44,8 +44,8 @@ from dataset_utils import parse_pl_record
 
 _DATA_PARAS = None
 
-_DEFAULT_IMAGE_SIZE = 224
-_NUM_CHANNELS = 3
+#_DEFAULT_IMAGE_SIZE = 224
+#_NUM_CHANNELS = 3
 _NUM_CLASSES = 40
 
 _NUM_IMAGES = {
@@ -199,7 +199,7 @@ class ModelnetModel(resnet_model.Model):
 def modelnet_model_fn(features, labels, mode, params):
   """Our model_fn for ResNet to be used with our Estimator."""
   learning_rate_fn = resnet_run_loop.learning_rate_with_decay(
-      batch_size=params['batch_size'], batch_denom=256,
+      batch_size=params['batch_size'], batch_denom=128,
       num_images=_NUM_IMAGES['train'], boundary_epochs=[30, 60, 80, 90],
       decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
 
@@ -230,6 +230,9 @@ def define_net_configs(flags_obj):
   model_dir = define_model_dir()
   _DATA_PARAS['model_dir'] = model_dir
   flags_obj.model_dir = model_dir
+
+  xyz_elements = flags_obj.xyz_elements.split('-')
+  _DATA_PARAS['xyz_elements'] = xyz_elements
 
 def _get_block_paras(resnet_size):
   """Retrieve the size of each block_layer in the ResNet model.
@@ -290,6 +293,7 @@ def define_model_dir():
   block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
+  logname += '-'+flags.FLAGS.xyz_elements
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -315,24 +319,26 @@ def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
 
+  flags.DEFINE_string('model_flag', '3Vm','')
   flags.DEFINE_integer('resnet_size',50,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
+  flags.DEFINE_string('xyz_elements','global_mid','raw-sub_mid-global_mid')
+
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
-  flags.DEFINE_string('model_flag', '3Vm','')
   data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
-                          batch_size=32,
+                          batch_size=48,
                           num_gpus=2)
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)
 
 
-def run_imagenet(flags_obj):
-  """Run ResNet ImageNet training and eval loop.
+def run_modelnet(flags_obj):
+  """Run ResNet ModelNet training and eval loop.
 
   Args:
     flags_obj: An object containing parsed flag values.
@@ -344,7 +350,7 @@ def run_imagenet(flags_obj):
       flags_obj, modelnet_model_fn, input_function, DATASET_NAME, _DATA_PARAS)
 
 def main(_):
-  run_imagenet(flags.FLAGS)
+  run_modelnet(flags.FLAGS)
 
 
 if __name__ == '__main__':
