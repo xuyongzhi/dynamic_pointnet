@@ -444,7 +444,7 @@ def resnet_main(
     tf.logging.info('Starting a training cycle: %d/%d',
                     cycle_index, total_training_cycle)
 
-    if (cycle_index-2) %4 == 0:
+    if cycle_index%2 == 0:
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
