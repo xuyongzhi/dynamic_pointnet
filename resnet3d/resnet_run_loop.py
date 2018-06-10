@@ -354,6 +354,10 @@ def resnet_main(
     shape: list of ints representing the shape of the images used for training.
       This is only used if flags_obj.export_dir is passed.
   """
+  IsMetricLog = True   # temporally used
+  if IsMetricLog:
+    metric_log_fn = os.path.join(flags_obj.model_dir, 'log_metric.txt')
+    metric_log_f = open(metric_log_fn, 'w')
 
   from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
   max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
@@ -445,6 +449,11 @@ def resnet_main(
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
                                         steps=flags_obj.max_train_steps)
+      if IsMetricLog:
+        metric_log_f.write('train epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
+            cycle_index, train_eval_results['loss'],\
+            train_eval_results['accuracy'], train_eval_results['global_step']))
+        metric_log_f.flush()
 
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
@@ -462,6 +471,11 @@ def resnet_main(
                                        steps=flags_obj.max_train_steps)
 
     benchmark_logger.log_evaluation_result(eval_results)
+    if IsMetricLog:
+      metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
+          cycle_index, eval_results['loss'],\
+          eval_results['accuracy'], eval_results['global_step']))
+      metric_log_f.flush()
 
     if model_helpers.past_stop_threshold(
         flags_obj.stop_threshold, eval_results['accuracy']):
@@ -488,14 +502,14 @@ def define_resnet_flags(resnet_size_choices=None):
       help=flags_core.help_wrap(
           'Version of ResNet. (1 or 2) See README.md for details.'))
 
-  choice_kwargs = dict(
-      name='resnet_size', short_name='rs', default='50',
-      help=flags_core.help_wrap('The size of the ResNet model to use.'))
+  #choice_kwargs = dict(
+  #    name='resnet_size', short_name='rs', default='50',
+  #    help=flags_core.help_wrap('The size of the ResNet model to use.'))
 
-  if resnet_size_choices is None:
-    flags.DEFINE_string(**choice_kwargs)
-  else:
-    flags.DEFINE_enum(enum_values=resnet_size_choices, **choice_kwargs)
+  #if resnet_size_choices is None:
+  #  flags.DEFINE_string(**choice_kwargs)
+  #else:
+  #  flags.DEFINE_enum(enum_values=resnet_size_choices, **choice_kwargs)
 
   # The current implementation of ResNet v1 is numerically unstable when run
   # with fp16 and will produce NaN errors soon after training begins.

@@ -49,12 +49,11 @@ _NUM_CHANNELS = 3
 _NUM_CLASSES = 40
 
 _NUM_IMAGES = {
-    'train': 1281167,
-    'validation': 50000,
+    'train': 9843,
+    'validation': 2468,
 }
 
-_NUM_TRAIN_FILES = 1024
-_SHUFFLE_BUFFER = 10000
+_NUM_TRAIN_FILES = 20
 _SHUFFLE_BUFFER = 1000
 
 DATASET_NAME = 'MODELNET40'
@@ -180,69 +179,22 @@ class ModelnetModel(resnet_model.Model):
       bottleneck = True
       final_size = 2048
 
-    block_sizes, block_kernels, block_strides, block_paddings = _get_block_paras(resnet_size)
-    model_dir = define_model_dir(block_sizes, block_kernels, block_strides, block_paddings)
-    data_paras['model_dir'] = model_dir
-
     super(ModelnetModel, self).__init__(
         model_flag = model_flag,
         resnet_size=resnet_size,
         bottleneck=bottleneck,
         num_classes=num_classes,
-        num_filters=16,
-        block_sizes=block_sizes,
-        block_kernels=block_kernels,
-        block_strides=block_strides,
-        block_paddings=block_paddings,
+        num_filters=data_paras['num_filters0'],
+        block_sizes=data_paras['block_sizes'],
+        block_kernels=data_paras['block_kernels'],
+        block_strides=data_paras['block_strides'],
+        block_paddings=data_paras['block_paddings'],
         final_size=final_size,
         resnet_version=resnet_version,
         data_format=data_format,
         dtype=dtype,
         data_paras=data_paras
     )
-
-
-def _get_block_paras(resnet_size):
-  """Retrieve the size of each block_layer in the ResNet model.
-
-  The number of block layers used for the Resnet model varies according
-  to the size of the model. This helper grabs the layer set we want, throwing
-  an error if a non-standard size has been selected.
-
-  Args:
-    resnet_size: The number of convolutional layers needed in the model.
-
-  Returns:
-    A list of block sizes to use in building the model.
-
-  Raises:
-    KeyError: if invalid resnet_size is received.
-  """
-  block_sizes = {}
-  block_kernels = {}
-  block_strides = {}
-  block_paddings = {}   # only used when strides == 1
-
-  block_sizes[50]    = [[3], [3,1], [2,2,2]]
-  block_kernels[50]  = [[1], [2,3], [3,3,3]]
-  block_strides[50]  = [[1], [1,1], [1,1,1]]
-  block_paddings[50] = [['s'], ['s','v'], ['v','v','v']]
-
-  if resnet_size not in block_sizes:
-    err = ('Could not find layers for selected Resnet size.\n'
-           'Size received: {}; sizes allowed: {}.'.format(
-               resnet_size, resnet_size.keys()))
-    raise ValueError(err)
-
-  # check settings
-  for k in block_kernels:
-    # cascade_id 0 is pointnet
-    assert (np.array(block_kernels[k][0])==1).all()
-    assert (np.array(block_strides[k][0])==1).all()
-
-
-  return block_sizes[resnet_size], block_kernels[resnet_size],\
-    block_strides[resnet_size], block_paddings[resnet_size]
 
 def modelnet_model_fn(features, labels, mode, params):
   """Our model_fn for ResNet to be used with our Estimator."""
@@ -270,24 +222,78 @@ def modelnet_model_fn(features, labels, mode, params):
   )
 
 
+def define_net_configs(flags_obj):
+  global _DATA_PARAS
+  _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
+  _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
+  _get_block_paras(flags_obj.resnet_size)
+  model_dir = define_model_dir()
+  _DATA_PARAS['model_dir'] = model_dir
+  flags_obj.model_dir = model_dir
+
+def _get_block_paras(resnet_size):
+  """Retrieve the size of each block_layer in the ResNet model.
+
+  The number of block layers used for the Resnet model varies according
+  to the size of the model. This helper grabs the layer set we want, throwing
+  an error if a non-standard size has been selected.
+
+  Args:
+    resnet_size: The number of convolutional layers needed in the model.
+
+  Returns:
+    A list of block sizes to use in building the model.
+
+  Raises:
+    KeyError: if invalid resnet_size is received.
+  """
+  global _DATA_PARAS
+  block_sizes = {}
+  block_kernels = {}
+  block_strides = {}
+  block_paddings = {}   # only used when strides == 1
+
+  block_sizes[50]    = [[3], [3,1], [2,2,2]]
+  block_kernels[50]  = [[1], [2,3], [3,3,3]]
+  block_strides[50]  = [[1], [1,1], [1,1,1]]
+  block_paddings[50] = [['s'], ['s','v'], ['v','v','v']]
+
+  if resnet_size not in block_sizes:
+    err = ('Could not find layers for selected Resnet size.\n'
+           'Size received: {}; sizes allowed: {}.'.format(
+               resnet_size, resnet_size.keys()))
+    raise ValueError(err)
+
+  # check settings
+  for k in block_kernels:
+    # cascade_id 0 is pointnet
+    assert (np.array(block_kernels[k][0])==1).all()
+    assert (np.array(block_strides[k][0])==1).all()
+
+
+  _DATA_PARAS['block_sizes'] = block_sizes[resnet_size]
+  _DATA_PARAS['block_kernels'] = block_kernels[resnet_size]
+  _DATA_PARAS['block_strides'] = block_strides[resnet_size]
+  _DATA_PARAS['block_paddings'] = block_paddings[resnet_size]
+
 def ls_str(ls_in_ls):
   ls_str = [str(e) for ls in ls_in_ls for e in ls]
   ls_str = ''.join(ls_str)
   return ls_str
 
-def define_model_dir(block_sizes, block_kernels, block_strides, block_paddings):
+def define_model_dir():
   logname = flags.FLAGS.model_flag
-  block_sizes_str = [str(e)  for bs in block_sizes for e in bs]
+  block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
   block_sizes_str = ''.join(block_sizes_str)
-  block_sizes_str = ls_str(block_sizes)
-  block_kernels_str = ls_str(block_kernels)
-  block_paddings_str = ls_str(block_paddings)
-  logname += '-b%s-k%s-p%s'%(block_sizes_str, block_kernels_str, block_paddings_str)
+  block_sizes_str = ls_str(_DATA_PARAS['block_sizes'])
+  block_kernels_str = ls_str(_DATA_PARAS['block_kernels'])
+  block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
+  logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
+                                 block_kernels_str, block_paddings_str)
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
     os.makedirs(model_dir)
-  flags_core.set_defaults(model_dir=model_dir)
   add_log_file(model_dir)
   return model_dir
 
@@ -300,7 +306,7 @@ def add_log_file(model_dir):
   formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
   # create file handler which logs even debug messages
-  fh = logging.FileHandler(os.path.join(model_dir, 'pred.log'))
+  fh = logging.FileHandler(os.path.join(model_dir, 'hooks.log'))
   fh.setLevel(logging.DEBUG)
   fh.setFormatter(formatter)
   log.addHandler(fh)
@@ -309,6 +315,8 @@ def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
 
+  flags.DEFINE_integer('resnet_size',50,'resnet_size')
+  flags.DEFINE_integer('num_filters0',16,'')
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
@@ -329,6 +337,7 @@ def run_imagenet(flags_obj):
   Args:
     flags_obj: An object containing parsed flag values.
   """
+  define_net_configs(flags_obj)
   input_function = (flags_obj.use_synthetic_data and get_synth_input_fn()
                     or input_fn)
   resnet_run_loop.resnet_main(
