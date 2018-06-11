@@ -975,11 +975,9 @@ class Model(ResConvOps):
             #    elif InDropMethod == 'set0':
             #        valid_mask = tf.logical_and( valid_mask, tf.equal(grouped_indrop_keep_mask,0), name='valid_mask_droped' )   # gpu_1/sa_layer0/valid_mask_droped
 
-        elif self.use_xyz:
-            grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
-
-        if cascade_id>0 and self.use_xyz and (not cascade_id==self.cascade_num-1):
-            grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
+        else:
+          if self.use_xyz and (not cascade_id==self.cascade_num-1):
+              grouped_points = tf.concat([grouped_xyz_feed, grouped_points],axis=-1)
 
         if self.IsShowModel:
           sc = 'grouping %d'%(cascade_id)

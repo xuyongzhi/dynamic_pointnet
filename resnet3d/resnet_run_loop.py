@@ -441,7 +441,7 @@ def resnet_main(
     tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
   for cycle_index in range(total_training_cycle):
-    tf.logging.info('Starting a training cycle: %d/%d',
+    tf.logging.info('\nStarting a training cycle: %d/%d',
                     cycle_index, total_training_cycle)
 
     if cycle_index%2 == 0:

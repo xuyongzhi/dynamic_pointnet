@@ -9,3 +9,8 @@
 - enable use_xyz
 - Use kernel>1 in shortcut may somewhat impede the identity forward, try optimize later
 - enable normal
+
+
+# Training notes
+- batch_denom=256 better than 128
+- batch_size=48 seems lead to Nan
