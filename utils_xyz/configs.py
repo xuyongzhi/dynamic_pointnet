@@ -144,6 +144,7 @@ def get_gsbb_config( gsbb_config = _gsbb_config ):
 
         sub_block_stride_candis = np.array([0.05,0.1,0.3,0.6]).astype(np.float)
         sub_block_step_candis   = np.array([0.05,0.2,0.5,1.1]).astype(np.float)
+        #                                        4    4  3    3
         nsubblock_candis =       np.array([2560, 1024, 80, 16, 1]).astype(np.int32)
         npoint_subblock_candis = np.array([24, 32,  48,  27, 48]).astype(np.int32)
         min_valid_point =       np.array( [ 1, 2,   2,   2,  2 ] )

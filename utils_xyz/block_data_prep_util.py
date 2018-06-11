@@ -3523,7 +3523,9 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             aug_str += '-dec'+str(data_aug_configs['delete_easy_categories_num'])
         return aug_str
 
-    def file_saveas_pyramid_feed(self,IsShowSummaryFinished=False,Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,Always_CreateNew_bxmh5=False, IsGenPly=False, data_aug_configs={}):
+    def file_saveas_pyramid_feed(self, file_id, IsShowSummaryFinished=False,
+        Always_CreateNew_plh5=False,Always_CreateNew_bmh5=False,
+        Always_CreateNew_bxmh5=False, IsGenPly=False, data_aug_configs={}):
         '''
         save by global block
         '''
@@ -3580,7 +3582,11 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
         pl_sph5_filename = os.path.join(out_folder_sph5,scene_name+'.sph5')
         IsIntact_pl_sph5,ck_str = Normed_H5f.check_sph5_intact( pl_sph5_filename )
-        if (not Always_CreateNew_plh5) and IsIntact_pl_sph5:
+
+        bxmh5_fn = os.path.join(out_folder_bxmh5, region_name+'.bxmh5')
+        IsIntact_sph5_bxmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
+
+        if (not Always_CreateNew_plh5) and IsIntact_pl_sph5 and IsIntact_sph5_bxmap:
             with h5py.File( pl_sph5_filename,'r' ) as plh5f:
                 cur_global_num_point = plh5f.attrs['sample_num']
             if cur_global_num_point != gsbb_write.global_num_point:
@@ -3600,16 +3606,14 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
         #-----------------------------------------------------------------------
         t2 = time.time()
         # save bxmap file
-        bxmh5_fn = os.path.join(out_folder_bxmh5, region_name+'.bxmh5')
-        IsIntact_sph5_bmap,ck_str = Normed_H5f.check_sph5_intact( bxmh5_fn )
-        if (not Always_CreateNew_bxmh5) and  IsIntact_sph5_bmap:
+        if (not Always_CreateNew_bxmh5) and  IsIntact_sph5_bxmap:
             if not SHOW_ONLY_ERR: print('bxmh5 intact: %s'%(bxmh5_fn))
         else:
             if not use_tfdataset:
               Sorted_H5f.save_bxmap_h5f( bxmh5_fn, gsbb_write, self, pl_sph5_filename )
             else:
               tfrecord_fn = os.path.join(out_folder_tfrecord, region_name+'.tfrecord')
-              Sorted_H5f.save_bxmap_h5_tfrecord( sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, self, pl_sph5_filename )
+              Sorted_H5f.save_bxmap_h5_tfrecord(file_id, sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, self, pl_sph5_filename )
         t3 = time.time()
         scope = self.h5f.attrs['xyz_max'] - self.h5f.attrs['xyz_min']
         area = scope[0] * scope[1]
@@ -3880,7 +3884,7 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
 
 
     @staticmethod
-    def save_bxmap_h5_tfrecord(sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, S_H5f, pl_sph5_filename ):
+    def save_bxmap_h5_tfrecord(file_id, sampled_pl, bxmh5_fn, tfrecord_fn, gsbb_write, S_H5f, pl_sph5_filename ):
         '''
         bxmh5:
         '''
@@ -3936,8 +3940,16 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
             bidxmaps_flat = all_flatten_bidxmaps[...,0:2].astype(np.int32)
             fmap_neighbor_idis = all_flatten_bidxmaps[...,2:3].astype(np.float32)
 
+            tfrecord_meta_fn = os.path.join(os.path.dirname(tfrecord_fn),'__meta__.tfrecord')
+            if file_id == 0:
+              tfrecord_meta_writer = tf.python_io.TFRecordWriter( tfrecord_meta_fn )
+            else:
+              tfrecord_meta_writer = None
+              assert os.path.exists(tfrecord_meta_fn)
+
             dataset_utils.write_pl_bxm_tfrecord(
                 bxm_tfrecord_writer,
+                tfrecord_meta_writer,
                 S_H5f.h5f.attrs['datasource_name'],
                 sampled_pl['file_datas'],
                 sampled_pl['data_idxs'],
@@ -3945,6 +3957,8 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
                 sg_all_bidxmaps,
                 bidxmaps_flat,
                 fmap_neighbor_idis)
+            if file_id == 0:
+              tfrecord_meta_writer.close()
 
             bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
 

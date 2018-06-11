@@ -958,6 +958,7 @@ class Model(ResConvOps):
             grouped_xyz_feed.append( grouped_xyz_glomid )
         grouped_xyz_feed = tf.concat( grouped_xyz_feed, -1 )
 
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         if cascade_id==0:
             # xyz must be at the first in feed_data_elements !!!!
             grouped_points = tf.concat( [grouped_xyz_feed, grouped_points[...,3:]],-1 )

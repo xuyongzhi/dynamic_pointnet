@@ -104,9 +104,25 @@ def pl_bxm_to_tfexample(points, object_label, sg_all_bidxmaps, bidxmaps_flat, fm
   }))
   return example
 
+def data_meta_to_tfexample(point_idxs):
+  data_eles = ['xyz', 'nxnynz', 'color', 'intensity']
+  feature_map = {}
+  point_idxs_bin = {}
+  for ele in data_eles:
+    if ele not in point_idxs:
+      point_idxs_bin[ele] = np.array([],np.int32).tobytes()
+    else:
+      point_idxs_bin[ele] = np.array(point_idxs[ele],np.int32).tobytes()
+    feature_map['point_idxs/%s'%(ele)] = bytes_feature( point_idxs_bin[ele] )
 
-def write_pl_bxm_tfrecord(bxm_tfrecord_writer, datasource_name, points, point_idxs, object_labels,\
+  example = tf.train.Example(features=tf.train.Features(feature=feature_map))
+
+def write_pl_bxm_tfrecord(bxm_tfrecord_writer, tfrecord_meta_writer,\
+                        datasource_name, points, point_idxs, object_labels,\
                         sg_all_bidxmaps, bidxmaps_flat, fmap_neighbor_idis):
+  if tfrecord_meta_writer!=None:
+    example = data_meta_to_tfexample(point_idxs)
+    tfrecord_meta_writer.write(example)
 
   num_gblocks = sg_all_bidxmaps.shape[0]
   assert num_gblocks == points.shape[0]
@@ -169,6 +185,7 @@ def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
+    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     return features, object_label
 
 

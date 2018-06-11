@@ -9,6 +9,7 @@
 - enable use_xyz
 - Use kernel>1 in shortcut may somewhat impede the identity forward, try optimize later
 - enable normal
+- log net configs
 
 
 # Training notes

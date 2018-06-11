@@ -42,7 +42,7 @@ def WriteSortH5f_FromRawH5f(rawh5_file_ls,block_step_xyz,sorted_path, RotateBefo
     Sort_RawH5f(rawh5_file_ls,block_step_xyz,sorted_path,RotateBeforeSort, IsShowInfoFinished)
     return rawh5_file_ls
 
-def GenPyramidSortedFlie( fn, data_aug_configs ):
+def GenPyramidSortedFlie(file_id, fn, data_aug_configs):
 
     with h5py.File(fn,'r') as f:
         sorted_h5f = Sorted_H5f(f,fn)
@@ -55,12 +55,13 @@ def GenPyramidSortedFlie( fn, data_aug_configs ):
             Always_CreateNew_bxmh5 = False
 
         sorted_h5f.file_saveas_pyramid_feed(
-                            IsShowSummaryFinished=True,
-                            Always_CreateNew_plh5 = Always_CreateNew_plh5,
-                            Always_CreateNew_bmh5 = Always_CreateNew_bmh5,
-                            Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
-                            IsGenPly=False,
-                            data_aug_configs = data_aug_configs )
+          file_id,
+          IsShowSummaryFinished=True,
+          Always_CreateNew_plh5 = Always_CreateNew_plh5,
+          Always_CreateNew_bmh5 = Always_CreateNew_bmh5,
+          Always_CreateNew_bxmh5=Always_CreateNew_bxmh5,
+          IsGenPly=False,
+          data_aug_configs = data_aug_configs )
     return fn
 
 def split_fn_ls( nonvoid_plfn_ls, bxmh5_fn_ls, tfrecordfn_ls, merged_n=2 ):
@@ -437,10 +438,10 @@ class H5Prepare():
             pool = mp.Pool(MultiProcess)
         for k,fn in enumerate( file_list ):
             if not IsMultiProcess:
-                GenPyramidSortedFlie(fn, data_aug_configs)
+                GenPyramidSortedFlie(k, fn, data_aug_configs)
                 print( 'Finish %d / %d files'%( k+1, len(file_list) ))
             else:
-                results = pool.apply_async(GenPyramidSortedFlie,( fn,data_aug_configs))
+                results = pool.apply_async(GenPyramidSortedFlie,(k, fn,data_aug_configs))
         if IsMultiProcess:
             pool.close()
             pool.join()
@@ -595,30 +596,30 @@ def GenObj_sph5():
             normedh5f.gen_gt_pred_obj_examples()
 
 def main( ):
-        t0 = time.time()
-        MultiProcess = 5
-        h5prep = H5Prepare()
+    t0 = time.time()
+    MultiProcess = 0
+    h5prep = H5Prepare()
 
-        #h5prep.ParseRaw( MultiProcess )
-        if DATASET == 'SCANNET':
-            base_step_stride = [0.1,0.1,0.1]
-        elif DATASET == 'ETH':
-            base_step_stride = [0.2,0.2,0.2]
-        elif DATASET == 'MODELNET40':
-            base_step_stride = [0.05,0.05,0.05]
-        elif DATASET  == 'KITTI':
-            base_step_stride = [0.2, 0.2, 0.4]
-        #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
-        RxyzBeforeSort = None
-        # h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
+    #h5prep.ParseRaw( MultiProcess )
+    if DATASET == 'SCANNET':
+        base_step_stride = [0.1,0.1,0.1]
+    elif DATASET == 'ETH':
+        base_step_stride = [0.2,0.2,0.2]
+    elif DATASET == 'MODELNET40':
+        base_step_stride = [0.05,0.05,0.05]
+    elif DATASET  == 'KITTI':
+        base_step_stride = [0.2, 0.2, 0.4]
+    #RxyzBeforeSort = np.array([0,0,45])*np.pi/180
+    RxyzBeforeSort = None
+    # h5prep.SortRaw( base_step_stride, MultiProcess, RxyzBeforeSort )
 
-        data_aug_configs = {}
-        # data_aug_configs['delete_unlabelled'] = True
-        # data_aug_configs['delete_easy_categories_num'] = 3
+    data_aug_configs = {}
+    # data_aug_configs['delete_unlabelled'] = True
+    # data_aug_configs['delete_easy_categories_num'] = 3
 
-        #h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
-        h5prep.MergeNormed( data_aug_configs )
-        print('T = %f sec'%(time.time()-t0))
+    h5prep.GenPyramid(base_step_stride, base_step_stride, data_aug_configs,  MultiProcess)
+    #h5prep.MergeNormed( data_aug_configs )
+    print('T = %f sec'%(time.time()-t0))
 
 if __name__ == '__main__':
     main()

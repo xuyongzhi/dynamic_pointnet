@@ -441,10 +441,10 @@ def resnet_main(
     tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
   for cycle_index in range(total_training_cycle):
-    tf.logging.info('\nStarting a training cycle: %d/%d',
+    tf.logging.info('Starting a training cycle: %d/%d\n',
                     cycle_index, total_training_cycle)
 
-    if cycle_index%2 == 0:
+    if cycle_index%4 == 0:
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
@@ -476,7 +476,7 @@ def resnet_main(
 
     benchmark_logger.log_evaluation_result(eval_results)
     if IsMetricLog:
-      metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
+      metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n\n'.format(\
           cycle_index, eval_results['loss'],\
           eval_results['accuracy'], eval_results['global_step']))
       metric_log_f.flush()
