@@ -147,6 +147,7 @@ def get_data_meta_from_hdf5(data_dir):
   _DATA_PARAS['sub_block_stride_candis'] = gsbb_load.sub_block_stride_candis
   _DATA_PARAS['sub_block_step_candis'] = gsbb_load.sub_block_step_candis
   _DATA_PARAS['flatbxmap_max_nearest_num'] = gsbb_load.flatbxmap_max_nearest_num
+  _DATA_PARAS['data_idxs'] = gsbb_load.data_idxs
 
 
 ###############################################################################
@@ -227,12 +228,25 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
   _get_block_paras(flags_obj.resnet_size)
+
+  feed_data = flags_obj.feed_data.split('-')
+  assert feed_data[0][0:3] == 'xyz'
+  xyz_eles = feed_data[0][3:]
+  feed_data[0] = 'xyz'
+  assert len(xyz_eles)<=3
+  xyz_elements = []
+  if 's' in xyz_eles: xyz_elements.append('sub_mid')
+  if 'g' in xyz_eles: xyz_elements.append('global_mid')
+  if 'r' in xyz_eles: xyz_elements.append('raw')
+  assert len(xyz_elements) > 0
+  _DATA_PARAS['feed_data'] = feed_data
+  _DATA_PARAS['xyz_elements'] = xyz_elements
+  _DATA_PARAS['model_flag'] = flags_obj.model_flag
+
   model_dir = define_model_dir()
   _DATA_PARAS['model_dir'] = model_dir
   flags_obj.model_dir = model_dir
 
-  xyz_elements = flags_obj.xyz_elements.split('-')
-  _DATA_PARAS['xyz_elements'] = xyz_elements
 
 def _get_block_paras(resnet_size):
   """Retrieve the size of each block_layer in the ResNet model.
@@ -293,7 +307,7 @@ def define_model_dir():
   block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
-  logname += '-'+flags.FLAGS.xyz_elements
+  logname += '-'+flags.FLAGS.feed_data
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -322,7 +336,8 @@ def define_modelnet_flags():
   flags.DEFINE_string('model_flag', '3Vm','')
   flags.DEFINE_integer('resnet_size',50,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
-  flags.DEFINE_string('xyz_elements','global_mid','raw-sub_mid-global_mid')
+  flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
+  #flags.DEFINE_string('feed_data','xyzg-nxnynz','xyzrsg-nxnynz-color')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])

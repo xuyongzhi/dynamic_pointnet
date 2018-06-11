@@ -400,13 +400,22 @@ class ResConvOps(object):
   IsShowModel = False
   _epoch = 0
 
-  def __init__(self, model_dir):
+  def __init__(self, data_paras):
+    model_dir = data_paras['model_dir']
     if ResConvOps._epoch==0:
       self.IsShowModel = True
       if not os.path.exists(model_dir):
         os.makedirs(model_dir)
       self.model_log_fn = os.path.join(model_dir, 'log_model.txt')
       self.model_log_f = open(self.model_log_fn, 'w')
+
+      items_to_write = ['model_flag', 'dataset_name', 'feed_data', 'xyz_elements', 'points',\
+                        'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
+                        'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings']
+      for item in items_to_write:
+        self.model_log_f.write('%s:%s\n'%(item, data_paras[item]))
+      self.model_log_f.write('\n')
+      self.model_log_f.flush()
     ResConvOps._epoch += 1
 
   def log(self, log_str):
@@ -605,7 +614,7 @@ class Model(ResConvOps):
     Raises:
       ValueError: if invalid version is selected.
     """
-    super(Model, self).__init__(data_paras['model_dir'])
+    super(Model, self).__init__(data_paras)
     self.model_flag = model_flag
     self.resnet_size = resnet_size
 
@@ -663,6 +672,14 @@ class Model(ResConvOps):
     self.mlp_configs = get_sa_module_config(self.model_flag)
     for key in self.data_paras:
       setattr(self, key, self.data_paras[key])
+
+    for e in self.feed_data:
+      assert e in self.data_idxs
+    IsAllInputs = len(self.data_idxs) == len(self.feed_data)
+    if IsAllInputs:
+      self.feed_data_idxs = 'ALL'
+    else:
+      self.feed_data_idxs = np.sort([i for e in self.feed_data for i in self.data_idxs[e] ])
 
     self.use_xyz = False
     self.mean_grouping_position = True
@@ -746,6 +763,9 @@ class Model(ResConvOps):
     if self.IsShowModel: self.log('')
     self.is_training = is_training
     sg_bm_extract_idx = self.data_paras['sg_bm_extract_idx']
+
+    if self.feed_data_idxs!='ALL':
+      inputs = tf.gather(inputs, self.feed_data_idxs, axis=-1)
 
     with self._model_variable_scope():
       l_points = []                       # size = l_points+1
@@ -958,7 +978,6 @@ class Model(ResConvOps):
             grouped_xyz_feed.append( grouped_xyz_glomid )
         grouped_xyz_feed = tf.concat( grouped_xyz_feed, -1 )
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         if cascade_id==0:
             # xyz must be at the first in feed_data_elements !!!!
             grouped_points = tf.concat( [grouped_xyz_feed, grouped_points[...,3:]],-1 )

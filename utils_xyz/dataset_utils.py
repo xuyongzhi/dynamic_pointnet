@@ -185,7 +185,6 @@ def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
     return features, object_label
 
 

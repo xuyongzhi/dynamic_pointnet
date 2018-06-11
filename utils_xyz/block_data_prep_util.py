@@ -378,6 +378,13 @@ class GlobalSubBaseBLOCK():
                 if ele_name=='min_valid_point' or ele_name=='aimbnum_rm_miss_add':
                     continue
                 setattr( self,ele_name, h5f.attrs[ele_name]  )
+
+            # get data_idx
+            self.data_idxs = {}
+            for ele in h5f.attrs:
+              if 'data_idx' in ele:
+                data_ele = ele.split('-')[1]
+                self.data_idxs[data_ele] = h5f.attrs[ele]
         self.update_parameters()
 
     def load_para_from_rootsh5( self ):
@@ -3961,6 +3968,10 @@ xyz_scope_aligned: [ 3.5  2.8  2.5]
               tfrecord_meta_writer.close()
 
             bxmh5f.append_to_dset('globalb_info', globalb_bottom_center_xyz)
+
+            # save data_idxs
+            for ele in sampled_pl['data_idxs']:
+              bxmh5f.h5f.attrs['data_idx-'+ele] = sampled_pl['data_idxs'][ele]
 
             for key in sum_bxmap_metas:
                 setattr(gsbb_write, key, sum_bxmap_metas[key])
