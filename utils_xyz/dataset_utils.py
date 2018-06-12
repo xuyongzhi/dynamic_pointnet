@@ -190,10 +190,11 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
-    if is_training and data_net_configs != None and data_net_configs['aug']=='rotate':
+    if is_training and data_net_configs != None and data_net_configs['aug']!='none':
       from aug_data_tf import aug_data
-      points, R = aug_data(points)
+      points, R, S = aug_data(points, data_net_configs['aug'])
       features['R'] = R
+      features['S'] = S
     features['points'] = points
 
     return features, object_label

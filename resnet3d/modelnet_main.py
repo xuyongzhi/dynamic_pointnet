@@ -84,7 +84,7 @@ def input_fn(is_training, data_dir, batch_size, data_net_configs=None, num_epoch
   """
   filenames = get_filenames(is_training, data_dir)
   assert len(filenames)>0, (data_dir)
-  print('\ngot {} tfrecord files\n'.format(len(filenames)))
+  #print('\ngot {} tfrecord files\n'.format(len(filenames)))
   dataset = tf.data.TFRecordDataset(filenames)
                                    # compression_type="",
                                    # buffer_size=_SHUFFLE_BUFFER,
@@ -116,7 +116,7 @@ def get_synth_input_fn():
 def get_data_shapes_from_tfrecord(data_dir):
   global _DATA_PARAS
 
-  batch_size = 2
+  batch_size = 1
   with tf.Graph().as_default():
     dataset = input_fn(False, data_dir, batch_size)
     iterator = dataset.make_one_shot_iterator().get_next()
@@ -129,17 +129,22 @@ def get_data_shapes_from_tfrecord(data_dir):
       print('\n\nget shape from tfrecord OK:\n %s\n\n'%(_DATA_PARAS))
       #print('points', features['points'][0,0:5,:])
 
-    def check():
-      dataset = input_fn(False, data_dir, batch_size, _DATA_PARAS)
-      iterator1 = dataset.make_initializable_iterator()
-      next_item = iterator1.get_next()
+def check_data():
+  batch_size = 32
+  data_dir = _DATA_PARAS['data_dir']
+  with tf.Graph().as_default():
+    dataset = input_fn(True, data_dir, batch_size, _DATA_PARAS)
+    iterator1 = dataset.make_initializable_iterator()
+    next_item = iterator1.get_next()
 
-      with tf.Session() as sess:
-          sess.run(iterator1.initializer)
-          features, label = sess.run(next_item)
-          print('R', features['R'][0:2])
-          print('points', features['points'][0,0:5,:])
-    #check()
+    with tf.Session() as sess:
+        sess.run(iterator1.initializer)
+        features, label = sess.run(next_item)
+        print('R', features['R'][0:2])
+        print('points', features['points'][0,0:5,:])
+        print('S', features['S'])
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        pass
 
 
 def get_data_meta_from_hdf5(data_dir):
@@ -353,12 +358,13 @@ def define_modelnet_flags():
   flags.DEFINE_integer('resnet_size',50,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
-  flags.DEFINE_string('aug','rotate','rotate, none')
+  flags.DEFINE_string('aug','all','all, none')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
   data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
+  _DATA_PARAS['data_dir'] = data_dir
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
                           batch_size=32,
@@ -377,6 +383,7 @@ def run_modelnet(flags_obj):
   define_net_configs(flags_obj)
   input_function = (flags_obj.use_synthetic_data and get_synth_input_fn()
                     or input_fn)
+  check_data()
   resnet_run_loop.resnet_main(
       flags_obj, modelnet_model_fn, input_function, DATASET_NAME, _DATA_PARAS)
 

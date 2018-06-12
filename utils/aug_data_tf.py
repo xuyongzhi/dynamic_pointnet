@@ -11,24 +11,50 @@ import numpy as np
 
 
 
-def random_rotate(points):
-  ''' points: [n,3] 'xyz'
+def random_rotate():
+  '''
+      Rotate the whole object by a random angle 3D
+  '''
+
+  angles = tf.random_uniform([3], dtype=tf.float32) * 2 * np.pi
+  R = tf_EulerRotate(angles, 'zxy')
+  return R
+
+def random_scaling(min_scale=0.8, max_scale=1.25):
+  scales = tf.random_uniform([3], minval=min_scale, maxval=max_scale)
+  S = tf.concat([[[scales[0], 0, 0],
+                  [0, scales[1], 0],
+                  [0, 0, scales[2]] ]], 0)
+  return S
+
+def aug_all(points):
+  '''
+      points: [n,3] 'xyz'
               [n,6] 'xyznxnynz'
   '''
   assert len(points.shape) == 2
   channels = points.shape[1].value
   assert channels == 3 or channels == 6
 
-  angles = tf.random_uniform([3], dtype=tf.float32) * 2 * np.pi
-  R = tf_EulerRotate(angles, 'zxy')
-  if channels==6:
-    points = tf.reshape(points, [-1,3])
-  points = tf.matmul(points, R)
-  if channels==6:
-    points = tf.reshape(points, [-1,6])
-  return points, R
+  R = random_rotate()
+  S = random_scaling()
+  RS = tf.matmul(R, S)
 
-def aug_data(points):
-  points, R = random_rotate(points)
-  return points, R
+  points_xyz = tf.matmul(points[:,0:3], RS)
+  if channels==6:
+    points_normal = tf.matmul(points[:,3:6], R)
+    points = tf.concat([points_xyz, points_normal], -1)
+  else:
+    points = points_xyz
+
+  return points, R, S
+
+def aug_data(points, aug_type='none'):
+  if aug_type=='none':
+    return points, None, None
+  elif aug_type=='all':
+    points, R, S = aug_all(points)
+    return points, R, S
+  else:
+    raise NotImplementedError
 
