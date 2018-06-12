@@ -192,9 +192,8 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
 
     if is_training and data_net_configs != None and data_net_configs['aug']!='none':
       from aug_data_tf import aug_data
-      points, R, S = aug_data(points, data_net_configs['aug'])
-      features['R'] = R
-      features['S'] = S
+      points, augs = aug_data(points, data_net_configs['aug'], data_net_configs['data_idxs'])
+      features['augs'] = augs
     features['points'] = points
 
     return features, object_label

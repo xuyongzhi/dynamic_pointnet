@@ -140,9 +140,11 @@ def check_data():
     with tf.Session() as sess:
         sess.run(iterator1.initializer)
         features, label = sess.run(next_item)
-        print('R', features['R'][0:2])
+        print('R', features['augs']['R'][0:2])
         print('points', features['points'][0,0:5,:])
-        print('S', features['S'])
+        print('S', features['augs']['S'][0:2])
+        print('shifts', features['augs']['shifts'][0:2])
+        print('jitter', features['augs']['jitter'][0][0:5])
         import pdb; pdb.set_trace()  # XXX BREAKPOINT
         pass
 
@@ -383,7 +385,7 @@ def run_modelnet(flags_obj):
   define_net_configs(flags_obj)
   input_function = (flags_obj.use_synthetic_data and get_synth_input_fn()
                     or input_fn)
-  check_data()
+  #check_data()
   resnet_run_loop.resnet_main(
       flags_obj, modelnet_model_fn, input_function, DATASET_NAME, _DATA_PARAS)
 
