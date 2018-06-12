@@ -27,7 +27,9 @@ import tensorflow as tf
 
 LABELS_FILENAME = 'labels.txt'
 
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
 def decode_raw(encoded_string, org_dtype, org_shape):
   out_tensor = tf.reshape(tf.decode_raw(encoded_string, org_dtype),
@@ -131,7 +133,11 @@ def write_pl_bxm_tfrecord(bxm_tfrecord_writer, tfrecord_meta_writer,\
     bxm_tfrecord_writer.write(example.SerializeToString())
 
 
-def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
+def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
+    #if data_net_configs!=None:
+    #  from aug_data_tf import aug_data, tf_Rz
+    #  R = tf_Rz(1)
+    #  import pdb; pdb.set_trace()  # XXX BREAKPOINT
     feature_map = {
         'object/label': tf.FixedLenFeature([], tf.int64),
         'points/shape': tf.FixedLenFeature([], tf.string),
@@ -148,10 +154,10 @@ def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
                                                 name='pl_features')
 
     points = tf.decode_raw(tfrecord_features['points/encoded'], tf.float32)
-    if feature_shapes == None:
+    if data_net_configs == None:
       points_shape = tf.decode_raw(tfrecord_features['points/shape'], tf.int32)
     else:
-      points_shape = feature_shapes['points']
+      points_shape = data_net_configs['points']
     # the image tensor is flattened out, so we have to reconstruct the shape
     points = tf.reshape(points, points_shape)
 
@@ -159,41 +165,45 @@ def parse_pl_record(tfrecord_serialized, is_training, feature_shapes=None):
     object_label = tf.expand_dims(object_label,0)
 
     sg_all_bidxmaps = tf.decode_raw(tfrecord_features['sg_all_bidxmaps/encoded'], tf.int32)
-    if feature_shapes == None:
+    if data_net_configs == None:
       sg_all_bidxmaps_shape = tf.decode_raw(tfrecord_features['sg_all_bidxmaps/shape'], tf.int32)
     else:
-      sg_all_bidxmaps_shape = feature_shapes['sg_all_bidxmaps']
+      sg_all_bidxmaps_shape = data_net_configs['sg_all_bidxmaps']
     sg_all_bidxmaps = tf.reshape(sg_all_bidxmaps, sg_all_bidxmaps_shape)
 
     bidxmaps_flat = tf.decode_raw(tfrecord_features['bidxmaps_flat/encoded'], tf.int32)
-    if feature_shapes == None:
+    if data_net_configs == None:
       bidxmaps_flat_shape = tf.decode_raw(tfrecord_features['bidxmaps_flat/shape'], tf.int32)
     else:
-      bidxmaps_flat_shape = feature_shapes['bidxmaps_flat']
+      bidxmaps_flat_shape = data_net_configs['bidxmaps_flat']
     bidxmaps_flat = tf.reshape(bidxmaps_flat, bidxmaps_flat_shape)
 
     fmap_neighbor_idis = tf.decode_raw(tfrecord_features['fmap_neighbor_idis/encoded'], tf.float32)
-    if feature_shapes == None:
+    if data_net_configs == None:
       fmap_neighbor_idis_shape = tf.decode_raw(tfrecord_features['fmap_neighbor_idis/shape'], tf.int32)
     else:
-      fmap_neighbor_idis_shape = feature_shapes['fmap_neighbor_idis']
+      fmap_neighbor_idis_shape = data_net_configs['fmap_neighbor_idis']
     fmap_neighbor_idis = tf.reshape(fmap_neighbor_idis, fmap_neighbor_idis_shape)
 
     features = {}
-    features['points'] = points
     features['sg_all_bidxmaps'] = sg_all_bidxmaps
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
+
+    if is_training and data_net_configs != None and data_net_configs['aug']=='rotate':
+      from aug_data_tf import aug_data
+      points, R = aug_data(points)
+      features['R'] = R
+    features['points'] = points
 
     return features, object_label
 
 
 def read_tfrecord():
   import ply_util
-  path = '/home/z/Research/dynamic_pointnet/data/MODELNET40__H5F/ORG_tfrecord/4096_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp/'
-  filenames = glob.glob(os.path.join(path,'airplane_0001.tfrecord'))
-  path = '/home/z/Research/dynamic_pointnet/data/MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
-  filenames = glob.glob(os.path.join(path,'test_night_stand_0263_to_toilet_0354-822.tfrecord'))
+  path = '/home/z/Research/dynamic_pointnet/data/MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+  filenames = glob.glob(os.path.join(path,'*.tfrecord'))
+  assert len(filenames) > 0
 
   with tf.Graph().as_default():
     dataset = tf.data.TFRecordDataset(filenames,
@@ -217,11 +227,11 @@ def read_tfrecord():
       features, object_label = sess.run(dataset.make_one_shot_iterator().get_next())
       print(features['points'][0])
       print(object_label)
+      import pdb; pdb.set_trace()  # XXX BREAKPOINT
       for i in range(batch_size):
         plyfn = '/tmp/tfrecord_%d.ply'%(i)
         ply_util.create_ply(features['points'][i], plyfn)
-    import pdb; pdb.set_trace()  # XXX BREAKPOINT
-    pass
+
 
 def merge_tfrecord( filenames, merged_filename ):
   with tf.Graph().as_default():
@@ -251,6 +261,8 @@ def merge_tfrecord( filenames, merged_filename ):
           except:
             print('totally {} blocks, merge tfrecord OK:\n\t{}'.format(num_blocks,merged_filename))
             break
+
+
 
 if __name__ == '__main__':
   #test_encode_raw()

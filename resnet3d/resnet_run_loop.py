@@ -37,12 +37,11 @@ from official.utils.logs import logger
 from official.utils.misc import model_helpers
 # pylint: enable=g-bad-import-order
 
-
 ################################################################################
 # Functions for input processing.
 ################################################################################
 def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
-                           parse_record_fn, data_paras, num_epochs=1):
+                           parse_record_fn, data_net_configs, num_epochs=1):
   """Given a Dataset with raw records, return an iterator over the records.
 
   Args:
@@ -77,7 +76,7 @@ def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
   # batch_size is almost always much greater than the number of CPU cores.
   dataset = dataset.apply(
       tf.contrib.data.map_and_batch(
-          lambda value: parse_record_fn(value, is_training, data_paras),
+          lambda value: parse_record_fn(value, is_training, data_net_configs),
           batch_size=batch_size,
           num_parallel_batches=1,
           drop_remainder=True))
@@ -159,7 +158,7 @@ def learning_rate_with_decay(
 def resnet_model_fn(model_flag, features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,
                     data_format, resnet_version, loss_scale,
-                    loss_filter_fn=None, dtype=resnet_model.DEFAULT_DTYPE, data_paras={}):
+                    loss_filter_fn=None, dtype=resnet_model.DEFAULT_DTYPE, data_net_configs={}):
   """Shared functionality for different resnet model_fns.
 
   Initializes the ResnetModel representing the model layers
@@ -202,7 +201,7 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
   #features = tf.cast(features, dtype)
 
   model = model_class(model_flag, resnet_size, data_format, resnet_version=resnet_version,
-                      dtype=dtype, data_paras=data_paras)
+                      dtype=dtype, data_net_configs=data_net_configs)
 
   logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -338,7 +337,7 @@ def per_device_batch_size(batch_size, num_gpus):
 
 
 def resnet_main(
-    flags_obj, model_function, input_function, dataset_name, data_paras):
+    flags_obj, model_function, input_function, dataset_name, data_net_configs):
   """Shared main loop for ResNet Models.
 
   Args:
@@ -397,7 +396,7 @@ def resnet_main(
           'resnet_version': int(flags_obj.resnet_version),
           'loss_scale': flags_core.get_loss_scale(flags_obj),
           'dtype': flags_core.get_tf_dtype(flags_obj),
-          'data_paras': data_paras
+          'data_net_configs': data_net_configs
       })
 
   run_params = {
@@ -420,7 +419,7 @@ def resnet_main(
         is_training=True, data_dir=flags_obj.data_dir,
         batch_size=per_device_batch_size(
             flags_obj.batch_size, flags_core.get_num_gpus(flags_obj)),
-        data_paras = data_paras,
+        data_net_configs = data_net_configs,
         num_epochs=flags_obj.epochs_between_evals)
 
   def input_fn_eval():
@@ -428,7 +427,7 @@ def resnet_main(
         is_training=False, data_dir=flags_obj.data_dir,
         batch_size=per_device_batch_size(
             flags_obj.batch_size, flags_core.get_num_gpus(flags_obj)),
-        data_paras = data_paras,
+        data_net_configs = data_net_configs,
         num_epochs=1)
 
   total_training_cycle = (flags_obj.train_epochs //

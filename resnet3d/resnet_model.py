@@ -400,8 +400,8 @@ class ResConvOps(object):
   IsShowModel = False
   _epoch = 0
 
-  def __init__(self, data_paras):
-    model_dir = data_paras['model_dir']
+  def __init__(self, data_net_configs):
+    model_dir = data_net_configs['model_dir']
     if ResConvOps._epoch==0:
       self.IsShowModel = True
       if not os.path.exists(model_dir):
@@ -409,11 +409,11 @@ class ResConvOps(object):
       self.model_log_fn = os.path.join(model_dir, 'log_model.txt')
       self.model_log_f = open(self.model_log_fn, 'w')
 
-      items_to_write = ['model_flag', 'dataset_name', 'feed_data', 'xyz_elements', 'points',\
+      items_to_write = ['model_flag', 'dataset_name', 'aug', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings']
       for item in items_to_write:
-        self.model_log_f.write('%s:%s\n'%(item, data_paras[item]))
+        self.model_log_f.write('%s:%s\n'%(item, data_net_configs[item]))
       self.model_log_f.write('\n')
       self.model_log_f.flush()
     ResConvOps._epoch += 1
@@ -582,7 +582,7 @@ class Model(ResConvOps):
   def __init__(self, model_flag, resnet_size, bottleneck, num_classes, num_filters,
                block_sizes, block_kernels, block_strides, block_paddings,
                final_size, resnet_version=DEFAULT_VERSION, data_format=None,
-               dtype=DEFAULT_DTYPE, data_paras={}):
+               dtype=DEFAULT_DTYPE, data_net_configs={}):
     """Creates a model for classifying an image.
 
     Args:
@@ -614,7 +614,7 @@ class Model(ResConvOps):
     Raises:
       ValueError: if invalid version is selected.
     """
-    super(Model, self).__init__(data_paras)
+    super(Model, self).__init__(data_net_configs)
     self.model_flag = model_flag
     self.resnet_size = resnet_size
 
@@ -653,7 +653,7 @@ class Model(ResConvOps):
     self.final_size = final_size
     self.dtype = dtype
     self.pre_activation = resnet_version == 2
-    self.data_paras = data_paras
+    self.data_net_configs = data_net_configs
     self.block_num_count = 0
 
     self._preprocess_configs()
@@ -664,14 +664,14 @@ class Model(ResConvOps):
         self.num_neighbors = np.array( [ int(n) for n in num_neighbors ] )
     else:
         self.num_neighbors= None
-    self.global_numpoint = self.data_paras['points'][0]
+    self.global_numpoint = self.data_net_configs['points'][0]
     self.cascade_num = int(self.model_flag[0])
-    assert self.cascade_num <= self.data_paras['sg_bm_extract_idx'].shape[0]-1
+    assert self.cascade_num <= self.data_net_configs['sg_bm_extract_idx'].shape[0]-1
     #self.log('cascade_num:{}'.format(self.cascade_num))
     self.IsOnlineGlobal = self.model_flag[-1] == 'G'
     self.mlp_configs = get_sa_module_config(self.model_flag)
-    for key in self.data_paras:
-      setattr(self, key, self.data_paras[key])
+    for key in self.data_net_configs:
+      setattr(self, key, self.data_net_configs[key])
 
     for e in self.feed_data:
       assert e in self.data_idxs
@@ -762,7 +762,7 @@ class Model(ResConvOps):
   def _call(self, inputs, sg_bidxmaps, bidxmaps_flat, fmap_neighbor_idis, is_training):
     if self.IsShowModel: self.log('')
     self.is_training = is_training
-    sg_bm_extract_idx = self.data_paras['sg_bm_extract_idx']
+    sg_bm_extract_idx = self.data_net_configs['sg_bm_extract_idx']
 
     if self.feed_data_idxs!='ALL':
       inputs = tf.gather(inputs, self.feed_data_idxs, axis=-1)

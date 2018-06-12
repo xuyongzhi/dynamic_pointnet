@@ -70,7 +70,7 @@ def get_filenames(is_training, data_dir):
   else:
     return glob.glob(os.path.join(data_dir, 'test_*.tfrecord'))
 
-def input_fn(is_training, data_dir, batch_size, data_paras=None, num_epochs=1):
+def input_fn(is_training, data_dir, batch_size, data_net_configs=None, num_epochs=1):
   """Input function which provides batches for train or eval.
 
   Args:
@@ -103,7 +103,7 @@ def input_fn(is_training, data_dir, batch_size, data_paras=None, num_epochs=1):
   #    tf.data.TFRecordDataset, cycle_length=10))
 
   return resnet_run_loop.process_record_dataset(
-      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_pl_record, data_paras,
+      dataset, is_training, batch_size, _SHUFFLE_BUFFER, parse_pl_record, data_net_configs,
       num_epochs
   )
 
@@ -116,16 +116,31 @@ def get_synth_input_fn():
 def get_data_shapes_from_tfrecord(data_dir):
   global _DATA_PARAS
 
-  batch_size = 1
+  batch_size = 2
   with tf.Graph().as_default():
-    dataset = input_fn(True, data_dir, batch_size)
+    dataset = input_fn(False, data_dir, batch_size)
     iterator = dataset.make_one_shot_iterator().get_next()
     with tf.Session() as sess:
       features, label = sess.run(iterator)
 
       for key in features:
         _DATA_PARAS[key] = features[key][0].shape
+      points_raw = features['points'][0]
       print('\n\nget shape from tfrecord OK:\n %s\n\n'%(_DATA_PARAS))
+      #print('points', features['points'][0,0:5,:])
+
+    def check():
+      dataset = input_fn(False, data_dir, batch_size, _DATA_PARAS)
+      iterator1 = dataset.make_initializable_iterator()
+      next_item = iterator1.get_next()
+
+      with tf.Session() as sess:
+          sess.run(iterator1.initializer)
+          features, label = sess.run(next_item)
+          print('R', features['R'][0:2])
+          print('points', features['points'][0,0:5,:])
+    #check()
+
 
 def get_data_meta_from_hdf5(data_dir):
   global _DATA_PARAS
@@ -158,7 +173,7 @@ class ModelnetModel(resnet_model.Model):
 
   def __init__(self, model_flag, resnet_size, data_format=None, num_classes=_NUM_CLASSES,
                resnet_version=resnet_model.DEFAULT_VERSION,
-               dtype=resnet_model.DEFAULT_DTYPE, data_paras={}):
+               dtype=resnet_model.DEFAULT_DTYPE, data_net_configs={}):
     """These are the parameters that work for Modelnet data.
 
     Args:
@@ -185,16 +200,16 @@ class ModelnetModel(resnet_model.Model):
         resnet_size=resnet_size,
         bottleneck=bottleneck,
         num_classes=num_classes,
-        num_filters=data_paras['num_filters0'],
-        block_sizes=data_paras['block_sizes'],
-        block_kernels=data_paras['block_kernels'],
-        block_strides=data_paras['block_strides'],
-        block_paddings=data_paras['block_paddings'],
+        num_filters=data_net_configs['num_filters0'],
+        block_sizes=data_net_configs['block_sizes'],
+        block_kernels=data_net_configs['block_kernels'],
+        block_strides=data_net_configs['block_strides'],
+        block_paddings=data_net_configs['block_paddings'],
         final_size=final_size,
         resnet_version=resnet_version,
         data_format=data_format,
         dtype=dtype,
-        data_paras=data_paras
+        data_net_configs=data_net_configs
     )
 
 def modelnet_model_fn(features, labels, mode, params):
@@ -219,7 +234,7 @@ def modelnet_model_fn(features, labels, mode, params):
       loss_scale=params['loss_scale'],
       loss_filter_fn=None,
       dtype=params['dtype'],
-      data_paras=params['data_paras']
+      data_net_configs=params['data_net_configs']
   )
 
 
@@ -242,6 +257,7 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['feed_data'] = feed_data
   _DATA_PARAS['xyz_elements'] = xyz_elements
   _DATA_PARAS['model_flag'] = flags_obj.model_flag
+  _DATA_PARAS['aug'] = flags_obj.aug
 
   model_dir = define_model_dir()
   _DATA_PARAS['model_dir'] = model_dir
@@ -307,7 +323,7 @@ def define_model_dir():
   block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
-  logname += '-'+flags.FLAGS.feed_data
+  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -337,12 +353,12 @@ def define_modelnet_flags():
   flags.DEFINE_integer('resnet_size',50,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
-  #flags.DEFINE_string('feed_data','xyzg-nxnynz','xyzrsg-nxnynz-color')
+  flags.DEFINE_string('aug','rotate','rotate, none')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
-  data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
+  data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   flags_core.set_defaults(train_epochs=100,
                           data_dir=data_dir,
                           batch_size=32,

@@ -7,7 +7,7 @@ import numpy as np
 #-------------------------------------------------------------------------------
 NETCONFIG = {}
 NETCONFIG['max_global_sample_rate'] = 3   # sample_res_num / org_num  This is very large for global block with few points which should be abandoned.
-NETCONFIG['merge_blocks_while_fix_bmap'] = False
+NETCONFIG['merge_blocks_while_fix_bmap'] = True
 NETCONFIG['redundant_points_in_block'] = -777  # 'replicate' or a negative number to be asigned in bidxmap  (<-500)
 #-------------------------------------------------------------------------------
 # gsbb config
