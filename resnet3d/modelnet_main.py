@@ -330,7 +330,7 @@ def define_model_dir():
   block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
-  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug
+  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug + '-bs'+str(flags.FLAGS.batch_size)
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):

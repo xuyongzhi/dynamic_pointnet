@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -q gpupascal
 #PBS -l walltime=40:00:00
-#PBS -l mem=20GB
+#PBS -l mem=30GB
 #PBS -l jobfs=0GB
 #PBS -l ngpus=2
 #PBS -l ncpus=12
@@ -17,4 +17,18 @@
 module load  tensorflow/1.6-cudnn7.1-python2.7
 module list
  
-./train_seg_presg_scan_1.sh -> out_1.log
+
+aug='all'
+batch_siz=48 # 9.2G
+feed_data='xyzg-nxnynz'
+python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out1.log
+
+batch_siz=64
+python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out2.log
+
+feed_data='xyzg'
+python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out3.log
+
+aug='none'
+python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out4.log
+
