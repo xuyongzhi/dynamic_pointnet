@@ -285,54 +285,6 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
   return inputs
 
 
-def _building_block_v2(inputs, filters, training, projection_shortcut, strides,
-                       data_format):
-  """A single block for ResNet v2, without a bottleneck.
-
-  Batch normalization then ReLu then convolution as described by:
-    Identity Mappings in Deep Residual Networks
-    https://arxiv.org/pdf/1603.05027.pdf
-    by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
-
-  Args:
-    inputs: A tensor of size [batch, channels, height_in, width_in] or
-      [batch, height_in, width_in, channels] depending on data_format.
-    filters: The number of filters for the convolutions.
-    training: A Boolean for whether the model is in training or inference
-      mode. Needed for batch normalization.
-    projection_shortcut: The function to use for projection shortcuts
-      (typically a 1x1 convolution when downsampling the input).
-    strides: The block's stride. If greater than 1, this block will ultimately
-      downsample the input.
-    data_format: The input format ('channels_last' or 'channels_first').
-
-  Returns:
-    The output tensor of the block; shape should match inputs.
-  """
-  display = True
-
-  shortcut = inputs
-  inputs = batch_norm(inputs, training, data_format)
-  inputs = tf.nn.relu(inputs)
-
-  # The projection shortcut should come after the first batch norm and ReLU
-  # since it performs a 1x1 convolution.
-  if projection_shortcut is not None:
-    shortcut = projection_shortcut(inputs)
-
-  inputs = conv2d3d_fixed_padding(
-      inputs=inputs, filters=filters, kernel_size=3, strides=strides,
-      data_format=data_format)
-  if display: self.log( tensor_info(inputs, 'conv2d', 'block_v2') )
-
-  inputs = batch_norm(inputs, training, data_format)
-  inputs = tf.nn.relu(inputs)
-  inputs = conv2d3d_fixed_padding(
-      inputs=inputs, filters=filters, kernel_size=3, strides=1,
-      data_format=data_format)
-  if display: self.log( tensor_info(inputs, 'conv2d', 'block_v2')+'\n' )
-
-  return inputs + shortcut
 
 
 def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
@@ -459,6 +411,57 @@ class ResConvOps(object):
         data_format=data_format)
     return inputs
 
+  def _building_block_v2(self, inputs, filters, training, projection_shortcut,
+                          b_kernel_size, strides, padding_s1, data_format):
+    """A single block for ResNet v2, without a bottleneck.
+
+    Batch normalization then ReLu then convolution as described by:
+      Identity Mappings in Deep Residual Networks
+      https://arxiv.org/pdf/1603.05027.pdf
+      by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
+
+    Args:
+      inputs: A tensor of size [batch, channels, height_in, width_in] or
+        [batch, height_in, width_in, channels] depending on data_format.
+      filters: The number of filters for the convolutions.
+      training: A Boolean for whether the model is in training or inference
+        mode. Needed for batch normalization.
+      projection_shortcut: The function to use for projection shortcuts
+        (typically a 1x1 convolution when downsampling the input).
+      strides: The block's stride. If greater than 1, this block will ultimately
+        downsample the input.
+      data_format: The input format ('channels_last' or 'channels_first').
+
+    Returns:
+      The output tensor of the block; shape should match inputs.
+    """
+    shortcut = inputs
+    inputs = batch_norm(inputs, training, data_format)
+    inputs = tf.nn.relu(inputs)
+    conv_str = 'conv2d' if len(inputs.shape)==4 else 'conv3d'
+
+    # The projection shortcut should come after the first batch norm and ReLU
+    # since it performs a 1x1 convolution.
+    if projection_shortcut is not None:
+      shortcut = projection_shortcut(inputs)
+
+    inputs = self.conv2d3d_fixed_padding(
+        inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=strides,
+        padding_s1=padding_s1, data_format=data_format)
+    if self.IsShowModel:
+      self.log( tensor_info(inputs, '%s k,s,p=%d,%d,%s'%
+                    (conv_str,b_kernel_size,strides,padding_s1), 'block_v2'))
+
+    inputs = batch_norm(inputs, training, data_format)
+    inputs = tf.nn.relu(inputs)
+    inputs = self.conv2d3d_fixed_padding(
+        inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=1,
+        padding_s1='s', data_format=data_format)
+    if self.IsShowModel:
+      self.log( tensor_info(inputs, '%s k,s,p=%d,%d,%s'%
+                (conv_str,b_kernel_size,strides,padding_s1), 'block_v2')+'\n')
+
+    return inputs + shortcut
   def _bottleneck_block_v2(self, inputs, filters, training, projection_shortcut,
                           b_kernel_size, strides, padding_s1, data_format):
     """A single block for ResNet v2, without a bottleneck.
@@ -500,9 +503,6 @@ class ResConvOps(object):
     # since it performs a 1x1 convolution.
     if projection_shortcut is not None:
       shortcut = projection_shortcut(inputs)
-      if self.IsShowModel:
-        self.log( tensor_info(shortcut, '%s k,s=1,%d'%(conv_str, strides),
-                          'bottle_v2 shortcut'))
 
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=1, strides=1, padding_s1=padding_s1,
@@ -560,14 +560,24 @@ class ResConvOps(object):
       # Here we use kernel>1 and padding_s1='VALID'
       # Use kernel>1 in shortcut may somewhat impede the identity forward, try
       # optimize later.
-      return self.conv2d3d_fixed_padding(
+      kernel_size_shortcut = b_kernel_size if padding_s1=='v' else 1
+      shortcut = self.conv2d3d_fixed_padding(
           inputs=inputs, filters=filters_out,
-          kernel_size=b_kernel_size if padding_s1=='v' else 1,
+          kernel_size=kernel_size_shortcut,
           strides=strides, padding_s1=padding_s1, data_format=data_format)
+      if self.IsShowModel:
+        conv_str = 'conv2d' if len(inputs.shape)==4 else 'conv3d'
+        self.log( tensor_info(shortcut, '%s k,s,p=%d,%d,%s'%(conv_str,
+              kernel_size_shortcut, strides, padding_s1),'projection_shortcut'))
+      return shortcut
 
     # Only the first block per block_layer uses projection_shortcut and strides
     # and padding_s1
-    inputs = block_fn(inputs, filters, training, projection_shortcut, b_kernel_size,
+    if b_kernel_size==1 and strides==1:
+      projection_shortcut_0 = None
+    else:
+      projection_shortcut_0 = projection_shortcut
+    inputs = block_fn(inputs, filters, training, projection_shortcut_0, b_kernel_size,
                       strides, padding_s1, data_format)
 
     for _ in range(1, blocks):
@@ -638,7 +648,7 @@ class Model(ResConvOps):
       if resnet_version == 1:
         self.block_fn = _building_block_v1
       else:
-        self.block_fn = _building_block_v2
+        self.block_fn = self._building_block_v2
 
     if dtype not in ALLOWED_TYPES:
       raise ValueError('dtype must be one of: {}'.format(ALLOWED_TYPES))

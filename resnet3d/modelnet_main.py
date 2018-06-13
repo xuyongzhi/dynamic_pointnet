@@ -293,10 +293,17 @@ def _get_block_paras(resnet_size):
   block_strides = {}
   block_paddings = {}   # only used when strides == 1
 
-  block_sizes[50]    = [[3], [3,1], [2,2,2]]
-  block_kernels[50]  = [[1], [2,3], [3,3,3]]
-  block_strides[50]  = [[1], [1,1], [1,1,1]]
-  block_paddings[50] = [['s'], ['s','v'], ['v','v','v']]
+  rs = 30
+  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
+  block_kernels[rs]  = [[1], [2,3], [3,3,3]]
+  block_strides[rs]  = [[1], [1,1], [1,1,1]]
+  block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
+
+  rs = 50
+  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
+  block_kernels[rs]  = [[1], [2,3], [3,3,3]]
+  block_strides[rs]  = [[1], [1,1], [1,1,1]]
+  block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
 
   if resnet_size not in block_sizes:
     err = ('Could not find layers for selected Resnet size.\n'
@@ -322,7 +329,7 @@ def ls_str(ls_in_ls):
   return ls_str
 
 def define_model_dir():
-  logname = flags.FLAGS.model_flag
+  logname = 'rs' + str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag
   block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
   block_sizes_str = ''.join(block_sizes_str)
   block_sizes_str = ls_str(_DATA_PARAS['block_sizes'])
@@ -357,7 +364,7 @@ def define_modelnet_flags():
   _DATA_PARAS = {}
 
   flags.DEFINE_string('model_flag', '3Vm','')
-  flags.DEFINE_integer('resnet_size',50,'resnet_size')
+  flags.DEFINE_integer('resnet_size',30,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
   flags.DEFINE_string('aug','all','all, none')
@@ -367,7 +374,7 @@ def define_modelnet_flags():
   flags.adopt_module_key_flags(resnet_run_loop)
   data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
   _DATA_PARAS['data_dir'] = data_dir
-  flags_core.set_defaults(train_epochs=100,
+  flags_core.set_defaults(train_epochs=31,
                           data_dir=data_dir,
                           batch_size=32,
                           num_gpus=2)
