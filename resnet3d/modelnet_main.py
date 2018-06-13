@@ -34,6 +34,7 @@ import resnet_model
 import resnet_run_loop
 import os, glob, sys
 import numpy as np
+import modelnet_configs
 
 
 BASE_DIR = os.path.abspath(__file__)
@@ -288,36 +289,8 @@ def _get_block_paras(resnet_size):
     KeyError: if invalid resnet_size is received.
   """
   global _DATA_PARAS
-  block_sizes = {}
-  block_kernels = {}
-  block_strides = {}
-  block_paddings = {}   # only used when strides == 1
-
-  rs = 30
-  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
-  block_kernels[rs]  = [[1], [2,3], [3,3,3]]
-  block_strides[rs]  = [[1], [1,1], [1,1,1]]
-  block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
-
-  rs = 50
-  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
-  block_kernels[rs]  = [[1], [2,3], [3,3,3]]
-  block_strides[rs]  = [[1], [1,1], [1,1,1]]
-  block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
-
-  if resnet_size not in block_sizes:
-    err = ('Could not find layers for selected Resnet size.\n'
-           'Size received: {}; sizes allowed: {}.'.format(
-               resnet_size, resnet_size.keys()))
-    raise ValueError(err)
-
-  # check settings
-  for k in block_kernels:
-    # cascade_id 0 is pointnet
-    assert (np.array(block_kernels[k][0])==1).all()
-    assert (np.array(block_strides[k][0])==1).all()
-
-
+  block_sizes, block_kernels, block_strides, block_paddings = \
+                          modelnet_configs.get_block_paras(resnet_size)
   _DATA_PARAS['block_sizes'] = block_sizes[resnet_size]
   _DATA_PARAS['block_kernels'] = block_kernels[resnet_size]
   _DATA_PARAS['block_strides'] = block_strides[resnet_size]
@@ -364,7 +337,7 @@ def define_modelnet_flags():
   _DATA_PARAS = {}
 
   flags.DEFINE_string('model_flag', '3Vm','')
-  flags.DEFINE_integer('resnet_size',30,'resnet_size')
+  flags.DEFINE_integer('resnet_size',34,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
   flags.DEFINE_string('aug','all','all, none')

@@ -691,7 +691,7 @@ class Model(ResConvOps):
     else:
       self.feed_data_idxs = np.sort([i for e in self.feed_data for i in self.data_idxs[e] ])
 
-    self.use_xyz = False
+    self.use_xyz = True
     self.mean_grouping_position = True
     self.voxel3d = True
 
@@ -906,30 +906,6 @@ class Model(ResConvOps):
         self.block_num_count += 1
       return inputs
 
-  def pointnet_sa_module(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
-    '''
-    Input cascade_id==0:
-        xyz is grouped_points: (batch_size,nsubblock0,npoint_subblock0,6)
-        points: None
-        bidmap: None
-    Input cascade_id==1:
-        xyz: (batch_size,nsubblock0,3)
-        points: (batch_size,nsubblock0,channel)
-        bidmap: (batch_size,nsubblock1,npoint_subblock1)
-    Medium cascade_id==1:
-        grouped_xyz: (batch_size,nsubblock1,npoint_subblock1,3)
-        new_xyz: (batch_size,nsubblock1,3)
-        group_points: (batch_size,nsubblock1,npoint_subblock1,channel)
-
-    output cascade_id==1:
-        new_xyz: (batch_size,nsubblock1,3)
-        new_points: (batch_size,nsubblock1,channel)
-    '''
-    new_xyz, grouped_xyz, new_points, valid_mask = self.grouping(cascade_id, xyz,
-                        points, bidmap, block_bottom_center_mm, scope)
-    new_points, root_point_features = self.sa_model(cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope)
-    return new_xyz, new_points, root_point_features
-
   def grouping(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
@@ -1019,99 +995,6 @@ class Model(ResConvOps):
 
         new_points = grouped_points
         return new_xyz, grouped_xyz, new_points, valid_mask
-
-
-  def sa_model(self, cascade_id, new_points, grouped_xyz, valid_mask, block_bottom_center_mm, scope):
-    batch_size = new_points.get_shape()[0].value
-    with tf.variable_scope(scope) as sc:
-        if valid_mask!=None:
-            new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
-        if self.data_format == 'channels_first':
-          assert False, "not ready yet"
-          # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
-          # This provides a large performance boost on GPU. See
-          # https://www.tensorflow.org/performance/performance_guide#data_formats
-          new_points = tf.transpose(new_points, [0, 3, 1, 2])
-
-        for i, num_out_channel in enumerate(self.mlp_configs['point_encoder'][cascade_id]):
-            new_points = conv2d3d_fixed_padding(
-                inputs=new_points, filters=num_out_channel, kernel_size=1,
-                strides=1, data_format=self.data_format)
-            new_points = batch_norm(new_points, self.is_training, self.data_format)
-            new_points = tf.nn.relu(new_points)
-
-            if self.IsShowModel:
-              self.log(tensor_info(new_points, 'conv2d ks:1-1', 'cascade %d'%(cascade_id)))
-
-        if cascade_id == 0:
-            root_point_features = new_points
-            #if InDropMethod == 'set0':
-            #    if len(indrop_keep_mask.get_shape()) != 0:
-            #            new_points = tf.identity(new_points,'points_before_droped') # gpu_0/sa_layer0/points_before_droped:0
-            #            new_points = tf.multiply( new_points, grouped_indrop_keep_mask, name='droped_points' )   # gpu_0/sa_layer0/droped_points:0
-        else:
-            root_point_features = None
-
-        pooling = self.mlp_configs['block_learning']
-        if pooling == '3DCNN' and ( cascade_id == 0):
-            pooling = 'max'
-
-        if pooling=='max':
-            # Even the grouped_points and grouped_xyz are 0 for invalid points, the
-            # vaule after mlp will not be. It has to be set as 0 forcely before
-            # pooling.
-            if valid_mask!=None:
-                new_points = new_points * tf.cast(valid_mask[:,:,:,0:1], tf.float32)
-            new_points = tf.identity( new_points, 'points_before_max' )             # gpu_0/sa_layer0/points_before_max
-            new_points = tf.reduce_max(new_points, axis=[2], keepdims=True, name='points_after_max')
-        elif pooling == '3DCNN':
-            new_points = self.grouped_points_to_voxel_points( cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz)
-            if self.IsShowModel:
-              self.log(tensor_info(new_points, 'voxel input', 'cascade %d'%(cascade_id)))
-            for i, num_out_channel in enumerate( self.mlp_configs['voxel_channels'][cascade_id] ):
-
-                if self.mlp_configs['voxel_paddings'][cascade_id][i] == 0:
-                  padding = 'VALID'
-                else:
-                  padding = 'SAME'
-                if type(num_out_channel) == int:
-                    kernel_size = self.mlp_configs['voxel_kernels'][cascade_id][i]
-                    strides = self.mlp_configs['voxel_strides'][cascade_id][i]
-                    new_points = conv3d_fixed_padding(
-                            inputs = new_points,
-                            filters = num_out_channel,
-                            kernel_size = kernel_size,
-                            strides = strides,
-                            padding = padding,
-                            data_format = self.data_format)
-                    new_points = batch_norm(new_points, self.is_training, self.data_format)
-                    new_points = tf.nn.relu(new_points)
-                    if self.IsShowModel:
-                      self.log(tensor_info(new_points, 'conv3d ks:%d,%d'%(kernel_size, strides), 'cascade %d'%(cascade_id)))
-                elif num_out_channel == 'max' or 'ave':
-                  if num_out_channel == 'max':
-                    pool_fn = tf.layers.max_pooling3d
-                  elif num_out_channel == 'ave':
-                    pool_fn = tf.layers.average_pooling3d
-                  new_points = pool_fn(
-                              inputs = new_points,
-                              pool_size = kernel_size,
-                              strides = strides,
-                              padding = 'valid',
-                              name = '3d%s_%d'%(num_out_channel, i),
-                              data_format = self.data_format)
-                  if self.IsShowModel:
-                      self.log(tensor_info(new_points, '%s ks:%d,%d'%(num_out_channel, kernel_size, strides), 'cascade %d'%(cascade_id)))
-                # gpu_0/sa_layer4/3dconv_0/points_3dcnn_0:0
-            if cascade_id < self.cascade_num-1:
-              new_points = tf.squeeze( new_points, [1,2,3] )
-            else:
-              new_points = tf.squeeze( new_points )
-            new_points = tf.reshape( new_points, [batch_size, -1, 1, new_points.shape[-1].value] )
-
-        new_points = tf.squeeze(new_points, [2]) # (batch_size, npoints, mlps_1[-1])
-
-        return new_points, root_point_features
 
   def grouped_points_to_voxel_points (self, cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz):
     IS_merge_blocks_while_fix_bmap = True
