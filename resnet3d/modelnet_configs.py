@@ -1,14 +1,14 @@
 # xyz June 2018
 import numpy as np
 
-def get_block_paras(resnet_size):
+def get_block_paras(resnet_size, model_flag):
   block_sizes = {}
   block_kernels = {}
   block_strides = {}
   block_paddings = {}   # only used when strides == 1
 
   rs = 34
-  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
+  block_sizes[rs]    = [[1], [1,1], [2,2,2]]
   block_kernels[rs]  = [[1], [2,3], [3,3,3]]
   block_strides[rs]  = [[1], [1,1], [1,1,1]]
   block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
@@ -18,6 +18,13 @@ def get_block_paras(resnet_size):
   block_kernels[rs]  = [[1], [2,3], [3,3,3]]
   block_strides[rs]  = [[1], [1,1], [1,1,1]]
   block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
+
+  if 'V' not in model_flag:
+    for i in range(len(block_sizes[resnet_size])):
+      for j in range(len(block_sizes[resnet_size][i])):
+        block_kernels[resnet_size][i][j] = 1
+        block_strides[resnet_size][i][j] = 1
+        block_paddings[resnet_size][i][j] = 'v'
 
   if resnet_size not in block_sizes:
     err = ('Could not find layers for selected Resnet size.\n'

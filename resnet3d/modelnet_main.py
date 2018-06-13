@@ -250,7 +250,8 @@ def define_net_configs(flags_obj):
   global _DATA_PARAS
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
-  _get_block_paras(flags_obj.resnet_size)
+  _DATA_PARAS['model_flag'] = flags_obj.model_flag
+  _get_block_paras()
 
   feed_data = flags_obj.feed_data.split('-')
   assert feed_data[0][0:3] == 'xyz'
@@ -264,7 +265,6 @@ def define_net_configs(flags_obj):
   assert len(xyz_elements) > 0
   _DATA_PARAS['feed_data'] = feed_data
   _DATA_PARAS['xyz_elements'] = xyz_elements
-  _DATA_PARAS['model_flag'] = flags_obj.model_flag
   _DATA_PARAS['aug'] = flags_obj.aug
 
   model_dir = define_model_dir()
@@ -272,7 +272,7 @@ def define_net_configs(flags_obj):
   flags_obj.model_dir = model_dir
 
 
-def _get_block_paras(resnet_size):
+def _get_block_paras():
   """Retrieve the size of each block_layer in the ResNet model.
 
   The number of block layers used for the Resnet model varies according
@@ -289,8 +289,10 @@ def _get_block_paras(resnet_size):
     KeyError: if invalid resnet_size is received.
   """
   global _DATA_PARAS
+  resnet_size = _DATA_PARAS['resnet_size']
   block_sizes, block_kernels, block_strides, block_paddings = \
-                          modelnet_configs.get_block_paras(resnet_size)
+              modelnet_configs.get_block_paras(_DATA_PARAS['resnet_size'],
+                                               _DATA_PARAS['model_flag'])
   _DATA_PARAS['block_sizes'] = block_sizes[resnet_size]
   _DATA_PARAS['block_kernels'] = block_kernels[resnet_size]
   _DATA_PARAS['block_strides'] = block_strides[resnet_size]
@@ -336,7 +338,7 @@ def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
 
-  flags.DEFINE_string('model_flag', '3Vm','')
+  flags.DEFINE_string('model_flag', '3m','')
   flags.DEFINE_integer('resnet_size',34,'resnet_size')
   flags.DEFINE_integer('num_filters0',16,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')

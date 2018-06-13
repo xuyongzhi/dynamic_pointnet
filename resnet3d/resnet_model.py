@@ -48,81 +48,6 @@ CASTABLE_TYPES = (tf.float16,)
 ALLOWED_TYPES = (DEFAULT_DTYPE,) + CASTABLE_TYPES
 
 
-def get_voxel3dcnn_sa_config( model_flag ):
-    cascade_num = int(model_flag[0])
-    mlp_pe = []
-    mlp_be = []
-    # The first cascade is pointnet, so voxel parameters are []
-    voxel_channels = [[]]
-    voxel_kernels = [[]]
-    voxel_strides = [[]]
-    voxel_paddings = [[]]
-
-    if model_flag=='3Vm':
-        mlp_pe.append( [64,64,128] )
-
-        voxel_channels.append( [128,128,256] )
-        voxel_kernels.append( [3,3,3] )
-        voxel_strides.append( [1,1,1] )
-        voxel_paddings.append( [1,1,0] )
-
-        voxel_channels.append( [256,256,512,1024] )
-        voxel_kernels.append( [3,3,3,3] )
-        voxel_strides.append( [1,1,1,1] )
-        voxel_paddings.append( [1,1,1,0] )
-
-
-    for l in range(cascade_num-1):
-        mlp_pe.append([])
-    for l in range(cascade_num): # not used currently
-        mlp_be.append([])
-
-    mlp_configs = {}
-    mlp_configs['voxel_channels'] = voxel_channels
-    mlp_configs['voxel_kernels'] = voxel_kernels
-    mlp_configs['voxel_strides'] = voxel_strides
-    mlp_configs['voxel_paddings'] = voxel_paddings
-
-    mlp_configs['point_encoder'] = mlp_pe
-    mlp_configs['block_learning'] = '3DCNN'
-    mlp_configs['block_encoder'] = mlp_be
-
-    assert len(mlp_pe[0]) >0
-    assert len(voxel_channels[0])==0
-    return mlp_configs
-def get_sa_module_config(model_flag):
-    if '-S' in model_flag:
-        tmp = model_flag.split('-S')
-        assert len(tmp) == 2
-        model_flag = tmp[0]
-
-        tmp = tmp[1]
-        if 'L' in tmp:
-            assert False,  "loss_scale_num aborted"
-            assert len(tmp) == 3
-            scale_num = int(tmp[0])
-            loss_scale_num = int(tmp[2])
-        else:
-            assert len(tmp) == 1
-            scale_num = int(tmp)
-            loss_scale_num = 1
-    else:
-        scale_num = 1
-        loss_scale_num = 1
-
-
-    if model_flag[1] == 'V':
-        mlp_configs = get_voxel3dcnn_sa_config(model_flag)
-    else:
-        mlp_configs = get_pointmax_sa_config(model_flag)
-
-    mlp_configs['scale_channel'] = 256      # for multi-scale classification task only
-    mlp_configs['scale_num'] = scale_num
-    mlp_configs['loss_scale_num'] = loss_scale_num
-    return mlp_configs
-
-################################################################################
-# xyz add
 def tensor_info(tensor_ls, tensor_name_ls=None, scope=None):
   if type(tensor_ls) != list:
     tensor_ls = [tensor_ls]
@@ -353,6 +278,8 @@ class ResConvOps(object):
   _epoch = 0
 
   def __init__(self, data_net_configs):
+    self.voxel3d = 'V' in data_net_configs['model_flag']
+
     model_dir = data_net_configs['model_dir']
     if ResConvOps._epoch==0:
       self.IsShowModel = True
@@ -439,6 +366,9 @@ class ResConvOps(object):
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     conv_str = 'conv2d' if len(inputs.shape)==4 else 'conv3d'
+    if (not self.voxel3d) and len(inputs.shape)==5:
+      import pdb; pdb.set_trace()  # XXX BREAKPOINT
+      pass
 
     # The projection shortcut should come after the first batch norm and ReLU
     # since it performs a 1x1 convolution.
@@ -573,7 +503,7 @@ class ResConvOps(object):
 
     # Only the first block per block_layer uses projection_shortcut and strides
     # and padding_s1
-    if b_kernel_size==1 and strides==1:
+    if b_kernel_size==1 and strides==1 and inputs.shape[-1].value==filters_out:
       projection_shortcut_0 = None
     else:
       projection_shortcut_0 = projection_shortcut
@@ -679,7 +609,6 @@ class Model(ResConvOps):
     assert self.cascade_num <= self.data_net_configs['sg_bm_extract_idx'].shape[0]-1
     #self.log('cascade_num:{}'.format(self.cascade_num))
     self.IsOnlineGlobal = self.model_flag[-1] == 'G'
-    self.mlp_configs = get_sa_module_config(self.model_flag)
     for key in self.data_net_configs:
       setattr(self, key, self.data_net_configs[key])
 
@@ -693,7 +622,6 @@ class Model(ResConvOps):
 
     self.use_xyz = True
     self.mean_grouping_position = True
-    self.voxel3d = True
 
 
   def _custom_dtype_getter(self, getter, name, shape=None, dtype=DEFAULT_DTYPE,
@@ -850,12 +778,17 @@ class Model(ResConvOps):
     outputs= self.res_sa_model(cascade_id,
                 inputs, grouped_xyz, valid_mask, block_bottom_center_mm, scope)
 
-    if cascade_id == 0:
-      root_point_features = outputs
+    if cascade_id == 0 or (not self.voxel3d):
+      # use max pooling to reduce map size
+      if cascade_id == 0:
+        root_point_features = outputs
+      else:
+        root_point_features = None
       assert len(outputs.shape)==4
       outputs = tf.reduce_max(outputs, axis=2)
-      if self.IsShowModel: self.log( tensor_info(outputs, 'max', 'cas0') +'\n' )
+      if self.IsShowModel: self.log( tensor_info(outputs, 'max', 'cas%d'%(cascade_id)) +'\n' )
     else:
+      # already used 3D CNN to reduce map size, just reshape
       root_point_features = None
       if self.voxel3d:
         # self.grouping only spport 2D point cloud
@@ -915,8 +848,10 @@ class Model(ResConvOps):
         #    indrop_keep_mask = tf.get_default_graph().get_tensor_by_name('indrop_keep_mask:0') # indrop_keep_mask:0
 
         assert len(xyz.shape) == 3
-        assert len(xyz.shape) == len(points.shape) == len(bidmap.shape) == \
-          len(block_bottom_center_mm.shape) == 3
+        if not ( len(xyz.shape) == len(points.shape) == len(bidmap.shape) == \
+                len(block_bottom_center_mm.shape) == 3 ):
+          import pdb; pdb.set_trace()  # XXX BREAKPOINT
+          pass
 
         if bidmap==None:
             grouped_xyz = tf.expand_dims( xyz, 1 )
@@ -945,7 +880,7 @@ class Model(ResConvOps):
             #    grouped_indrop_keep_mask = tf.gather_nd( indrop_keep_mask, bidmap_concat, name='grouped_indrop_keep_mask' )  # gpu_0/sa_layer0/grouped_indrop_keep_mask:0
 
         # new_xyz is the "voxel center" or "mean position of points in the voxel"
-        if self.mean_grouping_position and (not self.mlp_configs['block_learning']=='3DCNN'):
+        if self.mean_grouping_position and (not self.voxel3d):
             new_xyz = tf.reduce_mean(grouped_xyz,-2)
         else:
             new_xyz = block_bottom_center_mm[:,:,3:6] * tf.constant( 0.001, tf.float32 )
