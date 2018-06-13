@@ -304,7 +304,8 @@ def ls_str(ls_in_ls):
   return ls_str
 
 def define_model_dir():
-  logname = 'rs' + str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag
+  logname = 'rs' + str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag\
+            + '-fn0_'+str(flags.FLAGS.num_filters0)
   block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
   block_sizes_str = ''.join(block_sizes_str)
   block_sizes_str = ls_str(_DATA_PARAS['block_sizes'])
@@ -340,7 +341,7 @@ def define_modelnet_flags():
 
   flags.DEFINE_string('model_flag', '3m','')
   flags.DEFINE_integer('resnet_size',34,'resnet_size')
-  flags.DEFINE_integer('num_filters0',16,'')
+  flags.DEFINE_integer('num_filters0',32,'')
   flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
   flags.DEFINE_string('aug','all','all, none')
 

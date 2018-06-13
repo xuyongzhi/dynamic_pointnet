@@ -8,13 +8,13 @@ def get_block_paras(resnet_size, model_flag):
   block_paddings = {}   # only used when strides == 1
 
   rs = 34
-  block_sizes[rs]    = [[1], [1,1], [2,2,2]]
+  block_sizes[rs]    = [[4], [3,1], [2,2,2]]
   block_kernels[rs]  = [[1], [2,3], [3,3,3]]
   block_strides[rs]  = [[1], [1,1], [1,1,1]]
   block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
 
   rs = 50
-  block_sizes[rs]    = [[3], [3,1], [2,2,2]]
+  block_sizes[rs]    = [[5], [4,1], [3,3,3]]
   block_kernels[rs]  = [[1], [2,3], [3,3,3]]
   block_strides[rs]  = [[1], [1,1], [1,1,1]]
   block_paddings[rs] = [['s'], ['s','v'], ['v','v','v']]
