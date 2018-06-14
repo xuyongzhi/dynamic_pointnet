@@ -225,7 +225,8 @@ def modelnet_model_fn(features, labels, mode, params):
   learning_rate_fn = resnet_run_loop.learning_rate_with_decay(
       batch_size=params['batch_size'], batch_denom=256,
       num_images=_NUM_IMAGES['train'], boundary_epochs=[30, 60, 80, 90],
-      decay_rates=[1, 0.1, 0.01, 0.001, 1e-4])
+      decay_rates=[1, 0.1, 0.01, 0.001, 1e-4],
+      initial_learning_rate=params['data_net_configs']['learning_rate0'])
 
   return resnet_run_loop.resnet_model_fn(
       model_flag=params['model_flag'],
@@ -249,6 +250,8 @@ def modelnet_model_fn(features, labels, mode, params):
 def define_net_configs(flags_obj):
   global _DATA_PARAS
   _DATA_PARAS['residual'] = flags_obj.residual
+  _DATA_PARAS['optimizer'] = flags_obj.optimizer
+  _DATA_PARAS['learning_rate0'] = flags_obj.learning_rate0
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
   _DATA_PARAS['model_flag'] = flags_obj.model_flag
@@ -319,6 +322,7 @@ def define_model_dir():
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
   logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug + '-bs'+str(flags.FLAGS.batch_size)
+  logname += '-'+flags.FLAGS.optimizer
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -344,6 +348,8 @@ def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
   flags.DEFINE_boolean('residual', DEFAULTS['residual'], '')
+  flags.DEFINE_string('optimizer', DEFAULTS['optimizer'], 'adam, momentum')
+  flags.DEFINE_float('learning_rate0', DEFAULTS['learning_rate0'],'')
   flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
   flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')

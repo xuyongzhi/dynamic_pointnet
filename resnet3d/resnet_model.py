@@ -291,6 +291,7 @@ class ResConvOps(object):
 
       items_to_write = ['model_flag', 'dataset_name', 'aug', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
+                        'optimizer', 'learning_rate0',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings']
       for item in items_to_write:
         self.model_log_f.write('%s:%s\n'%(item, data_net_configs[item]))
@@ -312,6 +313,7 @@ class ResConvOps(object):
     """Strided 2-D or 3-D convolution with explicit padding."""
     # The padding is consistent and is based only on `kernel_size`, not on the
     # dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
+    assert data_format == 'channels_last'
     if len(inputs.shape)==5:
       conv_fn = tf.layers.conv3d
       self._conv3d_num += 1
@@ -363,6 +365,7 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block; shape should match inputs.
     """
+    assert data_format == 'channels_last'
     shortcut = inputs
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
@@ -429,6 +432,7 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block; shape should match inputs.
     """
+    assert data_format == 'channels_last'
     shortcut = inputs
     inputs = batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
@@ -490,6 +494,7 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block layer.
     """
+    assert data_format == 'channels_last'
     # Bottleneck blocks end with 4x the number of filters as they start with
     filters_out = filters * 4 if bottleneck else filters
 
@@ -511,7 +516,8 @@ class ResConvOps(object):
 
     # Only the first block per block_layer uses projection_shortcut and strides
     # and padding_s1
-    if b_kernel_size==1 and strides==1 and inputs.shape[-1].value==filters_out:
+    if (b_kernel_size==1 and strides==1 and inputs.shape[-1].value==filters_out)\
+          or (not self.residual):
       projection_shortcut_0 = None
     else:
       projection_shortcut_0 = projection_shortcut

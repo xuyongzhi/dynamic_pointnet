@@ -132,7 +132,8 @@ def get_synth_input_fn(height, width, num_channels, num_classes):
 # Functions for running training/eval/validation loops for the model.
 ################################################################################
 def learning_rate_with_decay(
-    batch_size, batch_denom, num_images, boundary_epochs, decay_rates):
+    batch_size, batch_denom, num_images, boundary_epochs, decay_rates,
+    initial_learning_rate=0.1 ):
   """Get a learning rate that decays step-wise as training progresses.
 
   Args:
@@ -152,7 +153,8 @@ def learning_rate_with_decay(
     trained so far (global_step)- and returns the learning rate to be used
     for training the next batch.
   """
-  initial_learning_rate = 0.1 * batch_size / batch_denom
+  initial_learning_rate = initial_learning_rate * batch_size / batch_denom
+  initial_learning_rate = initial_learning_rate
   batches_per_epoch = num_images / batch_size
 
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
@@ -271,10 +273,13 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
     tf.identity(learning_rate, name='learning_rate')
     tf.summary.scalar('learning_rate', learning_rate)
 
-    optimizer = tf.train.MomentumOptimizer(
-        learning_rate=learning_rate,
-        momentum=momentum
-    )
+    if data_net_configs['optimizer'] == 'momentum':
+      optimizer = tf.train.MomentumOptimizer(
+          learning_rate=learning_rate,
+          momentum=momentum
+      )
+    elif data_net_configs['optimizer'] == 'adam':
+      optimizer = tf.train.AdamOptimizer(learning_rate)
 
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are
@@ -461,10 +466,10 @@ def resnet_main(
     tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
   for cycle_index in range(total_training_cycle):
-    tf.logging.info('\n\nStarting a training cycle: %d/%d\n\n',
+    tf.logging.info('\n\n\nStarting a training cycle: %d/%d\n\n',
                     cycle_index, total_training_cycle)
 
-    if cycle_index%5 == 0:
+    if cycle_index%5 == 0 and cycle_index>1:
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
@@ -478,10 +483,6 @@ def resnet_main(
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
 
-    if cycle_index ==0:
-      with tf.Session() as sess:
-        max_memory_usage_v = sess.run(max_memory_usage)
-        tf.logging.info('\n\nmemory usage: %0.3f G\n\n'%(max_memory_usage_v*1.0/1e9))
 
     tf.logging.info('Starting to evaluate.')
 
