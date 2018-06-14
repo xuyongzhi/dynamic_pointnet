@@ -361,7 +361,8 @@ def define_modelnet_flags():
   flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')
   flags.DEFINE_string('feed_data',DEFAULTS['feed_data'],'xyzrsg-nxnynz-color')
-  flags.DEFINE_string('aug','none','all, none')
+  flags.DEFINE_string('aug',DEFAULTS['aug'],'all, none')
+  #flags.DEFINE_string('data_format',DEFAULTS['data_format'],'channels_first, channels_last')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
@@ -371,7 +372,8 @@ def define_modelnet_flags():
   flags_core.set_defaults(train_epochs=DEFAULTS['train_epochs'],
                           data_dir=data_dir,
                           batch_size=DEFAULTS['batch_size'],
-                          num_gpus=DEFAULTS['num_gpus'])
+                          num_gpus=DEFAULTS['num_gpus'],
+                          data_format=DEFAULTS['data_format'])
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)

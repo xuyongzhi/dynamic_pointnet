@@ -469,7 +469,8 @@ def resnet_main(
     tf.logging.info('\n\n\nStarting a training cycle: %d/%d\n\n',
                     cycle_index, total_training_cycle)
 
-    if cycle_index%5 == 0 and cycle_index>1:
+    if (cycle_index%4==0 and cycle_index<=10) or \
+        (cycle_index%8 == 0 and cycle_index>10):
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
@@ -484,27 +485,28 @@ def resnet_main(
                      max_steps=flags_obj.max_train_steps)
 
 
-    tf.logging.info('Starting to evaluate.')
+    if (cycle_index%2==0 and cycle_index<=10) or \
+        (cycle_index%4 == 0 and cycle_index>10):
+      tf.logging.info('Starting to evaluate.')
+      # flags_obj.max_train_steps is generally associated with testing and
+      # profiling. As a result it is frequently called with synthetic data, which
+      # will iterate forever. Passing steps=flags_obj.max_train_steps allows the
+      # eval (which is generally unimportant in those circumstances) to terminate.
+      # Note that eval will run for max_train_steps each loop, regardless of the
+      # global_step count.
+      eval_results = classifier.evaluate(input_fn=input_fn_eval,
+                                        steps=flags_obj.max_train_steps)
 
-    # flags_obj.max_train_steps is generally associated with testing and
-    # profiling. As a result it is frequently called with synthetic data, which
-    # will iterate forever. Passing steps=flags_obj.max_train_steps allows the
-    # eval (which is generally unimportant in those circumstances) to terminate.
-    # Note that eval will run for max_train_steps each loop, regardless of the
-    # global_step count.
-    eval_results = classifier.evaluate(input_fn=input_fn_eval,
-                                       steps=flags_obj.max_train_steps)
+      benchmark_logger.log_evaluation_result(eval_results)
+      if IsMetricLog:
+        metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n\n'.format(\
+            cycle_index, eval_results['loss'],\
+            eval_results['accuracy'], eval_results['global_step']))
+        metric_log_f.flush()
 
-    benchmark_logger.log_evaluation_result(eval_results)
-    if IsMetricLog:
-      metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n\n'.format(\
-          cycle_index, eval_results['loss'],\
-          eval_results['accuracy'], eval_results['global_step']))
-      metric_log_f.flush()
-
-    if model_helpers.past_stop_threshold(
-        flags_obj.stop_threshold, eval_results['accuracy']):
-      break
+      if model_helpers.past_stop_threshold(
+          flags_obj.stop_threshold, eval_results['accuracy']):
+        break
 
   if flags_obj.export_dir is not None:
     # Exports a saved model for the given classifier.

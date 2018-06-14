@@ -334,7 +334,6 @@ class ResConvOps(object):
     """Strided 2-D or 3-D convolution with explicit padding."""
     # The padding is consistent and is based only on `kernel_size`, not on the
     # dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
-    assert data_format == 'channels_last'
     if len(inputs.shape)==5:
       conv_fn = tf.layers.conv3d
       self._conv3d_num += 1
@@ -386,7 +385,6 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block; shape should match inputs.
     """
-    assert data_format == 'channels_last'
     shortcut = inputs
     inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
@@ -453,7 +451,6 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block; shape should match inputs.
     """
-    assert data_format == 'channels_last'
     shortcut = inputs
     inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
@@ -515,7 +512,6 @@ class ResConvOps(object):
     Returns:
       The output tensor of the block layer.
     """
-    assert data_format == 'channels_last'
     # Bottleneck blocks end with 4x the number of filters as they start with
     filters_out = filters * 4 if bottleneck else filters
 
@@ -596,7 +592,6 @@ class Model(ResConvOps):
     if not data_format:
       data_format = (
           'channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
-    data_format = 'channels_last'
 
     self.resnet_version = resnet_version
     if resnet_version not in (1, 2):
@@ -760,8 +755,7 @@ class Model(ResConvOps):
         # Convert the inputs from channels_last (NHWC) to channels_first (NCHW).
         # This provides a large performance boost on GPU. See
         # https://www.tensorflow.org/performance/performance_guide#data_formats
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        new_points = tf.transpose(new_points, [0, 3, 1, 2])
+        new_points = tf.transpose(new_points, [0, 2, 1])
 
       for k in range(self.cascade_num):
           IsExtraGlobalLayer = False
@@ -804,7 +798,6 @@ class Model(ResConvOps):
     batch_size = xyz.shape[0].value
     new_xyz, grouped_xyz, inputs, valid_mask = self.grouping(cascade_id, xyz,
                         points, bidmap, block_bottom_center_mm, scope)
-
     if cascade_id == 0:
       inputs = self.initial_layer(inputs)
     elif self.voxel3d:
@@ -821,7 +814,7 @@ class Model(ResConvOps):
       else:
         root_point_features = None
       assert len(outputs.shape)==4
-      outputs = tf.reduce_max(outputs, axis=2)
+      outputs = tf.reduce_max(outputs, axis=2 if self.data_format=='channels_last' else 3)
       if self.IsShowModel: self.log( tensor_info(outputs, 'max', 'cas%d'%(cascade_id)) +'\n' )
     else:
       # already used 3D CNN to reduce map size, just reshape
@@ -829,14 +822,18 @@ class Model(ResConvOps):
       if self.voxel3d:
         # self.grouping only spport 2D point cloud
         assert len(outputs.shape)==5
-        tmp = np.array( [outputs.shape[j].value for j in range(1,4)] )
+        channels_idxs = np.arange(1,4) + int(self.data_format=='channels_first')
+        tmp = np.array( [outputs.shape[j].value for j in channels_idxs] )
         tmp = tmp[0]*tmp[1]*tmp[2]
         # Except the last cascade, the voxel size should be reduced to 1
         if cascade_id != self.cascade_num-1:
           assert tmp==1
         else:
           assert outputs.shape[0].value == batch_size # global block
-        outputs = tf.reshape(outputs, [batch_size,-1,outputs.shape[-1].value])
+        if self.data_format=='channels_last':
+          outputs = tf.reshape(outputs, [batch_size,-1,outputs.shape[-1].value])
+        else:
+          outputs = tf.reshape(outputs, [batch_size,outputs.shape[1].value,-1])
 
     return new_xyz, outputs, root_point_features
 
@@ -876,6 +873,9 @@ class Model(ResConvOps):
       return inputs
 
   def grouping(self, cascade_id, xyz, points, bidmap, block_bottom_center_mm, scope):
+    if self.data_format == 'channels_first':
+      points = tf.transpose(points, [0, 2, 1])
+
     batch_size = xyz.get_shape()[0].value
     with tf.variable_scope(scope) as sc:
         assert self.cascade_num == self.flatten_bm_extract_idx.shape[0]-1  # include global here (Note: cascade_num does not include global in block_pre_util )
@@ -965,10 +965,15 @@ class Model(ResConvOps):
           self.log('')
 
         new_points = grouped_points
+        if self.data_format == 'channels_first':
+          new_points = tf.transpose(new_points, [0, 3, 1, 2])
         return new_xyz, grouped_xyz, new_points, valid_mask
 
   def grouped_points_to_voxel_points (self, cascade_id, new_points, valid_mask, block_bottom_center_mm, grouped_xyz):
     IS_merge_blocks_while_fix_bmap = True
+
+    if self.data_format == 'channels_first':
+      new_points = tf.transpose(new_points, [0, 2, 3, 1])
 
     block_bottom_center_mm = tf.identity( block_bottom_center_mm,'block_bottom_center_mm' )      # gpu_0/sa_layer3/block_bottom_center_mm:0
     new_points = tf.identity(new_points,name='points_tov') # gpu_0/sa_layer4/points_tov:0
@@ -1101,4 +1106,7 @@ class Model(ResConvOps):
     voxel_points = tf.reshape( voxel_points, shape = new_voxel_shape )
     #if self.aug_types['RotateVox']:
     #    voxel_points = rotate_voxel_randomly( voxel_points, configs )
+
+    if self.data_format == 'channels_first':
+      voxel_points = tf.transpose(voxel_points, [0, 4, 1, 2, 3])
     return voxel_points
