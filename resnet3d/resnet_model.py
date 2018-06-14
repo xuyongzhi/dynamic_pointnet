@@ -303,7 +303,8 @@ class ResConvOps(object):
       items_to_write = ['model_flag', 'dataset_name', 'aug', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
                         'optimizer', 'learning_rate0',\
-                        'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings']
+                        'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
+                        'data_dir']
       for item in items_to_write:
         self.model_log_f.write('%s:%s\n'%(item, data_net_configs[item]))
       self.model_log_f.write('\n')
