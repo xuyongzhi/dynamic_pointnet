@@ -40,12 +40,15 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
 DEBUG_TMP = False
 
-_BATCH_NORM_DECAY = 0.997
+#_BATCH_NORM_DECAY = 0.997
+#_BATCH_NORM_DECAY = 0.5
 _BATCH_NORM_EPSILON = 1e-5
 DEFAULT_VERSION = 2
 DEFAULT_DTYPE = tf.float32
 CASTABLE_TYPES = (tf.float16,)
+#CASTABLE_TYPES = (tf.float32,)
 ALLOWED_TYPES = (DEFAULT_DTYPE,) + CASTABLE_TYPES
+#ALLOWED_TYPES = (DEFAULT_DTYPE,)
 
 
 def tensor_info(tensor_ls, tensor_name_ls=None, scope=None):
@@ -100,14 +103,6 @@ def unique_nd( inputs, axis=-1, unit=3 ):
 ################################################################################
 # Convenience functions for building the ResNet model.
 ################################################################################
-def batch_norm(inputs, training, data_format):
-  """Performs a batch normalization using a standard set of parameters."""
-  # We set fused=True for a significant performance boost. See
-  # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
-  return tf.layers.batch_normalization(
-      inputs=inputs, axis=1 if data_format == 'channels_first' else -1,
-      momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
-      scale=True, training=training, fused=True)
 
 
 def fixed_padding(inputs, kernel_size, data_format):
@@ -191,19 +186,19 @@ def _building_block_v1(inputs, filters, training, projection_shortcut, strides,
 
   if projection_shortcut is not None:
     shortcut = projection_shortcut(inputs)
-    shortcut = batch_norm(inputs=shortcut, training=training,
+    shortcut = self.batch_norm(inputs=shortcut, training=training,
                           data_format=data_format)
 
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=3, strides=strides,
       data_format=data_format)
-  inputs = batch_norm(inputs, training, data_format)
+  inputs = self.batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
 
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=3, strides=1,
       data_format=data_format)
-  inputs = batch_norm(inputs, training, data_format)
+  inputs = self.batch_norm(inputs, training, data_format)
   inputs += shortcut
   inputs = tf.nn.relu(inputs)
 
@@ -242,25 +237,25 @@ def _bottleneck_block_v1(inputs, filters, training, projection_shortcut,
 
   if projection_shortcut is not None:
     shortcut = projection_shortcut(inputs)
-    shortcut = batch_norm(inputs=shortcut, training=training,
+    shortcut = self.batch_norm(inputs=shortcut, training=training,
                           data_format=data_format)
 
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=1, strides=1,
       data_format=data_format)
-  inputs = batch_norm(inputs, training, data_format)
+  inputs = self.batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
 
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=3, strides=strides,
       data_format=data_format)
-  inputs = batch_norm(inputs, training, data_format)
+  inputs = self.batch_norm(inputs, training, data_format)
   inputs = tf.nn.relu(inputs)
 
   inputs = conv2d3d_fixed_padding(
       inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
       data_format=data_format)
-  inputs = batch_norm(inputs, training, data_format)
+  inputs = self.batch_norm(inputs, training, data_format)
   inputs += shortcut
   inputs = tf.nn.relu(inputs)
 
@@ -280,6 +275,7 @@ class ResConvOps(object):
   def __init__(self, data_net_configs):
     self.residual = data_net_configs['residual']
     self.voxel3d = 'V' in data_net_configs['model_flag']
+    self.batch_norm_decay = data_net_configs['batch_norm_decay']
 
     model_dir = data_net_configs['model_dir']
     if ResConvOps._epoch==0:
@@ -288,6 +284,21 @@ class ResConvOps(object):
         os.makedirs(model_dir)
       self.model_log_fn = os.path.join(model_dir, 'log_model.txt')
       self.model_log_f = open(self.model_log_fn, 'w')
+
+
+      dnc = data_net_configs
+      res = 'rs' if self.residual else 'pl'
+      key_para_names = 'model bs feed aug lr0 bnd optimizer filters0\n'
+      key_paras_str = '{model_name} {bs} {feed_data_eles} {aug} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
+        model_name=res+str(dnc['resnet_size'])+dnc['model_flag'],
+        bs=dnc['batch_size'],
+        feed_data_eles=dnc['feed_data_eles'],
+        aug=dnc['aug'],
+        lr0=dnc['learning_rate0'],
+        bnd=dnc['batch_norm_decay'],
+        optimizer=dnc['optimizer'],
+        filters0=dnc['num_filters0'] )
+      self.model_log_f.write(key_para_names + key_paras_str)
 
       items_to_write = ['model_flag', 'dataset_name', 'aug', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
@@ -298,6 +309,15 @@ class ResConvOps(object):
       self.model_log_f.write('\n')
       self.model_log_f.flush()
     ResConvOps._epoch += 1
+
+  def batch_norm(self, inputs, training, data_format):
+    """Performs a batch normalization using a standard set of parameters."""
+    # We set fused=True for a significant performance boost. See
+    # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
+    return tf.layers.batch_normalization(
+        inputs=inputs, axis=1 if data_format == 'channels_first' else -1,
+        momentum=self.batch_norm_decay , epsilon=_BATCH_NORM_EPSILON, center=True,
+        scale=True, training=training, fused=True)
 
   def log(self, log_str):
     self.model_log_f.write(log_str+'\n')
@@ -367,7 +387,7 @@ class ResConvOps(object):
     """
     assert data_format == 'channels_last'
     shortcut = inputs
-    inputs = batch_norm(inputs, training, data_format)
+    inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     conv_str = 'conv2d' if len(inputs.shape)==4 else 'conv3d'
     if (not self.voxel3d) and len(inputs.shape)==5:
@@ -386,7 +406,7 @@ class ResConvOps(object):
       self.log( tensor_info(inputs, '%s k,s,p=%d,%d,%s'%
                     (conv_str,b_kernel_size,strides,padding_s1), 'block_v2'))
 
-    inputs = batch_norm(inputs, training, data_format)
+    inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=1,
@@ -434,7 +454,7 @@ class ResConvOps(object):
     """
     assert data_format == 'channels_last'
     shortcut = inputs
-    inputs = batch_norm(inputs, training, data_format)
+    inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     conv_str = 'conv2d' if len(inputs.shape)==4 else 'conv3d'
 
@@ -449,7 +469,7 @@ class ResConvOps(object):
     if self.IsShowModel:
       self.log( tensor_info(inputs, '%s k,s=1,1'%(conv_str), 'bottle_v2'))
 
-    inputs = batch_norm(inputs, training, data_format)
+    inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=filters, kernel_size=b_kernel_size, strides=strides,
@@ -458,7 +478,7 @@ class ResConvOps(object):
       self.log( tensor_info(inputs, '%s k,s=%d,%d'%
                         (conv_str,b_kernel_size,strides), 'bottle_v2'))
 
-    inputs = batch_norm(inputs, training, data_format)
+    inputs = self.batch_norm(inputs, training, data_format)
     inputs = tf.nn.relu(inputs)
     inputs = self.conv2d3d_fixed_padding(
         inputs=inputs, filters=4 * filters, kernel_size=1, strides=1,
@@ -830,7 +850,7 @@ class Model(ResConvOps):
       # for both the shortcut and non-shortcut paths as part of the first
       # block's projection. Cf. Appendix of [2].
       if self.resnet_version == 1:
-        inputs = batch_norm(inputs, training, self.data_format)
+        inputs = self.batch_norm(inputs, training, self.data_format)
         inputs = tf.nn.relu(inputs)
       if self.IsShowModel:self.log(tensor_info(inputs,'conv2d ks:1,1','initial'))
 

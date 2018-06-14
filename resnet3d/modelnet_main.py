@@ -252,11 +252,14 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['residual'] = flags_obj.residual
   _DATA_PARAS['optimizer'] = flags_obj.optimizer
   _DATA_PARAS['learning_rate0'] = flags_obj.learning_rate0
+  _DATA_PARAS['batch_norm_decay'] = flags_obj.batch_norm_decay
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
+  _DATA_PARAS['batch_size'] = flags_obj.batch_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
   _DATA_PARAS['model_flag'] = flags_obj.model_flag
   _get_block_paras()
 
+  feed_data_eles = flags_obj.feed_data
   feed_data = flags_obj.feed_data.split('-')
   assert feed_data[0][0:3] == 'xyz'
   xyz_eles = feed_data[0][3:]
@@ -268,6 +271,7 @@ def define_net_configs(flags_obj):
   if 'r' in xyz_eles: xyz_elements.append('raw')
   assert len(xyz_elements) > 0
   _DATA_PARAS['feed_data'] = feed_data
+  _DATA_PARAS['feed_data_eles'] = feed_data_eles
   _DATA_PARAS['xyz_elements'] = xyz_elements
   _DATA_PARAS['aug'] = flags_obj.aug
 
@@ -323,6 +327,8 @@ def define_model_dir():
                                  block_kernels_str, block_paddings_str)
   logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug + '-bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
+  logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))
+  logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay*10))
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -350,6 +356,7 @@ def define_modelnet_flags():
   flags.DEFINE_boolean('residual', DEFAULTS['residual'], '')
   flags.DEFINE_string('optimizer', DEFAULTS['optimizer'], 'adam, momentum')
   flags.DEFINE_float('learning_rate0', DEFAULTS['learning_rate0'],'')
+  flags.DEFINE_float('batch_norm_decay', DEFAULTS['batch_norm_decay'],'')
   flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
   flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')
