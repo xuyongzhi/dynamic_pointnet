@@ -1,6 +1,18 @@
 # xyz June 2018
 import numpy as np
 
+DEFAULTS = {}
+DEFAULTS['residual'] = False
+DEFAULTS['model_flag'] = 'm'
+DEFAULTS['resnet_size'] = 34
+DEFAULTS['num_filters0'] = 32
+DEFAULTS['feed_data'] = 'xyzg-nxnynz'
+DEFAULTS['aug'] = 'none'
+DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+DEFAULTS['batch_size'] = 64
+DEFAULTS['num_gpus'] = 2
+DEFAULTS['train_epochs'] = 61
+
 def get_block_paras(resnet_size, model_flag):
   block_sizes = {}
   block_kernels = {}

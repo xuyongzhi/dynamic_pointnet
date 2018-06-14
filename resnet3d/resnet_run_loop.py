@@ -74,20 +74,31 @@ def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer,
   # Parse the raw records into images and labels. Testing has shown that setting
   # num_parallel_batches > 1 produces no improvement in throughput, since
   # batch_size is almost always much greater than the number of CPU cores.
-  dataset = dataset.apply(
-      tf.contrib.data.map_and_batch(
-          lambda value: parse_record_fn(value, is_training, data_net_configs),
-          batch_size=batch_size,
-          num_parallel_batches=1,
-          drop_remainder=True))
+  tf_version = float(tf.__version__[0:3])
+  if tf_version>=1.8:
+    dataset = dataset.apply(
+        tf.contrib.data.map_and_batch(
+            lambda value: parse_record_fn(value, is_training, data_net_configs),
+            batch_size=batch_size,
+            num_parallel_batches=1,
+            drop_remainder=True))
+    # Operations between the final prefetch and the get_next call to the iterator
+    # will happen synchronously during run time. We prefetch here again to
+    # background all of the above processing work and keep it out of the
+    # critical training path. Setting buffer_size to tf.contrib.data.AUTOTUNE
+    # allows DistributionStrategies to adjust how many batches to fetch based
+    # on how many devices are present.
+    dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
 
-  # Operations between the final prefetch and the get_next call to the iterator
-  # will happen synchronously during run time. We prefetch here again to
-  # background all of the above processing work and keep it out of the
-  # critical training path. Setting buffer_size to tf.contrib.data.AUTOTUNE
-  # allows DistributionStrategies to adjust how many batches to fetch based
-  # on how many devices are present.
-  dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
+  else:
+    dataset = dataset.apply(
+        tf.contrib.data.map_and_batch(
+            lambda value: parse_record_fn(value, is_training, data_net_configs),
+            batch_size=batch_size,
+            num_parallel_batches=1
+            ))
+    dataset = dataset.prefetch(buffer_size=batch_size)
+
 
   return dataset
 
@@ -284,12 +295,16 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
   else:
     train_op = None
 
-  if not tf.contrib.distribute.has_distribution_strategy():
-    accuracy = tf.metrics.accuracy(labels, predictions['classes'])
+  tf_version = float(tf.__version__[0:3])
+  if tf_version>=1.8:
+    if not tf.contrib.distribute.has_distribution_strategy():
+      accuracy = tf.metrics.accuracy(labels, predictions['classes'])
+    else:
+      # Metrics are currently not compatible with distribution strategies during
+      # training. This does not affect the overall performance of the model.
+      accuracy = (tf.no_op(), tf.constant(0))
   else:
-    # Metrics are currently not compatible with distribution strategies during
-    # training. This does not affect the overall performance of the model.
-    accuracy = (tf.no_op(), tf.constant(0))
+      accuracy = tf.metrics.accuracy(labels, predictions['classes'])
 
   metrics = {'accuracy': accuracy}
 
@@ -374,17 +389,23 @@ def resnet_main(
       gpu_options = tf.GPUOptions(allow_growth = True),
       allow_soft_placement=True)
 
-  if flags_core.get_num_gpus(flags_obj) == 0:
-    distribution = tf.contrib.distribute.OneDeviceStrategy('device:CPU:0')
-  elif flags_core.get_num_gpus(flags_obj) == 1:
-    distribution = tf.contrib.distribute.OneDeviceStrategy('device:GPU:%d'%(flags_obj.gpu_id))
-  else:
-    distribution = tf.contrib.distribute.MirroredStrategy(
-        num_gpus=flags_core.get_num_gpus(flags_obj)
-    )
+  tf_version = float(tf.__version__[0:3])
+  if tf_version>=1.8:
+    if flags_core.get_num_gpus(flags_obj) == 0:
+      distribution = tf.contrib.distribute.OneDeviceStrategy('device:CPU:0')
+    elif flags_core.get_num_gpus(flags_obj) == 1:
+      distribution = tf.contrib.distribute.OneDeviceStrategy('device:GPU:%d'%(flags_obj.gpu_id))
+    else:
+      distribution = tf.contrib.distribute.MirroredStrategy(
+          num_gpus=flags_core.get_num_gpus(flags_obj)
+      )
 
-  run_config = tf.estimator.RunConfig(train_distribute=distribution,
-                                      session_config=session_config)
+    run_config = tf.estimator.RunConfig(train_distribute=distribution,
+                                        session_config=session_config)
+  else:
+    run_config = tf.estimator.RunConfig(
+                                        session_config=session_config)
+
 
   classifier = tf.estimator.Estimator(
       model_fn=model_function, model_dir=flags_obj.model_dir, config=run_config,

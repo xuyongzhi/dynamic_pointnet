@@ -278,6 +278,7 @@ class ResConvOps(object):
   _epoch = 0
 
   def __init__(self, data_net_configs):
+    self.residual = data_net_configs['residual']
     self.voxel3d = 'V' in data_net_configs['model_flag']
 
     model_dir = data_net_configs['model_dir']
@@ -391,7 +392,11 @@ class ResConvOps(object):
       self.log( tensor_info(inputs, '%s k,s,p=%d,%d,%s'%
                 (conv_str,b_kernel_size,strides,padding_s1), 'block_v2')+'\n')
 
-    return inputs + shortcut
+    if self.residual:
+      assert inputs.shape == shortcut.shape
+      return inputs + shortcut
+    else:
+      return inputs
   def _bottleneck_block_v2(self, inputs, filters, training, projection_shortcut,
                           b_kernel_size, strides, padding_s1, data_format):
     """A single block for ResNet v2, without a bottleneck.
@@ -457,8 +462,11 @@ class ResConvOps(object):
     if self.IsShowModel: self.log( tensor_info(inputs, '%s k,s=1,1'%(conv_str),
                                         'bottle_v2')+'\n' )
 
-    assert inputs.shape == shortcut.shape
-    return inputs + shortcut
+    if self.residual:
+      assert inputs.shape == shortcut.shape
+      return inputs + shortcut
+    else:
+      return inputs
 
   def block_layer(self, inputs, filters, bottleneck, block_fn, blocks, b_kernel_size,
                   strides, padding_s1, training, name, data_format):
@@ -605,7 +613,8 @@ class Model(ResConvOps):
     else:
         self.num_neighbors= None
     self.global_numpoint = self.data_net_configs['points'][0]
-    self.cascade_num = int(self.model_flag[0])
+    #self.cascade_num = int(self.model_flag[0])
+    self.cascade_num = len(self.data_net_configs['block_sizes'])
     assert self.cascade_num <= self.data_net_configs['sg_bm_extract_idx'].shape[0]-1
     #self.log('cascade_num:{}'.format(self.cascade_num))
     self.IsOnlineGlobal = self.model_flag[-1] == 'G'

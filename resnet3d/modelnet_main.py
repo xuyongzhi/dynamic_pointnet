@@ -34,7 +34,7 @@ import resnet_model
 import resnet_run_loop
 import os, glob, sys
 import numpy as np
-import modelnet_configs
+from modelnet_configs import get_block_paras, DEFAULTS
 
 
 BASE_DIR = os.path.abspath(__file__)
@@ -248,6 +248,7 @@ def modelnet_model_fn(features, labels, mode, params):
 
 def define_net_configs(flags_obj):
   global _DATA_PARAS
+  _DATA_PARAS['residual'] = flags_obj.residual
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
   _DATA_PARAS['model_flag'] = flags_obj.model_flag
@@ -291,7 +292,7 @@ def _get_block_paras():
   global _DATA_PARAS
   resnet_size = _DATA_PARAS['resnet_size']
   block_sizes, block_kernels, block_strides, block_paddings = \
-              modelnet_configs.get_block_paras(_DATA_PARAS['resnet_size'],
+              get_block_paras(_DATA_PARAS['resnet_size'],
                                                _DATA_PARAS['model_flag'])
   _DATA_PARAS['block_sizes'] = block_sizes[resnet_size]
   _DATA_PARAS['block_kernels'] = block_kernels[resnet_size]
@@ -304,7 +305,11 @@ def ls_str(ls_in_ls):
   return ls_str
 
 def define_model_dir():
-  logname = 'rs' + str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag\
+  if flags.FLAGS.residual:
+    logname = 'rs'
+  else:
+    logname = 'pl'
+  logname += str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag\
             + '-fn0_'+str(flags.FLAGS.num_filters0)
   block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
   block_sizes_str = ''.join(block_sizes_str)
@@ -338,22 +343,22 @@ def add_log_file(model_dir):
 def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
-
-  flags.DEFINE_string('model_flag', '3m','')
-  flags.DEFINE_integer('resnet_size',34,'resnet_size')
-  flags.DEFINE_integer('num_filters0',32,'')
-  flags.DEFINE_string('feed_data','xyzg','xyzrsg-nxnynz-color')
-  flags.DEFINE_string('aug','all','all, none')
+  flags.DEFINE_boolean('residual', DEFAULTS['residual'], '')
+  flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
+  flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
+  flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')
+  flags.DEFINE_string('feed_data',DEFAULTS['feed_data'],'xyzrsg-nxnynz-color')
+  flags.DEFINE_string('aug','none','all, none')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
   flags.adopt_module_key_flags(resnet_run_loop)
-  data_dir = os.path.join(DATA_DIR, 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp')
+  data_dir = os.path.join(DATA_DIR, DEFAULTS['data_path'])
   _DATA_PARAS['data_dir'] = data_dir
-  flags_core.set_defaults(train_epochs=31,
+  flags_core.set_defaults(train_epochs=DEFAULTS['train_epochs'],
                           data_dir=data_dir,
-                          batch_size=32,
-                          num_gpus=2)
+                          batch_size=DEFAULTS['batch_size'],
+                          num_gpus=DEFAULTS['num_gpus'])
   flags.DEFINE_integer('gpu_id',0,'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)
