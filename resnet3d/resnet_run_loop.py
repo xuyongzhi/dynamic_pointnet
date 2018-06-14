@@ -280,6 +280,8 @@ def resnet_model_fn(model_flag, features, labels, mode, model_class,
       )
     elif data_net_configs['optimizer'] == 'adam':
       optimizer = tf.train.AdamOptimizer(learning_rate)
+    else:
+      raise NotImplementedError
 
     if loss_scale != 1:
       # When computing fp16 gradients, often intermediate tensor values are

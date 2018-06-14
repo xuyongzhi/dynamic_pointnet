@@ -5,9 +5,9 @@ DEFAULTS = {}
 DEFAULTS['residual'] = False
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
-DEFAULTS['batch_norm_decay'] = 0.997
+DEFAULTS['batch_norm_decay'] = 0.7
 
-DEFAULTS['model_flag'] = 'tmpV'
+DEFAULTS['model_flag'] = 'm'
 DEFAULTS['resnet_size'] = 34
 DEFAULTS['num_filters0'] = 32
 DEFAULTS['feed_data'] = 'xyzg-nxnynz'
@@ -16,7 +16,7 @@ DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn1
 DEFAULTS['batch_size'] = 64
 DEFAULTS['num_gpus'] = 2
 DEFAULTS['train_epochs'] = 31
-DEFAULTS['data_format'] = 'channels_first'
+DEFAULTS['data_format'] = 'channels_last'
 
 def get_block_paras(resnet_size, model_flag):
   block_sizes = {}
