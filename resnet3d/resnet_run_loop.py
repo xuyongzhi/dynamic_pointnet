@@ -378,7 +378,7 @@ def resnet_main(
   IsMetricLog = True   # temporally used
   if IsMetricLog:
     metric_log_fn = os.path.join(flags_obj.model_dir, 'log_metric.txt')
-    metric_log_f = open(metric_log_fn, 'w')
+    metric_log_f = open(metric_log_fn, 'a')
 
   from tensorflow.contrib.memory_stats.ops import gen_memory_stats_ops
   max_memory_usage = gen_memory_stats_ops.max_bytes_in_use()
