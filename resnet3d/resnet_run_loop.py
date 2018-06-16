@@ -153,8 +153,8 @@ def learning_rate_with_decay(
     trained so far (global_step)- and returns the learning rate to be used
     for training the next batch.
   """
-  #initial_learning_rate = initial_learning_rate * batch_size / batch_denom
-  initial_learning_rate = initial_learning_rate
+  initial_learning_rate = initial_learning_rate * batch_size / batch_denom
+  #initial_learning_rate = initial_learning_rate
   batches_per_epoch = num_images / batch_size
 
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
@@ -471,24 +471,24 @@ def resnet_main(
     tf.logging.info('\n\n\nStarting a training cycle: %d/%d\n\n',
                     cycle_index, total_training_cycle)
 
-    if (cycle_index%4==0 and cycle_index<=10) or \
-        (cycle_index%8 == 0 and cycle_index>10):
+    if (cycle_index%3==0 and cycle_index<=10) or \
+        (cycle_index%5 == 0 and cycle_index>10):
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
                                         steps=flags_obj.max_train_steps)
-      if IsMetricLog:
-        metric_log_f.write('train epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
-            cycle_index, train_eval_results['loss'],\
-            train_eval_results['accuracy'], train_eval_results['global_step']))
-        metric_log_f.flush()
+      #if IsMetricLog:
+      #  metric_log_f.write('train epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
+      #      cycle_index, train_eval_results['loss'],\
+      #      train_eval_results['accuracy'], train_eval_results['global_step']))
+      #  metric_log_f.flush()
 
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
 
 
-    if (cycle_index%2==0 and cycle_index<=10) or \
-        (cycle_index%4 == 0 and cycle_index>10):
+    if (cycle_index%3==0 and cycle_index<=10) or \
+        (cycle_index%5 == 0 and cycle_index>10):
       tf.logging.info('Starting to evaluate.')
       # flags_obj.max_train_steps is generally associated with testing and
       # profiling. As a result it is frequently called with synthetic data, which
@@ -501,9 +501,9 @@ def resnet_main(
 
       benchmark_logger.log_evaluation_result(eval_results)
       if IsMetricLog:
-        metric_log_f.write('eval epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n\n'.format(\
-            cycle_index, eval_results['loss'],\
-            eval_results['accuracy'], eval_results['global_step']))
+        metric_log_f.write('epoch loss accuracy global_step: {}-{:.3f}/{:.3f}--{:.3f}/{:.3f}  {}\n\n'.format(\
+            cycle_index, train_eval_results['loss'], eval_results['loss'],\
+            train_eval_results['accuracy'], eval_results['accuracy'], eval_results['global_step']))
         metric_log_f.flush()
 
       if model_helpers.past_stop_threshold(

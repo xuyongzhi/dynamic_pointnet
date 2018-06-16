@@ -1,12 +1,12 @@
 #!/bin/bash
 #PBS -q gpupascal
-#PBS -l walltime=40:00:00
-#PBS -l mem=30GB
+#PBS -l walltime=20:00:00
+#PBS -l mem=32GB
 #PBS -l jobfs=0GB
 #PBS -l ngpus=2
 #PBS -l ncpus=12
 ## For licensed software, you have to specify it to get the job running. For unlicensed software, you should also specify it to help us analyse the software usage on our system.
-#PBS -l software=tensorflow/1.6-cudnn7.1-python2.7
+#PBS -l software=tensorflow/1.8-cudnn7.1-python2.7
 
 ## The job will be executed from current working directory instead of home.
 #PBS -l wd 
@@ -14,21 +14,13 @@
 #PBS -M y.xu@unsw.edu.au
 #PBS -m abe
 
-module load  tensorflow/1.6-cudnn7.1-python2.7
+module load  tensorflow/1.8-cudnn7.1-python2.7
 module list
  
 
-aug='all'
-batch_siz=48 # 9.2G
-feed_data='xyzg-nxnynz'
-python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out1.log
-
-batch_siz=64
-python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out2.log
-
-feed_data='xyzg'
-python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out3.log
-
 aug='none'
-python ../modelnet_main.py --num_gpus 2 --batch_size $batch_siz --feed_data $feed_data --aug $aug -> out4.log
+batch_size=48
+model_flag='m'
+
+./modelnet.sh   $aug  $batch_size $model_flag
 

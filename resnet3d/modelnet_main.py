@@ -328,7 +328,7 @@ def define_model_dir():
   logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug + '-bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
   logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))
-  logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay*10))
+  logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay*100))
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):

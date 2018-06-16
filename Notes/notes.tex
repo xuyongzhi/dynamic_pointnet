@@ -825,7 +825,8 @@ test data shape: [ 4172 12800     9] \par
 
 \section{res3d}
 \noindent
-\begin{tabular}{|p{10cm}|p{5cm}| }
+\begin{table}[ht]
+\begin{tabular}{|p{10cm}|p{5cm}| }	
 	\hline
 	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
 	\hline
@@ -840,11 +841,35 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	pl34m 64 xyzg-nxnynz none 0.001 0.997 adam 32 & 0-?/0.041\par 5-0.491/0.687\par 10-0.712/0.503\par 20-0.973/0.853\\
 	\hline
+	pl34m 64 xyzg-nxnynz all 0.001 0.7 adam 32 & 0-0.090/0.110\par 24-0.557/0.524\\
+	\hline
+	pl34m 32 xyzg-nxnynz none 0.001 0.7 adam 32 & 0-0.016/0.516\par 24-0.815/0.823 \\
+	\hline	
+	pl34m 64 xyzg-nxnynz none 0.0001 0.7 adam 32 & 0-0.037/0.417\par 24-0.935/0.812\\
+	\hline
+	pl34m 64 xyzg-nxnynz none 0.001 0.7 adam 32 &0-0.047/0.560\par 24-0.897/0.825 \\
+	\hline
+	pl34m 64 xyzg-nxnynz none 0.001 0.9 adam 32 &0-0.029/0.464\par 24-0.883/0.821\\
+	\hline \hline \\ \hline
+	
+	pl34m 64 xyzg-nxnynz all 0.001 0.7 momentum 32 & 0-0.055/0.078\par 24-0.577/0.472\\
+	\hline
+	pl34m 64 xyzg-nxnynz none 0.0001 0.7 momentum 32 & 0-4.177/3.609--0.015/0.164\par 30-0.640/1.087--0.911/0.775\\
+	\hline 
+	pl34m 64 xyzg-nxnynz none 0.001 0.7 momentum 32 & 0-0.022/0.478\par 24-0.987/0.829\\
+	\hline
+	pl34m 64 xyzg-nxnynz none 0.001 0.9 momentum 32 & 0.058/0.547\par 24-0.980/0.833\\
+	\hline
+	pl34m 32 xyzg-nxnynz none 0.001 0.7 momentum 32 & 0-0.045/0.608\par 24-0.965/0.849\\
+	\hline
 	
 	\multicolumn{2}{|p{15cm}|}{ Conclusion:\par	
-		(0)Learning rate too high leads to no convergence\par
-		(1)Batch norm decay seems always better. Especially can allow high learning rate.  } \\
+	(0)Learning rate too high leads to no convergence\par
+	(1)Batch norm decay seems always better. Especially can allow high learning rate.\par
+	()bnd $0.5$, 0.997 doesnt work
+	()lr $0.001 > 0.01$  } \\
 	\hline	
 \end{tabular}
+\end{table}
 
 \end{document}

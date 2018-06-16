@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  14 JUN 2018 23:18
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  15 JUN 2018 23:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1941,31 +1941,32 @@ Overfull \hbox (123.11214pt too wide) in paragraph at lines 806--825
  []
 
 [29]
-Underfull \hbox (badness 10000) in paragraph at lines 830--830
+Underfull \hbox (badness 10000) in paragraph at lines 831--831
 []\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]2
 40[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (105.79134pt too wide) in paragraph at lines 827--849
-[] 
+Overfull \hbox (105.79134pt too wide) in paragraph at lines 829--873
+[][] 
  []
 
 [30]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 850.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 850.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 875.
+ [31]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 875.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 850.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 850.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 875.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 875.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: 384AA0DA7A5F4264C433ECE01E4E69D7;2450.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 850.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 875.
  ) 
 Here is how much of TeX's memory you used:
- 17763 strings out of 494931
- 354692 string characters out of 6180851
+ 17766 strings out of 494931
+ 354731 string characters out of 6180851
  432324 words of memory out of 5000000
- 20697 multiletter control sequences out of 15000+600000
+ 20698 multiletter control sequences out of 15000+600000
  9153 words of font info for 32 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  55i,12n,56p,408b,605s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1980,10 +1981,10 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (31 pages, 2604394 bytes).
+Output written on notes.pdf (32 pages, 2605483 bytes).
 PDF statistics:
- 420 PDF objects out of 1000 (max. 8388607)
- 339 compressed objects within 4 object streams
- 73 named destinations out of 1000 (max. 500000)
+ 425 PDF objects out of 1000 (max. 8388607)
+ 343 compressed objects within 4 object streams
+ 75 named destinations out of 1000 (max. 500000)
  405 words of extra memory for PDF output out of 10000 (max. 10000000)
 
