@@ -885,7 +885,7 @@ test data shape: [ 4172 12800     9] \par
 	\rowcolor{green!30}
 	rs34V 48 xyzg-nxnynz none 0.0001 0.9 adam 32 & 0-4.220/1.459--0.059/0.712\par 15-0.481/1.612--0.976/0.803\\
 	\rowcolor{yellow!30}
-	rs34V 48 xyzg-nxnynz none 0.001 0.9 adam 32 & 0-7.067/3.760--0.052/0.509\par  9-0.732/1.176--0.890/0.812\par 25-0.365/1.026--0.974/0.844\\
+	rs34V 48 xyzg-nxnynz none 0.001 0.9 adam 32 & 0-7.067/3.760--0.052/0.509\par  9-0.732/1.176--0.890/0.812\par 25-0.365/1.026--0.974/0.844\par 6-0.307/1.025--0.993/0.870  7615\par 40-0.180/1.284--0.999/0.860  16041\\
 	\rowcolor{blue!30}
 	rs34V 48 xyzg-nxnynz r 0.001 0.9 adam 32 & 0-8.119/2.267--0.011/0.486\par 9-0.842/0.982--0.864/0.819\par  40-0.275/1.147--0.990/0.852\\
 	\rowcolor{red!20}
@@ -894,6 +894,22 @@ test data shape: [ 4172 12800     9] \par
 	\rowcolor{yellow}
 	\multicolumn{2}{|p{15cm}|}{ Conclusion:\par	
 		(0)$s>r$ } \\
+	
+\end{tabular}
+point++\par res\par 
+\noindent\begin{tabular}{|p{9cm}|p{6cm}| }	
+	\rowcolor{gray!10}
+	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
+	\hline
+	model bs feed aug lr0 bnd optimizer filters0 & train/eval \\
+	\rowcolor{yellow!30}
+	rs34m 16 xyzg-nxnynz none 0.001 0.9 adam 32 & 625-4.059/1.490--0.041/0.671  \par 6160-0.558/1.032--0.949/0.832  \par 19075-0.418/0.937--0.991/0.878 \\
+	\rowcolor{blue!20}
+	rs34m 48 xyzg-nxnynz none 0.0001 0.9 adam 32 & 8220-0.402/1.013--1.000/0.837\\
+	\rowcolor{red!20}
+	rs34m 48 xyzg-nxnynz none 0.01 0.9 adam 32 & 0-26.717/1.521--0.016/0.703  215\par 9-0.665/1.004--0.902/0.816  2060\par 35-0.303/0.758--0.998/0.894\par 30-0.149/0.678--1.000/0.897  13950\\
+	\rowcolor{green!20}
+	rs34m 96 xyzg-nxnynz none 0.001 0.9 adam 32& 0-4.485/1.356--0.035/0.721  112\par 9-0.530/1.044--0.958/0.832  1030\par 35-0.382/0.966--1.000/0.876  3682\par 
 	
 \end{tabular}
 

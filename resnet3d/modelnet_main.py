@@ -279,6 +279,9 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['model_dir'] = model_dir
   flags_obj.model_dir = model_dir
 
+  flags_obj.steps_per_epoch = _NUM_IMAGES['train'] / flags_obj.batch_size
+  flags_obj.max_train_steps = int(flags_obj.train_epochs * flags_obj.steps_per_epoch)+2
+
 
 def _get_block_paras():
   """Retrieve the size of each block_layer in the ResNet model.
@@ -373,8 +376,10 @@ def define_modelnet_flags():
                           data_dir=data_dir,
                           batch_size=DEFAULTS['batch_size'],
                           num_gpus=DEFAULTS['num_gpus'],
-                          data_format=DEFAULTS['data_format'])
+                          data_format=DEFAULTS['data_format'] )
   flags.DEFINE_integer('gpu_id',0,'')
+  flags.DEFINE_float('steps_per_epoch',
+                     _NUM_IMAGES['train']/DEFAULTS['batch_size'],'')
   get_data_shapes_from_tfrecord(data_dir)
   get_data_meta_from_hdf5(data_dir)
 
