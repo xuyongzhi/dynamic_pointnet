@@ -23,11 +23,11 @@ batch_size=48
 model_flag='m'
 learning_rate0=0.001
 
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> n.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> n.log
 
 aug='r'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> r.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> r.log
 
 aug='s'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> s.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> s.log
 

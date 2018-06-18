@@ -24,10 +24,10 @@ learning_rate0=0.001
 
 
 aug='f'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> f.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> f.log
 
 aug='j'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> j.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> j.log
 
 aug='all'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> a.log
+../modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 -> a.log
