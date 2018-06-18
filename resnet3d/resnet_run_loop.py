@@ -501,8 +501,8 @@ def resnet_main(
 
       benchmark_logger.log_evaluation_result(eval_results)
       if IsMetricLog:
-        metric_log_f.write('epoch loss accuracy global_step: {d} {:.3f}/{:.3f}--{:.3f}/{:.3f}\n\n'.format(\
-            eval_results['global_step']/flags_obj.steps_per_epoch, train_eval_results['loss'], eval_results['loss'],\
+        metric_log_f.write('epoch loss accuracy global_step: {} {:.3f}/{:.3f}--{:.3f}/{:.3f}\n\n'.format(\
+            int(eval_results['global_step']/flags_obj.steps_per_epoch), train_eval_results['loss'], eval_results['loss'],\
             train_eval_results['accuracy'], eval_results['accuracy']))
         metric_log_f.flush()
 
