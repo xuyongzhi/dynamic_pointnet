@@ -61,6 +61,8 @@ def aug_all(points, data_idxs, \
     RS = None
   if RS!=None:
     points_xyz = tf.matmul(points[:,0:3], RS)
+  else:
+    points_xyz = points[:,0:3]
 
 
   shifts = random_shift()

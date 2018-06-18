@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[,table,dvipsnames]{article}
 \usepackage[usenames, dvipsnames]{color}
 \usepackage{graphicx}
 \usepackage{caption}
@@ -7,7 +7,6 @@
 \usepackage{longtable}
 \usepackage{float}
 \usepackage{tikz}
-\usepackage{longtable}
 \usetikzlibrary{shapes.geometric, arrows}
 \hypersetup{
 	citecolor=black,
@@ -15,11 +14,14 @@
 	linkcolor=black,
 	urlcolor=black
 }
-\graphicspath{ {images/} {images/mat60_1AG/} }
+\usepackage{xcolor}
 
+\graphicspath{ {images/} {images/mat60_1AG/} }
 \title{Dynamic sampling pointnet notes}
 \author{xyz}
 \date{Feb 2018}
+
+\definecolor{maroon}{cmyk}{0,0.87,0.68,0.32}
 
 \begin{document}
 \noindent
@@ -824,9 +826,7 @@ test data shape: [ 4172 12800     9] \par
 \end{tabular}
 
 \section{res3d}
-\noindent
-\begin{table}[ht]
-\begin{tabular}{|p{10cm}|p{5cm}| }	
+\noindent\begin{tabular}{|p{10cm}|p{5cm}| }	
 	\hline
 	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
 	\hline
@@ -835,10 +835,10 @@ test data shape: [ 4172 12800     9] \par
 	pl34m 64 xyzg-nxnynz none 0.01 0.5 adam 32 &0-?/0.12\par 5-0.337/0.175\par 10-0.425/0.368\par 30-0.544/0.625 \\
 	\hline
 	pl34m 64 xyzg-nxnynz none 0.01 0.997 adam 32 &0-?/0.033\par 5-0.073/0.048\par 10-0.056/0.044\par 20-0.099/0.119\\
-	\hline
+	\rowcolor{green!10}
 	pl34m 64 xyzg-nxnynz none 0.001 0.5 adam 32 & 0-?/0.580\par 5-0.781/0.756\par 
 	15-0.854/0.818\\
-	\hline
+	\rowcolor{yellow!10}
 	pl34m 64 xyzg-nxnynz none 0.001 0.997 adam 32 & 0-?/0.041\par 5-0.491/0.687\par 10-0.712/0.503\par 20-0.973/0.853\\
 	\hline
 	pl34m 64 xyzg-nxnynz all 0.001 0.7 adam 32 & 0-0.090/0.110\par 24-0.557/0.524\\
@@ -852,8 +852,9 @@ test data shape: [ 4172 12800     9] \par
 	pl34m 64 xyzg-nxnynz none 0.001 0.9 adam 32 &0-0.029/0.464\par 24-0.883/0.821\\
 	\hline \hline \\ \hline
 	
-	pl34m 64 xyzg-nxnynz all 0.001 0.7 momentum 32 & 0-0.055/0.078\par 24-0.577/0.472\\
+	pl34m 64 xyzg-nxnynz all 0.001 0.7 momentum 32 & 0-0.055/0.078\par 24-0.577/0.472\\	
 	\hline
+	
 	pl34m 64 xyzg-nxnynz none 0.0001 0.7 momentum 32 & 0-4.177/3.609--0.015/0.164\par 30-0.640/1.087--0.911/0.775\\
 	\hline 
 	pl34m 64 xyzg-nxnynz none 0.001 0.7 momentum 32 & 0-0.022/0.478\par 24-0.987/0.829\\
@@ -870,6 +871,30 @@ test data shape: [ 4172 12800     9] \par
 	()lr $0.001 > 0.01$  } \\
 	\hline	
 \end{tabular}
-\end{table}
+
+
+\noindent\begin{tabular}{|p{10cm}|p{5cm}| }	
+	\rowcolor{gray!10}
+	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
+	\hline
+	model bs feed aug lr0 bnd optimizer filters0 & train/eval \\
+	\rowcolor{yellow!30}
+	rs34V 48 xyzg-nxnynz all 0.001 0.9 adam 32 & 0-113.598/2.431--0.084/0.448 \par 9-1.675/1.232--0.687/0.755 \par 35-0.341/1.007--0.980/0.850 \\
+	\rowcolor{red!30}
+	rs34V 48 xyzg-nxnynz f 0.001 0.9 adam 32 & 0-7.958/2.025--0.027/0.581\\
+	\rowcolor{green!30}
+	rs34V 48 xyzg-nxnynz none 0.0001 0.9 adam 32 & 0-4.220/1.459--0.059/0.712\par 15-0.481/1.612--0.976/0.803\\
+	\rowcolor{yellow!30}
+	rs34V 48 xyzg-nxnynz none 0.001 0.9 adam 32 & 0-7.067/3.760--0.052/0.509\par  9-0.732/1.176--0.890/0.812\par 25-0.365/1.026--0.974/0.844\\
+	\rowcolor{blue!30}
+	rs34V 48 xyzg-nxnynz r 0.001 0.9 adam 32 & 0-8.119/2.267--0.011/0.486\par 9-0.842/0.982--0.864/0.819\par  40-0.275/1.147--0.990/0.852\\
+	\rowcolor{red!20}
+	rs34V 48 xyzg-nxnynz s 0.001 0.9 adam 32 & 0-43.883/2.201--0.047/0.585\par 9-0.710/1.168--0.893/0.790\par 40-0.229/1.042--0.994/0.876\\
+
+	\rowcolor{yellow}
+	\multicolumn{2}{|p{15cm}|}{ Conclusion:\par	
+		(0)$s>r$ } \\
+	
+\end{tabular}
 
 \end{document}
