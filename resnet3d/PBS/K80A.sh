@@ -18,16 +18,16 @@ module load  tensorflow/1.8-cudnn7.1-python2.7
 module list
  
 
-aug='none'
 batch_size=48
 model_flag='m'
 learning_rate0=0.001
 
+
+aug='f'
 ./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 
-aug='r'
+aug='j'
 ./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 
-aug='s'
+aug='all'
 ./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-
