@@ -1,40 +1,22 @@
 aug='none'
 batch_size=48
-model_flag='V'
+model_flag='m'
 learning_rate0=0.001
+num_gpus=2
 
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#
-#
-#aug='all'
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#
+
+aug='all'
+./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus
+
 aug='r'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#
-#aug='s'
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus
+
+aug='s'
+./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus
 
 aug='f'
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus
 
 aug='j'
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus
 
-
-
-#aug='none'
-#
-#
-#learning_rate0=0.0001
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#
-#learning_rate0=0.01
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#learning_rate0=0.001
-#
-#batch_size=16
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
-#
-#batch_size=96
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
