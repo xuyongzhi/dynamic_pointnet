@@ -49,8 +49,14 @@ def aug_all(points, data_idxs, \
     assert (data_idxs['nxnynz'] == np.array([3,4,5])).all()
   assert channels==3 or channels==6
 
-  R = random_rotate()
-  S = random_scaling()
+  augs = {}
+  if 'rotation' in aug_items:
+    R = random_rotate()
+    augs['R'] = R
+  if 'scaling' in aug_items:
+    S = random_scaling()
+    augs['S'] = S
+
   if 'rotation' in aug_items and 'scaling' in aug_items:
     RS = tf.matmul(R, S)
   elif 'rotation' in aug_items:
@@ -61,16 +67,20 @@ def aug_all(points, data_idxs, \
     RS = None
   if RS!=None:
     points_xyz = tf.matmul(points[:,0:3], RS)
+    augs['RS'] = RS
   else:
     points_xyz = points[:,0:3]
 
 
-  shifts = random_shift()
   if 'shifts' in aug_items:
+    shifts = random_shift()
     points_xyz += shifts
-  jitter = random_jitter((point_num,3))
+    augs['shifts'] = shifts
+
   if 'jitter' in aug_items:
+    jitter = random_jitter((point_num,3))
     points_xyz += jitter
+    augs['jitter'] = jitter
 
   if channels==3:
     points = points_xyz
@@ -81,31 +91,44 @@ def aug_all(points, data_idxs, \
       points_normal = points[:,3:6]
     points = tf.concat([points_xyz, points_normal], -1)
 
-  augs = {}
-  augs['R'] = R
-  augs['S'] = S
-  augs['shifts'] = shifts
-  augs['jitter'] = jitter
   return points, augs
 
-def aug_data(points, aug_type, data_idxs):
-  if aug_type=='none':
-    return points, None
-  else:
-    if aug_type == 'all':
-      aug_items = ['rotation', 'scaling', 'shifts', 'jitter']
-    elif aug_type == 'r':
-      aug_items = ['rotation']
-    elif aug_type == 's':
-      aug_items = ['scaling']
-    elif aug_type == 'f':
-      aug_items = ['shifts']
-    elif aug_type == 'j':
-      aug_items = ['jitter']
-    else:
-      raise NotImplementedError
+def aug_bottom_center(bottom_center_batch, augs):
+  import pdb; pdb.set_trace()  # XXX BREAKPOINT
+  assert len(bottom_center_batch.shape) == 3
+  assert bottom_center_batch.shape[-1].value == 6
 
+  batch_size = bottom_center_batch.shape[0].value
+  n0 = bottom_center_batch.shape[1].value
+  bottom_center_batch = tf.reshape(bottom_center_batch, [batch_size,-1,3])
+  if 'RS' in augs:
+    bottom_center_batch = tf.matmul(bottom_center_batch, augs['RS'])
+  if 'shifts' in augs:
+    bottom_center_batch += augs['shifts']
+  bottom_center_batch = tf.reshape(bottom_center_batch, [batch_size,n0,6])
+  return bottom_center_batch
+
+def get_aug_items(aug_type):
+  if aug_type == 'all':
+    aug_items = ['rotation', 'scaling', 'shifts', 'jitter']
+  elif aug_type == 'r':
+    aug_items = ['rotation']
+  elif aug_type == 's':
+    aug_items = ['scaling']
+  elif aug_type == 'f':
+    aug_items = ['shifts']
+  elif aug_type == 'j':
+    aug_items = ['jitter']
+  else:
+    raise NotImplementedError
+  return aug_items
+
+def aug_data(points, b_bottom_centers_mm, aug_type, data_idxs):
+  if aug_type=='none':
+    return points, b_bottom_centers_mm, None
+  else:
+    aug_items = get_aug_items(aug_type)
     points, augs = aug_all(points, data_idxs, aug_items)
-    return points, augs
+    return points, b_bottom_centers_mm, augs
 
 

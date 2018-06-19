@@ -723,12 +723,17 @@ class Model(ResConvOps):
 
     return self._call(
           inputs_dic['points'],
-          inputs_dic['sg_all_bidxmaps'],
+          inputs_dic['sg_bidxmaps'],
+          inputs_dic['b_bottom_centers_mm'],
           inputs_dic['bidxmaps_flat'],
           inputs_dic['fmap_neighbor_idis'],
+          inputs_dic['augs'],
           training)
 
-  def _call(self, inputs, sg_bidxmaps, bidxmaps_flat, fmap_neighbor_idis, is_training):
+  def _call(self, inputs, sg_bidxmaps, b_bottom_centers_mm, bidxmaps_flat,
+            fmap_neighbor_idis, augs, is_training):
+    from aug_data_tf import aug_bottom_center
+
     if self.IsShowModel: self.log('')
     self.is_training = is_training
     sg_bm_extract_idx = self.data_net_configs['sg_bm_extract_idx']
@@ -742,9 +747,7 @@ class Model(ResConvOps):
       l_xyz = inputs[...,0:3]
       new_points = inputs
 
-      start = sg_bm_extract_idx[-2]
-      end = sg_bm_extract_idx[-1]
-      globalb_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+      globalb_bottom_center_mm = b_bottom_centers_mm[self.cascade_num-1]
       globalb_bottom_center = tf.multiply( tf.cast( globalb_bottom_center_mm, tf.float32), 0.001, name='globalb_bottom_center' ) # gpu_0/globalb_bottom_center
       self.max_step_stride = tf.multiply( globalb_bottom_center[:,:,3:6] - globalb_bottom_center[:,:,0:3], 2.0, name='max_step_stride') # gpu_0/max_step_stride
 
@@ -764,10 +767,8 @@ class Model(ResConvOps):
               sg_bidxmap_k = None
               block_bottom_center_mm = globalb_bottom_center_mm
           else:
-              start = sg_bm_extract_idx[k]
-              end = sg_bm_extract_idx[k+1]
-              sg_bidxmap_k = sg_bidxmaps[ :,start[0]:end[0],0:end[1] ]
-              block_bottom_center_mm = sg_bidxmaps[ :,start[0]:end[0],end[1]:end[1]+6 ]
+            block_bottom_center_mm = b_bottom_centers_mm[k]
+            sg_bidxmap_k = sg_bidxmaps[k]
           block_bottom_center_mm = tf.cast(block_bottom_center_mm, tf.float32, name='block_bottom_center_mm')
 
           l_xyz, new_points, root_point_features = self.res_sa_module(k, l_xyz,

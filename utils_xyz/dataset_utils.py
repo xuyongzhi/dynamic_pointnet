@@ -170,6 +170,9 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     else:
       sg_all_bidxmaps_shape = data_net_configs['sg_all_bidxmaps']
     sg_all_bidxmaps = tf.reshape(sg_all_bidxmaps, sg_all_bidxmaps_shape)
+    if data_net_configs != None:
+      sg_bidxmaps, b_bottom_centers_mm = extract_sg_bidxmap(
+                          sg_all_bidxmaps, data_net_configs['sg_bm_extract_idx'])
 
     bidxmaps_flat = tf.decode_raw(tfrecord_features['bidxmaps_flat/encoded'], tf.int32)
     if data_net_configs == None:
@@ -186,18 +189,37 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     fmap_neighbor_idis = tf.reshape(fmap_neighbor_idis, fmap_neighbor_idis_shape)
 
     features = {}
-    features['sg_all_bidxmaps'] = sg_all_bidxmaps
+    if data_net_configs != None:
+      features['sg_bidxmaps'] = sg_bidxmaps
+      features['b_bottom_centers_mm'] = b_bottom_centers_mm
+    else:
+      features['sg_all_bidxmaps'] = sg_all_bidxmaps
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
     if is_training and data_net_configs != None and data_net_configs['aug']!='none':
       from aug_data_tf import aug_data
-      points, augs = aug_data(points, data_net_configs['aug'], data_net_configs['data_idxs'])
+      features['raw_points'] = points
+      points, augs = aug_data(points, b_bottom_centers_mm,
+                        data_net_configs['aug'], data_net_configs['data_idxs'])
       features['augs'] = augs
     features['points'] = points
 
     return features, object_label
 
+def extract_sg_bidxmap(sg_all_bidxmaps, sg_bm_extract_idx):
+  cascade_num = sg_bm_extract_idx.shape[0] - 1
+  sg_bidxmaps = {}
+  b_bottom_centers_mm = {}
+
+  for k in range(cascade_num):
+    start = sg_bm_extract_idx[k]
+    end = sg_bm_extract_idx[k+1]
+    sg_bidxmap_k = sg_all_bidxmaps[ start[0]:end[0],0:end[1] ]
+    block_bottom_center_mm = sg_all_bidxmaps[ start[0]:end[0],end[1]:end[1]+6 ]
+    sg_bidxmaps[k] = sg_bidxmap_k
+    b_bottom_centers_mm[k] = block_bottom_center_mm
+  return sg_bidxmaps, b_bottom_centers_mm
 
 def read_tfrecord():
   import ply_util

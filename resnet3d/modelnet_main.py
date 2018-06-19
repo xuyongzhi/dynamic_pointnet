@@ -131,8 +131,16 @@ def get_data_shapes_from_tfrecord(data_dir):
       #print('points', features['points'][0,0:5,:])
 
 def check_data():
+  from ply_util import create_ply_dset
   batch_size = 32
   data_dir = _DATA_PARAS['data_dir']
+  model_dir = _DATA_PARAS['model_dir']
+  ply_dir = os.path.join(model_dir,'ply')
+  aug = _DATA_PARAS['aug']
+  aug_ply_fn = os.path.join(ply_dir, aug)
+  raw_ply_fn = os.path.join(ply_dir, 'raw')
+  if not os.path.exists(ply_dir):
+    os.makedirs(ply_dir)
   with tf.Graph().as_default():
     dataset = input_fn(True, data_dir, batch_size, _DATA_PARAS)
     iterator1 = dataset.make_initializable_iterator()
@@ -141,6 +149,14 @@ def check_data():
     with tf.Session() as sess:
         sess.run(iterator1.initializer)
         features, label = sess.run(next_item)
+
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        for i in range(batch_size):
+          create_ply_dset(DATASET_NAME, features['points'][i], aug_ply_fn+str(i)+'.ply')
+          if aug!='none':
+            create_ply_dset(DATASET_NAME, features['raw_points'][i], raw_ply_fn+str(i)+'.ply')
+
+
         print('R', features['augs']['R'][0:2])
         print('points', features['points'][0,0:5,:])
         print('S', features['augs']['S'][0:2])

@@ -9,17 +9,17 @@ learning_rate0=0.001
 #aug='all'
 #./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 #
-#aug='r'
-#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+aug='r'
+./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 #
 #aug='s'
 #./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 
 aug='f'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 
 aug='j'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
+#./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0
 
 
 
