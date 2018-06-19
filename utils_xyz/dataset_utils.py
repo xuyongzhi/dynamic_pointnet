@@ -189,20 +189,21 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     fmap_neighbor_idis = tf.reshape(fmap_neighbor_idis, fmap_neighbor_idis_shape)
 
     features = {}
-    if data_net_configs != None:
-      features['sg_bidxmaps'] = sg_bidxmaps
-      features['b_bottom_centers_mm'] = b_bottom_centers_mm
-    else:
-      features['sg_all_bidxmaps'] = sg_all_bidxmaps
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
     if is_training and data_net_configs != None and data_net_configs['aug']!='none':
       from aug_data_tf import aug_data
       features['raw_points'] = points
-      points, augs = aug_data(points, b_bottom_centers_mm,
+      points, b_bottom_centers_mm, augs = aug_data(points, b_bottom_centers_mm,
                         data_net_configs['aug'], data_net_configs['data_idxs'])
       features['augs'] = augs
+
+    if data_net_configs != None:
+      features['sg_bidxmaps'] = sg_bidxmaps
+      features['b_bottom_centers_mm'] = b_bottom_centers_mm
+    else:
+      features['sg_all_bidxmaps'] = sg_all_bidxmaps
     features['points'] = points
 
     return features, object_label

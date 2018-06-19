@@ -727,12 +727,10 @@ class Model(ResConvOps):
           inputs_dic['b_bottom_centers_mm'],
           inputs_dic['bidxmaps_flat'],
           inputs_dic['fmap_neighbor_idis'],
-          inputs_dic['augs'],
           training)
 
   def _call(self, inputs, sg_bidxmaps, b_bottom_centers_mm, bidxmaps_flat,
-            fmap_neighbor_idis, augs, is_training):
-    from aug_data_tf import aug_bottom_center
+            fmap_neighbor_idis, is_training):
 
     if self.IsShowModel: self.log('')
     self.is_training = is_training

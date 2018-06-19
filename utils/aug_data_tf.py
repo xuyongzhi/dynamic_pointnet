@@ -36,7 +36,7 @@ def random_jitter(points_shape, sigma=0.01, clip=0.05):
   jitter = tf.clip_by_value(jitter, -clip, clip)
   return jitter
 
-def aug_all(points, data_idxs, \
+def aug_all(points, b_bottom_centers_mm, data_idxs, \
             aug_items=['rotation', 'scaling', 'shifts', 'jitter']):
   '''
       points: [n,3] 'xyz'
@@ -44,6 +44,11 @@ def aug_all(points, data_idxs, \
   '''
   point_num = points.shape[0].value
   channels = points.shape[1].value
+  cascade_num = len(b_bottom_centers_mm)
+  for c in range(cascade_num):
+    b_bottom_centers_mm[c] = tf.cast(tf.reshape(b_bottom_centers_mm[c], [-1,3]),
+                                     tf.float32)
+
   assert (data_idxs['xyz'] == np.array([0,1,2])).all()
   if channels>3:
     assert (data_idxs['nxnynz'] == np.array([3,4,5])).all()
@@ -67,6 +72,8 @@ def aug_all(points, data_idxs, \
     RS = None
   if RS!=None:
     points_xyz = tf.matmul(points[:,0:3], RS)
+    for c in range(cascade_num):
+      b_bottom_centers_mm[c] = tf.matmul(b_bottom_centers_mm[c], RS)
     augs['RS'] = RS
   else:
     points_xyz = points[:,0:3]
@@ -75,6 +82,8 @@ def aug_all(points, data_idxs, \
   if 'shifts' in aug_items:
     shifts = random_shift()
     points_xyz += shifts
+    for c in range(cascade_num):
+      b_bottom_centers_mm[c] += shifts
     augs['shifts'] = shifts
 
   if 'jitter' in aug_items:
@@ -91,22 +100,10 @@ def aug_all(points, data_idxs, \
       points_normal = points[:,3:6]
     points = tf.concat([points_xyz, points_normal], -1)
 
-  return points, augs
+  for c in range(cascade_num):
+    b_bottom_centers_mm[c] = tf.reshape(b_bottom_centers_mm[c], [-1,6])
 
-def aug_bottom_center(bottom_center_batch, augs):
-  import pdb; pdb.set_trace()  # XXX BREAKPOINT
-  assert len(bottom_center_batch.shape) == 3
-  assert bottom_center_batch.shape[-1].value == 6
-
-  batch_size = bottom_center_batch.shape[0].value
-  n0 = bottom_center_batch.shape[1].value
-  bottom_center_batch = tf.reshape(bottom_center_batch, [batch_size,-1,3])
-  if 'RS' in augs:
-    bottom_center_batch = tf.matmul(bottom_center_batch, augs['RS'])
-  if 'shifts' in augs:
-    bottom_center_batch += augs['shifts']
-  bottom_center_batch = tf.reshape(bottom_center_batch, [batch_size,n0,6])
-  return bottom_center_batch
+  return points, b_bottom_centers_mm, augs
 
 def get_aug_items(aug_type):
   if aug_type == 'all':
@@ -128,7 +125,6 @@ def aug_data(points, b_bottom_centers_mm, aug_type, data_idxs):
     return points, b_bottom_centers_mm, None
   else:
     aug_items = get_aug_items(aug_type)
-    points, augs = aug_all(points, data_idxs, aug_items)
-    return points, b_bottom_centers_mm, augs
+    return aug_all(points, b_bottom_centers_mm, data_idxs, aug_items)
 
 
