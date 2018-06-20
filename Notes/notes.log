@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  20 JUN 2018 20:15
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  20 JUN 2018 21:26
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1987,25 +1987,25 @@ Overfull \hbox (106.9913pt too wide) in paragraph at lines 903--920
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 925--925
+Underfull \hbox (badness 10000) in paragraph at lines 924--924
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 922--949
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 922--955
 [] 
  []
 
 [33] [34]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 950.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 950.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 956.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 956.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 950.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 950.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 956.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 956.
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: 37849A8D3B8A52CC4F54FCE48F5E8A7F;2806.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 950.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 956.
  ) 
 Here is how much of TeX's memory you used:
  17884 strings out of 494931
@@ -2026,7 +2026,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (35 pages, 2610749 bytes).
+Output written on notes.pdf (35 pages, 2610935 bytes).
 PDF statistics:
  462 PDF objects out of 1000 (max. 8388607)
  377 compressed objects within 4 object streams
