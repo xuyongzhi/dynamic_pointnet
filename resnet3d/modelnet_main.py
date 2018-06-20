@@ -132,11 +132,12 @@ def get_data_shapes_from_tfrecord(data_dir):
 
 def check_data():
   from ply_util import create_ply_dset
-  batch_size = 8
+  IsCreatePly = True
+  batch_size = 2
   data_dir = _DATA_PARAS['data_dir']
   model_dir = _DATA_PARAS['model_dir']
   ply_dir = os.path.join(model_dir,'ply')
-  aug = _DATA_PARAS['aug']
+  aug = _DATA_PARAS['aug_types']
   aug_ply_fn = os.path.join(ply_dir, aug)
   raw_ply_fn = os.path.join(ply_dir, 'raw')
   if not os.path.exists(ply_dir):
@@ -150,17 +151,24 @@ def check_data():
         sess.run(iterator1.initializer)
         features, label = sess.run(next_item)
 
-        for i in range(batch_size):
-          create_ply_dset(DATASET_NAME, features['points'][i], aug_ply_fn+str(i)+'.ply')
-          if aug!='none':
-            create_ply_dset(DATASET_NAME, features['raw_points'][i], raw_ply_fn+str(i)+'.ply')
+        if IsCreatePly:
+          for i in range(batch_size):
+            create_ply_dset(DATASET_NAME, features['points'][i], aug_ply_fn+str(i)+'.ply')
+            if aug!='none':
+              create_ply_dset(DATASET_NAME, features['raw_points'][i], raw_ply_fn+str(i)+'.ply')
 
 
-        print('R', features['augs']['R'][0:2])
-        print('points', features['points'][0,0:5,:])
-        print('S', features['augs']['S'][0:2])
-        print('shifts', features['augs']['shifts'][0:2])
-        print('jitter', features['augs']['jitter'][0][0:5])
+        augs = features['augs']
+        #print('points', features['points'][0,0:5,:])
+        if 'R' in augs:
+          print('angles_yxz', augs['angles_yxz']*180.0/np.pi)
+          print('R', augs['R'][0:2])
+        if 'S' in augs:
+          print('S', features['augs']['S'][0:2])
+        if 'shifts' in augs:
+          print('shifts', augs['shifts'][0:2])
+        if 'jitter' in augs:
+          print('jitter', augs['jitter'][0][0:5])
         import pdb; pdb.set_trace()  # XXX BREAKPOINT
         pass
 
@@ -288,7 +296,7 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['feed_data'] = feed_data
   _DATA_PARAS['feed_data_eles'] = feed_data_eles
   _DATA_PARAS['xyz_elements'] = xyz_elements
-  _DATA_PARAS['aug'] = flags_obj.aug
+  _DATA_PARAS['aug_types'] = flags_obj.aug_types
 
   model_dir = define_model_dir()
   _DATA_PARAS['model_dir'] = model_dir
@@ -343,7 +351,8 @@ def define_model_dir():
   block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
-  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug + '-bs'+str(flags.FLAGS.batch_size)
+  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug_types
+  logname +='-bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
   logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))
   logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay*100))
@@ -379,7 +388,7 @@ def define_modelnet_flags():
   flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')
   flags.DEFINE_string('feed_data',DEFAULTS['feed_data'],'xyzrsg-nxnynz-color')
-  flags.DEFINE_string('aug',DEFAULTS['aug'],'all, none')
+  flags.DEFINE_string('aug_types',DEFAULTS['aug_types'],'rsfj-360_0_0')
   #flags.DEFINE_string('data_format',DEFAULTS['data_format'],'channels_first, channels_last')
 
   resnet_run_loop.define_resnet_flags(

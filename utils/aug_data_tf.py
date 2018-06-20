@@ -11,14 +11,16 @@ import numpy as np
 
 
 
-def random_rotate():
+def random_rotate(max_angles_yxz):
   '''
       Rotate the whole object by a random angle 3D
+      unit: rad
   '''
 
   angles = tf.random_uniform([3], dtype=tf.float32) * 2 * np.pi
-  R = tf_EulerRotate(angles, 'zxy')
-  return R
+  angles = tf.minimum(angles, max_angles_yxz)
+  R = tf_EulerRotate(angles, 'yxz')
+  return R, angles
 
 def random_scaling(min_scale=0.8, max_scale=1.25):
   scales = tf.random_uniform([3], minval=min_scale, maxval=max_scale)
@@ -37,7 +39,8 @@ def random_jitter(points_shape, sigma=0.01, clip=0.05):
   return jitter
 
 def aug_data(points, b_bottom_centers_mm, data_idxs, \
-            aug_items=['rotation', 'scaling', 'shifts', 'jitter']):
+            aug_items,\
+            aug_metas={} ):
   '''
       points: [n,3] 'xyz'
               [n,6] 'xyznxnynz'
@@ -56,8 +59,9 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
 
   augs = {}
   if 'rotation' in aug_items:
-    R = random_rotate()
+    R, angles = random_rotate(aug_metas['max_angles_yxz'])
     augs['R'] = R
+    augs['angles_yxz'] = angles
   if 'scaling' in aug_items:
     S = random_scaling()
     augs['S'] = S
@@ -105,26 +109,21 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
 
   return points, b_bottom_centers_mm, augs
 
-def get_aug_items(aug_type):
-  if aug_type == 'all':
-    aug_items = ['rotation', 'scaling', 'shifts', 'jitter']
-  elif aug_type == 'r':
-    aug_items = ['rotation']
-  elif aug_type == 's':
-    aug_items = ['scaling']
-  elif aug_type == 'f':
-    aug_items = ['shifts']
-  elif aug_type == 'j':
-    aug_items = ['jitter']
-  else:
-    raise NotImplementedError
-  return aug_items
+def parse_augtypes(aug_types):
+  tmp = aug_types.split('-')
+  to_aug_items = {'r':'rotation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
+  aug_items = [to_aug_items[e] for e in tmp[0]]
+  aug_metas = {}
+  if len(tmp)>0:
+    aug_metas['max_angles_yxz'] = np.array([float(a) for a in tmp[1].split('_')])*np.pi/180.0
 
-def aug_main(points, b_bottom_centers_mm, aug_type, data_idxs):
-  if aug_type=='none':
+  return aug_items, aug_metas
+
+def aug_main(points, b_bottom_centers_mm, aug_types, data_idxs):
+  if aug_types=='none':
     return points, b_bottom_centers_mm, None
   else:
-    aug_items = get_aug_items(aug_type)
-    return aug_data(points, b_bottom_centers_mm, data_idxs, aug_items)
+    aug_items, aug_metas = parse_augtypes(aug_types)
+    return aug_data(points, b_bottom_centers_mm, data_idxs, aug_items, aug_metas)
 
 

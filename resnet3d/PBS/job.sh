@@ -25,8 +25,8 @@ num_gpus=2
 feed_data='xyzs'
 
 
-aug='none'
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data
+aug_types='none'
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data
 
 batch_size=32
-./modelnet.sh   $aug  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data

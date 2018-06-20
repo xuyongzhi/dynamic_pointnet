@@ -192,11 +192,12 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     features['bidxmaps_flat'] = bidxmaps_flat
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
-    if is_training and data_net_configs != None and data_net_configs['aug']!='none':
+    if is_training and data_net_configs != None and data_net_configs['aug_types']!='none':
       from aug_data_tf import aug_main
       features['raw_points'] = points
       points, b_bottom_centers_mm, augs = aug_main(points, b_bottom_centers_mm,
-                        data_net_configs['aug'], data_net_configs['data_idxs'])
+                  data_net_configs['aug_types'],
+                  data_net_configs['data_idxs'])
       features['augs'] = augs
 
     if data_net_configs != None:

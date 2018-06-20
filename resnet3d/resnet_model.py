@@ -293,20 +293,23 @@ class ResConvOps(object):
         model_name=res+str(dnc['resnet_size'])+dnc['model_flag'],
         bs=dnc['batch_size'],
         feed_data_eles=dnc['feed_data_eles'],
-        aug=dnc['aug'],
+        aug=dnc['aug_types'],
         lr0=dnc['learning_rate0'],
         bnd=dnc['batch_norm_decay'],
         optimizer=dnc['optimizer'],
         filters0=dnc['num_filters0'] )
       self.model_log_f.write(key_para_names + key_paras_str)
 
-      items_to_write = ['model_flag', 'dataset_name', 'aug', 'feed_data', 'xyz_elements', 'points',\
+      items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
                         'optimizer', 'learning_rate0',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
                         'data_dir']
       for item in items_to_write:
-        self.model_log_f.write('%s:%s\n'%(item, data_net_configs[item]))
+        str_i = '%s:%s\n'%(item, data_net_configs[item])
+        self.model_log_f.write(str_i)
+        if self.IsShowModel:
+          print(str_i)
       self.model_log_f.write('\n')
       self.model_log_f.flush()
     ResConvOps._epoch += 1
