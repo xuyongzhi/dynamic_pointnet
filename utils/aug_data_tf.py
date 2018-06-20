@@ -36,7 +36,7 @@ def random_jitter(points_shape, sigma=0.01, clip=0.05):
   jitter = tf.clip_by_value(jitter, -clip, clip)
   return jitter
 
-def aug_all(points, b_bottom_centers_mm, data_idxs, \
+def aug_data(points, b_bottom_centers_mm, data_idxs, \
             aug_items=['rotation', 'scaling', 'shifts', 'jitter']):
   '''
       points: [n,3] 'xyz'
@@ -120,11 +120,11 @@ def get_aug_items(aug_type):
     raise NotImplementedError
   return aug_items
 
-def aug_data(points, b_bottom_centers_mm, aug_type, data_idxs):
+def aug_main(points, b_bottom_centers_mm, aug_type, data_idxs):
   if aug_type=='none':
     return points, b_bottom_centers_mm, None
   else:
     aug_items = get_aug_items(aug_type)
-    return aug_all(points, b_bottom_centers_mm, data_idxs, aug_items)
+    return aug_data(points, b_bottom_centers_mm, data_idxs, aug_items)
 
 

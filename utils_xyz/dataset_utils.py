@@ -193,9 +193,9 @@ def parse_pl_record(tfrecord_serialized, is_training, data_net_configs=None):
     features['fmap_neighbor_idis'] = fmap_neighbor_idis
 
     if is_training and data_net_configs != None and data_net_configs['aug']!='none':
-      from aug_data_tf import aug_data
+      from aug_data_tf import aug_main
       features['raw_points'] = points
-      points, b_bottom_centers_mm, augs = aug_data(points, b_bottom_centers_mm,
+      points, b_bottom_centers_mm, augs = aug_main(points, b_bottom_centers_mm,
                         data_net_configs['aug'], data_net_configs['data_idxs'])
       features['augs'] = augs
 

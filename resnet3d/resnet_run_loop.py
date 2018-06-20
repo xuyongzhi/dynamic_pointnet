@@ -455,14 +455,10 @@ def resnet_main(
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
       t0 = time.time()
+      eval_train_steps = 80
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
-                                        steps=flags_obj.max_train_steps)
+                                        steps=eval_train_steps)
       eval_train_t = time.time() - t0
-      #if IsMetricLog:
-      #  metric_log_f.write('train epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
-      #      cycle_index, train_eval_results['loss'],\
-      #      train_eval_results['accuracy'], train_eval_results['global_step']))
-      #  metric_log_f.flush()
 
     t0 = time.time()
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
@@ -489,8 +485,8 @@ def resnet_main(
         metric_log_f.write('epoch loss accuracy global_step: {} {:.3f}/{:.3f}--{:.3f}/{:.3f}\n'.format(\
             int(eval_results['global_step']/flags_obj.steps_per_epoch), train_eval_results['loss'], eval_results['loss'],\
             train_eval_results['accuracy'], eval_results['accuracy']))
-        metric_log_f.write('train t:{:.3f}sec    eval train t:{:.3f}sec    eval t:{:.3f}\n\n'.format(
-              train_t, eval_train_t, eval_t))
+        metric_log_f.write('train t:{:.3f}sec    eval train t:{:.3f}sec({}steps)    eval t:{:.3f}\n\n'.format(
+              train_t, eval_train_t, eval_train_steps, eval_t))
         metric_log_f.flush()
 
       if model_helpers.past_stop_threshold(
