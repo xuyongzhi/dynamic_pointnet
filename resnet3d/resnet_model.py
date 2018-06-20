@@ -300,7 +300,7 @@ class ResConvOps(object):
         filters0=dnc['num_filters0'] )
       self.model_log_f.write(key_para_names + key_paras_str)
 
-      items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'feed_data', 'xyz_elements', 'points',\
+      items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
                         'optimizer', 'learning_rate0',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
@@ -786,6 +786,9 @@ class Model(ResConvOps):
       inputs = tf.reduce_mean(inputs, axes)
       inputs = tf.identity(inputs, 'final_reduce_mean')
       if self.IsShowModel: self.log( tensor_info(inputs, 'reduce_mean', 'final') )
+      inputs = tf.layers.dropout(inputs,
+                              rate=self.data_net_configs['drop_imo']['output'],
+                              training=is_training)
 
       inputs = tf.layers.dense(inputs=inputs, units=self.num_classes)
       inputs = tf.identity(inputs, 'final_dense')

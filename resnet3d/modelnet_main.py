@@ -270,6 +270,16 @@ def modelnet_model_fn(features, labels, mode, params):
   )
 
 
+
+def get_dropout_rates(drop_imo):
+  drop_imo = [0.1*int(e) for e in  drop_imo.split('_')]
+  assert len(drop_imo) == 3
+  drop_imo_ = {}
+  drop_imo_['input'] = drop_imo[0]
+  drop_imo_['middle'] = drop_imo[1]
+  drop_imo_['output'] = drop_imo[2]
+  return drop_imo_
+
 def define_net_configs(flags_obj):
   global _DATA_PARAS
   _DATA_PARAS['residual'] = flags_obj.residual
@@ -297,6 +307,8 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['feed_data_eles'] = feed_data_eles
   _DATA_PARAS['xyz_elements'] = xyz_elements
   _DATA_PARAS['aug_types'] = flags_obj.aug_types
+
+  _DATA_PARAS['drop_imo'] = get_dropout_rates(flags_obj.drop_imo)
 
   model_dir = define_model_dir()
   _DATA_PARAS['model_dir'] = model_dir
@@ -352,6 +364,7 @@ def define_model_dir():
   logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
                                  block_kernels_str, block_paddings_str)
   logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug_types
+  logname += '-drop'+flags.FLAGS.drop_imo
   logname +='-bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
   logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))
@@ -389,7 +402,7 @@ def define_modelnet_flags():
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')
   flags.DEFINE_string('feed_data',DEFAULTS['feed_data'],'xyzrsg-nxnynz-color')
   flags.DEFINE_string('aug_types',DEFAULTS['aug_types'],'rsfj-360_0_0')
-  #flags.DEFINE_string('data_format',DEFAULTS['data_format'],'channels_first, channels_last')
+  flags.DEFINE_string('drop_imo',DEFAULTS['drop_imo'],'0_0_5')
 
   resnet_run_loop.define_resnet_flags(
       resnet_size_choices=['18', '34', '50', '101', '152', '200'])
