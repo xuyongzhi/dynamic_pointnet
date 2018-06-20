@@ -22,7 +22,7 @@ batch_size=64
 model_flag='m'
 learning_rate0=0.01
 num_gpus=2
-feed_data='xyzs'
+feed_data='xyzg'
 
 
 aug='none'

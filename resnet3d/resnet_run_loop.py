@@ -28,6 +28,7 @@ import os
 # pylint: disable=g-bad-import-order
 from absl import flags
 import tensorflow as tf
+import time
 
 from official.resnet import resnet_model
 from official.utils.flags import core as flags_core
@@ -453,16 +454,20 @@ def resnet_main(
         (cycle_index%5 == 0 and cycle_index>10):
       #Temporally used before metric in training is not supported in distribution
       tf.logging.info('Starting to evaluate train data.')
+      t0 = time.time()
       train_eval_results = classifier.evaluate(input_fn=input_fn_train,
                                         steps=flags_obj.max_train_steps)
+      eval_train_t = time.time() - t0
       #if IsMetricLog:
       #  metric_log_f.write('train epoch {} loss:{:.3f}  accuracy:{:.3f}  global_step:{}\n'.format(\
       #      cycle_index, train_eval_results['loss'],\
       #      train_eval_results['accuracy'], train_eval_results['global_step']))
       #  metric_log_f.flush()
 
+    t0 = time.time()
     classifier.train(input_fn=input_fn_train, hooks=train_hooks,
                      max_steps=flags_obj.max_train_steps)
+    train_t = time.time()-t0
 
 
     if (cycle_index%3==0 and cycle_index<=10) or \
@@ -474,14 +479,18 @@ def resnet_main(
       # eval (which is generally unimportant in those circumstances) to terminate.
       # Note that eval will run for max_train_steps each loop, regardless of the
       # global_step count.
+      t0 = time.time()
       eval_results = classifier.evaluate(input_fn=input_fn_eval,
                                         steps=flags_obj.max_train_steps)
+      eval_t = time.time() - t0
 
       benchmark_logger.log_evaluation_result(eval_results)
       if IsMetricLog:
-        metric_log_f.write('epoch loss accuracy global_step: {} {:.3f}/{:.3f}--{:.3f}/{:.3f}\n\n'.format(\
+        metric_log_f.write('epoch loss accuracy global_step: {} {:.3f}/{:.3f}--{:.3f}/{:.3f}\n'.format(\
             int(eval_results['global_step']/flags_obj.steps_per_epoch), train_eval_results['loss'], eval_results['loss'],\
             train_eval_results['accuracy'], eval_results['accuracy']))
+        metric_log_f.write('train t:{:.3f}sec    eval train t:{:.3f}sec    eval t:{:.3f}\n\n'.format(
+              train_t, eval_train_t, eval_t))
         metric_log_f.flush()
 
       if model_helpers.past_stop_threshold(
