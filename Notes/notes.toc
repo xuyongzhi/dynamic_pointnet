@@ -1,5 +1,5 @@
-\contentsline {section}{\numberline {1}Deep 3D Learning Notes}{1}{section.1}
-\contentsline {subsection}{\numberline {1.1}potential solutions for over fitting}{1}{subsection.1.1}
+\contentsline {section}{\numberline {1}Deep 3D Learning Notes}{2}{section.1}
+\contentsline {subsection}{\numberline {1.1}potential solutions for over fitting}{2}{subsection.1.1}
 \contentsline {subsection}{\numberline {1.2}Important improvements}{2}{subsection.1.2}
 \contentsline {subsection}{\numberline {1.3}Theory}{3}{subsection.1.3}
 \contentsline {subsubsection}{\numberline {1.3.1}bidxmap}{3}{subsubsection.1.3.1}
@@ -31,4 +31,9 @@
 \contentsline {subsubsection}{\numberline {1.17.1}3m}{26}{subsubsection.1.17.1}
 \contentsline {subsubsection}{\numberline {1.17.2}4m}{27}{subsubsection.1.17.2}
 \contentsline {subsubsection}{\numberline {1.17.3}5m}{30}{subsubsection.1.17.3}
-\contentsline {section}{\numberline {2}res3d}{31}{section.2}
+\contentsline {section}{\numberline {2}res3d}{32}{section.2}
+\contentsline {subsection}{\numberline {2.1}learning rate and batch norm decay}{32}{subsection.2.1}
+\contentsline {subsection}{\numberline {2.2}aug none and all}{33}{subsection.2.2}
+\contentsline {subsubsection}{\numberline {2.2.1}voxel}{33}{subsubsection.2.2.1}
+\contentsline {subsubsection}{\numberline {2.2.2}Pointnet++ residual}{33}{subsubsection.2.2.2}
+\contentsline {subsection}{\numberline {2.3}aug rotation}{34}{subsection.2.3}

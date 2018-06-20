@@ -114,7 +114,7 @@ def parse_augtypes(aug_types):
   to_aug_items = {'r':'rotation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
   aug_items = [to_aug_items[e] for e in tmp[0]]
   aug_metas = {}
-  if len(tmp)>0:
+  if len(tmp)>1:
     aug_metas['max_angles_yxz'] = np.array([float(a) for a in tmp[1].split('_')])*np.pi/180.0
 
   return aug_items, aug_metas

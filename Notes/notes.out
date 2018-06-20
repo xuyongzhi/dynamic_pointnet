@@ -32,3 +32,8 @@
 \BOOKMARK [3][-]{subsubsection.1.17.2}{4m}{subsection.1.17}% 32
 \BOOKMARK [3][-]{subsubsection.1.17.3}{5m}{subsection.1.17}% 33
 \BOOKMARK [1][-]{section.2}{res3d}{}% 34
+\BOOKMARK [2][-]{subsection.2.1}{learning rate and batch norm decay}{section.2}% 35
+\BOOKMARK [2][-]{subsection.2.2}{aug none and all}{section.2}% 36
+\BOOKMARK [3][-]{subsubsection.2.2.1}{voxel}{subsection.2.2}% 37
+\BOOKMARK [3][-]{subsubsection.2.2.2}{Pointnet++ residual}{subsection.2.2}% 38
+\BOOKMARK [2][-]{subsection.2.3}{aug rotation}{section.2}% 39
