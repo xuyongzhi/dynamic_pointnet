@@ -308,6 +308,7 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['xyz_elements'] = xyz_elements
   _DATA_PARAS['aug_types'] = flags_obj.aug_types
 
+  _DATA_PARAS['drop_imo_str'] = flags_obj.drop_imo
   _DATA_PARAS['drop_imo'] = get_dropout_rates(flags_obj.drop_imo)
 
   model_dir = define_model_dir()

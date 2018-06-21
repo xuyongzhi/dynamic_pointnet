@@ -111,8 +111,14 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
 
 def parse_augtypes(aug_types):
   tmp = aug_types.split('-')
-  to_aug_items = {'r':'rotation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
-  aug_items = [to_aug_items[e] for e in tmp[0]]
+  for s in tmp[0]:
+    assert s in 'Nrsfj', ('%s not in Nrsfj'%(s))
+  if 'N' in tmp[0]:
+    assert tmp[0]=='N'
+    aug_items=[]
+  else:
+    to_aug_items = {'r':'rotation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
+    aug_items = [to_aug_items[e] for e in tmp[0]]
   aug_metas = {}
   if len(tmp)>1:
     aug_metas['max_angles_yxz'] = np.array([float(a) for a in tmp[1].split('_')])*np.pi/180.0

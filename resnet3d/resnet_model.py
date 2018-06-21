@@ -288,17 +288,20 @@ class ResConvOps(object):
 
       dnc = data_net_configs
       res = 'rs' if self.residual else 'pl'
-      key_para_names = 'model bs feed aug lr0 bnd optimizer filters0\n'
-      key_paras_str = '{model_name} {bs} {feed_data_eles} {aug} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
+      key_para_names = 'model bs feed aug drop_imo lr0 bnd optimizer filters0\n'
+      key_paras_str = '{model_name} {bs} {feed_data_eles} {aug} {drop_imo} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
         model_name=res+str(dnc['resnet_size'])+dnc['model_flag'],
         bs=dnc['batch_size'],
         feed_data_eles=dnc['feed_data_eles'],
         aug=dnc['aug_types'],
+        drop_imo=dnc['drop_imo_str'],
         lr0=dnc['learning_rate0'],
         bnd=dnc['batch_norm_decay'],
         optimizer=dnc['optimizer'],
-        filters0=dnc['num_filters0'] )
-      self.model_log_f.write(key_para_names + key_paras_str)
+        filters0=dnc['num_filters0'])
+
+      self.key_paras_str = key_para_names + key_paras_str
+      self.model_log_f.write(self.key_paras_str)
 
       items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
