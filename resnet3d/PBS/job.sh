@@ -11,23 +11,21 @@
 ## The job will be executed from current working directory instead of home.
 #PBS -l wd 
 #PBS -r y
-#PBS -M y.xu@unsw.edu.au
-#PBS -m abe
+##PBS -M y.xu@unsw.edu.au
+##PBS -m abe
 
 module load  tensorflow/1.8-cudnn7.1-python2.7
 module list
  
-
-batch_size=64
+batch_size=32
 model_flag='m'
-learning_rate0=0.01
+learning_rate0=0.001
 num_gpus=2
-feed_data='xyzs'
-drop_imo='0_0_0'
-aug_types='N'
+feed_data='xyzg'
+drop_imo='0_0_5'
+aug_types='rsfj-360_0_0'
 
 ./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo
 
-aug_types='s'
+aug_types='sfj'
 ./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo
-

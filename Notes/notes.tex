@@ -918,7 +918,7 @@ test data shape: [ 4172 12800     9] \par
 	
 \end{tabular}
 
-\subsection{xyzg vs xyzs, Learning rate, Batch size}
+\subsection{No aug, no drop: xyzg vs xyzs, Learning rate, Batch size}
 \noindent\begin{tabular}{|p{9cm}|p{6cm}| }	
 	\hline
 	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
@@ -928,9 +928,10 @@ test data shape: [ 4172 12800     9] \par
 	\rowcolor{blue!20}
 	rs34m 32 xyzg none 0.001 0.9 adam 32& 1 4.053/1.774--0.083/0.621\par 10 0.743/1.197--0.882/0.783\par 25 0.494/1.205--0.963/0.814\par 40 0.397/1.064--0.998/0.846\\
 	
-	\rowcolor{yellow!20}
-	rs34m 64 xyzg none 0.001 0.9 adam 32 & 1 4.251/1.741--0.034/0.644\par 10 0.678/1.145--0.913/0.791\par 25 0.502/1.343--0.963/0.802\\
+	\rowcolor{yellow!20}	
+	rs34m 64 xyzg none 0.001 0.9 adam 32& 1 4.251/1.741--0.034/0.644\par 10 0.678/1.145--0.913/0.791\par 40 0.385/1.064--1.000/0.852\\
 	
+		
 	\hline\hline
 	\rowcolor{green!20}
 	\hline
@@ -941,7 +942,7 @@ test data shape: [ 4172 12800     9] \par
 	rs34m 32 xyzs none 0.01 0.9 adam 32& 1 10.757/1.779--0.016/0.623\par 0.796/1.124--0.859/0.771\par 25 0.658/0.981--0.880/0.819\par 35 0.270/0.879--0.999/0.860\\
 	
 	\rowcolor{Orange!20}
-	rs34m 64 xyzs none 0.01 0.9 adam 32& \\
+	rs34m 64 xyzs none 0.01 0.9 adam 32& 1 42.370/2.499--0.014/0.428\par 10 0.963/1.149--0.824/0.774\par 40 0.277/1.076--0.999/0.846\par 60 0.192/0.983--0.996/0.852\\
 	
 	\rowcolor{red!20}
 	rs34m 64 xyzs none 0.001 0.9 adam 32& 1 4.133/1.766--0.016/0.620\par 10 0.582/1.199--0.945/0.808\par 25 0.454/1.501--0.980/0.774\par  40 0.389/1.187--1.000/0.838\\
@@ -961,17 +962,41 @@ test data shape: [ 4172 12800     9] \par
 	\rowcolor{green!20}
 	rs34m 64 xyzs r-360\_0\_0 0.01 0.9 adam 32& 1 48.100/2.417--0.014/0.440\par 10 1.038/1.276--0.796/0.731\par 25 0.705/1.248--0.868/0.743\par 40 0.318/0.979--0.986/0.839\\
 	
+	\rowcolor{yellow!20}
+	rs34m 64 xyzs r-360\_30\_30 0.01 0.9 adam 32& 1 51.557/3.245--0.013/0.246\par 40 0.342/2.055--0.994/0.615\\
 		
 	\rowcolor{blue!20}
-	rs34m 64 xyzs r-0\_0\_360 0.01 0.9 adam 32& 1 53.404/2.661--0.009/0.375\par 10 1.302/1.431--0.719/0.688\\
+	rs34m 64 xyzs r-0\_0\_360 0.01 0.9 adam 32& 1 53.404/2.661--0.009/0.375\par 10 1.302/1.431--0.719/0.688\par 40 0.350/1.410--0.991/0.776\\ 
 	
 	\rowcolor{red!20}
 	rs34m 64 xyzs r-0\_360\_0 0.01 0.9 adam 32& 1 44.500/3.347--0.009/0.246\par 9 1.481/1.560--0.696/0.668\par 41 0.327/1.488--0.996/0.787\\
+	
+	\rowcolor{green!20}
+	rs34m 32 xyzs r-360\_0\_0 0.01 0.9 adam 32& 1 10.584/2.093--0.015/0.512\par 7 1.293/1.255--0.715/0.739\\
 	\hline
 	
 \end{tabular}
 
-\subsubsection{dropout}
+\subsection{aug sfj}
+\noindent\begin{tabular}{|p{9cm}|p{6cm}| }	
+	\hline
+	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
+	\hline
+	model bs feed aug lr0 bnd optimizer filters0 & train/eval \\
+	
+	\rowcolor{yellow!20}
+	rs34m 64 xyzs s 0.01 0.9 adam 32&1 57.040/2.343--0.013/0.472\par 30 1.213/0.906--0.797/0.853\par 60 0.229/0.992--0.995/0.848\\
+	
+	\rowcolor{red!20}
+	rs34m 64 xyzs f 0.01 0.9 adam 32& 1 49.818/2.240--0.010/0.477\par 10 1.026/1.086--0.807/0.797\par 40 0.330/0.836--0.984/0.869\par 60 0.264/0.834--0.977/0.867\\
+	
+	\rowcolor{blue!20}
+	rs34m 64 xyzs j 0.01 0.9 adam 32& 1 63.166/2.140--0.024/0.502\par 10 0.870/1.077--0.843/0.789\par 40 0.280/0.963--0.995/0.859\par 60 0.206/0.882--0.989/0.852\\
+	\hline
+
+\end{tabular}
+
+\subsection{dropout}
 \noindent\begin{tabular}{|p{9cm}|p{6cm}| }	
 	\hline
 	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\

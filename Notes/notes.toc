@@ -36,6 +36,7 @@
 \contentsline {subsection}{\numberline {2.2}aug none and all}{33}{subsection.2.2}
 \contentsline {subsubsection}{\numberline {2.2.1}voxel}{33}{subsubsection.2.2.1}
 \contentsline {subsubsection}{\numberline {2.2.2}Pointnet++ residual}{33}{subsubsection.2.2.2}
-\contentsline {subsection}{\numberline {2.3}xyzg vs xyzs, Learning rate, Batch size}{34}{subsection.2.3}
-\contentsline {subsection}{\numberline {2.4}aug rotation}{34}{subsection.2.4}
-\contentsline {subsubsection}{\numberline {2.4.1}dropout}{35}{subsubsection.2.4.1}
+\contentsline {subsection}{\numberline {2.3}No aug, no drop: xyzg vs xyzs, Learning rate, Batch size}{34}{subsection.2.3}
+\contentsline {subsection}{\numberline {2.4}aug rotation}{35}{subsection.2.4}
+\contentsline {subsection}{\numberline {2.5}aug sfj}{35}{subsection.2.5}
+\contentsline {subsection}{\numberline {2.6}dropout}{36}{subsection.2.6}

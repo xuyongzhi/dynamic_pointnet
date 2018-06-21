@@ -36,6 +36,7 @@
 \BOOKMARK [2][-]{subsection.2.2}{aug none and all}{section.2}% 36
 \BOOKMARK [3][-]{subsubsection.2.2.1}{voxel}{subsection.2.2}% 37
 \BOOKMARK [3][-]{subsubsection.2.2.2}{Pointnet++ residual}{subsection.2.2}% 38
-\BOOKMARK [2][-]{subsection.2.3}{xyzg vs xyzs, Learning rate, Batch size}{section.2}% 39
+\BOOKMARK [2][-]{subsection.2.3}{No aug, no drop: xyzg vs xyzs, Learning rate, Batch size}{section.2}% 39
 \BOOKMARK [2][-]{subsection.2.4}{aug rotation}{section.2}% 40
-\BOOKMARK [3][-]{subsubsection.2.4.1}{dropout}{subsection.2.4}% 41
+\BOOKMARK [2][-]{subsection.2.5}{aug sfj}{section.2}% 41
+\BOOKMARK [2][-]{subsection.2.6}{dropout}{section.2}% 42

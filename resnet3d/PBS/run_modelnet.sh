@@ -1,8 +1,8 @@
 batch_size=64
 model_flag='m'
-learning_rate0=0.001
+learning_rate0=0.01
 num_gpus=2
-feed_data='xyzg'
+feed_data='xyzs'
 drop_imo='0_0_0'
 aug_types='N'
 

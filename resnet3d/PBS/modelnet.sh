@@ -1,7 +1,7 @@
 resnet_size=34
 optimizer='adam'
 
-batch_norm_decay=0.9
+batch_norm_decay=0.5
 
 modelnet()
 {
