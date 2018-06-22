@@ -677,6 +677,7 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	3m & 36 & 1-30 \par 7-7 & xyzrsg\par mean & Rotate Ref & E, NN5 &10-0.844/0.830\par 60-0.978/0.868 \\	
 	\hline
+	\rowcolor{yellow!20}
 	3m & 36 & 1-30 \par 7-7 & xyzrsg, nxnynz\par mean & Rotate Ref & E, NN5 &10-0.887/0.881\par 60-0.985/0.890 \\	
 	\hline\hline
 	
@@ -689,6 +690,7 @@ test data shape: [ 4172 12800     9] \par
 	\hline
 	3m & 28 & 1-30 \par 7-7 & xyzrsg\par mean & Rotate Ref & E, NN5 &1-0.695/0.764 \par 10-0.840/0.847\par 60-0.976/0.880 \\
 	\hline
+	\rowcolor{yellow!20}
 	3m & 28 & 1-30 \par 7-7 & xyzrsg, nxnynz\par mean & Rotate Ref & E, NN5 &1-0.747/0.814 \par 10-0.882/0.879\par 60-0.985/0.897\par 160-0.998/0.905 \\
 	\hline\hline
 	
@@ -1014,10 +1016,43 @@ test data shape: [ 4172 12800     9] \par
 	
 	\rowcolor{orange!20}
 	rs34m 64 xyzs none  0\_0\_7 0.01 0.9 adam 32& 1 24.039/1.855--0.014/0.604\par 10 1.064/1.094--0.802/0.787\par 30 0.860/0.890--0.861/0.853\par 60 0.326/0.943--0.977/0.857\\
-	
-	
+		
 \hline
+\end{tabular}
 
+
+\subsection{integration}
+\noindent\begin{tabular}{|p{9cm}|p{6cm}| }	
+	\hline
+	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
+	\hline
+	model bs feed aug lr0 bnd optimizer filters0 & train/eval \\
+	
+	\rowcolor{green!20}
+	pl34m 32 xyzs rsfj-360\_0\_0 0\_0\_5 0.001 0.5 adam 32& 1 4.594/3.275--0.070/0.195\par 10 1.714/1.682--0.584/0.595\par 60 0.963/1.080--0.802/0.767\par 120 0.902/1.069--0.825/0.774\\
+	
+	\rowcolor{red!20}
+	pl34m 32 xyzs sfj 0\_0\_5 0.001 0.5 adam 32& 1 4.756/2.999--0.099/0.265\par 60 0.745/0.909--0.861/0.824\par 120 0.705/0.913--0.878/0.821\\
+	
+	\rowcolor{blue!20}
+	rs34m 32 xyzs rsfj-360\_0\_0 0\_0\_5 0.001 0.5 adam 32&  1 5.085/2.686--0.098/0.352\par 10 1.519/1.538--0.666/0.664\par 60 0.861/1.027--0.848/0.815\\
+	
+	\rowcolor{yellow!20}
+	rs34m 32 xyzs sfj 0\_0\_5 0.001 0.5 adam 32& 1 5.775/2.230--0.138/0.478\par 40 0.669/0.905--0.908/0.845\par 60 0.631/0.894--0.922/0.848\\
+	\hline\hline
+	
+	\rowcolor{orange!20}
+	rs34m 64 xyzg sfj 0\_0\_5 0.001 0.5 adam 32& 1 5.064/1.906--0.247/0.574\par 40 0.626/0.847--0.923/0.858\par 60 0.568/0.846--0.938/0.859\\
+	
+	\rowcolor{blue!20}
+	rs34m 32 xyzg sfj 0\_0\_5 0.01 0.5 adam 32& 1 7.503/1.544--0.149/0.662\par 45 0.432/0.680--0.933/0.876\\
+	
+	\rowcolor{yellow!20}
+	rs34m 64 xyzg rsfj-360\_0\_0 0\_0\_5 0.001 0.5 adam 32& 1 4.950/2.256--0.163/0.463\par 40 0.893/0.977--0.841/0.823\par 100 0.794/0.939--0.866/0.828\\
+	
+	\rowcolor{green!20}
+	rs34m 32 xyzg rsfj-360\_0\_0 0\_0\_5 0.01 0.5 adam 32&1 8.848/2.317--0.152/0.424\par 40 0.640/0.759--0.870/0.840\par 100 0.492/0.706--0.912/0.855\\
+	\hline 
 \end{tabular}
 
 \end{document}

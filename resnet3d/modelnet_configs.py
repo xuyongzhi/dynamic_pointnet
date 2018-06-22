@@ -2,29 +2,37 @@
 import numpy as np
 
 DEFAULTS = {}
-DEFAULTS['residual'] = True
+DEFAULTS['residual'] = False
+DEFAULTS['use_bias'] = True
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
 DEFAULTS['batch_norm_decay'] = 0.9
 
 DEFAULTS['model_flag'] = 'm'
 DEFAULTS['resnet_size'] = 34
-DEFAULTS['num_filters0'] = 32
+DEFAULTS['num_filters0'] = 64
 DEFAULTS['feed_data'] = 'xyzs'
-DEFAULTS['aug_types'] = 'r-360_0_0'
-DEFAULTS['aug_types'] = ''
+DEFAULTS['aug_types'] = 'rsfj-360_0_0'
 DEFAULTS['drop_imo'] = '0_0_5'
 DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 DEFAULTS['batch_size'] = 48
 DEFAULTS['num_gpus'] = 2
-DEFAULTS['train_epochs'] = 61
+DEFAULTS['train_epochs'] = 41
 DEFAULTS['data_format'] = 'channels_last'
+
+DEFAULTS['weight_decay'] = 0.0  # res official is 1e-4, charles is 0.0
 
 def get_block_paras(resnet_size, model_flag):
   block_sizes = {}
   block_kernels = {}
   block_strides = {}
   block_paddings = {}   # only used when strides == 1
+
+  rs = 18
+  block_sizes[rs]    = [[2], [2,1], [2,1]]
+  block_kernels[rs]  = [[1], [2,3], [3,3]]
+  block_strides[rs]  = [[1], [1,1], [1,1]]
+  block_paddings[rs] = [['s'], ['s','v'], ['v','v']]
 
   rs = 34
   block_sizes[rs]    = [[4], [3,1], [2,2,2]]

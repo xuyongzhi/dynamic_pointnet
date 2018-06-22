@@ -258,7 +258,7 @@ def modelnet_model_fn(features, labels, mode, params):
       mode=mode,
       model_class=ModelnetModel,
       resnet_size=params['resnet_size'],
-      weight_decay=1e-4,
+      weight_decay=params['data_net_configs']['weight_decay'],
       learning_rate_fn=learning_rate_fn,
       momentum=0.9,
       data_format=params['data_format'],
@@ -283,9 +283,11 @@ def get_dropout_rates(drop_imo):
 def define_net_configs(flags_obj):
   global _DATA_PARAS
   _DATA_PARAS['residual'] = flags_obj.residual
+  _DATA_PARAS['use_bias'] = flags_obj.use_bias
   _DATA_PARAS['optimizer'] = flags_obj.optimizer
   _DATA_PARAS['learning_rate0'] = flags_obj.learning_rate0
   _DATA_PARAS['batch_norm_decay'] = flags_obj.batch_norm_decay
+  _DATA_PARAS['weight_decay'] = flags_obj.weight_decay
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
   _DATA_PARAS['batch_size'] = flags_obj.batch_size
   _DATA_PARAS['num_filters0'] = flags_obj.num_filters0
@@ -355,6 +357,10 @@ def define_model_dir():
     logname = 'rs'
   else:
     logname = 'pl'
+  if flags.FLAGS.use_bias:
+    logname += '-Ub'
+  else:
+    logname += '-Nb'
   logname += str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag\
             + '-fn0_'+str(flags.FLAGS.num_filters0)
   block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
@@ -395,9 +401,11 @@ def define_modelnet_flags():
   global _DATA_PARAS
   _DATA_PARAS = {}
   flags.DEFINE_boolean('residual', DEFAULTS['residual'], '')
+  flags.DEFINE_boolean('use_bias', DEFAULTS['use_bias'], '')
   flags.DEFINE_string('optimizer', DEFAULTS['optimizer'], 'adam, momentum')
   flags.DEFINE_float('learning_rate0', DEFAULTS['learning_rate0'],'')
   flags.DEFINE_float('batch_norm_decay', DEFAULTS['batch_norm_decay'],'')
+  flags.DEFINE_float('weight_decay', DEFAULTS['weight_decay'],'')
   flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
   flags.DEFINE_integer('resnet_size',DEFAULTS['resnet_size'],'resnet_size')
   flags.DEFINE_integer('num_filters0',DEFAULTS['num_filters0'],'')

@@ -25,8 +25,8 @@ def random_rotate(max_angles_yxz):
 def random_scaling(min_scale=0.8, max_scale=1.25):
   scales = tf.random_uniform([3], minval=min_scale, maxval=max_scale)
   S = tf.concat([[[scales[0], 0, 0],
-                  [0, scales[1], 0],
-                  [0, 0, scales[2]] ]], 0)
+                  [0, scales[0], 0],
+                  [0, 0, scales[0]] ]], 0)
   return S
 
 def random_shift(shift_range=0.1):
@@ -39,14 +39,14 @@ def random_jitter(points_shape, sigma=0.01, clip=0.05):
   return jitter
 
 def aug_data(points, b_bottom_centers_mm, data_idxs, \
-            aug_items,\
-            aug_metas={} ):
+            aug_items, aug_metas={} ):
   '''
       points: [n,3] 'xyz'
               [n,6] 'xyznxnynz'
   '''
+  assert len(points.shape) == 2
   point_num = points.shape[0].value
-  channels = points.shape[1].value
+  channels = points.shape[-1].value
   cascade_num = len(b_bottom_centers_mm)
   for c in range(cascade_num):
     b_bottom_centers_mm[c] = tf.cast(tf.reshape(b_bottom_centers_mm[c], [-1,3]),
@@ -58,22 +58,20 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
   assert channels==3 or channels==6
 
   augs = {}
+  RS = None
   if 'rotation' in aug_items:
     R, angles = random_rotate(aug_metas['max_angles_yxz'])
+    RS = R
     augs['R'] = R
     augs['angles_yxz'] = angles
   if 'scaling' in aug_items:
     S = random_scaling()
+    if RS==None:
+      RS = S
+    else:
+      RS = tf.matmul(R, S)
     augs['S'] = S
 
-  if 'rotation' in aug_items and 'scaling' in aug_items:
-    RS = tf.matmul(R, S)
-  elif 'rotation' in aug_items:
-    RS = R
-  elif 'scaling' in aug_items:
-    RS = S
-  else:
-    RS = None
   if RS!=None:
     points_xyz = tf.matmul(points[:,0:3], RS)
     for c in range(cascade_num):

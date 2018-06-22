@@ -40,8 +40,6 @@ sys.path.append(os.path.join(ROOT_DIR,'utils'))
 
 DEBUG_TMP = False
 
-#_BATCH_NORM_DECAY = 0.997
-#_BATCH_NORM_DECAY = 0.5
 _BATCH_NORM_EPSILON = 1e-5
 DEFAULT_VERSION = 2
 DEFAULT_DTYPE = tf.float32
@@ -49,6 +47,8 @@ CASTABLE_TYPES = (tf.float16,)
 #CASTABLE_TYPES = (tf.float32,)
 ALLOWED_TYPES = (DEFAULT_DTYPE,) + CASTABLE_TYPES
 #ALLOWED_TYPES = (DEFAULT_DTYPE,)
+
+USE_CHARLES = True
 
 
 def tensor_info(tensor_ls, tensor_name_ls=None, scope=None):
@@ -276,6 +276,7 @@ class ResConvOps(object):
     self.residual = data_net_configs['residual']
     self.voxel3d = 'V' in data_net_configs['model_flag']
     self.batch_norm_decay = data_net_configs['batch_norm_decay']
+    self.use_bias = data_net_configs['use_bias']
 
     model_dir = data_net_configs['model_dir']
     if ResConvOps._epoch==0:
@@ -288,9 +289,10 @@ class ResConvOps(object):
 
       dnc = data_net_configs
       res = 'rs' if self.residual else 'pl'
-      key_para_names = 'model bs feed aug drop_imo lr0 bnd optimizer filters0\n'
-      key_paras_str = '{model_name} {bs} {feed_data_eles} {aug} {drop_imo} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
+      key_para_names = 'model use_bias bs feed aug drop_imo lr0 bnd optimizer filters0\n'
+      key_paras_str = '{model_name} {use_bias} {bs} {feed_data_eles} {aug} {drop_imo} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
         model_name=res+str(dnc['resnet_size'])+dnc['model_flag'],
+        use_bias=str(dnc['use_bias']),
         bs=dnc['batch_size'],
         feed_data_eles=dnc['feed_data_eles'],
         aug=dnc['aug_types'],
@@ -321,10 +323,18 @@ class ResConvOps(object):
     """Performs a batch normalization using a standard set of parameters."""
     # We set fused=True for a significant performance boost. See
     # https://www.tensorflow.org/performance/performance_guide#common_fused_ops
+    if USE_CHARLES:
+      scale = False
+      epsilon = 0.001
+      fused = None
+    else:
+      scale = True
+      epsilon = _BATCH_NORM_EPSILON
+      fused = True
     return tf.layers.batch_normalization(
         inputs=inputs, axis=1 if data_format == 'channels_first' else -1,
-        momentum=self.batch_norm_decay , epsilon=_BATCH_NORM_EPSILON, center=True,
-        scale=True, training=training, fused=True)
+        momentum=self.batch_norm_decay , epsilon=epsilon, center=True,
+        scale=scale, training=training, fused=fused)
 
   def log(self, log_str):
     self.model_log_f.write(log_str+'\n')
@@ -360,10 +370,15 @@ class ResConvOps(object):
     else:
       padding = padding_s1
 
+    if USE_CHARLES:
+      kernel_initializer = tf.contrib.layers.xavier_initializer()   # charles
+    else:
+      kernel_initializer = tf.variance_scaling_initializer()       # res official
+
     inputs = conv_fn(
         inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
-        padding=padding, use_bias=False,
-        kernel_initializer=tf.variance_scaling_initializer(),
+        padding=padding, use_bias=self.use_bias,
+        kernel_initializer=kernel_initializer,
         data_format=data_format)
     return inputs
 

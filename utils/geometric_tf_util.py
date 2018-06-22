@@ -16,7 +16,7 @@ def tf_Ry( y,eager=False ):
     # anticlockwise, y: radian
     y = tf.cast(y, tf.float32)
     Ry = tf.concat([[[  tf.cos(y),  0.0,  -tf.sin(y)],
-                     [  0.0,        1.0,    0.0     ],
+                     [  0.0,        1.0,  0.0     ],
                      [  tf.sin(y),  0.0,  tf.cos(y)]]],
                      axis=0)
     return Ry
@@ -24,9 +24,9 @@ def tf_Ry( y,eager=False ):
 def tf_Rz( z, eager=False ):
     # anticlockwise, z: radian
     z = tf.cast(z, tf.float32)
-    Rz = tf.concat([[[ tf.cos(z),  tf.sin(z),  0.0],
+    Rz = tf.concat([[[  tf.cos(z),  tf.sin(z),  0.0],
                       [ -tf.sin(z), tf.cos(z),  0.0],
-                      [ 0.0,          0.0,          1.0]]],
+                      [ 0.0,        0.0,        1.0]]],
                      axis=0)
     return Rz
 
