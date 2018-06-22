@@ -28,5 +28,13 @@ aug_types='rsfj-360_0_0'
 
 ./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out32.log
 
-batch_size=64
-./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out64.log
+aug_types='N'
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out32.log
+aug_types='rsfj-360_0_0'
+
+learning_rate0=0.01
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out32.log
+learning_rate0=0.001
+
+aug_types='sfj'
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out32.log

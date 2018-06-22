@@ -1,4 +1,4 @@
-resnet_size=22
+resnet_size=28
 optimizer='adam'
 
 batch_norm_decay=0.7

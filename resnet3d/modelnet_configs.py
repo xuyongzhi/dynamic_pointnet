@@ -35,8 +35,8 @@ def get_block_paras(resnet_size, model_flag):
   block_strides[rs]  = [[1], [1,1], [1,1]]
   block_paddings[rs] = [['s'], ['s','v'], ['v','v']]
 
-  rs = 22
-  block_sizes[rs]    = [[2,1], [2,1], [2,1,1]]
+  rs = 28
+  block_sizes[rs]    = [[3,1], [3,1], [2,2,1]]
   block_kernels[rs]  = [[1,1], [2,3], [3,3,1]]
   block_strides[rs]  = [[1,1], [1,1], [1,1,1]]
   block_paddings[rs] = [['s','s'], ['s','v'], ['v','v','v']]
