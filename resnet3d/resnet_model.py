@@ -882,8 +882,8 @@ class Model(ResConvOps):
       for i, num_blocks in enumerate(self.block_sizes[cascade_id]):
         if self.IsShowModel:
           self.log('--------------cascade_id %d, block %d----------------'%(cascade_id, i))
-        num_filters = self.num_filters * (2**self.block_num_count)
-        num_filters = min(num_filters, 2048)
+        num_filters = self.num_filters * (2**(self.block_num_count-cascade_id))
+        num_filters = min(num_filters, 1024)
         inputs = self.block_layer(
             inputs=inputs, filters=num_filters, bottleneck=self.bottleneck,
             block_fn=self.block_fn, blocks=num_blocks,
