@@ -18,7 +18,7 @@ DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn1
 DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 DEFAULTS['batch_size'] = 48
 DEFAULTS['num_gpus'] = 2
-DEFAULTS['train_epochs'] = 41
+DEFAULTS['train_epochs'] = 61
 DEFAULTS['data_format'] = 'channels_last'
 
 DEFAULTS['weight_decay'] = 0.0  # res official is 1e-4, charles is 0.0
