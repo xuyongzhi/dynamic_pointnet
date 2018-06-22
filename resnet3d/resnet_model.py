@@ -307,7 +307,7 @@ class ResConvOps(object):
 
       items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
-                        'optimizer', 'learning_rate0',\
+                        'optimizer', 'learning_rate0', 'batch_norm_decay','use_bias', 'weight_decay',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
                         'data_dir']
       for item in items_to_write:
