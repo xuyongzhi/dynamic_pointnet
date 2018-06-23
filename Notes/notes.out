@@ -29,15 +29,16 @@
 \BOOKMARK [3][-]{subsubsection.1.16.1}{MODELNET40}{subsection.1.16}% 29
 \BOOKMARK [2][-]{subsection.1.17}{MODELNET40, My point++}{section.1}% 30
 \BOOKMARK [3][-]{subsubsection.1.17.1}{3m}{subsection.1.17}% 31
-\BOOKMARK [3][-]{subsubsection.1.17.2}{4m}{subsection.1.17}% 32
-\BOOKMARK [3][-]{subsubsection.1.17.3}{5m}{subsection.1.17}% 33
-\BOOKMARK [1][-]{section.2}{res3d}{}% 34
-\BOOKMARK [2][-]{subsection.2.1}{learning rate and batch norm decay}{section.2}% 35
-\BOOKMARK [2][-]{subsection.2.2}{aug none and all}{section.2}% 36
-\BOOKMARK [3][-]{subsubsection.2.2.1}{voxel}{subsection.2.2}% 37
-\BOOKMARK [3][-]{subsubsection.2.2.2}{Pointnet++ residual}{subsection.2.2}% 38
-\BOOKMARK [2][-]{subsection.2.3}{No aug, no drop: xyzg vs xyzs, Learning rate, Batch size}{section.2}% 39
-\BOOKMARK [2][-]{subsection.2.4}{aug rotation}{section.2}% 40
-\BOOKMARK [2][-]{subsection.2.5}{aug sfj}{section.2}% 41
-\BOOKMARK [2][-]{subsection.2.6}{dropout}{section.2}% 42
-\BOOKMARK [2][-]{subsection.2.7}{integration}{section.2}% 43
+\BOOKMARK [3][-]{subsubsection.1.17.2}{3m summary}{subsection.1.17}% 32
+\BOOKMARK [3][-]{subsubsection.1.17.3}{4m}{subsection.1.17}% 33
+\BOOKMARK [3][-]{subsubsection.1.17.4}{5m}{subsection.1.17}% 34
+\BOOKMARK [1][-]{section.2}{res3d}{}% 35
+\BOOKMARK [2][-]{subsection.2.1}{learning rate and batch norm decay}{section.2}% 36
+\BOOKMARK [2][-]{subsection.2.2}{aug none and all}{section.2}% 37
+\BOOKMARK [3][-]{subsubsection.2.2.1}{voxel}{subsection.2.2}% 38
+\BOOKMARK [3][-]{subsubsection.2.2.2}{Pointnet++ residual}{subsection.2.2}% 39
+\BOOKMARK [2][-]{subsection.2.3}{No aug, no drop: xyzg vs xyzs, Learning rate, Batch size}{section.2}% 40
+\BOOKMARK [2][-]{subsection.2.4}{aug rotation}{section.2}% 41
+\BOOKMARK [2][-]{subsection.2.5}{aug sfj}{section.2}% 42
+\BOOKMARK [2][-]{subsection.2.6}{dropout}{section.2}% 43
+\BOOKMARK [2][-]{subsection.2.7}{integration}{section.2}% 44

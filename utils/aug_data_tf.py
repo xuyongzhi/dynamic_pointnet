@@ -22,6 +22,17 @@ def random_rotate(max_angles_yxz):
   R = tf_EulerRotate(angles, 'yxz')
   return R, angles
 
+def rotate_perturbation(angle_sigma=0.06, angle_clip=0.18):
+  '''
+      Rotate the whole object by a random angle 3D
+      unit: rad
+   '''
+  angles = tf.random_normal([3], mean=0, stddev=angle_sigma)
+  p_angles = tf.clip_by_value(angles, -angle_clip, angle_clip)
+
+  pR = tf_EulerRotate(angles, 'yxz')
+  return pR, p_angles
+
 def random_scaling(min_scale=0.8, max_scale=1.25):
   scales = tf.random_uniform([3], minval=min_scale, maxval=max_scale)
   S = tf.concat([[[scales[0], 0, 0],
@@ -58,27 +69,28 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
   assert channels==3 or channels==6
 
   augs = {}
-  RS = None
+  RS = tf.eye(3, dtype=tf.float32)
   if 'rotation' in aug_items:
     R, angles = random_rotate(aug_metas['max_angles_yxz'])
-    RS = R
+    RS = tf.matmul(RS, R)
     augs['R'] = R
     augs['angles_yxz'] = angles
+
+  if 'perturbation' in aug_items:
+    pR, p_angles = rotate_perturbation()
+    RS = tf.matmul(RS, pR)
+    augs['pR'] = pR
+    augs['p_angles'] = p_angles
+
   if 'scaling' in aug_items:
     S = random_scaling()
-    if RS==None:
-      RS = S
-    else:
-      RS = tf.matmul(R, S)
+    RS = tf.matmul(RS, S)
     augs['S'] = S
+  augs['RS'] = RS
 
-  if RS!=None:
-    points_xyz = tf.matmul(points[:,0:3], RS)
-    for c in range(cascade_num):
-      b_bottom_centers_mm[c] = tf.matmul(b_bottom_centers_mm[c], RS)
-    augs['RS'] = RS
-  else:
-    points_xyz = points[:,0:3]
+  points_xyz = tf.matmul(points[:,0:3], RS)
+  for c in range(cascade_num):
+    b_bottom_centers_mm[c] = tf.matmul(b_bottom_centers_mm[c], RS)
 
 
   if 'shifts' in aug_items:
@@ -110,12 +122,12 @@ def aug_data(points, b_bottom_centers_mm, data_idxs, \
 def parse_augtypes(aug_types):
   tmp = aug_types.split('-')
   for s in tmp[0]:
-    assert s in 'Nrsfj', ('%s not in Nrsfj'%(s))
+    assert s in 'Nrpsfj', ('%s not in Nrsfj'%(s))
   if 'N' in tmp[0]:
     assert tmp[0]=='N'
     aug_items=[]
   else:
-    to_aug_items = {'r':'rotation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
+    to_aug_items = {'r':'rotation', 'p':'perturbation', 's':'scaling', 'f':'shifts', 'j':'jitter'}
     aug_items = [to_aug_items[e] for e in tmp[0]]
   aug_metas = {}
   if len(tmp)>1:
