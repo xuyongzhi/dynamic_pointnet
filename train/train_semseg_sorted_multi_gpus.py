@@ -176,14 +176,15 @@ else:
         keep_prob_str = str(FLAGS.in_cnn_out_kp)
         normxyz_allcas_str = '-xyz_'+xyz_elements
         group_pos_str = '-'+ FLAGS.group_pos
-        if AUG_TYPES['RotateIn'] or AUG_TYPES['RotateVox']:
-            aug_str = '-aug'
-            if AUG_TYPES['RotateIn']:
-                aug_str += 'In'
-            if AUG_TYPES['RotateVox']:
-                aug_str += 'Vox'
-        else:
-            aug_str = ''
+        #if AUG_TYPES['RotateIn'] or AUG_TYPES['RotateVox']:
+        #    aug_str = '-aug'
+        #    if AUG_TYPES['RotateIn']:
+        #        aug_str += 'In'
+        #    if AUG_TYPES['RotateVox']:
+        #        aug_str += 'Vox'
+        #else:
+        #    aug_str = ''
+        aug_str = '-aug'+str(FLAGS.aug)
         bn_decay_str = '-bd'+str(int(10*BN_INIT_DECAY))
         FLAGS.log_dir = FLAGS.log_dir+'-'+FLAGS.modelf_nein+nwl_str+keep_prob_str+normxyz_allcas_str+group_pos_str+'-gsbb_'+gsbb_config+'-bs'+str(BATCH_SIZE)+'-'+ \
                         'lr'+str(int(FLAGS.learning_rate*1000))+'-ds_'+str(FLAGS.decay_epoch_step)+'-' + 'Sf_'+ FLAGS.ShuffleFlag + '-'+\
@@ -233,7 +234,7 @@ log_string( 'bn_decay initial: %f, decay rate:%f'%(BN_INIT_DECAY,BN_DECAY_DECAY_
 log_string( 'feed data elements:%s'%(FLAGS.feed_data_elements) )
 log_string( 'In Cnn Out dropout:%s'%(FLAGS.in_cnn_out_kp) )
 log_string( 'Loss weight method:%s'%(FLAGS.loss_weight ) )
-log_string( 'Aug data: RotateIn:%s   RotateVox:%s'%(AUG_TYPES['RotateIn'], AUG_TYPES['RotateVox']) )
+log_string( 'Aug data: Input:%s   RotateVox:%s'%(AUG_TYPES['aug_items'], AUG_TYPES['RotateVox']) )
 if AUG_TYPES['RotateIn']:
     log_string('\tRotateInXYZMax:%s degree'%(AUG_TYPES['RotateInXYZMax']*180/np.pi))
 if AUG_TYPES['RotateVox']:

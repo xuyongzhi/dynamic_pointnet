@@ -6,7 +6,7 @@
 train_script=../train_semseg_sorted_multi_gpus.py
 #dataset_name=SCANNET
 dataset_name=MODELNET40
-maxepoch=41
+maxepoch=81
 learning_rate=0.001
 decay_epoch_step=10
 feed_label_elements="label_category"
@@ -37,11 +37,11 @@ bxmh5_folder_name='Merged_bxmh5/10000_gs3_3d5_fmn1444_mvp1-2560_1024_80_16_1-24_
 #all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2/'
 #bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-mbf-neg-3M1'
 #
-all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/'
-bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1'
+#all_fn_globs='Merged_sph5/4096_mgs1_gs2_2d2_nmbf/'
+#bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2d2_fmn1444_mvp1-3200_1024_48_1-18_24_56_56-0d1_0d2_0d6-0d0_0d1_0d4-pd3-neg-3M1'
 
-#all_fn_globs='Merged_sph5/4096_mgs1_gs2_2/'
-#bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2_fmn14_mvp1-1024_240_1-48_27_160-0d2_0d4-0d1_0d2-pd3-mbf-neg-2M2p'
+all_fn_globs='Merged_sph5/4096_mgs1_gs2_2-neg/'
+bxmh5_folder_name='Merged_bxmh5/4096_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 
 #all_fn_globs='Merged_sph5/100000_mgs3_gs-4d8_-7/'
 #bxmh5_folder_name='Merged_bxmh5/100000_mgs3_gs-4d8_-7_fmn144_mvp2-8000_480_32_1-128_56_56_48-0d2_0d6_2d2-0d1_0d4_1d6-pd3-mbf-neg-3S1'
@@ -59,16 +59,17 @@ run_train()
   ShuffleFlag=$8
   aug=$9
   start_gi=${10}
+  learning_rate=${11}
   python $train_script --modelf_nein $modelf_nein  --feed_data_elements $feed_data_elements --feed_label_elements $feed_label_elements  --max_epoch $maxepoch --batch_size $batch_size --dataset_name $dataset_name --log_dir $baselogname  --eval_fnglob_or_rate $eval_fnglob_or_rate --all_fn_globs $all_fn_globs --bxmh5_folder_name $bxmh5_folder_name --learning_rate $learning_rate --multip_feed $multip_feed --finetune $finetune --model_epoch $model_epoch --num_gpus $num_gpus --only_evaluate $only_evaluate --decay_epoch_step $decay_epoch_step --ShuffleFlag $ShuffleFlag --loss_weight $loss_weight --in_cnn_out_kp $in_cnn_out_kp --aug $aug --start_gi $start_gi --group_pos $group_pos
 }
 
-#run_train $1 $2 $3 $4  $5 $6 $7 $8 $9 ${10}
+#run_train $1 $2 $3 $4  $5 $6 $7 $8 $9 ${10} ${11}
 
 
 #-------------------------------------------------------------------------------------------
 #feed_data_elements='xyzg' 
 #feed_data_elements='xyzg-color_1norm' 
-feed_data_elements='xyzs-nxnynz' 
+feed_data_elements='xyzsg-nxnynz' 
 
 num_gpus=2
 start_gi=0
@@ -76,20 +77,12 @@ in_cnn_out_kp='NN5'
 loss_weight='E'
 ShuffleFlag='Y'
 group_pos='mean'
-aug=1
+learning_rate=0.001
 
-bs=24
-
-run_train 4Vm1-S3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-
-run_train 4Vm1 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+bs=32
 
 
-in_cnn_out_kp='N65'
-run_train 4Vm1 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
-run_train 4Vm1-S3 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
+aug=13
+run_train 3m $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi $learning_rate
 
-#bs=15
-#feed_label_elements="label_category-nxnynz"
-#run_train 4m_111 $bs $num_gpus $feed_data_elements $group_pos $loss_weight $in_cnn_out_kp $ShuffleFlag $aug $start_gi
 
