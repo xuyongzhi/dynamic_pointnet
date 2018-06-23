@@ -6,7 +6,7 @@ DEFAULTS['residual'] = False
 DEFAULTS['use_bias'] = True
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
-DEFAULTS['batch_norm_decay'] = 0.9
+DEFAULTS['batch_norm_decay0'] = 0.9
 
 DEFAULTS['model_flag'] = 'm'
 DEFAULTS['resnet_size'] = 34

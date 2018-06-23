@@ -122,7 +122,7 @@ def get_synth_input_fn(height, width, num_channels, num_classes):
 ################################################################################
 def learning_rate_with_decay(
     batch_size, batch_denom, num_images, boundary_epochs, decay_rates,
-    initial_learning_rate=0.1 ):
+    initial_learning_rate, initial_bndecay ):
   """Get a learning rate that decays step-wise as training progresses.
 
   Args:
@@ -142,20 +142,33 @@ def learning_rate_with_decay(
     trained so far (global_step)- and returns the learning rate to be used
     for training the next batch.
   """
-  initial_learning_rate = initial_learning_rate * batch_size / batch_denom
-  #initial_learning_rate = initial_learning_rate
+  #initial_learning_rate = initial_learning_rate * batch_size / batch_denom
+  #initial_bndecay = 1 - (1-initial_bndecay) * batch_size / batch_denom
+  initial_learning_rate = initial_learning_rate
+  initial_bndecay = initial_bndecay
+
   batches_per_epoch = num_images / batch_size
 
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
   boundaries = [int(batches_per_epoch * epoch) for epoch in boundary_epochs]
-  vals = [initial_learning_rate * decay for decay in decay_rates]
+  lr_vals = [initial_learning_rate * decay for decay in decay_rates]
+
+  bndecay_vals = [1-(1-initial_bndecay) * decay for decay in decay_rates]
 
   def learning_rate_fn(global_step):
     global_step = tf.cast(global_step, tf.int32)
-    return tf.train.piecewise_constant(global_step, boundaries, vals)
+    return tf.train.piecewise_constant(global_step, boundaries, lr_vals)
 
-  return learning_rate_fn
+  def bndecay_fn(global_step):
+    global_step = tf.cast(global_step, tf.int32)
+    return tf.train.piecewise_constant(global_step, boundaries, bndecay_vals)
 
+  return learning_rate_fn, bndecay_fn
+
+def bndecay_with_decay(
+    batch_size, batch_denom, num_images, boundary_epochs, decay_rates,
+    initial_bndecay):
+  initial_batch_norm_decay = initial_bndecay
 
 def resnet_model_fn(model_flag, features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,

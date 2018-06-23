@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  23 JUN 2018 11:08
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017/Debian) (preloaded format=pdflatex 2018.4.19)  23 JUN 2018 17:49
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1626,74 +1626,44 @@ Underfull \hbox (badness 10000) in paragraph at lines 722--722
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 725--725
-[]|\OT1/cmr/m/n/10 0.001-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 725--725
+Underfull \hbox (badness 10000) in paragraph at lines 726--726
 []|\OT1/cmr/m/n/10 xyzsg-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 728--728
-[]|\OT1/cmr/m/n/10 0.001-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 728--728
+Underfull \hbox (badness 10000) in paragraph at lines 729--729
 []|\OT1/cmr/m/n/10 xyzsg-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 731--731
-[]|\OT1/cmr/m/n/10 0.01-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 731--731
+Underfull \hbox (badness 10000) in paragraph at lines 732--732
 []|\OT1/cmr/m/n/10 xyzsg-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 734--734
-[]|\OT1/cmr/m/n/10 0.01-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 734--734
+Underfull \hbox (badness 10000) in paragraph at lines 735--735
 []|\OT1/cmr/m/n/10 xyzsg-
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 716--738
+Underfull \hbox (badness 10000) in paragraph at lines 738--738
+[]|\OT1/cmr/m/n/10 xyzsg-
+ []
+
+
+Overfull \hbox (140.53847pt too wide) in paragraph at lines 716--742
 [] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 744--744
+Underfull \hbox (badness 10000) in paragraph at lines 748--748
 []|\OT1/cmr/m/n/10 bxmh5:4096[]mgs1[]gs2[]2d2[]fmn1444[]mvp1-3200[]1024[]48[]1-
 18[]24[]56[]56-0d1[]0d2[]0d6-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 746--746
+Underfull \hbox (badness 10000) in paragraph at lines 750--750
 []|\OT1/cmr/m/n/10 loss
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 749--749
-[]|\OT1/cmr/m/n/10 xyzrsg-
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 749--749
-[]|\OT1/cmr/m/n/10 RotateRef| 
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 751--751
-[]|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
@@ -1707,18 +1677,13 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 753--753
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 755--755
-[]|\OT1/cmr/m/n/10 xyzg-
- []
-
-
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 755--755
 []|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 757--757
-[]|\OT1/cmr/m/n/10 xyzg-
+[]|\OT1/cmr/m/n/10 xyzrsg-
  []
 
 
@@ -1727,29 +1692,39 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 757--757
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 741--760
+Underfull \hbox (badness 10000) in paragraph at lines 759--759
+[]|\OT1/cmr/m/n/10 xyzg-
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 759--759
+[]|\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 761--761
+[]|\OT1/cmr/m/n/10 xyzg-
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 761--761
+[]|\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Overfull \hbox (126.31209pt too wide) in paragraph at lines 745--764
 [] 
  []
 
 [27]
-Underfull \hbox (badness 10000) in paragraph at lines 765--765
+Underfull \hbox (badness 10000) in paragraph at lines 769--769
 []|\OT1/cmr/m/n/10 bxmh5:4096[]mgs1[]gs2[]2d2[]fmn1444[]mvp1-3200[]1024[]48[]1-
 18[]24[]56[]56-0d1[]0d2[]0d6-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 767--767
+Underfull \hbox (badness 10000) in paragraph at lines 771--771
 []|\OT1/cmr/m/n/10 xyzg-
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 767--767
-[]|\OT1/cmr/m/n/10 RotateRef| 
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 769--769
-[]|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
@@ -1763,18 +1738,8 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 773--773
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 775--775
-[]|\OT1/cmr/m/n/10 xyzg-
- []
-
-
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 775--775
 []|\OT1/cmr/m/n/10 RotateRef| 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 777--777
-[]|\OT1/cmr/m/n/10 xyzg-
  []
 
 
@@ -1793,64 +1758,54 @@ Overfull \hbox (1.7654pt too wide) in paragraph at lines 779--779
  []
 
 
+Underfull \hbox (badness 10000) in paragraph at lines 781--781
+[]|\OT1/cmr/m/n/10 xyzg-
+ []
+
+
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 781--781
 []|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 783--783
-[]|\OT1/cmr/m/n/10 xyzg
+[]|\OT1/cmr/m/n/10 xyzg-
  []
 
 
 Overfull \hbox (1.7654pt too wide) in paragraph at lines 783--783
+[]|\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 785--785
+[]|\OT1/cmr/m/n/10 RotateRef| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 787--787
+[]|\OT1/cmr/m/n/10 xyzg
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 787--787
 []|\OT1/cmr/m/n/10 RotateRef 
  []
 
 
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 783--783
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 787--787
 []\OT1/cmr/m/n/10 RotateVox| 
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 761--795
+Overfull \hbox (126.31209pt too wide) in paragraph at lines 765--799
 [] 
  []
 
 [28]
-Underfull \hbox (badness 10000) in paragraph at lines 799--799
+Underfull \hbox (badness 10000) in paragraph at lines 803--803
 []|\OT1/cmr/m/n/10 bxmh5:4096[]mgs1[]gs2[]2d2[]fmn1444[]mvp1-3200[]1024[]48[]1-
 18[]24[]56[]56-0d1[]0d2[]0d6-
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 801--801
-[]|\OT1/cmr/m/n/10 RotateRef 
- []
-
-
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 801--801
-[]\OT1/cmr/m/n/10 RotateVox| 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 803--803
-[]|\OT1/cmr/m/n/10 xyzs
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 803--803
-[]|\OT1/cmr/m/n/10 RotateRef 
- []
-
-
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 803--803
-[]\OT1/cmr/m/n/10 RotateVox| 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 805--805
-[]|\OT1/cmr/m/n/10 xyzs
  []
 
 
@@ -1880,7 +1835,7 @@ Overfull \hbox (3.57097pt too wide) in paragraph at lines 807--807
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 809--809
-[]\OT1/cmr/m/n/10 normal
+[]|\OT1/cmr/m/n/10 xyzs
  []
 
 
@@ -1895,7 +1850,7 @@ Overfull \hbox (3.57097pt too wide) in paragraph at lines 809--809
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 811--811
-[]\OT1/cmr/m/n/10 normal
+[]|\OT1/cmr/m/n/10 xyzs
  []
 
 
@@ -1909,110 +1864,140 @@ Overfull \hbox (3.57097pt too wide) in paragraph at lines 811--811
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 814--814
-[]|\OT1/cmr/m/n/10 4Vm-
+Underfull \hbox (badness 10000) in paragraph at lines 813--813
+[]\OT1/cmr/m/n/10 normal
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 814--814
-[]|\OT1/cmr/m/n/10 xyzs
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 814--814
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 813--813
 []|\OT1/cmr/m/n/10 RotateRef 
  []
 
 
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 814--814
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 813--813
 []\OT1/cmr/m/n/10 RotateVox| 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 816--816
-[]|\OT1/cmr/m/n/10 4Vm-
+Underfull \hbox (badness 10000) in paragraph at lines 815--815
+[]\OT1/cmr/m/n/10 normal
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 816--816
-[]|\OT1/cmr/m/n/10 xyzs
- []
-
-
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 816--816
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 815--815
 []|\OT1/cmr/m/n/10 RotateRef 
  []
 
 
-Overfull \hbox (3.57097pt too wide) in paragraph at lines 816--816
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 815--815
 []\OT1/cmr/m/n/10 RotateVox| 
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 796--822
+Underfull \hbox (badness 10000) in paragraph at lines 818--818
+[]|\OT1/cmr/m/n/10 4Vm-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 818--818
+[]|\OT1/cmr/m/n/10 xyzs
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 818--818
+[]|\OT1/cmr/m/n/10 RotateRef 
+ []
+
+
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 818--818
+[]\OT1/cmr/m/n/10 RotateVox| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 820--820
+[]|\OT1/cmr/m/n/10 4Vm-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 820--820
+[]|\OT1/cmr/m/n/10 xyzs
+ []
+
+
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 820--820
+[]|\OT1/cmr/m/n/10 RotateRef 
+ []
+
+
+Overfull \hbox (3.57097pt too wide) in paragraph at lines 820--820
+[]\OT1/cmr/m/n/10 RotateVox| 
+ []
+
+
+Overfull \hbox (126.31209pt too wide) in paragraph at lines 800--826
 [] 
  []
 
 [29]
-Underfull \hbox (badness 10000) in paragraph at lines 826--826
+Underfull \hbox (badness 10000) in paragraph at lines 830--830
 []|\OT1/cmr/m/n/10 bxmh5:4096[]mgs1[]gs2[]2d2[]fmn1444[]mvp1-3200[]1024[]48[]1-
 18[]24[]56[]56-0d1[]0d2[]0d6-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 828--828
+Underfull \hbox (badness 10000) in paragraph at lines 832--832
 []|\OT1/cmr/m/n/10 xyzs
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 830--830
+Underfull \hbox (badness 10000) in paragraph at lines 834--834
 []|\OT1/cmr/m/n/10 xyzs
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 823--833
+Overfull \hbox (126.31209pt too wide) in paragraph at lines 827--837
 [] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 839--839
+Underfull \hbox (badness 10000) in paragraph at lines 843--843
 []|\OT1/cmr/m/n/10 bxmh5:10000[]gs3[]3d5[]fmn1444[]mvp1-2560[]1024[]80[]16[]1-2
 4[]32[]48[]27[]48-0d0[]0d2[]0d5[]1d1-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 841--841
+Underfull \hbox (badness 10000) in paragraph at lines 845--845
 []|\OT1/cmr/m/n/10 loss
  []
 
 
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 844--844
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 848--848
 []|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 846--846
+Underfull \hbox (badness 10000) in paragraph at lines 850--850
 []|\OT1/cmr/m/n/10 xyzrsg-
  []
 
 
-Overfull \hbox (1.7654pt too wide) in paragraph at lines 846--846
+Overfull \hbox (1.7654pt too wide) in paragraph at lines 850--850
 []|\OT1/cmr/m/n/10 RotateRef| 
  []
 
 
-Overfull \hbox (126.31209pt too wide) in paragraph at lines 835--854
+Overfull \hbox (126.31209pt too wide) in paragraph at lines 839--858
 [] 
  []
 
 [30]
-Underfull \hbox (badness 10000) in paragraph at lines 859--859
+Underfull \hbox (badness 10000) in paragraph at lines 863--863
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.99132pt too wide) in paragraph at lines 857--902
+Overfull \hbox (106.99132pt too wide) in paragraph at lines 861--906
 [] 
  []
 
@@ -2021,97 +2006,97 @@ Overfull \vbox (13.89427pt too high) has occurred while \output is active []
 
 
 [33]
-Underfull \hbox (badness 10000) in paragraph at lines 907--907
+Underfull \hbox (badness 10000) in paragraph at lines 911--911
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 917--918
+Underfull \hbox (badness 10000) in paragraph at lines 921--922
 []\OT1/cmr/m/n/10 40-0.180/1.284--0.999/0.860
  []
 
 
-Overfull \hbox (106.99132pt too wide) in paragraph at lines 905--928
+Overfull \hbox (106.99132pt too wide) in paragraph at lines 909--932
 [] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 933--933
+Underfull \hbox (badness 10000) in paragraph at lines 937--937
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 930--947
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 934--951
 [] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 951--951
+Underfull \hbox (badness 10000) in paragraph at lines 955--955
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 949--980
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 953--984
 [] 
  []
 
 [34]
-Underfull \hbox (badness 10000) in paragraph at lines 984--984
+Underfull \hbox (badness 10000) in paragraph at lines 988--988
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 982--1006
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 986--1010
 [] 
  []
 
 [35]
-Underfull \hbox (badness 10000) in paragraph at lines 1010--1010
+Underfull \hbox (badness 10000) in paragraph at lines 1014--1014
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 1008--1025
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 1012--1029
 [] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1029--1029
+Underfull \hbox (badness 10000) in paragraph at lines 1033--1033
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 1027--1047
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 1031--1051
 [] 
  []
 
 [36]
-Underfull \hbox (badness 10000) in paragraph at lines 1052--1052
+Underfull \hbox (badness 10000) in paragraph at lines 1056--1056
 []|\OT1/cmr/m/n/10 Merged[]tfrecord/6[]mgs1[]gs2[]2-mbf-neg[]fmn14[]mvp1-1024[]
 240[]1-64[]27[]256-0d2[]0d4-0d1[]0d2-pd3-
  []
 
 
-Overfull \hbox (106.9913pt too wide) in paragraph at lines 1050--1086
+Overfull \hbox (106.9913pt too wide) in paragraph at lines 1054--1090
 [] 
  []
 
 [37] [38]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1087.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 1087.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1091.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 1091.
  (./notes.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1087.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1087.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1091.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1091.
 
 Package rerunfilecheck Info: File `notes.out' has not changed.
 (rerunfilecheck)             Checksum: 6E454E37F579DFF0FBBC9CEE80B8B245;3159.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1087.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1091.
  ) 
 Here is how much of TeX's memory you used:
  17899 strings out of 494931
@@ -2132,7 +2117,7 @@ ublic/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10
 .pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
-Output written on notes.pdf (39 pages, 2619302 bytes).
+Output written on notes.pdf (39 pages, 2619487 bytes).
 PDF statistics:
  509 PDF objects out of 1000 (max. 8388607)
  419 compressed objects within 5 object streams

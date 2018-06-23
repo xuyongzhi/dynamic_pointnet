@@ -713,25 +713,29 @@ test data shape: [ 4172 12800     9] \par
 \end{tabular}
 
 \subsubsection{3m summary}
-\begin{tabular}{|p{1.5cm}|p{1.5cm}|p{1cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
+\begin{tabular}{|p{1.5cm}|p{1cm}|p{2cm}|p{1.5cm}|p{1.5cm}|p{1.5cm}|p{5cm}| }
 	\hline
 	\multicolumn{7}{|p{14cm}|}{bxmh5:4096\_mgs1\_gs2\_2-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp\par 
 		No block merging. Negative redundant. }\\
 	\hline
 	
 	model & bs& lr\par bn decay & elements\par group pos & norm innet\par aug & loss weight\par in drop & epoch-pacc-cacc train/eval \\
+	\hline\hline
 	
 	\rowcolor{yellow!20}
-	3m & 32 & 0.001-10 & xyzsg-nxnynz & None & E,NN5 & 0-0.387/0.526\par 10-0.763/0.794\par 40-0.865/0.863\par 60-0.890/0.873\par 76-0.897/0.880\par 80-0.904/0.870\\
+	3m & 32 & 0.001-10 & xyzsg-nxnynz\par mean & None & E,NN5 & 0-0.387/0.526\par 10-0.763/0.794\par 40-0.865/0.863\par 60-0.890/0.873\par 76-0.897/0.880\par 80-0.904/0.870\\
 	
 	\rowcolor{orange!20}
-	3m & 32 & 0.001-10 & xyzsg-nxnynz & RotateIn & E,NN5 & 0-0.403/0.528\par 10-0.770/0.812\par 38-0.857/0.868\par 40-0.865/0.857\par 41-0.870/0.873\par 60-0.888/0.873\par 64-0.891/0.884\par 80-0.905/0.886\\ 
+	3m & 32 & 0.001-10 & xyzsg-nxnynz\par mean & AugInAll & E,NN5 & 0-0.403/0.528\par 10-0.770/0.812\par 38-0.857/0.868\par 40-0.865/0.857\par 41-0.870/0.873\par 60-0.888/0.873\par 64-0.891/0.884\par 80-0.905/0.886\\ 
+	
+	\rowcolor{green!20}
+	3m & 32 & 0.001-10 & xyzsg-nxnynz\par mean & r & E,NN5 & 0-0.419/0.578\par 10-0.779/0.819\par 20-0.825/0.847\par 40-0.876/0.859\par 80-0.915/0.887 \\
 	
 	\rowcolor{blue!20}
-	3m & 32 & 0.01-10 & xyzsg-nxnynz & RotateIn & E,NN5 & 0-0.287/0.308\par 10-0.603/0.795\par 20-0.671/0.729\par 40-0.764/0.807\par 80-0.828/0.842\\
+	3m & 32 & 0.01-10 & xyzsg-nxnynz\par mean & AugInAll & E,NN5 & 0-0.287/0.308\par 10-0.603/0.795\par 20-0.671/0.729\par 40-0.764/0.807\par 80-0.828/0.842\\
 	
 	\rowcolor{red!20}
-	3m & 32 & 0.01-10 & xyzsg-nxnynz & None & E,NN5 & 0-0.3/0.429\par 
+	3m & 32 & 0.01-10 & xyzsg-nxnynz\par mean& None & E,NN5 & 0-0.3/0.429\par 
 	10-0.613/0.619\par 20-0.68/0.73\par 40-0.779/0.791\par 80-0.835/0.837\\
 	\hline	
 \end{tabular}

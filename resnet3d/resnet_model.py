@@ -275,7 +275,9 @@ class ResConvOps(object):
   def __init__(self, data_net_configs):
     self.residual = data_net_configs['residual']
     self.voxel3d = 'V' in data_net_configs['model_flag']
-    self.batch_norm_decay = data_net_configs['batch_norm_decay']
+    global_step = tf.train.get_or_create_global_step()
+    self.batch_norm_decay = data_net_configs['bndecay_fn'](global_step)
+    tf.summary.scalar('batch_norm_decay', self.batch_norm_decay)
     self.use_bias = data_net_configs['use_bias']
 
     model_dir = data_net_configs['model_dir']
@@ -298,7 +300,7 @@ class ResConvOps(object):
         aug=dnc['aug_types'],
         drop_imo=dnc['drop_imo_str'],
         lr0=dnc['learning_rate0'],
-        bnd=dnc['batch_norm_decay'],
+        bnd=dnc['batch_norm_decay0'],
         optimizer=dnc['optimizer'],
         filters0=dnc['num_filters0'])
 
@@ -307,7 +309,7 @@ class ResConvOps(object):
 
       items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
-                        'optimizer', 'learning_rate0', 'batch_norm_decay','use_bias', 'weight_decay',\
+                        'optimizer', 'learning_rate0', 'batch_norm_decay0','use_bias', 'weight_decay',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
                         'data_dir']
       for item in items_to_write:
