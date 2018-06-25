@@ -6,6 +6,7 @@ DEFAULTS['residual'] = False
 DEFAULTS['use_bias'] = True
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
+DEFAULTS['lr_decay_rate'] = 0.7
 DEFAULTS['batch_norm_decay0'] = 0.9
 
 DEFAULTS['model_flag'] = 'm'

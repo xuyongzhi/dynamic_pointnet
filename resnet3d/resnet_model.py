@@ -291,8 +291,8 @@ class ResConvOps(object):
 
       dnc = data_net_configs
       res = 'rs' if self.residual else 'pl'
-      key_para_names = 'model use_bias bs feed aug drop_imo lr0 bnd optimizer filters0\n'
-      key_paras_str = '{model_name} {use_bias} {bs} {feed_data_eles} {aug} {drop_imo} {lr0} {bnd} {optimizer} {filters0}\n\n'.format(
+      key_para_names = 'model use_bias bs feed aug drop_imo lr0_dc bnd optimizer filters0\n'
+      key_paras_str = '{model_name} {use_bias} {bs} {feed_data_eles} {aug} {drop_imo} {lr0}_{lr_decay} {bnd} {optimizer} {filters0}\n\n'.format(
         model_name=res+str(dnc['resnet_size'])+dnc['model_flag'],
         use_bias=str(dnc['use_bias']),
         bs=dnc['batch_size'],
@@ -300,6 +300,7 @@ class ResConvOps(object):
         aug=dnc['aug_types'],
         drop_imo=dnc['drop_imo_str'],
         lr0=dnc['learning_rate0'],
+        lr_decay=dnc['lr_decay_rate'],
         bnd=dnc['batch_norm_decay0'],
         optimizer=dnc['optimizer'],
         filters0=dnc['num_filters0'])
@@ -309,7 +310,7 @@ class ResConvOps(object):
 
       items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', 'feed_data', 'xyz_elements', 'points',\
                         'global_step','global_stride','sub_block_stride_candis','sub_block_step_candis',\
-                        'optimizer', 'learning_rate0', 'batch_norm_decay0','use_bias', 'weight_decay',\
+                        'optimizer', 'learning_rate0', 'lr_decay_rate', 'batch_norm_decay0','use_bias', 'weight_decay',\
                         'num_filters0','resnet_size', 'block_kernels', 'block_strides', 'block_paddings',\
                         'data_dir']
       for item in items_to_write:

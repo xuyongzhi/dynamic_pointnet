@@ -245,7 +245,7 @@ class ModelnetModel(resnet_model.Model):
 
 def modelnet_model_fn(features, labels, mode, params):
   """Our model_fn for ResNet to be used with our Estimator."""
-  decay_rate = 0.7
+  decay_rate = params['data_net_configs']['lr_decay_rate']
   learning_rate_fn, bndecay_fn = resnet_run_loop.learning_rate_with_decay(
       batch_size=params['batch_size'], batch_denom=256,
       num_images=_NUM_IMAGES['train'], boundary_epochs=[30, 60, 80, 90],
@@ -289,6 +289,7 @@ def define_net_configs(flags_obj):
   _DATA_PARAS['use_bias'] = flags_obj.use_bias
   _DATA_PARAS['optimizer'] = flags_obj.optimizer
   _DATA_PARAS['learning_rate0'] = flags_obj.learning_rate0
+  _DATA_PARAS['lr_decay_rate'] = flags_obj.lr_decay_rate
   _DATA_PARAS['batch_norm_decay0'] = flags_obj.batch_norm_decay0
   _DATA_PARAS['weight_decay'] = flags_obj.weight_decay
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
@@ -377,7 +378,7 @@ def define_model_dir():
   logname += '-drop'+flags.FLAGS.drop_imo
   logname +='-bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
-  logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))
+  logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))+'_'+str(int(flags.FLAGS.lr_decay_rate*10))
   logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay0*100))
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
@@ -407,6 +408,7 @@ def define_modelnet_flags():
   flags.DEFINE_boolean('use_bias', DEFAULTS['use_bias'], '')
   flags.DEFINE_string('optimizer', DEFAULTS['optimizer'], 'adam, momentum')
   flags.DEFINE_float('learning_rate0', DEFAULTS['learning_rate0'],'')
+  flags.DEFINE_float('lr_decay_rate', DEFAULTS['lr_decay_rate'],'')
   flags.DEFINE_float('batch_norm_decay0', DEFAULTS['batch_norm_decay0'],'')
   flags.DEFINE_float('weight_decay', DEFAULTS['weight_decay'],'')
   flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
@@ -426,7 +428,7 @@ def define_modelnet_flags():
                           batch_size=DEFAULTS['batch_size'],
                           num_gpus=DEFAULTS['num_gpus'],
                           data_format=DEFAULTS['data_format'] )
-  flags.DEFINE_integer('gpu_id',0,'')
+  flags.DEFINE_integer('gpu_id',1,'')
   flags.DEFINE_float('steps_per_epoch',
                      _NUM_IMAGES['train']/DEFAULTS['batch_size'],'')
   get_data_shapes_from_tfrecord(data_dir)

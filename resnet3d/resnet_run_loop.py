@@ -165,11 +165,6 @@ def learning_rate_with_decay(
 
   return learning_rate_fn, bndecay_fn
 
-def bndecay_with_decay(
-    batch_size, batch_denom, num_images, boundary_epochs, decay_rates,
-    initial_bndecay):
-  initial_batch_norm_decay = initial_bndecay
-
 def resnet_model_fn(model_flag, features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,
                     data_format, resnet_version, loss_scale,
