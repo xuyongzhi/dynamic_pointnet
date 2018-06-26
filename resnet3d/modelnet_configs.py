@@ -12,12 +12,12 @@ import numpy as np
 '''
 
 DEFAULTS = {}
-DEFAULTS['residual'] = False
+DEFAULTS['residual'] = True
 DEFAULTS['use_bias'] = True
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
-DEFAULTS['lr_decay_rate'] = 0.7
-DEFAULTS['batch_norm_decay0'] = 0.9
+DEFAULTS['lr_decay_rate'] = 0.6
+DEFAULTS['batch_norm_decay0'] = 0.7
 
 DEFAULTS['model_flag'] = 'm'
 DEFAULTS['resnet_size'] = 34

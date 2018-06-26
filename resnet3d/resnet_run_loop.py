@@ -151,7 +151,7 @@ def learning_rate_with_decay(
 
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
   boundaries = [int(batches_per_epoch * epoch) for epoch in boundary_epochs]
-  lr_vals = [initial_learning_rate * decay for decay in decay_rates]
+  lr_vals = [initial_learning_rate * (decay-0.1) for decay in decay_rates]
 
   bndecay_vals = [1-(1-initial_bndecay) * decay for decay in decay_rates]
 
