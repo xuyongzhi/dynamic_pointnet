@@ -1,6 +1,16 @@
 # xyz June 2018
 import numpy as np
 
+'''
+        Hot parameters
+  resnet size
+  weight decay
+  batch size
+  learning rate decay
+  learning rate
+  aug types
+'''
+
 DEFAULTS = {}
 DEFAULTS['residual'] = False
 DEFAULTS['use_bias'] = True
