@@ -246,10 +246,12 @@ class ModelnetModel(resnet_model.Model):
 def modelnet_model_fn(features, labels, mode, params):
   """Our model_fn for ResNet to be used with our Estimator."""
   decay_rate = params['data_net_configs']['lr_decay_rate']
+  boundary_epochs = params['data_net_configs']['lr_boundary_epochs']
+  decay_rates=[pow(decay_rate,i+1) for i in range(len(boundary_epochs)+1)]
   learning_rate_fn, bndecay_fn = resnet_run_loop.learning_rate_with_decay(
       batch_size=params['batch_size'], batch_denom=256,
-      num_images=_NUM_IMAGES['train'], boundary_epochs=[30, 60, 80, 90],
-      decay_rates=[1, decay_rate, pow(decay_rate,2), pow(decay_rate,3), pow(decay_rate,4)],
+      num_images=_NUM_IMAGES['train'], boundary_epochs=boundary_epochs,
+      decay_rates=decay_rates,
       initial_learning_rate=params['data_net_configs']['learning_rate0'],
       initial_bndecay=params['data_net_configs']['batch_norm_decay0'])
   params['data_net_configs']['bndecay_fn'] = bndecay_fn
@@ -285,11 +287,15 @@ def get_dropout_rates(drop_imo):
 
 def define_net_configs(flags_obj):
   global _DATA_PARAS
+  if DEFAULTS['num_gpus']==1:
+    assert flags_obj.num_gpus == 1
   _DATA_PARAS['residual'] = flags_obj.residual
   _DATA_PARAS['use_bias'] = flags_obj.use_bias
   _DATA_PARAS['optimizer'] = flags_obj.optimizer
   _DATA_PARAS['learning_rate0'] = flags_obj.learning_rate0
   _DATA_PARAS['lr_decay_rate'] = flags_obj.lr_decay_rate
+  _DATA_PARAS['lr_decay_epochs'] = lr_decay_epochs=flags_obj.lr_decay_epochs
+  _DATA_PARAS['lr_boundary_epochs'] = range(lr_decay_epochs, 200, lr_decay_epochs)
   _DATA_PARAS['batch_norm_decay0'] = flags_obj.batch_norm_decay0
   _DATA_PARAS['weight_decay'] = flags_obj.weight_decay
   _DATA_PARAS['resnet_size'] = flags_obj.resnet_size
@@ -357,29 +363,43 @@ def ls_str(ls_in_ls):
   return ls_str
 
 def define_model_dir():
+  def get_model_configs_detailed():
+    block_sizes_str = ls_str(_DATA_PARAS['block_sizes'])
+    block_kernels_str = ls_str(_DATA_PARAS['block_kernels'])
+    block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
+    model_str = '-b%s-k%s-p%s'%( block_sizes_str,
+                                block_kernels_str, block_paddings_str)
+    return model_str
+  def get_model_configs_fused():
+    block_size_sum = sum( [e  for bs in _DATA_PARAS['block_sizes'] for e in bs] )
+    block_kernels_sum =  sum( [e  for bs in _DATA_PARAS['block_kernels'] for e in bs] )
+    block_paddings_sum =  sum( [e=='s'  for bs in _DATA_PARAS['block_paddings'] for e in bs] )
+    model_str = '-b%dk%dp%d'%(  block_size_sum,
+                                  block_kernels_sum,
+                                  block_paddings_sum )
+    return model_str
+
   if flags.FLAGS.residual:
-    logname = 'rs'
+    logname = 'Rs'
   else:
-    logname = 'pl'
+    logname = 'Pl'
   if flags.FLAGS.use_bias:
-    logname += '-Ub'
+    logname += 'Ub'
   else:
-    logname += '-Nb'
-  logname += str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag\
-            + '-fn0_'+str(flags.FLAGS.num_filters0)
-  block_sizes_str = [str(e)  for bs in _DATA_PARAS['block_sizes'] for e in bs]
-  block_sizes_str = ''.join(block_sizes_str)
-  block_sizes_str = ls_str(_DATA_PARAS['block_sizes'])
-  block_kernels_str = ls_str(_DATA_PARAS['block_kernels'])
-  block_paddings_str = ls_str(_DATA_PARAS['block_paddings'])
-  logname += '-f%d-b%s-k%s-p%s'%(_DATA_PARAS['num_filters0'], block_sizes_str,
-                                 block_kernels_str, block_paddings_str)
-  logname += '-'+flags.FLAGS.feed_data + '-aug_' + flags.FLAGS.aug_types
-  logname += '-drop'+flags.FLAGS.drop_imo
-  logname +='-bs'+str(flags.FLAGS.batch_size)
+    logname += 'Nb'
+  model_str = get_model_configs_fused()
+  logname += str(flags.FLAGS.resnet_size) + '-' + flags.FLAGS.model_flag
+  logname += model_str
+  logname += '-Fn0_'+str(flags.FLAGS.num_filters0)
+
+  logname += '-'+flags.FLAGS.feed_data + '-Aug_' + flags.FLAGS.aug_types
+  logname += '-Drop'+flags.FLAGS.drop_imo
+  logname +='-Bs'+str(flags.FLAGS.batch_size)
   logname += '-'+flags.FLAGS.optimizer
-  logname += '-lr'+str(int(flags.FLAGS.learning_rate0*1000))+'_'+str(int(flags.FLAGS.lr_decay_rate*10))
-  logname += '-bnd'+str(int(flags.FLAGS.batch_norm_decay0*100))
+  logname += '-Lr'+str(int(flags.FLAGS.learning_rate0*1000)) +\
+              '_' + str(int(flags.FLAGS.lr_decay_rate*10)) +\
+              '_' + str(flags.FLAGS.lr_decay_epochs)
+  logname += '-Bnd'+str(int(flags.FLAGS.batch_norm_decay0*100))
 
   model_dir = os.path.join(ROOT_DIR, 'train_res/object_detection_result', logname)
   if not os.path.exists(model_dir):
@@ -403,12 +423,16 @@ def add_log_file(model_dir):
 
 def define_modelnet_flags():
   global _DATA_PARAS
+  if DEFAULTS['num_gpus']==1:
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(DEFAULTS['gpu_id'])
+
   _DATA_PARAS = {}
   flags.DEFINE_boolean('residual', DEFAULTS['residual'], '')
   flags.DEFINE_boolean('use_bias', DEFAULTS['use_bias'], '')
   flags.DEFINE_string('optimizer', DEFAULTS['optimizer'], 'adam, momentum')
   flags.DEFINE_float('learning_rate0', DEFAULTS['learning_rate0'],'')
   flags.DEFINE_float('lr_decay_rate', DEFAULTS['lr_decay_rate'],'')
+  flags.DEFINE_integer('lr_decay_epochs', DEFAULTS['lr_decay_epochs'],'')
   flags.DEFINE_float('batch_norm_decay0', DEFAULTS['batch_norm_decay0'],'')
   flags.DEFINE_float('weight_decay', DEFAULTS['weight_decay'],'')
   flags.DEFINE_string('model_flag', DEFAULTS['model_flag'], '')
@@ -428,7 +452,7 @@ def define_modelnet_flags():
                           batch_size=DEFAULTS['batch_size'],
                           num_gpus=DEFAULTS['num_gpus'],
                           data_format=DEFAULTS['data_format'] )
-  flags.DEFINE_integer('gpu_id',1,'')
+  flags.DEFINE_integer('gpu_id',DEFAULTS['gpu_id'],'')
   flags.DEFINE_float('steps_per_epoch',
                      _NUM_IMAGES['train']/DEFAULTS['batch_size'],'')
   get_data_shapes_from_tfrecord(data_dir)

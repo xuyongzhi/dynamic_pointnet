@@ -273,7 +273,7 @@
 	\hline	
 \end{tabular}
 
-\section{TF estimator platform initial}	
+\section{TF estimator platform initial, Plain net}	
 \subsection{learning rate and batch norm decay}
 \noindent\begin{tabular}{|p{10cm}|p{5cm}| }	
 	\hline
@@ -565,5 +565,21 @@
 	pl28m True 32 xyzsg-nxnynz rsfj-360\_0\_0 0\_0\_5 0.001 0.7 adam 64& 1 3.593/3.190--0.038/0.159\par 10 1.012/0.978--0.706/0.713\par 40 0.391/0.522--0.870/0.841\\
 	\hline 
 \end{tabular}	
+
+\section{Res net}	
+\subsection{No aug}
+\noindent\begin{tabular}{|p{10cm}|p{5cm}| }	
+	\hline
+	\multicolumn{2}{|p{15cm}|}{Merged\_tfrecord/6\_mgs1\_gs2\_2-mbf-neg\_fmn14\_mvp1-1024\_240\_1-64\_27\_256-0d2\_0d4-0d1\_0d2-pd3-2M2pp}\\
+	\hline
+	model use\_bias bs feed aug drop\_imo lr0\_dc bnd optimizer filters0 & train/eval \\
 	
+	\rowcolor{red!20}
+	rs28m True 32 xyzsg-nxnynz N 0\_0\_5 0.001\_0.6 0.7 adam 64&
+	1 4.524/0.970--0.063/0.742\par 10 0.284/0.447--0.906/0.868\par 30 0.150/0.414--0.952/0.893\par 60 0.011/0.561--0.998/0.893 \\
+	
+	
+	\hline 
+\end{tabular}
+
 \end{document}
