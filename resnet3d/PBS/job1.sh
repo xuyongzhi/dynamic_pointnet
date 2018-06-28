@@ -25,10 +25,11 @@ num_gpus=2
 feed_data='xyzs-nxnynz'
 drop_imo='0_0_5'
 num_filters0=32
-
-
+optimizer='adam'
 aug_types='N'
-./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo -> out32.log
+
+
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo
 
 
 #aug_types='rpsfj-360_0_0'
