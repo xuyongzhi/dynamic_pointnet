@@ -33,16 +33,16 @@ optimizer='momentum'
 aug_types='N'
 use_bias=1
 
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
+
+batch_size=64
+./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
+batch_size=32
+
+#num_filters0=64
 #./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
+#num_filters0=32
 #
-#batch_size=64
+#use_bias=0
 #./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
-#batch_size=32
-
-num_filters0=64
-./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
-num_filters0=32
-
-use_bias=0
-./modelnet.sh   $aug_types  $batch_size $model_flag $learning_rate0 $num_gpus $feed_data $drop_imo $num_filters0 $optimizer $use_bias $lr_decay_epochs $lr_decay_rate
 
