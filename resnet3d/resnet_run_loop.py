@@ -151,9 +151,15 @@ def learning_rate_with_decay(
 
   # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
   boundaries = [int(batches_per_epoch * epoch) for epoch in boundary_epochs]
-  lr_vals = [max(initial_learning_rate * decay, 1e-5) for decay in decay_rates]
+  lr_vals = [max(initial_learning_rate * decay, 5e-6) for decay in decay_rates]
 
-  bndecay_vals = [min( 1-(1-initial_bndecay) * decay, 0.99) for decay in decay_rates]
+  lr_warmup = decay_rates[0] < decay_rates[1]
+  bndecay_vals = [min( 1-(1-initial_bndecay) * (decay-0.1), 0.99) for decay in decay_rates]
+  if lr_warmup:
+    bndecay_vals = bndecay_vals[1:len(bndecay_vals)]
+    boundaries_bnd = boundaries[1:len(boundaries)]
+  else:
+    boundaries_bnd = boundaries
 
   def learning_rate_fn(global_step):
     global_step = tf.cast(global_step, tf.int32)
@@ -161,9 +167,9 @@ def learning_rate_with_decay(
 
   def bndecay_fn(global_step):
     global_step = tf.cast(global_step, tf.int32)
-    return tf.train.piecewise_constant(global_step, boundaries, bndecay_vals)
+    return tf.train.piecewise_constant(global_step, boundaries_bnd, bndecay_vals)
 
-  return learning_rate_fn, bndecay_fn
+  return learning_rate_fn, bndecay_fn, lr_vals, bndecay_vals
 
 def resnet_model_fn(model_flag, features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,

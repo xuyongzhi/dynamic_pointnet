@@ -12,12 +12,16 @@ import numpy as np
 '''
 
 DEFAULTS = {}
-DEFAULTS['residual'] = True
-DEFAULTS['use_bias'] = True
+DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
+
+DEFAULTS['residual'] = 1
+DEFAULTS['use_bias'] = 1
 DEFAULTS['optimizer'] = 'adam'
 DEFAULTS['learning_rate0'] = 0.001
 DEFAULTS['lr_decay_rate'] = 0.7
 DEFAULTS['lr_decay_epochs'] = 15
+DEFAULTS['lr_warmup'] = 1
 DEFAULTS['batch_norm_decay0'] = 0.7
 
 DEFAULTS['model_flag'] = 'm'
@@ -26,8 +30,6 @@ DEFAULTS['num_filters0'] = 64
 DEFAULTS['feed_data'] = 'xyzs'
 DEFAULTS['aug_types'] = 'rpsfj-360_0_0'
 DEFAULTS['drop_imo'] = '0_0_5'
-DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-mbf-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
-DEFAULTS['data_path'] = 'MODELNET40H5F/Merged_tfrecord/6_mgs1_gs2_2-neg_fmn14_mvp1-1024_240_1-64_27_256-0d2_0d4-0d1_0d2-pd3-2M2pp'
 DEFAULTS['batch_size'] = 16
 DEFAULTS['num_gpus'] = 2
 DEFAULTS['gpu_id'] = 1

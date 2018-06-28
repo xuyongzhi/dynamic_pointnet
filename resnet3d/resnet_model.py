@@ -315,7 +315,8 @@ bnd optimizer filters0\n'
       items_to_write = ['model_flag', 'dataset_name', 'aug_types', 'drop_imo', \
         'feed_data', 'xyz_elements', 'points', 'global_step','global_stride',\
         'sub_block_stride_candis', 'sub_block_step_candis','optimizer',\
-        'learning_rate0', 'lr_decay_rate', 'batch_norm_decay0','use_bias', \
+        'learning_rate0', 'lr_decay_rate', 'batch_norm_decay0', 'lr_vals', \
+        'bndecay_vals', 'use_bias', \
         'weight_decay', 'num_filters0','resnet_size', 'block_kernels', \
         'block_strides', 'block_paddings', 'data_dir']
       for item in items_to_write:
