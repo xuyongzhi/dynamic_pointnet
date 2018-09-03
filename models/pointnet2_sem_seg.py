@@ -17,6 +17,7 @@ def placeholder_inputs(batch_size, num_point):
 
 def get_model(point_cloud, is_training, num_class, bn_decay=None):
     """ Semantic segmentation PointNet, input is BxNx3, output Bxnum_class """
+    is_show = True
     batch_size = point_cloud.get_shape()[0].value
     num_point = point_cloud.get_shape()[1].value
     end_points = {}
@@ -26,19 +27,28 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
 
     # Layer 1
     l1_xyz, l1_points, l1_indices = pointnet_sa_module(l0_xyz, l0_points, npoint=1024, radius=0.1, nsample=32, mlp=[32,32,64], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer1')
+    if is_show: print( 'Fea Enc l1'+tensor_info([l1_points]) )
     l2_xyz, l2_points, l2_indices = pointnet_sa_module(l1_xyz, l1_points, npoint=256, radius=0.2, nsample=32, mlp=[64,64,128], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer2')
+    if is_show: print( 'Fea Enc l2'+tensor_info([l2_points]) )
     l3_xyz, l3_points, l3_indices = pointnet_sa_module(l2_xyz, l2_points, npoint=64, radius=0.4, nsample=32, mlp=[128,128,256], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer3')
+    if is_show: print( 'Fea Enc l3'+tensor_info([l3_points]) )
     l4_xyz, l4_points, l4_indices = pointnet_sa_module(l3_xyz, l3_points, npoint=16, radius=0.8, nsample=32, mlp=[256,256,512], mlp2=None, group_all=False, is_training=is_training, bn_decay=bn_decay, scope='layer4')
+    if is_show: print( 'Fea Enc l4'+tensor_info([l4_points]) )
 
     # Feature Propagation layers
     l3_points = pointnet_fp_module(l3_xyz, l4_xyz, l3_points, l4_points, [256,256], is_training, bn_decay, scope='fa_layer1')
+    if is_show: print( 'Fea Pro l3'+tensor_info([l3_points]) )
     l2_points = pointnet_fp_module(l2_xyz, l3_xyz, l2_points, l3_points, [256,256], is_training, bn_decay, scope='fa_layer2')
+    if is_show: print( 'Fea Pro l2'+tensor_info([l2_points]) )
     l1_points = pointnet_fp_module(l1_xyz, l2_xyz, l1_points, l2_points, [256,128], is_training, bn_decay, scope='fa_layer3')
+    if is_show: print( 'Fea Pro l1'+tensor_info([l1_points]) )
+    if is_show: print( 'Org l0'+tensor_info([l0_points]) )
     l0_points = pointnet_fp_module(l0_xyz, l1_xyz, l0_points, l1_points, [128,128,128], is_training, bn_decay, scope='fa_layer4')
+    if is_show: print( 'Fea Pro l0'+tensor_info([l0_points]) )
 
     # FC layers
     net = tf_util.conv1d(l0_points, 128, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
-    end_points['feats'] = net 
+    end_points['feats'] = net
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')
 
@@ -47,15 +57,55 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
 
 def get_loss(pred, label, smpw):
     """ pred: BxNxC,
-        label: BxN, 
+        label: BxN,
 	smpw: BxN """
     classify_loss = tf.losses.sparse_softmax_cross_entropy(labels=label, logits=pred, weights=smpw)
     tf.summary.scalar('classify loss', classify_loss)
     tf.add_to_collection('losses', classify_loss)
     return classify_loss
 
+
+def tensor_info(tensor_ls, tensor_name_ls=None, layer_name=None,
+                weight_num_bytes_shapes=None, batch_size=None):
+  if type(tensor_ls) != list:
+    tensor_ls = [tensor_ls]
+  if tensor_name_ls == None:
+    tensor_name_ls = [''] * len(tensor_ls)
+  elif type(tensor_name_ls) != list:
+    tensor_name_ls = [tensor_name_ls]
+  tensor_sum = ''
+
+  for i in range(len(tensor_ls)):
+    if layer_name!=None:
+      tensor_sum += '%-20s'%(layer_name)
+    tensor_sum += '%-20s: '%(tensor_name_ls[i])
+    if tensor_ls[i] == None:
+        tensor_sum += 'None'
+    else:
+      if tensor_ls[i].shape[0].value!=None and batch_size!=None:
+        map_size = tensor_ls[i].shape[0].value / batch_size
+      else:
+        map_size = 1
+      shape_i = tensor_ls[i].shape.as_list()
+      activation_shape_str = str(shape_i)
+      shape_i = shape_i[1:]
+      activation_size = np.prod(shape_i)  * tensor_ls[i].dtype.size * map_size
+      activation_size_str = '(%0.1fK)'%(activation_size/1024.0)
+      tensor_sum += '%-40s'%(str( activation_shape_str + activation_size_str ))
+
+    if weight_num_bytes_shapes!=None:
+      weight_num, weight_bytes, weight_shapes = weight_num_bytes_shapes
+      weight_str = '  '.join([str(shape) for shape in weight_shapes])
+      weight_str += ' (%d %0.1fK)'%(weight_num, weight_bytes/1024.0)
+      tensor_sum += '%-30s'%(weight_str)
+    if i < len(tensor_ls)-1:
+        tensor_sum += '\n'
+  return tensor_sum
+
+
 if __name__=='__main__':
     with tf.Graph().as_default():
         inputs = tf.zeros((32,2048,3))
         net, _ = get_model(inputs, tf.constant(True), 10)
         print(net)
+
